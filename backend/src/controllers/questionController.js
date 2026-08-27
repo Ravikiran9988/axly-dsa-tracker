@@ -1,59 +1,15 @@
 const questionService = require('../services/questionService');
 const { validateQuestionForPublish, assertPublishable } = require('../services/questionLifecycleService');
+const { ensureQuestionVersioning, createVersion, listVersions, getVersion } = require('../db/questionVersioning');
 
-async function getQuestions(req, res, next) {
-  try {
-    const { difficulty, topic_id, assigned, page, limit, search } = req.query;
-    const result = questionService.listQuestions({ user: req.user, difficulty, topic_id, assigned, page, limit, search });
-    return res.status(200).json(result);
-  } catch (err) { next(err); }
-}
-
-async function getQuestionById(req, res, next) {
-  try {
-    const question = questionService.getQuestionById(req.params.id, req.user);
-    if (!question) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Question not found' } });
-    return res.status(200).json({ data: question });
-  } catch (err) { next(err); }
-}
-
-async function createQuestion(req, res, next) {
-  try {
-    if (req.body.status === 'published') assertPublishable(req.body);
-    const question = questionService.createQuestion(req.body);
-    return res.status(201).json({ data: question });
-  } catch (err) { next(err); }
-}
-
-async function updateQuestion(req, res, next) {
-  try {
-    if (req.body.status === 'published') {
-      const existing = questionService.getQuestionById(req.params.id, { role: 'admin' });
-      if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Question not found' } });
-      const merged = { ...existing, ...req.body, test_cases: req.body.test_cases !== undefined ? req.body.test_cases : existing.test_cases };
-      assertPublishable(merged);
-    }
-    const question = questionService.updateQuestion(req.params.id, req.body);
-    return res.status(200).json({ data: question });
-  } catch (err) { next(err); }
-}
-
-async function validateQuestion(req, res, next) {
-  try {
-    const question = questionService.getQuestionById(req.params.id, { role: 'admin' });
-    if (!question) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Question not found' } });
-    return res.status(200).json({ data: validateQuestionForPublish(question) });
-  } catch (err) { next(err); }
-}
-
-async function deleteQuestion(req, res, next) {
-  try { return res.status(200).json(questionService.deleteQuestion(req.params.id)); }
-  catch (err) { next(err); }
-}
-
-async function getTopics(req, res, next) {
-  try { return res.status(200).json({ data: questionService.listTopics() }); }
-  catch (err) { next(err); }
-}
-
-module.exports = { getQuestions, getQuestionById, createQuestion, updateQuestion, validateQuestion, deleteQuestion, getTopics };
+function ensureVersioning() { ensureQuestionVersioning(); }
+async function getQuestions(req, res, next) { try { const { difficulty, topic_id, assigned, page, limit, search } = req.query; return res.status(200).json(questionService.listQuestions({ user:req.user, difficulty, topic_id, assigned, page, limit, search })); } catch(err){next(err);} }
+async function getQuestionById(req,res,next){try{const question=questionService.getQuestionById(req.params.id,req.user);if(!question)return res.status(404).json({error:{code:'NOT_FOUND',message:'Question not found'}});return res.status(200).json({data:question});}catch(err){next(err);}}
+async function createQuestion(req,res,next){try{if(req.body.status==='published')assertPublishable(req.body);const question=questionService.createQuestion(req.body);ensureVersioning();createVersion(question,req.user?.id,'create');return res.status(201).json({data:question});}catch(err){next(err);}}
+async function updateQuestion(req,res,next){try{if(req.body.status==='published'){const existing=questionService.getQuestionById(req.params.id,{role:'admin'});if(!existing)return res.status(404).json({error:{code:'NOT_FOUND',message:'Question not found'}});const merged={...existing,...req.body,test_cases:req.body.test_cases!==undefined?req.body.test_cases:existing.test_cases};assertPublishable(merged);}const question=questionService.updateQuestion(req.params.id,req.body);ensureVersioning();createVersion(question,req.user?.id,'update');return res.status(200).json({data:question});}catch(err){next(err);}}
+async function validateQuestion(req,res,next){try{const question=questionService.getQuestionById(req.params.id,{role:'admin'});if(!question)return res.status(404).json({error:{code:'NOT_FOUND',message:'Question not found'}});return res.status(200).json({data:validateQuestionForPublish(question)});}catch(err){next(err);}}
+async function getQuestionVersions(req,res,next){try{ensureVersioning();if(!questionService.getQuestionById(req.params.id,{role:'admin'}))return res.status(404).json({error:{code:'NOT_FOUND',message:'Question not found'}});return res.status(200).json({data:listVersions(req.params.id)});}catch(err){next(err);}}
+async function getQuestionVersion(req,res,next){try{ensureVersioning();const version=getVersion(req.params.id,req.params.version);if(!version)return res.status(404).json({error:{code:'NOT_FOUND',message:'Question version not found'}});return res.status(200).json({data:version});}catch(err){next(err);}}
+async function deleteQuestion(req,res,next){try{return res.status(200).json(questionService.deleteQuestion(req.params.id));}catch(err){next(err);}}
+async function getTopics(req,res,next){try{return res.status(200).json({data:questionService.listTopics()});}catch(err){next(err);}}
+module.exports={getQuestions,getQuestionById,createQuestion,updateQuestion,validateQuestion,getQuestionVersions,getQuestionVersion,deleteQuestion,getTopics};
