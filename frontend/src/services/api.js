@@ -110,9 +110,22 @@ export const api = {
     return request(`/code/submissions/${questionId}`);
   },
 
+  // Backward-compatible alias used by the problem workspace.
+  async getCodeSubmissionsHistory(questionId) {
+    return this.getCodeSubmissions(questionId);
+  },
+
   // Dual Submissions & Mentor Review
   async submitChallenge(data) {
     return request('/submissions', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // GitHub submission endpoint: POST /submissions/github
+  async submitViaGithub(data) {
+    return request('/submissions/github', {
       method: 'POST',
       body: JSON.stringify(data)
     });
@@ -130,9 +143,10 @@ export const api = {
     return request(`/submissions?${query.toString()}`);
   },
 
+  // Backend review route is POST /submissions/:id/review.
   async reviewSubmission(id, data) {
     return request(`/submissions/${id}/review`, {
-      method: 'PATCH',
+      method: 'POST',
       body: JSON.stringify(data)
     });
   },
