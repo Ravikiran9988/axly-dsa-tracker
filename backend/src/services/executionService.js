@@ -9,23 +9,25 @@ const MAX_OUTPUT_BYTES = 64 * 1024; // 64 KB
 
 function normalizeOutput(str) {
   if (typeof str !== 'string') return '';
-  return str
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .trim();
+  return str.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 }
 
-/**
- * Execute a single test case in a sandboxed process
- */
-function runSingleTestCase({ command, args, scriptPath, input, timeoutMs = MAX_EXECUTION_TIME_MS }) {
+function commandExists(command) {
+  return new Promise((resolve) => {
+    const checker = process.platform === 'win32' ? 'where' : 'which';
+    const child = spawn(checker, [command], { stdio: 'ignore' });
+    child.on('close', (code) => resolve(code === 0));
+    child.on('error', () => resolve(false));
+  });
+}
+
+function runProcess({ command, args = [], cwd, input, timeoutMs = MAX_EXECUTION_TIME_MS }) {
   return new Promise((resolve) => {
     const startTime = process.hrtime.bigint();
     let stdout = '';
     let stderr = '';
     let isTimedOut = false;
 
-    // Sanitized minimal environment (prevent access to server secrets)
     const sanitizedEnv = {
       PATH: process.env.PATH,
       SYSTEMROOT: process.env.SYSTEMROOT,
@@ -35,194 +37,242 @@ function runSingleTestCase({ command, args, scriptPath, input, timeoutMs = MAX_E
       NODE_ENV: 'sandbox'
     };
 
-    const child = spawn(command, [...args, scriptPath], {
-      env: sanitizedEnv,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    let child;
+    try {
+      child = spawn(command, args, {
+        cwd,
+        env: sanitizedEnv,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+    } catch (err) {
+      return resolve({ status: 'Runtime Error', stdout: '', stderr: err.message, exitCode: 1, executionTimeMs: 0 });
+    }
 
     const timer = setTimeout(() => {
       isTimedOut = true;
       try {
         if (process.platform === 'win32') {
-          spawn('taskkill', ['/pid', child.pid.toString(), '/f', '/t']);
+          spawn('taskkill', ['/pid', String(child.pid), '/f', '/t']);
         } else {
           child.kill('SIGKILL');
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (_) {}
     }, timeoutMs);
 
-    // Send input via stdin with normalized \n
-    if (input !== undefined && input !== null) {
-      const normalizedInput = input.replace(/\r\n/g, '\n');
-      child.stdin.write(normalizedInput);
-      child.stdin.end();
-    } else {
-      child.stdin.end();
-    }
+    child.stdin.end(input == null ? '' : String(input).replace(/\r\n/g, '\n'));
 
     child.stdout.on('data', (data) => {
-      if (stdout.length < MAX_OUTPUT_BYTES) {
+      if (Buffer.byteLength(stdout) < MAX_OUTPUT_BYTES) {
         stdout += data.toString();
+        if (Buffer.byteLength(stdout) > MAX_OUTPUT_BYTES) stdout = stdout.slice(0, MAX_OUTPUT_BYTES);
       }
     });
 
     child.stderr.on('data', (data) => {
-      if (stderr.length < MAX_OUTPUT_BYTES) {
+      if (Buffer.byteLength(stderr) < MAX_OUTPUT_BYTES) {
         stderr += data.toString();
+        if (Buffer.byteLength(stderr) > MAX_OUTPUT_BYTES) stderr = stderr.slice(0, MAX_OUTPUT_BYTES);
       }
     });
 
     child.on('error', (err) => {
       clearTimeout(timer);
-      const endTime = process.hrtime.bigint();
-      const durationMs = Number(endTime - startTime) / 1e6;
-      resolve({
-        status: 'Runtime Error',
-        stdout: stdout.slice(0, MAX_OUTPUT_BYTES),
-        stderr: err.message || 'Process error',
-        exitCode: 1,
-        executionTimeMs: Math.round(durationMs * 10) / 10
-      });
+      const durationMs = Number(process.hrtime.bigint() - startTime) / 1e6;
+      resolve({ status: 'Runtime Error', stdout, stderr: err.message || 'Process error', exitCode: 1, executionTimeMs: Math.round(durationMs * 10) / 10 });
     });
 
     child.on('close', (code) => {
       clearTimeout(timer);
-      const endTime = process.hrtime.bigint();
-      const durationMs = Number(endTime - startTime) / 1e6;
+      const durationMs = Number(process.hrtime.bigint() - startTime) / 1e6;
 
       if (isTimedOut) {
         return resolve({
-          status: 'Time Limit Exceeded',
-          stdout: stdout.slice(0, MAX_OUTPUT_BYTES),
-          stderr: 'Time Limit Exceeded (Execution exceeded 4.0s)',
-          exitCode: null,
-          executionTimeMs: timeoutMs
+          status: 'Time Limit Exceeded', stdout, stderr: `Time Limit Exceeded (Execution exceeded ${timeoutMs / 1000}s)`,
+          exitCode: null, executionTimeMs: timeoutMs
         });
       }
 
       if (code !== 0) {
         return resolve({
-          status: 'Runtime Error',
-          stdout: stdout.slice(0, MAX_OUTPUT_BYTES),
-          stderr: stderr.slice(0, MAX_OUTPUT_BYTES) || `Exited with code ${code}`,
-          exitCode: code,
-          executionTimeMs: Math.round(durationMs * 10) / 10
+          status: 'Runtime Error', stdout, stderr: stderr || `Exited with code ${code}`,
+          exitCode: code, executionTimeMs: Math.round(durationMs * 10) / 10
         });
       }
 
-      resolve({
-        status: 'Success',
-        stdout: stdout.slice(0, MAX_OUTPUT_BYTES),
-        stderr: stderr.slice(0, MAX_OUTPUT_BYTES),
-        exitCode: 0,
-        executionTimeMs: Math.round(durationMs * 10) / 10
-      });
+      resolve({ status: 'Success', stdout, stderr, exitCode: 0, executionTimeMs: Math.round(durationMs * 10) / 10 });
     });
   });
 }
 
-/**
- * Execute code against a set of test cases
- */
-async function executeCode({ language, sourceCode, testCases, isSubmit = false }) {
-  const normLang = (language || 'javascript').toLowerCase();
-  let command = 'node';
-  let args = [];
-  let fileExt = '.js';
+async function prepareProgram({ language, sourceCode, sandboxDir }) {
+  const lang = (language || 'javascript').toLowerCase().trim();
+  const source = typeof sourceCode === 'string' ? sourceCode : '';
 
-  if (normLang === 'python' || normLang === 'py' || normLang === 'python3') {
-    command = process.platform === 'win32' ? 'python' : 'python3';
-    fileExt = '.py';
-  } else if (normLang === 'javascript' || normLang === 'js' || normLang === 'node') {
-    command = 'node';
-    fileExt = '.js';
-  } else {
-    throw new Error(`Unsupported language: ${language}. Supported languages: javascript, python`);
+  const aliases = {
+    js: 'javascript', node: 'javascript', nodejs: 'javascript',
+    py: 'python', python3: 'python',
+    ts: 'typescript',
+    cpp: 'c++', 'c-plus-plus': 'c++', cc: 'c++',
+    csharp: 'c', // intentionally not treated as C#; unsupported aliases are rejected below
+  };
+  const normalized = aliases[lang] || lang;
+
+  if (normalized === 'javascript') {
+    const file = path.join(sandboxDir, 'solution.js');
+    fs.writeFileSync(file, source, 'utf8');
+    if (!(await commandExists('node'))) throw new Error('JavaScript runtime (Node.js) is not installed on the server.');
+    return { command: 'node', args: [file], cwd: sandboxDir };
   }
 
-  // Create temporary sandbox directory
-  const sandboxId = uuidv4();
-  const sandboxDir = path.join(os.tmpdir(), `axly_code_${sandboxId}`);
+  if (normalized === 'python') {
+    const file = path.join(sandboxDir, 'solution.py');
+    fs.writeFileSync(file, source, 'utf8');
+    const python = process.platform === 'win32' ? 'python' : 'python3';
+    if (!(await commandExists(python))) throw new Error('Python runtime is not installed on the server.');
+    return { command: python, args: [file], cwd: sandboxDir };
+  }
+
+  if (normalized === 'typescript') {
+    const sourceFile = path.join(sandboxDir, 'solution.ts');
+    const outputFile = path.join(sandboxDir, 'solution.js');
+    fs.writeFileSync(sourceFile, source, 'utf8');
+
+    if (!(await commandExists('tsc'))) {
+      throw new Error('TypeScript compiler (tsc) is not installed on the server. Install TypeScript before running TypeScript solutions.');
+    }
+
+    const compile = await runProcess({
+      command: 'tsc',
+      args: [sourceFile, '--target', 'ES2020', '--module', 'commonjs', '--skipLibCheck', '--outDir', sandboxDir],
+      cwd: sandboxDir,
+      timeoutMs: MAX_EXECUTION_TIME_MS
+    });
+
+    if (compile.status !== 'Success' || !fs.existsSync(outputFile)) {
+      const error = compile.stderr || 'Compilation failed.';
+      return { compileError: error };
+    }
+
+    return { command: 'node', args: [outputFile], cwd: sandboxDir };
+  }
+
+  if (normalized === 'java') {
+    const sourceFile = path.join(sandboxDir, 'Main.java');
+    fs.writeFileSync(sourceFile, source, 'utf8');
+
+    if (!(await commandExists('javac')) || !(await commandExists('java'))) {
+      throw new Error('Java compiler/runtime (javac/java) is not installed on the server.');
+    }
+
+    const compile = await runProcess({
+      command: 'javac', args: ['-encoding', 'UTF-8', sourceFile], cwd: sandboxDir, timeoutMs: MAX_EXECUTION_TIME_MS
+    });
+    if (compile.status !== 'Success') return { compileError: compile.stderr || 'Java compilation failed.' };
+
+    return { command: 'java', args: ['-cp', sandboxDir, 'Main'], cwd: sandboxDir };
+  }
+
+  if (normalized === 'c++' || normalized === 'c') {
+    const compiler = normalized === 'c++' ? (await commandExists('g++') ? 'g++' : null) : (await commandExists('gcc') ? 'gcc' : null);
+    if (!compiler) throw new Error(`${normalized === 'c++' ? 'g++' : 'gcc'} compiler is not installed on the server.`);
+
+    const extension = normalized === 'c++' ? '.cpp' : '.c';
+    const sourceFile = path.join(sandboxDir, `solution${extension}`);
+    const executable = path.join(sandboxDir, process.platform === 'win32' ? 'solution.exe' : 'solution');
+    fs.writeFileSync(sourceFile, source, 'utf8');
+
+    const compileArgs = normalized === 'c++'
+      ? ['-std=c++17', '-O2', sourceFile, '-o', executable]
+      : ['-std=c11', '-O2', sourceFile, '-o', executable];
+
+    const compile = await runProcess({ command: compiler, args: compileArgs, cwd: sandboxDir, timeoutMs: MAX_EXECUTION_TIME_MS });
+    if (compile.status !== 'Success') return { compileError: compile.stderr || 'Compilation failed.' };
+
+    return { command: executable, args: [], cwd: sandboxDir };
+  }
+
+  throw new Error('Unsupported language. Supported languages: JavaScript, TypeScript, Python, Java, C++, C.');
+}
+
+async function executeCode({ language, sourceCode, testCases = [], isSubmit = false }) {
+  if (!Array.isArray(testCases) || testCases.length === 0) {
+    throw new Error('At least one test case is required.');
+  }
+
+  const sandboxDir = path.join(os.tmpdir(), `axly_code_${uuidv4()}`);
   fs.mkdirSync(sandboxDir, { recursive: true });
-  const scriptPath = path.join(sandboxDir, `solution${fileExt}`);
-  fs.writeFileSync(scriptPath, sourceCode, 'utf-8');
 
   try {
+    const program = await prepareProgram({ language, sourceCode, sandboxDir });
+
+    // Compilation errors are returned as a normal execution result so the API can display them in the editor.
+    if (program.compileError) {
+      return {
+        status: 'Compilation Error', passed_tests: 0, total_tests: testCases.length,
+        execution_time_ms: 0,
+        results: [{ test_index: 1, is_hidden: false, status: 'Compilation Error', execution_time_ms: 0,
+          input: '[Compilation failed]', expected_output: '[Not executed]', actual_output: '', stderr: program.compileError }]
+      };
+    }
+
     let passedCount = 0;
     let overallStatus = 'Accepted';
     let totalTime = 0;
     const results = [];
 
     for (let i = 0; i < testCases.length; i++) {
-      const tc = testCases[i];
-      const execResult = await runSingleTestCase({
-        command,
-        args,
-        scriptPath,
+      const tc = testCases[i] || {};
+      const execResult = await runProcess({
+        command: program.command,
+        args: program.args,
+        cwd: program.cwd,
         input: tc.input
       });
 
       totalTime += execResult.executionTimeMs;
-
-      let caseStatus = 'Wrong Answer';
       const actualNorm = normalizeOutput(execResult.stdout);
       const expectedNorm = normalizeOutput(tc.expected_output);
+      let caseStatus;
 
-      if (execResult.status === 'Time Limit Exceeded') {
-        caseStatus = 'Time Limit Exceeded';
-        if (overallStatus === 'Accepted') overallStatus = 'Time Limit Exceeded';
-      } else if (execResult.status === 'Runtime Error') {
-        caseStatus = 'Runtime Error';
-        if (overallStatus === 'Accepted') overallStatus = 'Runtime Error';
-      } else if (actualNorm === expectedNorm) {
-        caseStatus = 'Passed';
-        passedCount++;
-      } else {
-        caseStatus = 'Wrong Answer';
-        if (overallStatus === 'Accepted') overallStatus = 'Wrong Answer';
-      }
+      if (execResult.status === 'Time Limit Exceeded') caseStatus = 'Time Limit Exceeded';
+      else if (execResult.status === 'Runtime Error') caseStatus = 'Runtime Error';
+      else if (actualNorm === expectedNorm) caseStatus = 'Passed';
+      else caseStatus = 'Wrong Answer';
 
-      // Format result item: mask hidden test case input/output from response
+      if (caseStatus === 'Passed') passedCount++;
+      else if (overallStatus === 'Accepted') overallStatus = caseStatus;
+
       const isHidden = Boolean(tc.is_hidden);
       results.push({
         test_index: i + 1,
         is_hidden: isHidden,
         status: caseStatus,
         execution_time_ms: execResult.executionTimeMs,
-        input: isHidden ? '[Hidden Test Case]' : tc.input,
-        expected_output: isHidden ? '[Hidden Output]' : tc.expected_output,
-        actual_output: isHidden 
-          ? (caseStatus === 'Passed' ? '[Output Passed]' : '[Output Failed]') 
+        input: isHidden ? '[Hidden Test Case]' : (tc.input || ''),
+        expected_output: isHidden ? '[Hidden Output]' : (tc.expected_output || ''),
+        actual_output: isHidden
+          ? (caseStatus === 'Passed' ? '[Output Passed]' : '[Output Failed]')
           : actualNorm,
-        stderr: isHidden && caseStatus !== 'Runtime Error' ? null : execResult.stderr || null
+        stderr: isHidden && caseStatus !== 'Runtime Error' ? null : (execResult.stderr || null)
       });
-    }
 
-    if (passedCount !== testCases.length && overallStatus === 'Accepted') {
-      overallStatus = 'Wrong Answer';
+      // Stop early on submit/run for infrastructure errors or TLE; no reason to execute remaining cases.
+      if (caseStatus === 'Time Limit Exceeded' || caseStatus === 'Runtime Error') break;
     }
 
     return {
-      status: overallStatus,
+      status: passedCount === testCases.length ? 'Accepted' : overallStatus === 'Accepted' ? 'Wrong Answer' : overallStatus,
       passed_tests: passedCount,
       total_tests: testCases.length,
       execution_time_ms: Math.round(totalTime * 10) / 10,
       results
     };
   } finally {
-    // Clean up temporary files
     try {
-      if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
       if (fs.existsSync(sandboxDir)) fs.rmSync(sandboxDir, { recursive: true, force: true });
-    } catch (cleanupErr) {
-      // ignore
-    }
+    } catch (_) {}
   }
 }
 
-module.exports = {
-  executeCode,
-  normalizeOutput
-};
+module.exports = { executeCode, normalizeOutput };
