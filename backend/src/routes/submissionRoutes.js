@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { 
+const {
   getSubmissions,
   submitViaGithub,
   reviewSubmission,
-  updateSubmission, 
-  upsertQuestionSubmission 
+  updateSubmission,
+  upsertQuestionSubmission
 } = require('../controllers/submissionController');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
@@ -20,8 +20,8 @@ router.get('/', getSubmissions);
 // Submit solution via GitHub URL
 router.post('/github', submitViaGithub);
 
-// Mentor Review (Admin / Mentor only)
-router.post('/:id/review', requireRole('admin'), reviewSubmission);
+// Mentor/Admin review
+router.post('/:id/review', requireRole('admin', 'mentor'), reviewSubmission);
 
 // Toggle/update submission status directly (supports both / and /toggle)
 router.post('/', upsertQuestionSubmission);
