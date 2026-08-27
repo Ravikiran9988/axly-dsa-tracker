@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle } from 'lucide-react';
+import { X, Save, AlertCircle, Loader2, Code2 } from 'lucide-react';
 
 export default function AdminQuestionModal({ isOpen, onClose, onSave, question, topics }) {
   const [title, setTitle] = useState('');
@@ -48,16 +48,21 @@ export default function AdminQuestionModal({ isOpen, onClose, onSave, question, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+      <div className="bg-[#0F1626] border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-slide-up">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white">
-            {question ? 'Edit DSA Question' : 'Add New DSA Question'}
-          </h3>
+        <div className="px-6 py-5 border-b border-slate-800/80 flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-xl bg-axly-500/10 text-axly-400 flex items-center justify-center border border-axly-500/20">
+              <Code2 className="w-4 h-4" />
+            </div>
+            <h3 className="text-base font-bold text-white tracking-tight">
+              {question ? 'Edit DSA Question' : 'Add New DSA Question'}
+            </h3>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -66,14 +71,14 @@ export default function AdminQuestionModal({ isOpen, onClose, onSave, question, 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center space-x-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span className="font-medium">{error}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">
               Question Title *
             </label>
             <input
@@ -83,20 +88,20 @@ export default function AdminQuestionModal({ isOpen, onClose, onSave, question, 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Subarray Sum Equals K"
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-axly-500 text-sm"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-axly-500 text-sm shadow-inner transition-colors"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">
                 Difficulty *
               </label>
               <select
                 id="select-question-difficulty"
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-axly-500 text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white focus:outline-none focus:border-axly-500 text-sm shadow-inner transition-colors cursor-pointer"
               >
                 <option value="easy">Easy</option>
                 <option value="medium">Medium</option>
@@ -105,14 +110,14 @@ export default function AdminQuestionModal({ isOpen, onClose, onSave, question, 
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">
                 Topic
               </label>
               <select
                 id="select-question-topic"
                 value={topicId}
                 onChange={(e) => setTopicId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-axly-500 text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white focus:outline-none focus:border-axly-500 text-sm shadow-inner transition-colors cursor-pointer"
               >
                 <option value="">No Specific Topic</option>
                 {topics.map((t) => (
@@ -125,7 +130,7 @@ export default function AdminQuestionModal({ isOpen, onClose, onSave, question, 
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 font-mono">
               Problem URL (LeetCode, GFG, etc.) *
             </label>
             <input
@@ -135,15 +140,15 @@ export default function AdminQuestionModal({ isOpen, onClose, onSave, question, 
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://leetcode.com/problems/..."
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-axly-500 text-sm"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-axly-500 text-sm shadow-inner transition-colors"
             />
           </div>
 
-          <div className="pt-4 border-t border-slate-800 flex justify-end space-x-3">
+          <div className="pt-4 border-t border-slate-800/80 flex justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
             >
               Cancel
             </button>
@@ -151,9 +156,9 @@ export default function AdminQuestionModal({ isOpen, onClose, onSave, question, 
               id="btn-save-question"
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-xl text-sm font-medium bg-axly-600 hover:bg-axly-500 text-white flex items-center space-x-2 transition-all shadow-md shadow-axly-600/30"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-axly-600 hover:bg-axly-500 text-white flex items-center space-x-2 transition-all shadow-md shadow-axly-600/30 disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>{loading ? 'Saving...' : 'Save Question'}</span>
             </button>
           </div>

@@ -22,17 +22,33 @@ export default {
           950: '#072849',
         },
         dark: {
-          bg: '#0B0F19',
-          surface: '#111827',
-          card: '#182234',
-          border: '#243048',
+          bg: '#080C14',
+          surface: '#0F1626',
+          card: '#141D30',
+          hover: '#1B263E',
+          border: '#22304C',
           text: '#F3F4F6',
-          muted: '#9CA3AF'
+          muted: '#94A3B8'
         }
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
+      },
+      animation: {
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'fade-in': 'fadeIn 0.25s ease-out forwards',
+        'slide-up': 'slideUp 0.3s ease-out forwards',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        }
       }
     },
   },

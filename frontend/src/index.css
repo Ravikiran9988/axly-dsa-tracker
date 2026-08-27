@@ -4,42 +4,67 @@
 
 @layer base {
   body {
-    @apply bg-[#0B0F19] text-slate-100 min-h-screen font-sans;
+    @apply bg-[#080C14] text-slate-100 min-h-screen font-sans antialiased selection:bg-axly-500 selection:text-white;
+  }
+
+  /* Accessible outline styling */
+  :focus-visible {
+    @apply outline-none ring-2 ring-axly-400 ring-offset-2 ring-offset-[#080C14];
   }
 }
 
-/* Glassmorphic card styling */
+/* Premium SaaS Card Panels */
 .glass-panel {
-  background: rgba(17, 24, 39, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 22, 38, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 2px 6px -1px rgba(0, 0, 0, 0.3);
 }
 
 .glass-panel-interactive {
-  background: rgba(17, 24, 39, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: all 0.2s ease-in-out;
+  background: rgba(15, 22, 38, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-panel-interactive:hover {
-  border-color: rgba(56, 189, 248, 0.3);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  background: rgba(20, 29, 48, 0.85);
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.6), 0 0 15px rgba(12, 140, 233, 0.15);
+  transform: translateY(-2px);
 }
 
-/* Custom scrollbars */
+/* Skeleton Loading Shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #101726 25%, #1b263e 50%, #101726 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+}
+
+/* Custom modern scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0B0F19;
+  background: #080C14;
 }
 ::-webkit-scrollbar-thumb {
   background: #1e293b;
-  border-radius: 4px;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;

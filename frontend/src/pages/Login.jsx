@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Terminal, Shield, User, ArrowRight, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Terminal, Shield, User, ArrowRight, Sparkles, CheckCircle2, AlertCircle, Code2, Target, Trophy, Flame } from 'lucide-react';
 
 export default function Login() {
   const { loginWithGoogle, devLogin, error: authError } = useAuth();
@@ -32,36 +32,63 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[#0B0F19]">
-      {/* Background glowing gradients */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-axly-500/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[#080C14]">
+      {/* Background ambient lighting */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[34rem] h-[34rem] bg-axly-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-10 left-10 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md space-y-8 relative z-10">
+      {/* Subtle grid pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f293d0a_1px,transparent_1px),linear-gradient(to_bottom,#1f293d0a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
+
+      <div className="w-full max-w-lg space-y-8 relative z-10 py-10">
         {/* Header Branding */}
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-axly-600 to-cyan-400 shadow-xl shadow-axly-500/25 mb-4">
-            <Terminal className="w-7 h-7 text-white" />
+        <div className="text-center space-y-3">
+          <div className="inline-flex relative group">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-axly-600 via-axly-500 to-cyan-400 flex items-center justify-center shadow-xl shadow-axly-500/25 mx-auto transition-transform duration-300 group-hover:scale-105">
+              <Terminal className="w-8 h-8 text-white" />
+            </div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-axly-500 to-cyan-400 rounded-2xl blur-lg opacity-40 group-hover:opacity-75 transition duration-300 pointer-events-none" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">
-            Axly DSA Tracker
-          </h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Structured daily practice, curriculum tracking, and habit mastery.
-          </p>
-          <div className="mt-2 flex items-center justify-center space-x-2">
-            <span className="text-xs font-mono text-axly-400 bg-axly-500/10 px-2.5 py-0.5 rounded-full border border-axly-500/20">
+
+          <div className="space-y-1">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-sans">
+              Axly DSA Tracker
+            </h1>
+            <p className="text-sm text-slate-400 max-w-sm mx-auto">
+              Master Data Structures & Algorithms with structured curriculum, daily challenges, and real-time progress.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center space-x-2">
+            <span className="text-xs font-mono font-medium text-axly-400 bg-axly-500/10 px-3 py-1 rounded-full border border-axly-500/20 shadow-sm">
               dsatracker.axly.in
             </span>
           </div>
         </div>
 
-        {/* Card */}
-        <div className="glass-panel p-8 rounded-3xl border border-slate-800 shadow-2xl space-y-6">
+        {/* Feature Highlights Pills */}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 backdrop-blur">
+            <Flame className="w-4 h-4 text-amber-400 mx-auto mb-1" />
+            <p className="text-[11px] font-medium text-slate-300">Daily Practice</p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 backdrop-blur">
+            <Target className="w-4 h-4 text-axly-400 mx-auto mb-1" />
+            <p className="text-[11px] font-medium text-slate-300">Curriculum Path</p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 backdrop-blur">
+            <Trophy className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+            <p className="text-[11px] font-medium text-slate-300">Skill Mastery</p>
+          </div>
+        </div>
+
+        {/* Main Card */}
+        <div className="glass-panel p-7 sm:p-8 rounded-3xl border border-slate-800/80 shadow-2xl space-y-6">
           {(error || authError) && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error || authError}</span>
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center space-x-2.5 animate-slide-up">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span className="font-medium">{error || authError}</span>
             </div>
           )}
 
@@ -71,7 +98,7 @@ export default function Login() {
               id="google-signin-btn"
               onClick={handleGoogleLogin}
               disabled={loading}
-              className="w-full flex items-center justify-center space-x-3 px-4 py-3 rounded-2xl bg-white text-slate-900 font-semibold hover:bg-slate-100 transition-all shadow-lg hover:shadow-xl active:scale-[0.99]"
+              className="w-full flex items-center justify-center space-x-3 px-4 py-3.5 rounded-2xl bg-white text-slate-900 font-semibold hover:bg-slate-50 active:scale-[0.99] transition-all shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -93,59 +120,69 @@ export default function Login() {
               </svg>
               <span>Continue with Google</span>
             </button>
-            <p className="text-[11px] text-center text-slate-500 mt-2 font-mono">
-              Secured with Supabase Auth
+            <p className="text-[11px] text-center text-slate-500 mt-2.5 font-mono">
+              Production Supabase OAuth with JWT Session
             </p>
           </div>
 
           <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-slate-800"></div>
-            <span className="flex-shrink mx-3 text-[11px] uppercase tracking-wider text-slate-500 font-mono">
-              Quick Role Login (Dev/Demo)
+            <div className="flex-grow border-t border-slate-800/90"></div>
+            <span className="flex-shrink mx-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 font-mono">
+              Quick Role Login (Demo)
             </span>
-            <div className="flex-grow border-t border-slate-800"></div>
+            <div className="flex-grow border-t border-slate-800/90"></div>
           </div>
 
           {/* Quick Demo Switcher */}
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             <button
               id="btn-login-user-alex"
               onClick={() => handleDevLogin('alex@example.com', 'user')}
               disabled={loading}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 hover:border-axly-500/50 transition-all text-left group"
+              className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-axly-500/50 transition-all text-left group shadow-sm"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center justify-center">
                   <User className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-white group-hover:text-axly-300">
-                    Alex Mercer (Student / User)
-                  </p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-xs font-bold text-white group-hover:text-axly-300 transition-colors">
+                      Alex Mercer
+                    </p>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      User
+                    </span>
+                  </div>
                   <p className="text-[11px] text-slate-400 font-mono">alex@example.com</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-axly-400 group-hover:translate-x-0.5 transition-all" />
+              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-axly-400 group-hover:translate-x-1 transition-all" />
             </button>
 
             <button
               id="btn-login-admin-axly"
               onClick={() => handleDevLogin('admin@axly.in', 'admin')}
               disabled={loading}
-              className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 hover:border-purple-500/50 transition-all text-left group"
+              className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 hover:border-purple-500/50 transition-all text-left group shadow-sm"
             >
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/25 flex items-center justify-center">
                   <Shield className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-white group-hover:text-purple-300">
-                    Axly Admin (Mentor / Admin)
-                  </p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors">
+                      Axly Admin
+                    </p>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                      Admin
+                    </span>
+                  </div>
                   <p className="text-[11px] text-slate-400 font-mono">admin@axly.in</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all" />
+              <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
             </button>
           </div>
         </div>

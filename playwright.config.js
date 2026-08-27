@@ -1,4 +1,4 @@
-const { defineConfig, devices } = require('@playwright/test');
+const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './tests/e2e',
@@ -20,14 +20,14 @@ module.exports = defineConfig({
       cwd: './backend',
       port: 5000,
       reuseExistingServer: !process.env.CI,
-      timeout: 15000
+      timeout: 30000
     },
     {
       command: 'npm run dev',
       cwd: './frontend',
       port: 5173,
       reuseExistingServer: !process.env.CI,
-      timeout: 15000
+      timeout: 30000
     }
   ]
 });
