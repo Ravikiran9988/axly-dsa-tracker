@@ -147,6 +147,10 @@ if (input.length >= 2) {
           source_code: solution
         });
 
+      if (res.body.data?.status !== 'Accepted') {
+        console.error('SUBMIT DEBUG RESULTS:', JSON.stringify(res.body.data?.results, null, 2));
+      }
+
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('Accepted');
       expect(res.body.data.submission_status).toBe('solved');
