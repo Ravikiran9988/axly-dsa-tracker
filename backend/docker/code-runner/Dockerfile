@@ -9,10 +9,11 @@ RUN apt-get update \
 RUN useradd --create-home --shell /usr/sbin/nologin runner
 WORKDIR /runner
 COPY runner.js package.json ./
-RUN chown -R runner:runner /runner
+RUN mkdir -p /runner/work && chown -R runner:runner /runner
 USER runner
 
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV TMPDIR=/runner/work
 EXPOSE 8080
 CMD ["node", "runner.js"]
