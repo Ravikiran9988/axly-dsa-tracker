@@ -8,7 +8,8 @@ services:
     security_opt:
       - no-new-privileges:true
     tmpfs:
-      - /tmp:size=128m,noexec,nosuid,nodev
+      - /runner/work:size=128m,exec,nosuid,nodev
+      - /tmp:size=32m,noexec,nosuid,nodev
     mem_limit: 256m
     cpus: 1.0
     pids_limit: 64
