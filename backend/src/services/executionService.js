@@ -91,9 +91,9 @@ async function prepareProgram({ language, sourceCode, sandboxDir }) {
   const aliases = {
     js: 'javascript', node: 'javascript', nodejs: 'javascript',
     py: 'python', python3: 'python', ts: 'typescript',
-    cpp: 'c++', 'c-plus-plus': 'c++', cc: 'c++'
+    cpp: 'c++', 'c-plus-plus': 'c-plus-plus', cc: 'c++'
   };
-  const normalized = aliases[lang] || lang;
+  const normalized = aliases[lang] === 'c-plus-plus' ? 'c++' : (aliases[lang] || lang);
 
   if (normalized === 'javascript') {
     const file = path.join(sandboxDir, 'solution.js');
@@ -126,13 +126,17 @@ async function prepareProgram({ language, sourceCode, sandboxDir }) {
   }
 
   if (normalized === 'java') {
-    const sourceFile = path.join(sandboxDir, 'Main.java');
+    // Java requires the filename to match a public class. Support both the
+    // common `public class Main` template and existing `public class Solution` submissions.
+    const publicClassMatch = source.match(/\bpublic\s+class\s+([A-Za-z_$][\w$]*)/);
+    const mainClass = publicClassMatch ? publicClassMatch[1] : 'Main';
+    const sourceFile = path.join(sandboxDir, `${mainClass}.java`);
     fs.writeFileSync(sourceFile, source, 'utf8');
     if (!(await commandExists('javac')) || !(await commandExists('java'))) throw new Error('Java compiler/runtime (javac/java) is not installed on the server.');
 
     const compile = await runProcess({ command: 'javac', args: ['-encoding', 'UTF-8', sourceFile], cwd: sandboxDir });
     if (compile.status !== 'Success') return { compileError: compile.stderr || 'Java compilation failed.' };
-    return { command: 'java', args: ['-cp', sandboxDir, 'Main'], cwd: sandboxDir };
+    return { command: 'java', args: ['-cp', sandboxDir, mainClass], cwd: sandboxDir };
   }
 
   if (normalized === 'c++' || normalized === 'c') {

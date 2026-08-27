@@ -5,6 +5,10 @@ const { authenticate } = require('../middleware/auth');
 const { authRateLimiter } = require('../middleware/rateLimiter');
 
 router.post('/verify', authRateLimiter, authenticate, verifySession);
-router.post('/dev-login', authRateLimiter, devLogin);
+
+// Development/demo-only login. The controller also enforces the production guard.
+if (process.env.NODE_ENV !== 'production') {
+  router.post('/dev-login', authRateLimiter, devLogin);
+}
 
 module.exports = router;

@@ -5,8 +5,8 @@ const difficultyEnum = z.enum(['easy', 'medium', 'hard'], {
 });
 
 const submissionStatusEnum = z.enum([
-  'not_started', 'attempted', 'solved', 'skipped', 
-  'pending', 'submitted', 'under_review', 'approved', 'changes_requested', 'completed', 'rejected'
+  'not_started', 'attempted', 'solved', 'skipped',
+  'pending', 'submitted', 'under_review', 'approved', 'changes_requested', 'completed', 'overdue', 'rejected'
 ], {
   errorMap: () => ({ message: 'status must be a valid submission status' })
 });
@@ -102,18 +102,47 @@ const updateSubmissionSchema = z.object({
   status: submissionStatusEnum
 });
 
+const githubSubmissionSchema = z.object({
+  question_id: z.string().trim().min(1, { message: 'question_id is required' }),
+  github_url: z.string().trim().url({ message: 'github_url must be a valid URL' }).max(500),
+  assignment_id: z.string().trim().optional().nullable()
+}).superRefine((data, ctx) => {
+  try {
+    const url = new URL(data.github_url);
+    if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== 'github.com') {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['github_url'], message: 'github_url must be an HTTPS GitHub URL' });
+      return;
+    }
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length < 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['github_url'], message: 'github_url must point to a GitHub repository or file' });
+    }
+  } catch (_) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['github_url'], message: 'github_url must be a valid GitHub URL' });
+  }
+});
+
+const reviewSubmissionSchema = z.object({
+  review_status: z.enum(['approved', 'changes_requested', 'rejected']),
+  feedback: z.string().trim().max(5000).optional().nullable()
+}).superRefine((data, ctx) => {
+  if (data.review_status === 'changes_requested' && !data.feedback) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['feedback'], message: 'Feedback is required when requesting changes' });
+  }
+});
+
 // Code Execution Schemas
 const runCodeSchema = z.object({
   question_id: z.string().trim().min(1, { message: 'question_id is required' }),
   language: z.enum(['javascript', 'js', 'node', 'python', 'py', 'python3', 'java', 'cpp', 'c', 'typescript', 'ts']).default('javascript'),
-  source_code: z.string().min(1, { message: 'source_code cannot be empty' }),
-  custom_input: z.string().optional()
+  source_code: z.string().min(1).max(100000, { message: 'source_code must be at most 100,000 characters' }),
+  custom_input: z.string().max(10000).optional()
 });
 
 const submitCodeSchema = z.object({
   question_id: z.string().trim().min(1, { message: 'question_id is required' }),
   language: z.enum(['javascript', 'js', 'node', 'python', 'py', 'python3', 'java', 'cpp', 'c', 'typescript', 'ts']).default('javascript'),
-  source_code: z.string().min(1, { message: 'source_code cannot be empty' })
+  source_code: z.string().min(1).max(100000, { message: 'source_code must be at most 100,000 characters' })
 });
 
 // Query params validator
@@ -129,6 +158,8 @@ module.exports = {
   createAssignmentSchema,
   bulkAssignmentSchema,
   updateSubmissionSchema,
+  githubSubmissionSchema,
+  reviewSubmissionSchema,
   runCodeSchema,
   submitCodeSchema,
   paginationSchema,
