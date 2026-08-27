@@ -10,7 +10,11 @@ const {
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 const { validateBody } = require('../middleware/validator');
-const { updateSubmissionSchema } = require('../validation/schemas');
+const {
+  updateSubmissionSchema,
+  githubSubmissionSchema,
+  reviewSubmissionSchema
+} = require('../validation/schemas');
 
 router.use(authenticate);
 
@@ -18,10 +22,10 @@ router.use(authenticate);
 router.get('/', getSubmissions);
 
 // Submit solution via GitHub URL
-router.post('/github', submitViaGithub);
+router.post('/github', validateBody(githubSubmissionSchema), submitViaGithub);
 
 // Mentor/Admin review
-router.post('/:id/review', requireRole('admin', 'mentor'), reviewSubmission);
+router.post('/:id/review', requireRole('admin', 'mentor'), validateBody(reviewSubmissionSchema), reviewSubmission);
 
 // Toggle/update submission status directly (supports both / and /toggle)
 router.post('/', upsertQuestionSubmission);
