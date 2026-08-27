@@ -5,7 +5,12 @@ const { AppError } = require('./errorHandler');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const JWT_SECRET = process.env.JWT_SECRET || 'axly-dsa-tracker-dev-secret-key-32-chars-minimum';
+const isProduction = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.JWT_SECRET || (isProduction ? null : 'axly-dsa-tracker-dev-secret-key-32-chars-minimum');
+
+if (isProduction && !JWT_SECRET) {
+  throw new Error('JWT_SECRET must be configured in production.');
+}
 
 let supabaseClient = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && !SUPABASE_URL.includes('mock')) {
@@ -53,7 +58,7 @@ async function authenticate(req, res, next) {
       return next(new AppError('User identity could not be verified', 401, 'UNAUTHORIZED'));
     }
 
-    // 3. Resolve user record from database (Server-side single source of truth for role)
+    // 3. Resolve user record from database (server-side single source of truth for role)
     const userStmt = db.prepare('SELECT id, name, email, role, created_at FROM users WHERE id = ?');
     let user = userStmt.get(userId);
 
@@ -79,6 +84,9 @@ async function authenticate(req, res, next) {
 
 // Optional helper to generate auth token for development / testing
 function generateTestToken(payload) {
+  if (isProduction) {
+    throw new Error('Test tokens are disabled in production.');
+  }
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 

@@ -1,0 +1,26 @@
+services:
+  code-runner:
+    build: .
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /runner/work:size=128m,exec,nosuid,nodev
+      - /tmp:size=32m,noexec,nosuid,nodev
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 64
+    networks:
+      - runner_internal
+    expose:
+      - "8080"
+
+  # Attach the production API to this same network when deployed.
+  # The API should reach the runner as http://code-runner:8080.
+
+networks:
+  runner_internal:
+    internal: true
