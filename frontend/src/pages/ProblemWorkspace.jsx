@@ -346,17 +346,15 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
           <div className="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg p-0.5">
             <button
               onClick={() => setSubmissionMethod('code')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                submissionMethod === 'code' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${submissionMethod === 'code' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                }`}
             >
               <Code className="w-3.5 h-3.5" /> Code Editor
             </button>
             <button
               onClick={() => setSubmissionMethod('github')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                submissionMethod === 'github' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${submissionMethod === 'github' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                }`}
             >
               <Github className="w-3.5 h-3.5" /> GitHub Link
             </button>
@@ -410,27 +408,24 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
           <div className="h-10 border-b border-slate-800 px-3 flex items-center gap-4 bg-slate-950/40 shrink-0">
             <button
               onClick={() => setLeftTab('description')}
-              className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${
-                leftTab === 'description' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${leftTab === 'description' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
             >
               <FileCode className="w-3.5 h-3.5" /> Description
             </button>
             {question.hints && (
               <button
                 onClick={() => setLeftTab('hints')}
-                className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${
-                  leftTab === 'hints' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
+                className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${leftTab === 'hints' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
               >
                 <HelpCircle className="w-3.5 h-3.5" /> Hints
               </button>
             )}
             <button
               onClick={() => setLeftTab('submissions')}
-              className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${
-                leftTab === 'submissions' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${leftTab === 'submissions' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
             >
               <History className="w-3.5 h-3.5" /> History ({pastSubmissions.length})
             </button>
@@ -609,25 +604,22 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => setBottomTab('testcases')}
-                      className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${
-                        bottomTab === 'testcases' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
+                      className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${bottomTab === 'testcases' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
                     >
                       <Layers className="w-3.5 h-3.5" /> Sample Test Cases
                     </button>
                     <button
                       onClick={() => setBottomTab('results')}
-                      className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${
-                        bottomTab === 'results' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
+                      className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${bottomTab === 'results' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
                     >
                       <Terminal className="w-3.5 h-3.5" /> Execution Results
                     </button>
                     <button
                       onClick={() => setBottomTab('custom')}
-                      className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${
-                        bottomTab === 'custom' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
-                      }`}
+                      className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 transition-colors ${bottomTab === 'custom' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'
+                        }`}
                     >
                       Custom Input
                     </button>
@@ -635,9 +627,8 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
 
                   {execResult && (
                     <div className="flex items-center gap-2 text-xs">
-                      <span className={`font-bold px-2 py-0.5 rounded-full ${
-                        execResult.status === 'Accepted' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                      }`}>
+                      <span className={`font-bold px-2 py-0.5 rounded-full ${execResult.status === 'Accepted' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                        }`}>
                         {execResult.status}
                       </span>
                       <span className="text-[11px] text-slate-400">
@@ -659,9 +650,8 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                           <button
                             key={idx}
                             onClick={() => setSelectedTestCaseIndex(idx)}
-                            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                              selectedTestCaseIndex === idx ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                            }`}
+                            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${selectedTestCaseIndex === idx ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                              }`}
                           >
                             Case {idx + 1}
                           </button>
@@ -701,9 +691,8 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                                 <span className="font-semibold text-slate-300">
                                   Test Case #{res.test_index} {res.is_hidden ? '(Hidden Evaluation)' : ''}
                                 </span>
-                                <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${
-                                  res.status === 'Passed' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'
-                                }`}>
+                                <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${res.status === 'Passed' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'
+                                  }`}>
                                   {res.status}
                                 </span>
                               </div>

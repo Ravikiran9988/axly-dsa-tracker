@@ -72,7 +72,7 @@ export default function DailyQuestionCard({ dailyQuestion, dailyData, onStatusCh
                 </div>
 
                 {/* Problem Title */}
-                <h3 
+                <h3
                   onClick={onOpenInPlatform}
                   className="text-xl sm:text-2xl font-extrabold text-white tracking-tight cursor-pointer hover:text-cyan-300 transition-colors"
                 >
