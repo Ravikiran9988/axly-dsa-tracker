@@ -1,9 +1,9 @@
 import React from 'react';
-import { Sparkles, ExternalLink, CheckCircle2, Clock, PlayCircle, AlertCircle, Calendar, ArrowUpRight, Flame } from 'lucide-react';
+import { Sparkles, CheckCircle2, Calendar, Code2, ArrowRight } from 'lucide-react';
 
-export default function DailyQuestionCard({ dailyData, onStatusChange, onOpenAdminDailyModal, isAdmin }) {
+export default function DailyQuestionCard({ dailyQuestion, dailyData, onStatusChange, onOpenAdminDailyModal, onOpenInPlatform, isAdmin }) {
   const todayUtc = new Date().toISOString().split('T')[0];
-  const question = dailyData?.data;
+  const question = dailyQuestion || dailyData?.data;
 
   const difficultyBadge = {
     easy: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 ring-1 ring-emerald-500/20',
@@ -12,26 +12,22 @@ export default function DailyQuestionCard({ dailyData, onStatusChange, onOpenAdm
   };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-axly-500/30 bg-gradient-to-br from-axly-950/50 via-slate-900/90 to-[#080C14] p-6 sm:p-7 shadow-2xl backdrop-blur-2xl transition-all duration-300">
-      {/* Background ambient glowing spheres */}
-      <div className="absolute -right-16 -top-16 w-72 h-72 bg-axly-500/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute left-1/3 -bottom-20 w-60 h-60 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-
+    <div className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/40 via-slate-900/90 to-[#080C14] p-6 sm:p-7 shadow-2xl backdrop-blur-2xl transition-all duration-300">
       <div className="relative z-10">
-        {/* Card Header Top */}
+        {/* Header Top */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div className="flex items-center space-x-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-axly-600 to-cyan-400 text-white shadow-md shadow-axly-500/30">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-500 text-white shadow-md shadow-cyan-500/30">
               <Sparkles className="h-4 w-4" />
             </span>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-xs font-bold tracking-widest text-axly-400 uppercase font-mono">
+                <h2 className="text-xs font-bold tracking-widest text-cyan-400 uppercase font-mono">
                   Today's Challenge
                 </h2>
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-axly-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-axly-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
                 </span>
               </div>
             </div>
@@ -39,7 +35,7 @@ export default function DailyQuestionCard({ dailyData, onStatusChange, onOpenAdm
 
           <div className="flex items-center space-x-2.5">
             <span className="flex items-center space-x-1.5 text-xs text-slate-300 font-mono bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800 shadow-inner">
-              <Calendar className="w-3.5 h-3.5 text-axly-400" />
+              <Calendar className="w-3.5 h-3.5 text-cyan-400" />
               <span>{todayUtc} (UTC)</span>
             </span>
 
@@ -59,65 +55,63 @@ export default function DailyQuestionCard({ dailyData, onStatusChange, onOpenAdm
         {question ? (
           <div className="space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 flex-1 min-w-0">
                 {/* Meta Badges */}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`text-xs px-3 py-0.5 rounded-full font-bold border uppercase tracking-wider ${difficultyBadge[question.difficulty] || ''}`}>
                     {question.difficulty}
                   </span>
                   {question.topic_name && (
-                    <span className="text-xs px-3 py-0.5 rounded-full bg-slate-800/90 text-slate-300 border border-slate-700 font-medium shadow-inner">
+                    <span className="text-xs px-3 py-0.5 rounded-full bg-slate-800/90 text-slate-300 border border-slate-700 font-medium">
                       {question.topic_name}
                     </span>
                   )}
-                  {question.is_assigned_to_me && (
-                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30 font-semibold">
-                      Curriculum Assigned
-                    </span>
-                  )}
+                  <span className="text-xs text-cyan-400 bg-cyan-950/40 border border-cyan-800/40 px-2.5 py-0.5 rounded-full font-semibold">
+                    +{question.points || 20} points
+                  </span>
                 </div>
 
-                {/* Problem Title & Action Link */}
-                <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-                  <a
-                    href={question.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center space-x-2 group hover:text-axly-300 transition-colors"
-                  >
-                    <span>{question.title}</span>
-                    <span className="p-1 rounded-lg bg-slate-800/80 group-hover:bg-axly-600/30 transition-colors">
-                      <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-axly-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                    </span>
-                  </a>
+                {/* Problem Title */}
+                <h3 
+                  onClick={onOpenInPlatform}
+                  className="text-xl sm:text-2xl font-extrabold text-white tracking-tight cursor-pointer hover:text-cyan-300 transition-colors"
+                >
+                  {question.title}
                 </h3>
               </div>
 
-              {/* Status Self-Reporting Box */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 bg-slate-900/90 p-3 rounded-2xl border border-slate-800 shadow-xl">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono pl-1">
-                  My Status:
-                </span>
-                <select
-                  id="daily-question-status-select"
-                  value={question.submission_status || 'not_started'}
-                  onChange={(e) => onStatusChange(question.id, e.target.value)}
-                  className="bg-slate-800 text-slate-100 text-xs font-bold rounded-xl px-3.5 py-2 border border-slate-700 focus:outline-none focus:border-axly-500 hover:border-slate-600 cursor-pointer transition-colors shadow-inner"
+              {/* Status & CTA */}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono pl-1">
+                    Status:
+                  </span>
+                  <select
+                    id="daily-question-status-select"
+                    value={question.submission_status || 'not_started'}
+                    onChange={(e) => onStatusChange && onStatusChange(question.id, e.target.value)}
+                    className="bg-slate-800 text-slate-100 text-xs font-bold rounded-xl px-3 py-1.5 border border-slate-700 focus:outline-none focus:border-cyan-500 cursor-pointer transition-colors"
+                  >
+                    <option value="not_started">⚪ Not Started</option>
+                    <option value="attempted">⏳ Attempted</option>
+                    <option value="solved">✅ Solved</option>
+                    <option value="skipped">⏭️ Skipped</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={onOpenInPlatform}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-bold shadow-xl shadow-cyan-950/60 transition-all active:scale-95"
                 >
-                  <option value="not_started">⚪ Not Started</option>
-                  <option value="attempted">⏳ Attempted</option>
-                  <option value="solved">✅ Solved</option>
-                  <option value="skipped">⏭️ Skipped</option>
-                </select>
+                  <Code2 className="w-4 h-4" />
+                  <span>Solve in IDE</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           </div>
         ) : (
-          /* Empty State */
           <div id="daily-question-empty-state" className="py-8 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/40 space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-slate-800/80 flex items-center justify-center mx-auto text-slate-500">
-              <AlertCircle className="w-5 h-5" />
-            </div>
             <p className="text-sm font-bold text-slate-200">No daily challenge scheduled for today</p>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
               Admins will set the next global daily problem for today ({todayUtc} UTC).
@@ -125,7 +119,7 @@ export default function DailyQuestionCard({ dailyData, onStatusChange, onOpenAdm
             {isAdmin && (
               <button
                 onClick={onOpenAdminDailyModal}
-                className="mt-2 inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-axly-600 hover:bg-axly-500 text-white shadow-md shadow-axly-600/30 transition-all"
+                className="mt-2 inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-600/30 transition-all"
               >
                 <span>Set Daily Question Now</span>
               </button>

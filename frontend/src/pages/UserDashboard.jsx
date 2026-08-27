@@ -1,334 +1,353 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Calendar,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Play,
+  ArrowRight,
+  Flame,
+  Trophy,
+  Compass,
+  CheckSquare,
+  Sparkles,
+  Zap,
+  MessageSquareQuote,
+  Layers,
+  ChevronRight,
+  ShieldCheck,
+  TrendingUp,
+  RotateCcw
+} from 'lucide-react';
 import { api } from '../services/api';
 import DailyQuestionCard from '../components/DailyQuestionCard';
-import ProgressOverview from '../components/ProgressOverview';
-import QuestionCard from '../components/QuestionCard';
-import { Search, Filter, Layers, RefreshCw, ChevronLeft, ChevronRight, AlertCircle, Sparkles, X } from 'lucide-react';
 
-export default function UserDashboard({ onOpenAdminDailyModal, isAdmin }) {
-  const [dailyData, setDailyData] = useState(null);
-  const [progress, setProgress] = useState(null);
-  const [questions, setQuestions] = useState([]);
-  const [topics, setTopics] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 12, total: 0 });
-
-  // Filters
-  const [difficultyFilter, setDifficultyFilter] = useState('');
-  const [assignedFilter, setAssignedFilter] = useState('');
-  const [topicFilter, setTopicFilter] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-
+export default function UserDashboard({ user, onSelectProblem, onNavigate }) {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [dailyQuestion, setDailyQuestion] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [recommended, setRecommended] = useState([]);
+  const [profile, setProfile] = useState(null);
 
-  // Load Dashboard Data
-  const loadDashboard = async () => {
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  async function loadDashboardData() {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-
-      const [dailyRes, progRes, topicsRes, questionsRes] = await Promise.all([
-        api.getDailyQuestion(),
-        api.getMyProgress(),
-        api.getTopics(),
-        api.getQuestions({
-          difficulty: difficultyFilter || undefined,
-          assigned: assignedFilter || undefined,
-          topic_id: topicFilter || undefined,
-          search: searchQuery || undefined,
-          page: pagination.page,
-          limit: pagination.limit
-        })
+      const [dailyRes, tasksRes, subsRes, qRes, profRes] = await Promise.all([
+        api.getDailyQuestion().catch(() => ({ data: null })),
+        api.getAssignments({ limit: 10 }).catch(() => ({ data: [] })),
+        api.getSubmissions({ limit: 5 }).catch(() => ({ data: [] })),
+        api.getQuestions({ limit: 6 }).catch(() => ({ data: [] })),
+        api.getMyProfile().catch(() => ({ data: null }))
       ]);
 
-      setDailyData(dailyRes);
-      setProgress(progRes.data);
-      setTopics(topicsRes.data || []);
-      setQuestions(questionsRes.data || []);
-      setPagination({
-        page: questionsRes.page,
-        limit: questionsRes.limit,
-        total: questionsRes.total
-      });
+      setDailyQuestion(dailyRes?.data || null);
+      setTasks(tasksRes?.data || []);
+      setSubmissions(subsRes?.data || []);
+      setRecommended(qRes?.data || []);
+      setProfile(profRes?.data || null);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard data');
+      console.error(err);
     } finally {
       setLoading(false);
     }
+  }
+
+  const assignedTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.submission_status === 'solved' || t.status === 'completed').length;
+  const ongoingTasks = tasks.filter(t => t.submission_status === 'attempted' || t.status === 'ongoing').length;
+  const overdueTasks = tasks.filter(t => t.is_overdue).length;
+  const pendingTasks = Math.max(0, assignedTasks - completedTasks);
+
+  const difficultyColors = {
+    easy: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+    medium: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    hard: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
   };
 
-  useEffect(() => {
-    loadDashboard();
-  }, [difficultyFilter, assignedFilter, topicFilter, pagination.page]);
-
-  // Handle Question status update
-  const handleStatusChange = async (questionId, newStatus) => {
-    try {
-      await api.toggleSubmission(questionId, newStatus);
-      // Refresh progress, questions, daily
-      const [progRes, questionsRes, dailyRes] = await Promise.all([
-        api.getMyProgress(),
-        api.getQuestions({
-          difficulty: difficultyFilter || undefined,
-          assigned: assignedFilter || undefined,
-          topic_id: topicFilter || undefined,
-          search: searchQuery || undefined,
-          page: pagination.page,
-          limit: pagination.limit
-        }),
-        api.getDailyQuestion()
-      ]);
-
-      setProgress(progRes.data);
-      setQuestions(questionsRes.data);
-      setDailyData(dailyRes);
-    } catch (err) {
-      alert('Error updating status: ' + err.message);
-    }
-  };
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    setPagination(prev => ({ ...prev, page: 1 }));
-    loadDashboard();
-  };
-
-  const handleResetFilters = () => {
-    setDifficultyFilter('');
-    setAssignedFilter('');
-    setTopicFilter('');
-    setSearchQuery('');
-    setPagination(p => ({ ...p, page: 1 }));
-  };
-
-  const totalPages = Math.ceil(pagination.total / pagination.limit) || 1;
-  const hasActiveFilters = Boolean(difficultyFilter || assignedFilter || topicFilter || searchQuery);
+  const recentFeedback = profile?.recent_feedback || [];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
-      {error && (
-        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm flex items-center space-x-2.5 shadow-sm">
-          <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
-          <span className="font-medium">{error}</span>
+    <div className="space-y-8">
+      {/* Welcome Hero Card */}
+      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-[#0C1425] via-[#121E3D] to-[#0C1425] border border-cyan-900/30 shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Interactive Learning Platform</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+            Welcome back, {user?.name || 'Developer'}! 👋
+          </h1>
+          <p className="text-xs md:text-sm text-slate-400 max-w-xl leading-relaxed">
+            You are on a <strong>{user?.streak || 1} day coding streak</strong>. Solve today's challenge and complete your weekly cohort goals to climb the leaderboard.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => onNavigate('tasks')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-lg shadow-cyan-950/50 transition-all active:scale-95"
+          >
+            <CheckSquare className="w-4 h-4" />
+            <span>View My Tasks</span>
+          </button>
+          <button
+            onClick={() => onNavigate('available')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Browse Challenges</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+          <div className="text-xl font-extrabold text-white">{assignedTasks}</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Assigned</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+          <div className="text-xl font-extrabold text-emerald-400">{completedTasks}</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Completed</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+          <div className="text-xl font-extrabold text-cyan-400">{ongoingTasks}</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Ongoing</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+          <div className="text-xl font-extrabold text-amber-400">{pendingTasks}</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Pending</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+          <div className="text-xl font-extrabold text-rose-400">{overdueTasks}</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Overdue</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+          <div className="text-xl font-extrabold text-indigo-400">{user?.points || 100}</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Points</div>
+        </div>
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center col-span-2 sm:col-span-1">
+          <div className="text-xl font-extrabold text-amber-400 flex items-center justify-center gap-1">
+            <Flame className="w-4 h-4 fill-amber-400" /> {user?.streak || 1}d
+          </div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Streak</div>
+        </div>
+      </div>
+
+      {/* SECTION A: Today's Daily Spotlight Challenge */}
+      {dailyQuestion && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-cyan-400" />
+              <span>Today's Spotlight Challenge</span>
+            </h2>
+            <span className="text-xs text-slate-400">Daily refresh at 00:00 UTC</span>
+          </div>
+
+          <DailyQuestionCard
+            dailyQuestion={dailyQuestion}
+            onStatusChange={loadDashboardData}
+            onOpenInPlatform={() => onSelectProblem(dailyQuestion.question_id || dailyQuestion.id)}
+          />
         </div>
       )}
 
-      {/* 1. Global Daily Question Banner */}
-      <DailyQuestionCard
-        dailyData={dailyData}
-        onStatusChange={handleStatusChange}
-        onOpenAdminDailyModal={onOpenAdminDailyModal}
-        isAdmin={isAdmin}
-      />
-
-      {/* 2. Personal Progress & Mastery Metrics */}
-      <ProgressOverview progress={progress} />
-
-      {/* 3. Question Bank & Curriculum Section */}
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">Question Bank & Practice</h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Explore curated curriculum problems, filter by topic, and self-report your solution status.
-            </p>
-          </div>
-
-          {/* Search bar */}
-          <form onSubmit={handleSearchSubmit} className="flex items-center">
-            <div className="relative w-full sm:w-72">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                id="input-search-questions"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search problem title..."
-                className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-axly-500 transition-colors shadow-inner"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+      {/* SECTION D: Mentor Feedback Callout (If Available) */}
+      {recentFeedback.length > 0 && (
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-orange-950/30 via-slate-900 to-slate-950 border border-orange-800/40 shadow-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-orange-400 text-xs font-bold uppercase tracking-wider">
+              <MessageSquareQuote className="w-4 h-4" />
+              <span>Mentor Review Notification</span>
             </div>
             <button
-              type="submit"
-              className="ml-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white border border-slate-700 transition-colors shadow-sm"
+              onClick={() => onNavigate('submissions')}
+              className="text-xs text-orange-300 hover:underline font-semibold flex items-center gap-1"
             >
-              Search
+              <span>View All Feedback</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
-          </form>
-        </div>
-
-        {/* Filter Controls Bar */}
-        <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-slate-900/70 border border-slate-800/80 shadow-lg backdrop-blur-md">
-          <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-400 pr-3 border-r border-slate-800 font-mono">
-            <Filter className="w-3.5 h-3.5 text-axly-400" />
-            <span>Filters</span>
           </div>
-
-          {/* Difficulty Filter */}
-          <div className="flex items-center space-x-1.5">
-            {['', 'easy', 'medium', 'hard'].map((diff) => (
-              <button
-                key={diff}
-                id={`filter-diff-${diff || 'all'}`}
-                onClick={() => {
-                  setDifficultyFilter(diff);
-                  setPagination(p => ({ ...p, page: 1 }));
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${
-                  difficultyFilter === diff
-                    ? 'bg-axly-600 text-white shadow-md shadow-axly-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
-                }`}
-              >
-                {diff || 'All Difficulties'}
-              </button>
-            ))}
-          </div>
-
-          <div className="h-4 w-px bg-slate-800 hidden sm:block" />
-
-          {/* Assignment Filter */}
-          <div className="flex items-center space-x-1.5">
-            {[
-              { label: 'All Questions', val: '' },
-              { label: 'Assigned to Me', val: 'true' },
-              { label: 'Unassigned', val: 'false' }
-            ].map((f) => (
-              <button
-                key={f.val}
-                id={`filter-asgn-${f.val || 'all'}`}
-                onClick={() => {
-                  setAssignedFilter(f.val);
-                  setPagination(p => ({ ...p, page: 1 }));
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  assignedFilter === f.val
-                    ? 'bg-axly-600 text-white shadow-md shadow-axly-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="h-4 w-px bg-slate-800 hidden sm:block" />
-
-          {/* Topic Select Filter */}
-          <select
-            id="filter-topic-select"
-            value={topicFilter}
-            onChange={(e) => {
-              setTopicFilter(e.target.value);
-              setPagination(p => ({ ...p, page: 1 }));
-            }}
-            className="bg-slate-800 text-slate-200 text-xs font-medium rounded-xl px-3 py-1.5 border border-slate-700 focus:outline-none focus:border-axly-500 cursor-pointer shadow-inner"
-          >
-            <option value="">All Topics</option>
-            {topics.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Reset button */}
-          {hasActiveFilters && (
-            <button
-              onClick={handleResetFilters}
-              className="text-xs text-rose-400 hover:text-rose-300 font-semibold ml-auto flex items-center space-x-1 transition-colors"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span>Reset Filters</span>
-            </button>
-          )}
-        </div>
-
-        {/* Loading Skeleton vs Question Cards Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="w-16 h-5 rounded-full skeleton-shimmer" />
-                  <div className="w-20 h-5 rounded skeleton-shimmer" />
-                </div>
-                <div className="w-3/4 h-6 rounded skeleton-shimmer" />
-                <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                  <div className="w-28 h-8 rounded-lg skeleton-shimmer" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : questions.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {questions.map((q) => (
-              <QuestionCard
-                key={q.id}
-                question={q}
-                isAdmin={false}
-                onStatusChange={handleStatusChange}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16 border border-dashed border-slate-800 rounded-3xl bg-slate-900/30 space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-800/80 flex items-center justify-center mx-auto text-slate-500">
-              <Layers className="w-6 h-6" />
-            </div>
+          <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <p className="text-base font-bold text-slate-200">No questions match your filters</p>
-              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                Try searching for a different keyword or reset active topic/difficulty filters.
-              </p>
+              <div className="text-xs font-bold text-white mb-0.5">{recentFeedback[0].question_title}</div>
+              <p className="text-xs text-slate-300 italic">"{recentFeedback[0].feedback}"</p>
             </div>
-            {hasActiveFilters && (
-              <button
-                onClick={handleResetFilters}
-                className="mt-2 inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
-              >
-                <span>Clear All Filters</span>
-              </button>
+            <button
+              onClick={() => onSelectProblem(recentFeedback[0].question_id)}
+              className="px-3.5 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold shadow-md shrink-0 flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Revise in IDE</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2-Column Split: Active Tasks & Recent Submissions */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left 7 Cols: Active Assigned Tasks */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-cyan-400" />
+              <span>Assigned Tasks & Deadlines</span>
+            </h2>
+            <button
+              onClick={() => onNavigate('tasks')}
+              className="text-xs text-cyan-400 hover:underline font-semibold flex items-center gap-1"
+            >
+              <span>View All</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {tasks.slice(0, 4).map(task => {
+              const isCompleted = task.submission_status === 'solved' || task.status === 'completed';
+              return (
+                <div
+                  key={task.id}
+                  className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all flex items-center justify-between gap-3 shadow-md"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${difficultyColors[task.question_difficulty] || difficultyColors.easy}`}>
+                        {task.question_difficulty}
+                      </span>
+                      {task.priority && (
+                        <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
+                          {task.priority} Priority
+                        </span>
+                      )}
+                      {task.is_overdue && (
+                        <span className="text-[10px] text-rose-400 bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-800/40 font-bold">
+                          Overdue
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-bold text-white truncate">{task.question_title}</div>
+                    <div className="text-[11px] text-slate-400 flex items-center gap-3">
+                      {task.due_date && <span>Due {task.due_date}</span>}
+                      <span>+{task.question_points || 20} pts</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onSelectProblem(task.question_id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1 shadow-md transition-all ${
+                      isCompleted
+                        ? 'bg-slate-800 text-white hover:bg-slate-700'
+                        : 'bg-cyan-600 text-white hover:bg-cyan-500 shadow-cyan-950/40'
+                    }`}
+                  >
+                    <span>{isCompleted ? 'Review' : 'Solve'}</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right 5 Cols: Recent Submissions & Progress */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              <span>Recent Submissions</span>
+            </h2>
+            <button
+              onClick={() => onNavigate('submissions')}
+              className="text-xs text-cyan-400 hover:underline font-semibold flex items-center gap-1"
+            >
+              <span>History</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+            {submissions.length === 0 ? (
+              <div className="text-center py-6 text-slate-400 text-xs">No recent submissions found.</div>
+            ) : (
+              submissions.map(sub => (
+                <div key={sub.id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-bold text-white truncate max-w-[170px]">{sub.question_title}</div>
+                    <div className="text-[10px] text-slate-400">
+                      {sub.submission_type === 'github' ? 'GitHub Link' : 'In-Platform IDE'} • {sub.passed_tests || 0}/{sub.total_tests || 0} passed
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    sub.status === 'solved' || sub.status === 'approved'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : sub.status === 'changes_requested'
+                        ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                        : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                  }`}>
+                    {sub.status}
+                  </span>
+                </div>
+              ))
             )}
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* Pagination Controls */}
-        {pagination.total > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-slate-800/80 text-xs text-slate-400">
-            <div>
-              Showing <span className="text-white font-mono font-bold">{questions.length}</span> of{' '}
-              <span className="text-white font-mono font-bold">{pagination.total}</span> problems
+      {/* SECTION G: Recommended Challenges */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+            <Compass className="w-4 h-4 text-indigo-400" />
+            <span>Recommended Challenges</span>
+          </h2>
+          <button
+            onClick={() => onNavigate('available')}
+            className="text-xs text-cyan-400 hover:underline font-semibold flex items-center gap-1"
+          >
+            <span>Explore All</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {recommended.slice(0, 3).map(q => (
+            <div
+              key={q.id}
+              onClick={() => onSelectProblem(q.id)}
+              className="group p-5 rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950 border border-slate-800 hover:border-indigo-500/40 transition-all cursor-pointer shadow-lg flex flex-col justify-between space-y-3"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${difficultyColors[q.difficulty] || difficultyColors.easy}`}>
+                    {q.difficulty}
+                  </span>
+                  <span className="text-xs text-indigo-400 font-semibold">+{q.points || 20} pts</span>
+                </div>
+                <h3 className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors line-clamp-1">
+                  {q.title}
+                </h3>
+                <p className="text-xs text-slate-400 line-clamp-2 mt-1">
+                  {q.description || 'Master key algorithm patterns and edge cases.'}
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+                <span>{q.topic_name || 'Algorithms'}</span>
+                <span className="text-indigo-400 font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                  Solve <ArrowRight className="w-3 h-3" />
+                </span>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                disabled={pagination.page <= 1}
-                onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-                className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="font-mono text-slate-300 px-2">
-                Page <strong className="text-white">{pagination.page}</strong> / {totalPages}
-              </span>
-              <button
-                disabled={pagination.page >= totalPages}
-                onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-                className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );
