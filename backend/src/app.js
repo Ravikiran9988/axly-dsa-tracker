@@ -14,6 +14,8 @@ const submissionRoutes = require('./routes/submissionRoutes');
 const progressRoutes = require('./routes/progressRoutes');
 const userRoutes = require('./routes/userRoutes');
 const codeExecutionRoutes = require('./routes/codeExecutionRoutes');
+const cohortRoutes = require('./routes/cohortRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
@@ -43,7 +45,7 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 if (process.env.NODE_ENV !== 'test') {
@@ -64,6 +66,8 @@ app.use('/api/v1/submissions', submissionRoutes);
 app.use('/api/v1/progress', progressRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/code', codeExecutionRoutes);
+app.use('/api/v1/cohorts', cohortRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // 404 Route handler
 app.use((req, res, next) => {
