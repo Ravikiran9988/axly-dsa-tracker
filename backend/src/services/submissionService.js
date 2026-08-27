@@ -2,6 +2,7 @@ const { db } = require('../db/db');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
 const githubSubmissionService = require('./githubSubmissionService');
+const { awardSolve } = require('./gamificationService');
 
 function listSubmissions({ user, question_id, status, review_status, page = 1, limit = 50 }) {
   const offset = (page - 1) * limit;
@@ -28,35 +29,25 @@ async function submitViaGithub({ user_id, question_id, github_url, assignment_id
   const snapshot = await githubSubmissionService.getRepositorySnapshot(github_url);
   const question = db.prepare('SELECT * FROM questions WHERE id = ? AND is_active = 1').get(question_id);
   if (!question) throw new AppError('Question not found', 404, 'NOT_FOUND');
-
   const now = new Date().toISOString();
   let submission = db.prepare('SELECT * FROM submissions WHERE user_id = ? AND question_id = ?').get(user_id, question_id);
-
   if (submission) {
     db.prepare(`UPDATE submissions SET submission_type='github', github_url=?, status='under_review', review_status='pending',
-      attempted_at=COALESCE(attempted_at, ?), updated_at=? WHERE id=?`)
-      .run(snapshot.canonicalUrl, now, now, submission.id);
+      attempted_at=COALESCE(attempted_at, ?), updated_at=? WHERE id=?`).run(snapshot.canonicalUrl, now, now, submission.id);
   } else {
     const id = uuidv4();
     db.prepare(`INSERT INTO submissions (id,user_id,question_id,assignment_id,submission_type,github_url,status,review_status,attempted_at,created_at,updated_at)
-      VALUES (?,?,?,?,'github',?,'under_review','pending',?,?,?)`)
-      .run(id, user_id, question_id, assignment_id || null, snapshot.canonicalUrl, now, now, now);
+      VALUES (?,?,?,?,'github',?,'under_review','pending',?,?,?)`).run(id, user_id, question_id, assignment_id || null, snapshot.canonicalUrl, now, now, now);
     submission = { id };
   }
-
   db.prepare(`UPDATE assignments SET status='under_review' WHERE user_id=? AND question_id=?`).run(user_id, question_id);
   githubSubmissionService.recordSnapshot({ id: uuidv4(), submissionId: submission.id, snapshot });
-
   db.prepare(`INSERT INTO code_submissions_log (id,user_id,question_id,submission_type,github_url,status,passed_tests,total_tests)
-    VALUES (?,?,?,'github',?,'Under Review',0,0)`)
-    .run(uuidv4(), user_id, question_id, snapshot.canonicalUrl);
-
+    VALUES (?,?,?,'github',?,'Under Review',0,0)`).run(uuidv4(), user_id, question_id, snapshot.canonicalUrl);
   const admins = db.prepare("SELECT id FROM users WHERE role='admin'").all();
   admins.forEach(admin => db.prepare(`INSERT INTO notifications (id,user_id,title,message,type,link) VALUES (?,?,?,?, 'submission',?)`)
     .run(uuidv4(), admin.id, 'New GitHub Submission Received', `A student submitted a GitHub repository for "${question.title}".`, '/admin/submissions'));
-
-  return { ...db.prepare('SELECT * FROM submissions WHERE user_id=? AND question_id=?').get(user_id, question_id),
-    github_commit_sha: snapshot.commitSha, github_commit_url: snapshot.commitUrl, github_default_branch: snapshot.defaultBranch };
+  return { ...db.prepare('SELECT * FROM submissions WHERE user_id=? AND question_id=?').get(user_id, question_id), github_commit_sha: snapshot.commitSha, github_commit_url: snapshot.commitUrl, github_default_branch: snapshot.defaultBranch };
 }
 
 function reviewSubmission({ submission_id, reviewer_id, review_status, feedback }) {
@@ -64,18 +55,15 @@ function reviewSubmission({ submission_id, reviewer_id, review_status, feedback 
   const submission = db.prepare('SELECT * FROM submissions WHERE id=?').get(submission_id);
   if (!submission) throw new AppError('Submission not found',404,'NOT_FOUND');
   if (review_status === 'changes_requested' && (!feedback || !feedback.trim())) throw new AppError('Feedback is required when requesting changes from a student',400,'VALIDATION_ERROR','feedback');
+  if (submission.review_status === review_status && review_status === 'approved') return submission;
   const now = new Date().toISOString();
   const newStatus = review_status === 'approved' ? 'approved' : review_status === 'changes_requested' ? 'changes_requested' : 'rejected';
   const assignmentStatus = review_status === 'approved' ? 'completed' : review_status === 'changes_requested' ? 'ongoing' : 'incomplete';
   const solvedAt = review_status === 'approved' ? now : submission.solved_at;
-  db.prepare(`UPDATE submissions SET status=?,review_status=?,feedback=?,reviewer_id=?,reviewed_at=?,solved_at=?,updated_at=? WHERE id=?`)
-    .run(newStatus,review_status,feedback?.trim()||null,reviewer_id,now,solvedAt,now,submission_id);
+  db.prepare(`UPDATE submissions SET status=?,review_status=?,feedback=?,reviewer_id=?,reviewed_at=?,solved_at=?,updated_at=? WHERE id=?`).run(newStatus,review_status,feedback?.trim()||null,reviewer_id,now,solvedAt,now,submission_id);
   db.prepare(`UPDATE assignments SET status=? WHERE user_id=? AND question_id=?`).run(assignmentStatus,submission.user_id,submission.question_id);
   const question = db.prepare('SELECT * FROM questions WHERE id=?').get(submission.question_id);
-  if (review_status === 'approved') {
-    const points = question?.points || 20;
-    db.prepare('UPDATE users SET points=points+?, streak=streak+1, longest_streak=MAX(longest_streak,streak+1) WHERE id=?').run(points,submission.user_id);
-  }
+  if (review_status === 'approved' && submission.review_status !== 'approved') awardSolve(submission.user_id, submission.question_id, question?.points || 20);
   const title = review_status === 'approved' ? 'Submission Approved! 🎉' : review_status === 'changes_requested' ? 'Mentor Requested Changes' : 'Submission Reviewed';
   const message = review_status === 'approved' ? `Your solution for "${question?.title}" was approved! +${question?.points || 20} points added to your profile.` : `Mentor feedback on "${question?.title}": "${feedback || 'Please review changes.'}"`;
   db.prepare(`INSERT INTO notifications (id,user_id,title,message,type,link) VALUES (?,?,?,?, 'mentor',?)`).run(uuidv4(),submission.user_id,title,message,'/submissions');
@@ -88,20 +76,28 @@ function updateSubmission({ submission_id, question_id, user_id, status }) {
   if (submission && submission.user_id !== user_id) throw new AppError('Forbidden: Cannot update another user\'s submission',403,'FORBIDDEN');
   const now = new Date().toISOString();
   if (submission) {
+    const wasSolved = ['solved','completed','approved'].includes(submission.status);
     let attemptedAt=submission.attempted_at, solvedAt=submission.solved_at;
     if (status==='attempted'&&!attemptedAt) attemptedAt=now;
-    else if (status==='solved'||status==='completed') { if(!attemptedAt) attemptedAt=now; solvedAt=now; }
+    else if (status==='solved'||status==='completed'){ if(!attemptedAt) attemptedAt=now; solvedAt=now; }
     else if(status==='not_started') solvedAt=null;
     db.prepare('UPDATE submissions SET status=?,attempted_at=?,solved_at=?,updated_at=? WHERE id=?').run(status,attemptedAt,solvedAt,now,submission.id);
+    if (!wasSolved && ['solved','completed'].includes(status)) {
+      const question = db.prepare('SELECT points FROM questions WHERE id=?').get(submission.question_id);
+      awardSolve(user_id, submission.question_id, question?.points || 20);
+    }
     return db.prepare('SELECT * FROM submissions WHERE id=?').get(submission.id);
   }
   if (!db.prepare('SELECT id FROM questions WHERE id=?').get(question_id)) throw new AppError('Question not found',404,'NOT_FOUND');
   const id=uuidv4(); let attemptedAt=null,solvedAt=null;
   if(status==='attempted') attemptedAt=now; else if(status==='solved'||status==='completed'){attemptedAt=now;solvedAt=now;}
   db.prepare('INSERT INTO submissions (id,user_id,question_id,status,attempted_at,solved_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)').run(id,user_id,question_id,status,attemptedAt,solvedAt,now,now);
+  if (['solved','completed'].includes(status)) {
+    const question = db.prepare('SELECT points FROM questions WHERE id=?').get(question_id);
+    awardSolve(user_id, question_id, question?.points || 20);
+  }
   return db.prepare('SELECT * FROM submissions WHERE id=?').get(id);
 }
 
 function getGithubSnapshots(submissionId) { return githubSubmissionService.listSnapshots(submissionId); }
-
 module.exports={listSubmissions,submitViaGithub,reviewSubmission,updateSubmission,getGithubSnapshots};
