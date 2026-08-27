@@ -12,19 +12,42 @@ const assignmentStatusEnum = z.enum(['assigned', 'unassigned'], {
   errorMap: () => ({ message: 'status must be one of assigned|unassigned' })
 });
 
+const testCaseSchema = z.object({
+  id: z.string().optional(),
+  input: z.string().default(''),
+  expected_output: z.string().default(''),
+  is_hidden: z.boolean().or(z.number()).default(false)
+});
+
 // Questions
 const createQuestionSchema = z.object({
   title: z.string().trim().min(1, { message: 'title is required' }),
   difficulty: difficultyEnum,
   topic_id: z.string().trim().nullable().optional(),
-  url: z.string().trim().url({ message: 'url must be a valid URL' })
+  url: z.string().trim().url({ message: 'url must be a valid URL' }).optional().or(z.literal('')),
+  description: z.string().optional(),
+  constraints: z.string().optional(),
+  input_format: z.string().optional(),
+  output_format: z.string().optional(),
+  example_input: z.string().optional(),
+  example_output: z.string().optional(),
+  starter_code: z.string().optional().or(z.record(z.string())),
+  test_cases: z.array(testCaseSchema).optional()
 });
 
 const updateQuestionSchema = z.object({
   title: z.string().trim().min(1).optional(),
   difficulty: difficultyEnum.optional(),
   topic_id: z.string().trim().nullable().optional(),
-  url: z.string().trim().url({ message: 'url must be a valid URL' }).optional(),
+  url: z.string().trim().url({ message: 'url must be a valid URL' }).optional().or(z.literal('')),
+  description: z.string().optional(),
+  constraints: z.string().optional(),
+  input_format: z.string().optional(),
+  output_format: z.string().optional(),
+  example_input: z.string().optional(),
+  example_output: z.string().optional(),
+  starter_code: z.string().optional().or(z.record(z.string())),
+  test_cases: z.array(testCaseSchema).optional(),
   is_active: z.boolean().optional()
 });
 
@@ -50,6 +73,20 @@ const updateSubmissionSchema = z.object({
   status: submissionStatusEnum
 });
 
+// Code Execution Schemas
+const runCodeSchema = z.object({
+  question_id: z.string().trim().min(1, { message: 'question_id is required' }),
+  language: z.enum(['javascript', 'js', 'node', 'python', 'py', 'python3']).default('javascript'),
+  source_code: z.string().min(1, { message: 'source_code cannot be empty' }),
+  custom_input: z.string().optional()
+});
+
+const submitCodeSchema = z.object({
+  question_id: z.string().trim().min(1, { message: 'question_id is required' }),
+  language: z.enum(['javascript', 'js', 'node', 'python', 'py', 'python3']).default('javascript'),
+  source_code: z.string().min(1, { message: 'source_code cannot be empty' })
+});
+
 // Query params validator
 const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -63,6 +100,8 @@ module.exports = {
   createAssignmentSchema,
   bulkAssignmentSchema,
   updateSubmissionSchema,
+  runCodeSchema,
+  submitCodeSchema,
   paginationSchema,
   difficultyEnum,
   submissionStatusEnum

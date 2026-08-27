@@ -20,7 +20,7 @@ async function getQuestions(req, res, next) {
 
 async function getQuestionById(req, res, next) {
   try {
-    const question = questionService.getQuestionById(req.params.id);
+    const question = questionService.getQuestionById(req.params.id, req.user);
     if (!question) {
       return res.status(404).json({
         error: { code: 'NOT_FOUND', message: 'Question not found' }

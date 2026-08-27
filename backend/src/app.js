@@ -13,6 +13,7 @@ const assignmentRoutes = require('./routes/assignmentRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const progressRoutes = require('./routes/progressRoutes');
 const userRoutes = require('./routes/userRoutes');
+const codeExecutionRoutes = require('./routes/codeExecutionRoutes');
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api/v1/assignments', assignmentRoutes);
 app.use('/api/v1/submissions', submissionRoutes);
 app.use('/api/v1/progress', progressRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/code', codeExecutionRoutes);
 
 // 404 Route handler
 app.use((req, res, next) => {

@@ -70,6 +70,13 @@ function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit =
       q.topic_id,
       t.name as topic_name,
       q.url,
+      q.description,
+      q.constraints,
+      q.input_format,
+      q.output_format,
+      q.example_input,
+      q.example_output,
+      q.starter_code,
       q.is_active,
       q.created_at,
       a.id as assignment_id,
@@ -78,7 +85,8 @@ function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit =
       s.status as submission_status,
       s.attempted_at,
       s.solved_at,
-      (SELECT COUNT(*) FROM assignments sub_a WHERE sub_a.question_id = q.id AND sub_a.status = 'assigned') as active_assignees_count
+      (SELECT COUNT(*) FROM assignments sub_a WHERE sub_a.question_id = q.id AND sub_a.status = 'assigned') as active_assignees_count,
+      (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = q.id) as total_test_cases_count
     FROM questions q
     LEFT JOIN topics t ON q.topic_id = t.id
     LEFT JOIN assignments a ON a.question_id = q.id AND a.user_id = ? AND a.status = 'assigned'
@@ -98,6 +106,13 @@ function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit =
     topic_id: item.topic_id,
     topic_name: item.topic_name || null,
     url: item.url,
+    description: item.description || null,
+    constraints: item.constraints || null,
+    input_format: item.input_format || null,
+    output_format: item.output_format || null,
+    example_input: item.example_input || null,
+    example_output: item.example_output || null,
+    starter_code: item.starter_code ? safeParseJson(item.starter_code) : null,
     is_active: Boolean(item.is_active),
     created_at: item.created_at,
     assignment_id: item.assignment_id || null,
@@ -106,7 +121,8 @@ function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit =
     submission_status: item.submission_status || 'not_started',
     attempted_at: item.attempted_at || null,
     solved_at: item.solved_at || null,
-    active_assignees_count: item.active_assignees_count || 0
+    active_assignees_count: item.active_assignees_count || 0,
+    total_test_cases_count: item.total_test_cases_count || 0
   }));
 
   return {
@@ -117,7 +133,15 @@ function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit =
   };
 }
 
-function getQuestionById(id) {
+function safeParseJson(str) {
+  try {
+    return typeof str === 'string' ? JSON.parse(str) : str;
+  } catch (e) {
+    return str;
+  }
+}
+
+function getQuestionById(id, user = null) {
   const stmt = db.prepare(`
     SELECT q.*, t.name as topic_name 
     FROM questions q 
@@ -126,14 +150,51 @@ function getQuestionById(id) {
   `);
   const q = stmt.get(id);
   if (!q) return null;
+
+  // Fetch test cases (filter hidden if not admin)
+  const isAdmin = user?.role === 'admin';
+  const testCasesQuery = isAdmin
+    ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC'
+    : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = 0 ORDER BY created_at ASC';
+
+  const testCases = db.prepare(testCasesQuery).all(id).map(tc => ({
+    id: tc.id,
+    input: tc.input,
+    expected_output: tc.expected_output,
+    is_hidden: Boolean(tc.is_hidden)
+  }));
+
+  // Fetch user submission status if user is passed
+  let submission = null;
+  if (user) {
+    submission = db.prepare('SELECT * FROM submissions WHERE question_id = ? AND user_id = ?').get(id, user.id);
+  }
+
   return {
     ...q,
-    is_active: Boolean(q.is_active)
+    is_active: Boolean(q.is_active),
+    starter_code: q.starter_code ? safeParseJson(q.starter_code) : null,
+    test_cases: testCases,
+    submission_status: submission?.status || 'not_started',
+    submission: submission || null
   };
 }
 
-function createQuestion({ title, difficulty, topic_id, url }) {
-  // Check duplicate title (application layer check per PRD Section 15.3)
+function createQuestion({ 
+  title, 
+  difficulty, 
+  topic_id, 
+  url, 
+  description, 
+  constraints, 
+  input_format, 
+  output_format, 
+  example_input, 
+  example_output, 
+  starter_code, 
+  test_cases = [] 
+}) {
+  // Check duplicate title
   const existing = db.prepare('SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND is_active = 1').get(title);
   if (existing) {
     throw new AppError(`A question with title "${title}" already exists.`, 409, 'CONFLICT', 'title');
@@ -148,17 +209,55 @@ function createQuestion({ title, difficulty, topic_id, url }) {
   }
 
   const id = uuidv4();
-  const insert = db.prepare(`
-    INSERT INTO questions (id, title, difficulty, topic_id, url, is_active)
-    VALUES (?, ?, ?, ?, ?, 1)
-  `);
-  insert.run(id, title, difficulty.toLowerCase(), topic_id || null, url);
+  const fallbackUrl = url && url.trim() ? url.trim() : `https://dsatracker.axly.in/questions/${id}`;
+  const starterCodeStr = typeof starter_code === 'object' ? JSON.stringify(starter_code) : starter_code || null;
 
-  return getQuestionById(id);
+  const insert = db.prepare(`
+    INSERT INTO questions (
+      id, title, difficulty, topic_id, url, 
+      description, constraints, input_format, output_format, 
+      example_input, example_output, starter_code, is_active
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+  `);
+
+  insert.run(
+    id,
+    title,
+    difficulty.toLowerCase(),
+    topic_id || null,
+    fallbackUrl,
+    description || null,
+    constraints || null,
+    input_format || null,
+    output_format || null,
+    example_input || null,
+    example_output || null,
+    starterCodeStr
+  );
+
+  // Insert test cases
+  if (Array.isArray(test_cases) && test_cases.length > 0) {
+    const insertTc = db.prepare(`
+      INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    test_cases.forEach((tc) => {
+      insertTc.run(
+        tc.id || uuidv4(),
+        id,
+        tc.input || '',
+        tc.expected_output || '',
+        tc.is_hidden ? 1 : 0
+      );
+    });
+  }
+
+  return getQuestionById(id, { role: 'admin' });
 }
 
 function updateQuestion(id, updates) {
-  const existing = getQuestionById(id);
+  const existing = getQuestionById(id, { role: 'admin' });
   if (!existing) {
     throw new AppError('Question not found', 404, 'NOT_FOUND');
   }
@@ -196,6 +295,34 @@ function updateQuestion(id, updates) {
     fields.push('url = ?');
     params.push(updates.url);
   }
+  if (updates.description !== undefined) {
+    fields.push('description = ?');
+    params.push(updates.description);
+  }
+  if (updates.constraints !== undefined) {
+    fields.push('constraints = ?');
+    params.push(updates.constraints);
+  }
+  if (updates.input_format !== undefined) {
+    fields.push('input_format = ?');
+    params.push(updates.input_format);
+  }
+  if (updates.output_format !== undefined) {
+    fields.push('output_format = ?');
+    params.push(updates.output_format);
+  }
+  if (updates.example_input !== undefined) {
+    fields.push('example_input = ?');
+    params.push(updates.example_input);
+  }
+  if (updates.example_output !== undefined) {
+    fields.push('example_output = ?');
+    params.push(updates.example_output);
+  }
+  if (updates.starter_code !== undefined) {
+    fields.push('starter_code = ?');
+    params.push(typeof updates.starter_code === 'object' ? JSON.stringify(updates.starter_code) : updates.starter_code);
+  }
   if (updates.is_active !== undefined) {
     fields.push('is_active = ?');
     params.push(updates.is_active ? 1 : 0);
@@ -206,7 +333,25 @@ function updateQuestion(id, updates) {
     db.prepare(`UPDATE questions SET ${fields.join(', ')} WHERE id = ?`).run(...params);
   }
 
-  return getQuestionById(id);
+  // Update test cases if passed
+  if (Array.isArray(updates.test_cases)) {
+    db.prepare('DELETE FROM test_cases WHERE question_id = ?').run(id);
+    const insertTc = db.prepare(`
+      INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    updates.test_cases.forEach((tc) => {
+      insertTc.run(
+        tc.id || uuidv4(),
+        id,
+        tc.input || '',
+        tc.expected_output || '',
+        tc.is_hidden ? 1 : 0
+      );
+    });
+  }
+
+  return getQuestionById(id, { role: 'admin' });
 }
 
 function deleteQuestion(id) {
@@ -215,7 +360,6 @@ function deleteQuestion(id) {
     throw new AppError('Question not found', 404, 'NOT_FOUND');
   }
 
-  // PRD Section 17.1 & FR-14: An active question cannot be soft-deleted while it is today's UTC daily question
   const todayUtc = new Date().toISOString().split('T')[0];
   const isDailyToday = db.prepare(`
     SELECT id FROM daily_questions 
@@ -226,7 +370,6 @@ function deleteQuestion(id) {
     throw new AppError('Cannot delete the current daily question — change it first', 409, 'CONFLICT');
   }
 
-  // Soft delete: set is_active = 0
   db.prepare('UPDATE questions SET is_active = 0 WHERE id = ?').run(id);
 
   return { message: 'Question successfully deactivated (soft-deleted)', id };
