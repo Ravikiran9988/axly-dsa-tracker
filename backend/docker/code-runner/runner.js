@@ -11,28 +11,25 @@ const MAX_OUTPUT = 64 * 1024;
 const MAX_TEST_CASES = 20;
 const TIMEOUT = 5_000;
 const COMPILE_TIMEOUT = 10_000;
-const COMMANDS = {
-  javascript: ['node', f => [f]],
-  python: ['python3', f => [f]],
-  java: ['java', f => ['-cp', path.dirname(f), 'Main']]
+
+const LANGUAGE_FILES = {
+  java: 'Main.java', python: 'main.py', typescript: 'main.ts',
+  javascript: 'main.js', cpp: 'main.cpp', c: 'main.c'
 };
 
-function execute(command, args, input, timeout = TIMEOUT) {
+function execute(command, args, input, timeout) {
   return new Promise(resolve => {
-    const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'], detached: true });
     let stdout = '', stderr = '', settled = false;
+    const started = Date.now();
     const finish = result => {
-      if (!settled) { settled = true; clearTimeout(timer); resolve(result); }
+      if (!settled) { settled = true; clearTimeout(timer); resolve({ ...result, execution_time_ms: Date.now() - started }); }
     };
-    const timer = setTimeout(() => { child.kill('SIGKILL'); finish({ status: 'TIME_LIMIT_EXCEEDED', stdout, stderr }); }, timeout);
-    child.stdout.on('data', d => {
-      stdout += d.toString();
-      if (Buffer.byteLength(stdout) > MAX_OUTPUT) child.kill('SIGKILL');
-    });
-    child.stderr.on('data', d => {
-      stderr += d.toString();
-      if (Buffer.byteLength(stderr) > MAX_OUTPUT) child.kill('SIGKILL');
-    });
+    const killGroup = () => { try { process.kill(-child.pid, 'SIGKILL'); } catch { try { child.kill('SIGKILL'); } catch {} } };
+    const timer = setTimeout(() => { killGroup(); finish({ status: 'TIME_LIMIT_EXCEEDED', stdout, stderr }); }, timeout);
+    const append = (current, chunk) => current + chunk.toString();
+    child.stdout.on('data', d => { stdout = append(stdout, d); if (Buffer.byteLength(stdout) > MAX_OUTPUT) { killGroup(); finish({ status: 'OUTPUT_LIMIT_EXCEEDED', stdout: stdout.slice(0, MAX_OUTPUT), stderr }); } });
+    child.stderr.on('data', d => { stderr = append(stderr, d); if (Buffer.byteLength(stderr) > MAX_OUTPUT) { killGroup(); finish({ status: 'OUTPUT_LIMIT_EXCEEDED', stdout, stderr: stderr.slice(0, MAX_OUTPUT) }); } });
     child.on('error', e => finish({ status: 'RUNTIME_ERROR', stdout, stderr: e.message }));
     child.on('close', code => finish({ status: code === 0 ? 'PASSED' : 'RUNTIME_ERROR', stdout: stdout.slice(0, MAX_OUTPUT), stderr: stderr.slice(0, MAX_OUTPUT), exitCode: code }));
     child.stdin.end(input || '');
@@ -43,58 +40,60 @@ async function run(body) {
   const language = String(body.language || '').toLowerCase();
   const code = String(body.code || '');
   const testCases = Array.isArray(body.testCases) ? body.testCases.slice(0, MAX_TEST_CASES) : [];
-  if (!['javascript', 'python', 'typescript', 'java', 'c', 'cpp'].includes(language)) throw new Error('Unsupported language');
+  if (!Object.hasOwn(LANGUAGE_FILES, language)) throw new Error('Unsupported language');
   if (code.length > MAX_CODE) throw new Error('Source code is too large');
   if (testCases.length === 0) throw new Error('At least one test case is required');
   if (testCases.some(t => String(t.input || '').length > MAX_INPUT)) throw new Error('Test input is too large');
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'axly-'));
-  const filename = { java: 'Main.java', python: 'main.py', typescript: 'main.ts', javascript: 'main.js', cpp: 'main.cpp', c: 'main.c' }[language];
-  let file = path.join(dir, filename);
+  const dir = fs.mkdtempSync(path.join('/runner/work', 'axly-'));
+  let file = path.join(dir, LANGUAGE_FILES[language]);
   try {
     let source = code;
     if (language === 'java' && /public\s+class\s+Solution\b/.test(source)) source = source.replace(/public\s+class\s+Solution\b/, 'public class Main');
     fs.writeFileSync(file, source, { mode: 0o600 });
 
+    let command, args, executionFile = file;
     if (language === 'typescript') {
       const compiled = await execute('tsc', ['--target', 'ES2022', '--module', 'commonjs', '--outDir', dir, file], '', COMPILE_TIMEOUT);
-      if (compiled.status !== 'PASSED') return { status: 'COMPILATION_ERROR', stderr: compiled.stderr, stdout: compiled.stdout };
-      file = path.join(dir, 'main.js');
-      COMMANDS.javascript = ['node', f => [f]];
-      COMMANDS.typescript = COMMANDS.javascript;
+      if (compiled.status !== 'PASSED') return { status: 'COMPILATION_ERROR', stderr: compiled.stderr, stdout: compiled.stdout, execution_time_ms: compiled.execution_time_ms };
+      executionFile = path.join(dir, 'main.js'); command = 'node'; args = [executionFile];
     } else if (language === 'c' || language === 'cpp') {
       const compiler = language === 'c' ? 'gcc' : 'g++';
       const out = path.join(dir, 'program');
       const compiled = await execute(compiler, ['-O2', file, '-o', out], '', COMPILE_TIMEOUT);
-      if (compiled.status !== 'PASSED') return { status: 'COMPILATION_ERROR', stderr: compiled.stderr, stdout: compiled.stdout };
-      COMMANDS[language] = [out, () => []];
-      file = out;
+      if (compiled.status !== 'PASSED') return { status: 'COMPILATION_ERROR', stderr: compiled.stderr, stdout: compiled.stdout, execution_time_ms: compiled.execution_time_ms };
+      command = out; args = [];
     } else if (language === 'java') {
       const compiled = await execute('javac', [file], '', COMPILE_TIMEOUT);
-      if (compiled.status !== 'PASSED') return { status: 'COMPILATION_ERROR', stderr: compiled.stderr, stdout: compiled.stdout };
+      if (compiled.status !== 'PASSED') return { status: 'COMPILATION_ERROR', stderr: compiled.stderr, stdout: compiled.stdout, execution_time_ms: compiled.execution_time_ms };
+      command = 'java'; args = ['-cp', dir, 'Main'];
+    } else {
+      command = language === 'python' ? 'python3' : 'node'; args = [file];
     }
 
     const results = [];
+    let totalExecution = 0;
     for (const tc of testCases) {
-      const [cmd, argBuilder] = COMMANDS[language];
-      const result = await execute(cmd, argBuilder(file), String(tc.input || ''));
+      const result = await execute(command, args, String(tc.input || ''), TIMEOUT);
+      totalExecution += result.execution_time_ms;
       const actual = result.stdout.trim();
       const expected = String(tc.expectedOutput ?? '').trim();
+      const hidden = Boolean(tc.is_hidden);
+      const passed = result.status === 'PASSED' && actual === expected;
       results.push({
-        input: tc.is_hidden ? '[Hidden Test Case]' : String(tc.input || ''),
-        expectedOutput: tc.is_hidden ? '[Hidden Output]' : expected,
-        actualOutput: tc.is_hidden ? (result.status === 'PASSED' && actual === expected ? '[Output Passed]' : '[Output Failed]') : actual,
+        is_hidden: hidden,
+        input: hidden ? '[Hidden Test Case]' : String(tc.input || ''),
+        expected_output: hidden ? '[Hidden Output]' : expected,
+        actual_output: hidden ? (passed ? '[Output Passed]' : '[Output Failed]') : actual,
         status: result.status,
-        stderr: tc.is_hidden ? undefined : result.stderr
+        stderr: hidden ? undefined : result.stderr
       });
-      if (result.status === 'TIME_LIMIT_EXCEEDED') break;
+      if (result.status !== 'PASSED' || !passed) break;
     }
-    const passed = results.filter(r => r.status === 'PASSED' && (r.actualOutput === '[Output Passed]' || r.actualOutput === r.expectedOutput)).length;
-    const status = results.some(r => r.status === 'TIME_LIMIT_EXCEEDED') ? 'TIME_LIMIT_EXCEEDED' : passed === results.length ? 'ACCEPTED' : 'WRONG_ANSWER';
-    return { status, passed_tests: passed, total_tests: results.length, results };
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
+    const passedTests = results.filter(r => r.status === 'PASSED' && (r.actual_output === '[Output Passed]' || r.actual_output === r.expected_output)).length;
+    const status = results.some(r => r.status === 'TIME_LIMIT_EXCEEDED') ? 'TIME_LIMIT_EXCEEDED' : results.some(r => r.status === 'OUTPUT_LIMIT_EXCEEDED') ? 'OUTPUT_LIMIT_EXCEEDED' : passedTests === results.length && results.length === testCases.length ? 'ACCEPTED' : 'WRONG_ANSWER';
+    return { status, passed_tests: passedTests, total_tests: testCases.length, execution_time_ms: totalExecution, results };
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
 const server = http.createServer((req, res) => {
