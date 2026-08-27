@@ -1,7 +1,7 @@
 const API_BASE = '/api/v1';
 
 function getAuthHeader() {
-  const token = localStorage.getItem('axly_token');
+  const token = localStorage.getItem('axly_auth_token') || localStorage.getItem('axly_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -31,6 +31,18 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  // Auth methods
+  async verifyAuth() {
+    return request('/auth/verify');
+  },
+
+  async devLogin(email, role = 'user') {
+    return request('/auth/dev-login', {
+      method: 'POST',
+      body: JSON.stringify({ email, role })
+    });
+  },
+
   // Questions / Challenges
   async getQuestions(params = {}) {
     const query = new URLSearchParams();
@@ -67,18 +79,60 @@ export const api = {
     });
   },
 
-  async getTopics() {
-    return request('/questions/topics');
-  },
-
-  // Daily Question
+  // Daily Spotlight
   async getDailyQuestion() {
-    return request('/daily-question');
+    return request('/daily');
   },
 
   async setDailyQuestion(data) {
-    return request('/daily-question', {
+    return request('/daily', {
       method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // In-Platform Code Runner
+  async runCode(data) {
+    return request('/code/run', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async submitCode(data) {
+    return request('/code/submit', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async getCodeSubmissions(questionId) {
+    return request(`/code/submissions/${questionId}`);
+  },
+
+  // Dual Submissions & Mentor Review
+  async submitChallenge(data) {
+    return request('/submissions', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async getSubmissions(params = {}) {
+    const query = new URLSearchParams();
+    if (params.status) query.append('status', params.status);
+    if (params.review_status) query.append('review_status', params.review_status);
+    if (params.submission_type) query.append('submission_type', params.submission_type);
+    if (params.user_id) query.append('user_id', params.user_id);
+    if (params.question_id) query.append('question_id', params.question_id);
+    if (params.page) query.append('page', params.page);
+    if (params.limit) query.append('limit', params.limit);
+    return request(`/submissions?${query.toString()}`);
+  },
+
+  async reviewSubmission(id, data) {
+    return request(`/submissions/${id}/review`, {
+      method: 'PATCH',
       body: JSON.stringify(data)
     });
   },
@@ -86,8 +140,10 @@ export const api = {
   // Assignments
   async getAssignments(params = {}) {
     const query = new URLSearchParams();
-    if (params.user_id) query.append('user_id', params.user_id);
     if (params.status) query.append('status', params.status);
+    if (params.user_id) query.append('user_id', params.user_id);
+    if (params.cohort_id) query.append('cohort_id', params.cohort_id);
+    if (params.priority) query.append('priority', params.priority);
     if (params.page) query.append('page', params.page);
     if (params.limit) query.append('limit', params.limit);
     return request(`/assignments?${query.toString()}`);
@@ -107,66 +163,23 @@ export const api = {
     });
   },
 
-  async unassign(id) {
-    return request(`/assignments/${id}`, {
-      method: 'DELETE'
+  async updateAssignmentStatus(id, status) {
+    return request(`/assignments/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status })
     });
   },
 
-  // Code Execution & Sandboxed Runner
-  async runCode(data) {
-    return request('/code/run', {
+  // Topics
+  async getTopics() {
+    return request('/topics');
+  },
+
+  async createTopic(name) {
+    return request('/topics', {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify({ name })
     });
-  },
-
-  async submitCode(data) {
-    return request('/code/submit', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  },
-
-  async getCodeSubmissionsHistory(questionId) {
-    return request(`/code/submissions/${questionId}`);
-  },
-
-  // Submissions & Mentor Review
-  async getSubmissions(params = {}) {
-    const query = new URLSearchParams();
-    if (params.question_id) query.append('question_id', params.question_id);
-    if (params.status) query.append('status', params.status);
-    if (params.review_status) query.append('review_status', params.review_status);
-    if (params.page) query.append('page', params.page);
-    if (params.limit) query.append('limit', params.limit);
-    return request(`/submissions?${query.toString()}`);
-  },
-
-  async submitViaGithub(data) {
-    return request('/submissions/github', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  },
-
-  async reviewSubmission(id, data) {
-    return request(`/submissions/${id}/review`, {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  },
-
-  async toggleSubmission(data) {
-    return request('/submissions/toggle', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  },
-
-  // Progress
-  async getMyProgress() {
-    return request('/progress/me');
   },
 
   // Cohorts

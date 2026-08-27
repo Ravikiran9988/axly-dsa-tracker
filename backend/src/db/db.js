@@ -231,64 +231,71 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_daily_questions_date ON daily_questions(date);
   `);
 
-  // Safe table alterations for migration on existing databases
-  try {
-    const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
-    if (!userCols.includes('username')) db.prepare("ALTER TABLE users ADD COLUMN username TEXT").run();
-    if (!userCols.includes('institution')) db.prepare("ALTER TABLE users ADD COLUMN institution TEXT DEFAULT 'Axly Tech Academy'").run();
-    if (!userCols.includes('bio')) db.prepare("ALTER TABLE users ADD COLUMN bio TEXT").run();
-    if (!userCols.includes('github_url')) db.prepare("ALTER TABLE users ADD COLUMN github_url TEXT").run();
-    if (!userCols.includes('linkedin_url')) db.prepare("ALTER TABLE users ADD COLUMN linkedin_url TEXT").run();
-    if (!userCols.includes('skills')) db.prepare("ALTER TABLE users ADD COLUMN skills TEXT DEFAULT '[\"JavaScript\", \"Data Structures\", \"Algorithms\"]'").run();
-    if (!userCols.includes('avatar_url')) db.prepare("ALTER TABLE users ADD COLUMN avatar_url TEXT").run();
-    if (!userCols.includes('points')) db.prepare("ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 100").run();
-    if (!userCols.includes('streak')) db.prepare("ALTER TABLE users ADD COLUMN streak INTEGER DEFAULT 1").run();
-    if (!userCols.includes('longest_streak')) db.prepare("ALTER TABLE users ADD COLUMN longest_streak INTEGER DEFAULT 1").run();
-    if (!userCols.includes('rank')) db.prepare("ALTER TABLE users ADD COLUMN rank INTEGER DEFAULT 1").run();
-    if (!userCols.includes('last_active_at')) db.prepare("ALTER TABLE users ADD COLUMN last_active_at TEXT DEFAULT (datetime('now'))").run();
-
-    const questionCols = db.prepare("PRAGMA table_info(questions)").all().map(c => c.name);
-    if (!questionCols.includes('description')) db.prepare("ALTER TABLE questions ADD COLUMN description TEXT").run();
-    if (!questionCols.includes('problem_statement')) db.prepare("ALTER TABLE questions ADD COLUMN problem_statement TEXT").run();
-    if (!questionCols.includes('constraints')) db.prepare("ALTER TABLE questions ADD COLUMN constraints TEXT").run();
-    if (!questionCols.includes('input_format')) db.prepare("ALTER TABLE questions ADD COLUMN input_format TEXT").run();
-    if (!questionCols.includes('output_format')) db.prepare("ALTER TABLE questions ADD COLUMN output_format TEXT").run();
-    if (!questionCols.includes('example_input')) db.prepare("ALTER TABLE questions ADD COLUMN example_input TEXT").run();
-    if (!questionCols.includes('example_output')) db.prepare("ALTER TABLE questions ADD COLUMN example_output TEXT").run();
-    if (!questionCols.includes('hints')) db.prepare("ALTER TABLE questions ADD COLUMN hints TEXT").run();
-    if (!questionCols.includes('tags')) db.prepare("ALTER TABLE questions ADD COLUMN tags TEXT DEFAULT '[]'").run();
-    if (!questionCols.includes('estimated_time')) db.prepare("ALTER TABLE questions ADD COLUMN estimated_time TEXT DEFAULT '30 mins'").run();
-    if (!questionCols.includes('points')) db.prepare("ALTER TABLE questions ADD COLUMN points INTEGER DEFAULT 20").run();
-    if (!questionCols.includes('assigned_date')) db.prepare("ALTER TABLE questions ADD COLUMN assigned_date TEXT").run();
-    if (!questionCols.includes('due_date')) db.prepare("ALTER TABLE questions ADD COLUMN due_date TEXT").run();
-    if (!questionCols.includes('status')) db.prepare("ALTER TABLE questions ADD COLUMN status TEXT DEFAULT 'published'").run();
-    if (!questionCols.includes('supported_languages')) db.prepare("ALTER TABLE questions ADD COLUMN supported_languages TEXT DEFAULT '[\"python\", \"javascript\", \"java\", \"cpp\", \"c\", \"typescript\"]'").run();
-    if (!questionCols.includes('starter_code')) db.prepare("ALTER TABLE questions ADD COLUMN starter_code TEXT").run();
-
-    const assignmentCols = db.prepare("PRAGMA table_info(assignments)").all().map(c => c.name);
-    if (!assignmentCols.includes('cohort_id')) db.prepare("ALTER TABLE assignments ADD COLUMN cohort_id TEXT").run();
-    if (!assignmentCols.includes('due_date')) db.prepare("ALTER TABLE assignments ADD COLUMN due_date TEXT").run();
-    if (!assignmentCols.includes('priority')) db.prepare("ALTER TABLE assignments ADD COLUMN priority TEXT DEFAULT 'Medium'").run();
-    if (!assignmentCols.includes('instructions')) db.prepare("ALTER TABLE assignments ADD COLUMN instructions TEXT").run();
-
-    const submissionCols = db.prepare("PRAGMA table_info(submissions)").all().map(c => c.name);
-    if (!submissionCols.includes('assignment_id')) db.prepare("ALTER TABLE submissions ADD COLUMN assignment_id TEXT").run();
-    if (!submissionCols.includes('submission_type')) db.prepare("ALTER TABLE submissions ADD COLUMN submission_type TEXT DEFAULT 'code'").run();
-    if (!submissionCols.includes('github_url')) db.prepare("ALTER TABLE submissions ADD COLUMN github_url TEXT").run();
-    if (!submissionCols.includes('review_status')) db.prepare("ALTER TABLE submissions ADD COLUMN review_status TEXT DEFAULT 'pending'").run();
-    if (!submissionCols.includes('feedback')) db.prepare("ALTER TABLE submissions ADD COLUMN feedback TEXT").run();
-    if (!submissionCols.includes('reviewer_id')) db.prepare("ALTER TABLE submissions ADD COLUMN reviewer_id TEXT").run();
-    if (!submissionCols.includes('reviewed_at')) db.prepare("ALTER TABLE submissions ADD COLUMN reviewed_at TEXT").run();
-    if (!submissionCols.includes('language')) db.prepare("ALTER TABLE submissions ADD COLUMN language TEXT DEFAULT 'javascript'").run();
-    if (!submissionCols.includes('source_code')) db.prepare("ALTER TABLE submissions ADD COLUMN source_code TEXT").run();
-    if (!submissionCols.includes('passed_tests')) db.prepare("ALTER TABLE submissions ADD COLUMN passed_tests INTEGER DEFAULT 0").run();
-    if (!submissionCols.includes('total_tests')) db.prepare("ALTER TABLE submissions ADD COLUMN total_tests INTEGER DEFAULT 0").run();
-    if (!submissionCols.includes('execution_time_ms')) db.prepare("ALTER TABLE submissions ADD COLUMN execution_time_ms REAL DEFAULT 0").run();
-    if (!submissionCols.includes('created_at')) db.prepare("ALTER TABLE submissions ADD COLUMN created_at TEXT DEFAULT (datetime('now'))").run();
-    if (!submissionCols.includes('updated_at')) db.prepare("ALTER TABLE submissions ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))").run();
-  } catch (e) {
-    // Ignore migration warnings
+  // Safe individual column migrations
+  function addColumnIfNotExists(table, column, def) {
+    try {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+      if (!cols.includes(column)) {
+        db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`).run();
+      }
+    } catch (e) {
+      // ignore
+    }
   }
+
+  // Users migrations
+  addColumnIfNotExists('users', 'username', 'TEXT');
+  addColumnIfNotExists('users', 'institution', "TEXT DEFAULT 'Axly Tech Academy'");
+  addColumnIfNotExists('users', 'bio', 'TEXT');
+  addColumnIfNotExists('users', 'github_url', 'TEXT');
+  addColumnIfNotExists('users', 'linkedin_url', 'TEXT');
+  addColumnIfNotExists('users', 'skills', 'TEXT DEFAULT \'["JavaScript", "Data Structures", "Algorithms"]\'');
+  addColumnIfNotExists('users', 'avatar_url', 'TEXT');
+  addColumnIfNotExists('users', 'points', 'INTEGER DEFAULT 100');
+  addColumnIfNotExists('users', 'streak', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('users', 'longest_streak', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('users', 'rank', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('users', 'last_active_at', "TEXT DEFAULT (datetime('now'))");
+
+  // Questions migrations
+  addColumnIfNotExists('questions', 'description', 'TEXT');
+  addColumnIfNotExists('questions', 'problem_statement', 'TEXT');
+  addColumnIfNotExists('questions', 'constraints', 'TEXT');
+  addColumnIfNotExists('questions', 'input_format', 'TEXT');
+  addColumnIfNotExists('questions', 'output_format', 'TEXT');
+  addColumnIfNotExists('questions', 'example_input', 'TEXT');
+  addColumnIfNotExists('questions', 'example_output', 'TEXT');
+  addColumnIfNotExists('questions', 'hints', 'TEXT');
+  addColumnIfNotExists('questions', 'tags', "TEXT DEFAULT '[]'");
+  addColumnIfNotExists('questions', 'estimated_time', "TEXT DEFAULT '30 mins'");
+  addColumnIfNotExists('questions', 'points', 'INTEGER DEFAULT 20');
+  addColumnIfNotExists('questions', 'assigned_date', 'TEXT');
+  addColumnIfNotExists('questions', 'due_date', 'TEXT');
+  addColumnIfNotExists('questions', 'status', "TEXT DEFAULT 'published'");
+  addColumnIfNotExists('questions', 'supported_languages', 'TEXT DEFAULT \'["python", "javascript", "java", "cpp", "c", "typescript"]\'');
+  addColumnIfNotExists('questions', 'starter_code', 'TEXT');
+
+  // Assignments migrations
+  addColumnIfNotExists('assignments', 'cohort_id', 'TEXT');
+  addColumnIfNotExists('assignments', 'due_date', 'TEXT');
+  addColumnIfNotExists('assignments', 'priority', "TEXT DEFAULT 'Medium'");
+  addColumnIfNotExists('assignments', 'instructions', 'TEXT');
+
+  // Submissions migrations
+  addColumnIfNotExists('submissions', 'assignment_id', 'TEXT');
+  addColumnIfNotExists('submissions', 'submission_type', "TEXT DEFAULT 'code'");
+  addColumnIfNotExists('submissions', 'github_url', 'TEXT');
+  addColumnIfNotExists('submissions', 'review_status', "TEXT DEFAULT 'pending'");
+  addColumnIfNotExists('submissions', 'feedback', 'TEXT');
+  addColumnIfNotExists('submissions', 'reviewer_id', 'TEXT');
+  addColumnIfNotExists('submissions', 'reviewed_at', 'TEXT');
+  addColumnIfNotExists('submissions', 'language', "TEXT DEFAULT 'javascript'");
+  addColumnIfNotExists('submissions', 'source_code', 'TEXT');
+  addColumnIfNotExists('submissions', 'passed_tests', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('submissions', 'total_tests', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('submissions', 'execution_time_ms', 'REAL DEFAULT 0');
+  addColumnIfNotExists('submissions', 'created_at', "TEXT DEFAULT (datetime('now'))");
+  addColumnIfNotExists('submissions', 'updated_at', "TEXT DEFAULT (datetime('now'))");
 }
 
 initSchema();
