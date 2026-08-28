@@ -1,12 +1,7 @@
 const { db } = require('../db/db');
+const { refreshCompetitiveRanks } = require('./leaderboardService');
 
 function todayUtc() { return new Date().toISOString().slice(0,10); }
-
-function refreshRankings() {
-  const users=db.prepare(`SELECT id FROM users WHERE role='user' ORDER BY points DESC, streak DESC, longest_streak DESC, name ASC`).all();
-  const update=db.prepare('UPDATE users SET rank=? WHERE id=?');
-  db.transaction(()=>users.forEach((u,i)=>update.run(i+1,u.id)))();
-}
 
 function isTodayDailyQuestion(questionId) {
   const today=todayUtc();
@@ -28,8 +23,8 @@ function awardSolve(userId,questionId) {
   const longest=Math.max(Number(user.longest_streak||0),streak);
   const nextPoints=already?Number(user.points||0):Number(user.points||0)+100;
   db.prepare('UPDATE users SET points=?,streak=?,longest_streak=?,last_active_at=? WHERE id=?').run(nextPoints,streak,longest,new Date().toISOString(),userId);
-  refreshRankings();
-  return {points:nextPoints,streak,longest_streak:longest,rank:db.prepare('SELECT rank FROM users WHERE id=?').get(userId)?.rank||1};
+  refreshCompetitiveRanks();
+  return {points:nextPoints,streak,longest_streak:longest};
 }
 
-module.exports={awardSolve,refreshRankings};
+module.exports={awardSolve,refreshCompetitiveRanks};
