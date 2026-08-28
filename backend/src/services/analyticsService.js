@@ -120,9 +120,26 @@ function getAdminStats() {
   `).get();
   const solvedSubmissions = solvedSubmissionsRow ? solvedSubmissionsRow.count : 0;
 
-  // Total assignments
+  // Pending reviews count
+  const pendingReviewsRow = db.prepare(`
+    SELECT COUNT(*) AS count FROM submissions WHERE status IN ('under_review', 'changes_requested') OR review_status = 'pending'
+  `).get();
+  const pendingReviews = pendingReviewsRow ? pendingReviewsRow.count : 0;
+
+  // Total and active assignments
   const totalAssignmentsRow = db.prepare(`SELECT COUNT(*) AS count FROM assignments`).get();
   const totalAssignments = totalAssignmentsRow ? totalAssignmentsRow.count : 0;
+
+  const activeAssignmentsRow = db.prepare(`SELECT COUNT(*) AS count FROM assignments WHERE status = 'assigned'`).get();
+  const activeAssignments = activeAssignmentsRow ? activeAssignmentsRow.count : 0;
+
+  const completedAssignmentsRow = db.prepare(`SELECT COUNT(*) AS count FROM assignments WHERE status = 'completed'`).get();
+  const completedAssignments = completedAssignmentsRow ? completedAssignmentsRow.count : 0;
+  const completionRate = totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0;
+
+  // Active Cohorts
+  const activeCohortsRow = db.prepare(`SELECT COUNT(*) AS count FROM cohorts WHERE is_active = 1`).get();
+  const activeCohorts = activeCohortsRow ? activeCohortsRow.count : 0;
 
   // Today's daily challenge
   const todayDaily = db.prepare(`
@@ -176,6 +193,10 @@ function getAdminStats() {
       total: totalLearners,
       active: activeLearners
     },
+    students: {
+      total: totalLearners,
+      active: activeLearners
+    },
     questions: {
       total: totalQuestions,
       published: publishedQuestions,
@@ -189,8 +210,15 @@ function getAdminStats() {
       accuracy_rate: totalSubmissions > 0 ? Math.round((solvedSubmissions / totalSubmissions) * 100) : 0
     },
     assignments: {
-      total: totalAssignments
+      total: totalAssignments,
+      active: activeAssignments,
+      completed: completedAssignments,
+      completion_rate: completionRate
     },
+    cohorts: {
+      active: activeCohorts
+    },
+    pending_reviews: pendingReviews,
     today_challenge: todayDaily,
     recent_activity: recentSubmissions
   };
