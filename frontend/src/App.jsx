@@ -19,6 +19,7 @@ import SubmissionReviewConsole from './pages/SubmissionReviewConsole';
 import AdminDailyQuestionModal from './components/AdminDailyQuestionModal';
 import AdminQuestionModal from './components/AdminQuestionModal';
 import { api } from './services/api';
+import { practiceApi } from './services/practiceApi';
 import { Loader2, Terminal } from 'lucide-react';
 
 export default function App() {
@@ -32,7 +33,11 @@ export default function App() {
   const [questionsForModal, setQuestionsForModal] = useState([]);
   useEffect(() => { if (user) loadNotificationsCount(); }, [user, currentView]);
   async function loadNotificationsCount() { try { const res = await api.getNotifications(); setUnreadNotifsCount(res.data?.unreadCount || 0); } catch {} }
-  const handleSelectProblem = (questionId) => { setActiveQuestionId(questionId); setCurrentView('solve'); };
+  const handleSelectProblem = async (questionId) => {
+    const fromPractice = currentView === 'practice' || currentView === 'available';
+    if (fromPractice) { try { await practiceApi.start(questionId); } catch (e) { console.error('Failed to start practice problem:', e); return; } }
+    setActiveQuestionId(questionId); setCurrentView('solve');
+  };
   const handleOpenAdminDailyModal = async () => { try { const res = await api.getQuestions({ limit: 100 }); setQuestionsForModal(res.data || []); setIsDailyModalOpen(true); } catch (e) { console.error(e); } };
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#080C14]"><div className="flex flex-col items-center space-y-4"><div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center"><Terminal className="w-7 h-7 text-white" /></div><div className="flex items-center space-x-2 text-xs font-mono text-slate-400"><Loader2 className="w-4 h-4 text-cyan-400 animate-spin" /><span>Loading Axly...</span></div></div></div>;
   if (!user) return <Login />;
