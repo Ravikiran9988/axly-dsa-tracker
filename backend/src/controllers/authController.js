@@ -4,6 +4,7 @@ const { getDatabaseDriver } = require('../db/repository');
 const PostgresRepository = require('../db/postgresRepository');
 const SqliteRepository = require('../db/sqliteRepository');
 
+// GET or POST /api/v1/auth/verify
 async function verifySession(req, res, next) {
   try {
     return res.status(200).json({

@@ -118,6 +118,7 @@ async function authenticate(req, res, next) {
   }
 }
 
+// Helper to generate auth token for development / testing
 function generateTestToken(payload) {
   if (isProduction) {
     throw new Error('Test tokens are disabled in production.');
