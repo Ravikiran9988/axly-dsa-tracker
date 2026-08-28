@@ -10,11 +10,13 @@ class PostgresRepository extends RepositoryContract {
   }
 
   async query(sql, params = []) {
-    return this.pool.query(sql, params);
+    let index = 0;
+    const postgresSql = sql.replace(/\?/g, () => `$${++index}`);
+    return this.pool.query(postgresSql, params);
   }
 
   async execute(sql, params = []) {
-    const result = await this.pool.query(sql, params);
+    const result = await this.query(sql, params);
     return { rowCount: result.rowCount, rows: result.rows };
   }
 
