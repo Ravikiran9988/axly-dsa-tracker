@@ -2,41 +2,57 @@ const { db } = require('../db/db');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
 
-function safeParseJson(value) {
-  try { return typeof value === 'string' ? JSON.parse(value) : value; }
-  catch { return value; }
+function safeParseJson(value, fallback = null) {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+  try { return JSON.parse(value); } catch { return fallback; }
 }
 
 function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit = 20, search }) {
-  const offset = (page - 1) * limit;
-  const where = ['q.is_active = 1'];
+  const conditions = [];
   const params = [];
 
-  if (difficulty) { where.push('q.difficulty = ?'); params.push(difficulty.toLowerCase()); }
-  if (topic_id) { where.push('q.topic_id = ?'); params.push(topic_id); }
-  if (search) { where.push('LOWER(q.title) LIKE ?'); params.push(`%${search.toLowerCase()}%`); }
-
+  if (user?.role !== 'admin') {
+    conditions.push('q.is_active = 1');
+  }
+  if (difficulty) {
+    conditions.push('q.difficulty = ?');
+    params.push(difficulty.toLowerCase());
+  }
+  if (topic_id) {
+    conditions.push('q.topic_id = ?');
+    params.push(topic_id);
+  }
   if (assigned !== undefined && assigned !== null && assigned !== '') {
-    const isAssigned = String(assigned) === 'true';
-    const existsSql = user.role === 'admin'
-      ? `EXISTS (SELECT 1 FROM assignments a WHERE a.question_id = q.id AND a.status IN ('assigned','ongoing','submitted','under_review','completed'))`
-      : `EXISTS (SELECT 1 FROM assignments a WHERE a.question_id = q.id AND a.user_id = ? AND a.status != 'unassigned')`;
-    const notExistsSql = user.role === 'admin'
-      ? `NOT EXISTS (SELECT 1 FROM assignments a WHERE a.question_id = q.id AND a.status != 'unassigned')`
-      : `NOT EXISTS (SELECT 1 FROM assignments a WHERE a.question_id = q.id AND a.user_id = ? AND a.status != 'unassigned')`;
-    where.push(isAssigned ? existsSql : notExistsSql);
-    if (user.role !== 'admin') params.push(user.id);
+    const isAssigned = String(assigned).toLowerCase() === 'true';
+    if (isAssigned) {
+      conditions.push('a.id IS NOT NULL');
+    } else {
+      conditions.push('a.id IS NULL');
+    }
+  }
+  if (search && search.trim()) {
+    conditions.push('(LOWER(q.title) LIKE ? OR LOWER(COALESCE(q.description, \'\')) LIKE ?)');
+    params.push(`%${search.trim().toLowerCase()}%`, `%${search.trim().toLowerCase()}%`);
   }
 
-  const whereSql = `WHERE ${where.join(' AND ')}`;
-  const total = db.prepare(`SELECT COUNT(*) AS total FROM questions q ${whereSql}`).get(...params).total || 0;
+  const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const countRow = db.prepare(`
+    SELECT COUNT(DISTINCT q.id) AS total
+    FROM questions q
+    LEFT JOIN assignments a ON a.question_id = q.id AND a.user_id = ? AND a.status != 'unassigned'
+    ${whereSql}
+  `).get(user.id, ...params);
+  const total = countRow ? countRow.total : 0;
+  const offset = (Number(page) - 1) * Number(limit);
 
   const rows = db.prepare(`
-    SELECT q.id, q.title, q.difficulty, q.topic_id, t.name AS topic_name, q.url,
-      q.description, q.constraints, q.input_format, q.output_format,
-      q.example_input, q.example_output, q.hints, q.tags, q.estimated_time,
-      q.points, q.assigned_date, q.due_date, q.status, q.supported_languages,
-      q.starter_code, q.is_active, q.created_at,
+    SELECT 
+      q.id, q.title, q.difficulty, q.topic_id, q.url, q.is_active, q.created_at,
+      q.description, q.problem_statement, q.constraints, q.input_format, q.output_format,
+      q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points,
+      q.assigned_date, q.due_date, q.status, q.supported_languages, q.starter_code,
+      t.name AS topic_name,
       a.id AS assignment_id, a.status AS assignment_status,
       s.id AS submission_id, s.status AS submission_status,
       s.review_status, s.feedback, s.attempted_at, s.solved_at,
@@ -88,8 +104,7 @@ function getQuestionById(id, user = null) {
     supported_languages: q.supported_languages ? safeParseJson(q.supported_languages) : ['javascript','python'],
     tags: q.tags ? safeParseJson(q.tags) : [],
     test_cases: testCases,
-    submission_status: submission?.status || 'not_started',
-    submission: submission || null
+    submission_status: submission?.status || 'not_started'
   };
 }
 
@@ -107,8 +122,10 @@ function normalizeStarterCode(starter_code) {
   return typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null);
 }
 
-function normalizeJsonArray(value, fallback) {
-  if (value === undefined || value === null) return fallback;
+function normalizeJsonArray(value, fallback = '[]') {
+  if (value === undefined || value === null) {
+    return typeof fallback === 'string' ? fallback : JSON.stringify(fallback);
+  }
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
@@ -135,18 +152,41 @@ function createQuestion(input) {
 
   const id = uuidv4();
   const fallbackUrl = url?.trim() || `https://dsatracker.axly.in/questions/${id}`;
-  db.prepare(`INSERT INTO questions (
-    id,title,difficulty,topic_id,url,description,problem_statement,constraints,input_format,output_format,
-    example_input,example_output,hints,tags,estimated_time,points,assigned_date,due_date,status,
-    supported_languages,starter_code,is_active
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).run(
-    id, title.trim(), difficulty.toLowerCase(), topic_id || null, fallbackUrl,
-    description || null, problem_statement || null, constraints || null, input_format || null, output_format || null,
-    example_input || null, example_output || null, hints || null,
-    normalizeJsonArray(tags, '[]'), estimated_time || '30 mins', Number(points) || 20,
-    assigned_date || null, due_date || null, status || 'published',
-    normalizeJsonArray(supported_languages, ['javascript','python']), normalizeStarterCode(starter_code)
-  );
+  db.prepare(`
+    INSERT INTO questions (
+      id, title, difficulty, topic_id, url, description, problem_statement,
+      constraints, input_format, output_format, example_input, example_output,
+      hints, tags, estimated_time, points, assigned_date, due_date, status,
+      supported_languages, starter_code, is_active
+    ) VALUES (
+      @id, @title, @difficulty, @topic_id, @url, @description, @problem_statement,
+      @constraints, @input_format, @output_format, @example_input, @example_output,
+      @hints, @tags, @estimated_time, @points, @assigned_date, @due_date, @status,
+      @supported_languages, @starter_code, 1
+    )
+  `).run({
+    id: id || null,
+    title: (title || '').trim(),
+    difficulty: (difficulty || 'easy').toLowerCase(),
+    topic_id: topic_id || null,
+    url: fallbackUrl || null,
+    description: description || null,
+    problem_statement: problem_statement || null,
+    constraints: constraints || null,
+    input_format: input_format || null,
+    output_format: output_format || null,
+    example_input: example_input || null,
+    example_output: example_output || null,
+    hints: hints || null,
+    tags: normalizeJsonArray(tags, '[]') || '[]',
+    estimated_time: estimated_time || '30 mins',
+    points: Number(points) || 20,
+    assigned_date: assigned_date || null,
+    due_date: due_date || null,
+    status: status || 'published',
+    supported_languages: normalizeJsonArray(supported_languages, ['javascript', 'python']) || '["javascript","python"]',
+    starter_code: normalizeStarterCode(starter_code) || null
+  });
   insertTestCases(id, test_cases);
   return getQuestionById(id, { role: 'admin' });
 }
@@ -194,12 +234,13 @@ function updateQuestion(id, updates) {
 }
 
 function deleteQuestion(id) {
-  if (!getQuestionById(id)) throw new AppError('Question not found', 404, 'NOT_FOUND');
+  const q = db.prepare('SELECT id, is_active FROM questions WHERE id=?').get(id);
+  if (!q) throw new AppError('Question not found', 404, 'NOT_FOUND');
   const today = new Date().toISOString().split('T')[0];
   if (db.prepare('SELECT id FROM daily_questions WHERE question_id=? AND date=?').get(id, today)) {
     throw new AppError('Cannot delete the current daily question — change it first', 409, 'CONFLICT');
   }
-  db.prepare('UPDATE questions SET is_active=0,status=\'archived\' WHERE id=?').run(id);
+  db.prepare('UPDATE questions SET is_active=0, status=\'archived\' WHERE id=?').run(id);
   return { message: 'Question successfully deactivated (soft-deleted)', id };
 }
 

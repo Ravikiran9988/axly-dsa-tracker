@@ -95,6 +95,7 @@ function initSchema() {
       status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'archived')),
       supported_languages TEXT DEFAULT '["python", "javascript", "java", "cpp", "c", "typescript"]',
       starter_code TEXT,
+      current_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -274,6 +275,7 @@ function initSchema() {
   addColumnIfNotExists('questions', 'status', "TEXT DEFAULT 'published'");
   addColumnIfNotExists('questions', 'supported_languages', 'TEXT DEFAULT \'["python", "javascript", "java", "cpp", "c", "typescript"]\'');
   addColumnIfNotExists('questions', 'starter_code', 'TEXT');
+  addColumnIfNotExists('questions', 'current_version', 'INTEGER NOT NULL DEFAULT 1');
 
   // Assignments migrations
   addColumnIfNotExists('assignments', 'cohort_id', 'TEXT');

@@ -28,13 +28,19 @@ function snapshotQuestion(question) {
 }
 
 function createVersion(question, changedBy, changeType='update') {
-  ensureQuestionVersioning();
-  const row = db.prepare('SELECT COALESCE(MAX(version),0) AS version FROM question_versions WHERE question_id=?').get(question.id);
-  const version = Number(row.version || 0) + 1;
-  db.prepare(`INSERT INTO question_versions (id,question_id,version,snapshot,changed_by,change_type) VALUES (?,?,?,?,?,?)`)
-    .run(require('uuid').v4(), question.id, version, snapshotQuestion(question), changedBy || null, changeType);
-  db.prepare('UPDATE questions SET current_version=? WHERE id=?').run(version, question.id);
-  return version;
+  if (!question || !question.id) return 1;
+  try {
+    ensureQuestionVersioning();
+    const row = db.prepare('SELECT COALESCE(MAX(version),0) AS version FROM question_versions WHERE question_id=?').get(question.id);
+    const version = Number(row?.version || 0) + 1;
+    db.prepare(`INSERT INTO question_versions (id,question_id,version,snapshot,changed_by,change_type) VALUES (?,?,?,?,?,?)`)
+      .run(require('uuid').v4(), question.id, version, snapshotQuestion(question), changedBy || null, changeType);
+    db.prepare('UPDATE questions SET current_version=? WHERE id=?').run(version, question.id);
+    return version;
+  } catch (err) {
+    console.warn('[Versioning Warning]', err.message);
+    return 1;
+  }
 }
 
 function listVersions(questionId) {
