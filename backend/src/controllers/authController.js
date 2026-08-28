@@ -1,7 +1,7 @@
 const { generateTestToken } = require('../middleware/auth');
 const { db } = require('../db/db');
 
-// POST /api/v1/auth/verify
+// GET or POST /api/v1/auth/verify
 async function verifySession(req, res, next) {
   try {
     // req.user is populated by authenticate middleware
@@ -11,6 +11,11 @@ async function verifySession(req, res, next) {
         name: req.user.name,
         email: req.user.email,
         role: req.user.role,
+        avatar_url: req.user.avatar_url,
+        institution: req.user.institution,
+        points: req.user.points || 0,
+        streak: req.user.streak || 1,
+        longest_streak: req.user.longest_streak || 1,
         created_at: req.user.created_at
       }
     });
@@ -44,12 +49,12 @@ async function devLogin(req, res, next) {
       });
     }
 
-    let user = db.prepare('SELECT id, name, email, role FROM users WHERE email = ?').get(normalizedEmail);
+    let user = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail);
     if (!user) {
       const id = `usr-${Date.now()}`;
       const name = normalizedEmail.split('@')[0];
-      db.prepare('INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)').run(id, name, normalizedEmail, role);
-      user = { id, name, email: normalizedEmail, role };
+      db.prepare('INSERT INTO users (id, name, email, role, points, streak, longest_streak) VALUES (?, ?, ?, ?, 100, 1, 1)').run(id, name, normalizedEmail, role);
+      user = { id, name, email: normalizedEmail, role, points: 100, streak: 1, longest_streak: 1 };
     }
 
     const token = generateTestToken({ id: user.id, email: user.email, name: user.name, role: user.role });

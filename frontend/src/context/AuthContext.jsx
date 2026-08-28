@@ -12,7 +12,7 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY && !SUPABASE_URL.includes('mock')) {
   try {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } catch (e) {
-    console.warn('Supabase client error:', e);
+    console.warn('Supabase client initialization warning:', e);
   }
 }
 
@@ -21,48 +21,90 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Verify stored session on mount
   useEffect(() => {
-    async function initAuth() {
-      const token = localStorage.getItem('axly_auth_token');
+    let isMounted = true;
+
+    async function syncBackendSession(token) {
       if (!token) {
-        setLoading(false);
-        return;
+        if (isMounted) {
+          setUser(null);
+          setLoading(false);
+        }
+        return null;
       }
 
       try {
+        localStorage.setItem('axly_auth_token', token);
         const response = await api.verifyAuth();
-        setUser(response.user);
+        if (isMounted) {
+          setUser(response.user);
+          setError(null);
+        }
+        // Clean URL if currently on /auth/callback or containing hash tokens
+        if (window.location.pathname.includes('/auth/callback') || window.location.hash.includes('access_token')) {
+          window.history.replaceState({}, document.title, '/');
+        }
+        return response.user;
       } catch (err) {
-        console.warn('Session verification failed, logging out:', err.message);
+        console.warn('Session verification failed, resetting token:', err.message);
         localStorage.removeItem('axly_auth_token');
-        setUser(null);
+        if (isMounted) {
+          setUser(null);
+        }
+        return null;
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    async function initAuth() {
+      // 1. If Supabase is active, check active session from URL hash / local session
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            await syncBackendSession(session.access_token);
+            return;
+          }
+        } catch (sbErr) {
+          console.warn('Error reading Supabase session on init:', sbErr);
+        }
+      }
+
+      // 2. Fall back to existing local storage token
+      const token = localStorage.getItem('axly_auth_token');
+      if (token) {
+        await syncBackendSession(token);
+      } else {
+        if (isMounted) setLoading(false);
       }
     }
 
     initAuth();
 
-    // Listen to Supabase OAuth auth state change if configured
+    // 3. Subscribe to Supabase OAuth auth state transitions
     if (supabase) {
       const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.access_token) {
-          localStorage.setItem('axly_auth_token', session.access_token);
-          try {
-            const verified = await api.verifyAuth();
-            setUser(verified.user);
-          } catch (e) {
-            console.error('Failed to verify Supabase session with backend:', e);
-          }
+          await syncBackendSession(session.access_token);
         } else if (event === 'SIGNED_OUT') {
           localStorage.removeItem('axly_auth_token');
-          setUser(null);
+          if (isMounted) {
+            setUser(null);
+            setLoading(false);
+          }
         }
       });
 
       return () => {
-        authListener.subscription.unsubscribe();
+        isMounted = false;
+        authListener?.subscription?.unsubscribe();
+      };
+    } else {
+      return () => {
+        isMounted = false;
       };
     }
   }, []);
@@ -71,7 +113,7 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = async () => {
     setError(null);
     if (!supabase) {
-      throw new Error('Supabase client is not configured with live credentials. Use quick login below for testing.');
+      throw new Error('Supabase client is not configured with live credentials. Use quick dev login for local testing.');
     }
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -82,7 +124,7 @@ export function AuthProvider({ children }) {
     if (signInError) throw signInError;
   };
 
-  // Fast Dev / Demo Login for local verification & testing
+  // Fast Dev / Demo Login for local testing & development
   const devLogin = async (email, role = 'user') => {
     setError(null);
     setLoading(true);
