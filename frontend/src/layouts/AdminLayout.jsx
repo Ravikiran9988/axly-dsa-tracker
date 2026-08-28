@@ -10,7 +10,7 @@ import AdminUsers from '../pages/AdminUsers';
 import SubmissionReviewConsole from '../pages/SubmissionReviewConsole';
 import AdminAuditLogs from '../pages/AdminAuditLogs';
 import AdminSettings from '../pages/AdminSettings';
-import UserProfile from '../pages/UserProfile';
+import AdminProfile from '../pages/AdminProfile';
 import NotificationsPage from '../pages/NotificationsPage';
 import ProblemWorkspace from '../pages/ProblemWorkspace';
 import AdminDailyQuestionModal from '../components/AdminDailyQuestionModal';
@@ -145,7 +145,7 @@ export default function AdminLayout({ user, onLogout }) {
           ) : currentView === 'notifications' ? (
             <NotificationsPage onNavigate={setCurrentView} />
           ) : currentView === 'profile' ? (
-            <UserProfile onSelectProblem={handleSelectProblem} />
+            <AdminProfile />
           ) : (
             <AdminDashboard
               onOpenDailyModal={handleOpenAdminDailyModal}
