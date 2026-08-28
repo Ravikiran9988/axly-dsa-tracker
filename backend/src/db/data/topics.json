@@ -1,0 +1,10 @@
+[
+  {"id":"arrays","name":"Arrays","order":1,"targetCount":12},
+  {"id":"strings","name":"Strings","order":2,"targetCount":10},
+  {"id":"hashing","name":"Hashing","order":3,"targetCount":8},
+  {"id":"two-pointers-sliding-window","name":"Two Pointers / Sliding Window","order":4,"targetCount":10},
+  {"id":"stack","name":"Stack","order":5,"targetCount":8},
+  {"id":"binary-search","name":"Binary Search","order":6,"targetCount":8},
+  {"id":"trees","name":"Trees","order":7,"targetCount":12},
+  {"id":"dynamic-programming","name":"Dynamic Programming","order":8,"targetCount":12}
+]
