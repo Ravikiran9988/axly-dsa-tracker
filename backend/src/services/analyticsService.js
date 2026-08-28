@@ -89,4 +89,114 @@ function getUserAnalytics(userId) {
   };
 }
 
-module.exports = { getUserAnalytics };
+function getAdminStats() {
+  // Total and active learners
+  const totalLearnersRow = db.prepare(`SELECT COUNT(*) AS count FROM users WHERE role = 'user'`).get();
+  const totalLearners = totalLearnersRow ? totalLearnersRow.count : 0;
+
+  const activeLearnersRow = db.prepare(`
+    SELECT COUNT(DISTINCT user_id) AS count
+    FROM submissions
+    WHERE datetime(updated_at) >= datetime('now', '-30 days')
+  `).get();
+  const activeLearners = activeLearnersRow ? activeLearnersRow.count : 0;
+
+  // Questions stats
+  const totalQuestionsRow = db.prepare(`SELECT COUNT(*) AS count FROM questions WHERE is_active = 1`).get();
+  const totalQuestions = totalQuestionsRow ? totalQuestionsRow.count : 0;
+
+  const publishedQuestionsRow = db.prepare(`SELECT COUNT(*) AS count FROM questions WHERE status = 'published' AND is_active = 1`).get();
+  const publishedQuestions = publishedQuestionsRow ? publishedQuestionsRow.count : totalQuestions;
+
+  const draftQuestionsRow = db.prepare(`SELECT COUNT(*) AS count FROM questions WHERE status = 'draft' AND is_active = 1`).get();
+  const draftQuestions = draftQuestionsRow ? draftQuestionsRow.count : 0;
+
+  // Submissions stats
+  const totalSubmissionsRow = db.prepare(`SELECT COUNT(*) AS count FROM submissions`).get();
+  const totalSubmissions = totalSubmissionsRow ? totalSubmissionsRow.count : 0;
+
+  const solvedSubmissionsRow = db.prepare(`
+    SELECT COUNT(*) AS count FROM submissions WHERE status IN ('solved', 'approved', 'completed')
+  `).get();
+  const solvedSubmissions = solvedSubmissionsRow ? solvedSubmissionsRow.count : 0;
+
+  // Total assignments
+  const totalAssignmentsRow = db.prepare(`SELECT COUNT(*) AS count FROM assignments`).get();
+  const totalAssignments = totalAssignmentsRow ? totalAssignmentsRow.count : 0;
+
+  // Today's daily challenge
+  const todayDaily = db.prepare(`
+    SELECT dq.id, dq.date, dq.question_id, q.title, q.difficulty, q.points, t.name AS topic_name
+    FROM daily_questions dq
+    JOIN questions q ON dq.question_id = q.id
+    LEFT JOIN topics t ON q.topic_id = t.id
+    WHERE dq.date = date('now')
+  `).get() || null;
+
+  // Questions by difficulty
+  const diffRows = db.prepare(`
+    SELECT difficulty, COUNT(*) AS count
+    FROM questions
+    WHERE is_active = 1
+    GROUP BY difficulty
+  `).all();
+  const difficultyDistribution = {
+    easy: diffRows.find(d => d.difficulty?.toLowerCase() === 'easy')?.count || 0,
+    medium: diffRows.find(d => d.difficulty?.toLowerCase() === 'medium')?.count || 0,
+    hard: diffRows.find(d => d.difficulty?.toLowerCase() === 'hard')?.count || 0
+  };
+
+  // Questions by topic
+  const topicDistribution = db.prepare(`
+    SELECT COALESCE(t.name, 'General') AS topic_name, COUNT(q.id) AS count
+    FROM questions q
+    LEFT JOIN topics t ON q.topic_id = t.id
+    WHERE q.is_active = 1
+    GROUP BY q.topic_id
+    ORDER BY count DESC
+    LIMIT 8
+  `).all();
+
+  // Recent activity / submissions log
+  const recentSubmissions = db.prepare(`
+    SELECT 
+      s.id, s.user_id, s.question_id, s.status, s.language,
+      s.solve_duration_seconds, s.test_score, s.final_score, s.updated_at, s.created_at,
+      u.name AS user_name, u.email AS user_email, u.avatar_url AS user_avatar,
+      q.title AS question_title, q.difficulty AS question_difficulty
+    FROM submissions s
+    JOIN users u ON s.user_id = u.id
+    JOIN questions q ON s.question_id = q.id
+    ORDER BY s.updated_at DESC, s.created_at DESC
+    LIMIT 10
+  `).all();
+
+  return {
+    learners: {
+      total: totalLearners,
+      active: activeLearners
+    },
+    questions: {
+      total: totalQuestions,
+      published: publishedQuestions,
+      draft: draftQuestions,
+      by_difficulty: difficultyDistribution,
+      by_topic: topicDistribution
+    },
+    submissions: {
+      total: totalSubmissions,
+      solved: solvedSubmissions,
+      accuracy_rate: totalSubmissions > 0 ? Math.round((solvedSubmissions / totalSubmissions) * 100) : 0
+    },
+    assignments: {
+      total: totalAssignments
+    },
+    today_challenge: todayDaily,
+    recent_activity: recentSubmissions
+  };
+}
+
+module.exports = {
+  getUserAnalytics,
+  getAdminStats
+};

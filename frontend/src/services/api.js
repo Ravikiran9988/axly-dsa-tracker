@@ -30,6 +30,7 @@ export const api = {
     if (params.topic_id) q.append('topic_id', params.topic_id);
     if (params.assigned !== undefined) q.append('assigned', params.assigned);
     if (params.search) q.append('search', params.search);
+    if (params.status) q.append('status', params.status);
     if (params.page) q.append('page', params.page);
     if (params.limit) q.append('limit', params.limit);
     return request(`/questions?${q}`);
@@ -62,7 +63,7 @@ export const api = {
   async submitViaGithub(data) { return request('/submissions/github', { method: 'POST', body: JSON.stringify(data) }); },
   async getSubmissions(params = {}) {
     const q = new URLSearchParams();
-    for (const k of ['status', 'review_status', 'submission_type', 'user_id', 'question_id', 'page', 'limit']) {
+    for (const k of ['status', 'review_status', 'submission_type', 'user_id', 'question_id', 'page', 'limit', 'search']) {
       if (params[k]) q.append(k, params[k]);
     }
     return request(`/submissions?${q}`);
@@ -80,17 +81,11 @@ export const api = {
   },
   async createAssignment(data) { return request('/assignments', { method: 'POST', body: JSON.stringify(data) }); },
   async bulkAssign(data) { return request('/assignments/bulk', { method: 'POST', body: JSON.stringify(data) }); },
+  async unassignAssignment(id) { return request(`/assignments/${id}`, { method: 'DELETE' }); },
   async updateAssignmentStatus(id, status) { return request(`/assignments/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }); },
 
-  // Topics & Cohorts
+  // Topics
   async getTopics() { return request('/questions/topics'); },
-  async getCohorts() { return request('/cohorts'); },
-  async getCohortById(id) { return request(`/cohorts/${id}`); },
-  async createCohort(data) { return request('/cohorts', { method: 'POST', body: JSON.stringify(data) }); },
-  async addCohortMember(cohortId, userId) { return request(`/cohorts/${cohortId}/members`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }); },
-  async removeCohortMember(cohortId, userId) { return request(`/cohorts/${cohortId}/members/${userId}`, { method: 'DELETE' }); },
-  async assignCohortChallenge(cohortId, data) { return request(`/cohorts/${cohortId}/assign`, { method: 'POST', body: JSON.stringify(data) }); },
-  async startLiveSession(cohortId, data) { return request(`/cohorts/${cohortId}/live-session`, { method: 'POST', body: JSON.stringify(data) }); },
 
   // Notifications
   async getNotifications() { return request('/notifications'); },
@@ -100,6 +95,21 @@ export const api = {
   // Analytics & Recommendations
   async getUserAnalytics(userId) { return request(userId ? `/analytics/users/${userId}` : '/analytics/me'); },
   async getRecommendations(limit = 8) { return request(`/recommendations?limit=${limit}`); },
+  async getAdminStats() {
+    try {
+      const res = await request('/analytics/admin/stats');
+      return res;
+    } catch {
+      return request('/progress/stats');
+    }
+  },
+  async getAdminProgress(params = {}) {
+    const q = new URLSearchParams();
+    if (params.page) q.append('page', params.page);
+    if (params.limit) q.append('limit', params.limit);
+    if (params.search) q.append('search', params.search);
+    return request(`/progress/admin?${q}`);
+  },
 
   // Users & Profiles
   async getMyProfile() { return request('/users/profile/me'); },

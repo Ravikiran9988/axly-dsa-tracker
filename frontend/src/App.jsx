@@ -13,10 +13,14 @@ import NotificationsPage from './pages/NotificationsPage';
 import Leaderboard from './pages/Leaderboard';
 import StudentAnalytics from './pages/StudentAnalytics';
 import AdminDashboard from './pages/AdminDashboard';
-import AdminCohorts from './pages/AdminCohorts';
+import AdminQuestions from './pages/AdminQuestions';
+import AdminDailyChallenge from './pages/AdminDailyChallenge';
+import AdminAssignments from './pages/AdminAssignments';
 import AdminUsers from './pages/AdminUsers';
+import AdminProgress from './pages/AdminProgress';
+import AdminSubmissions from './pages/AdminSubmissions';
 import AdminAuditLogs from './pages/AdminAuditLogs';
-import SubmissionReviewConsole from './pages/SubmissionReviewConsole';
+import AdminSettings from './pages/AdminSettings';
 import AdminDailyQuestionModal from './components/AdminDailyQuestionModal';
 import AdminQuestionModal from './components/AdminQuestionModal';
 import AdminAssignModal from './components/AdminAssignModal';
@@ -33,12 +37,19 @@ export default function App() {
   const [isCreateChallengeModalOpen, setIsCreateChallengeModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedUserForAssign, setSelectedUserForAssign] = useState(null);
+  const [selectedQuestionForAssign, setSelectedQuestionForAssign] = useState(null);
   const [questionsForModal, setQuestionsForModal] = useState([]);
   const [usersForModal, setUsersForModal] = useState([]);
 
+  // Auto-route admin to admin-dashboard on initial authentication
   useEffect(() => {
-    if (user) loadNotificationsCount();
-  }, [user, currentView]);
+    if (user) {
+      if (user.role === 'admin' && currentView === 'dashboard') {
+        setCurrentView('admin-dashboard');
+      }
+      loadNotificationsCount();
+    }
+  }, [user]);
 
   async function loadNotificationsCount() {
     try {
@@ -52,8 +63,9 @@ export default function App() {
     setCurrentView('solve');
   };
 
-  const handleOpenAssignModal = async (targetUser = null) => {
+  const handleOpenAssignModal = async (targetUser = null, targetQuestion = null) => {
     setSelectedUserForAssign(targetUser);
+    setSelectedQuestionForAssign(targetQuestion);
     try {
       const [qRes, uRes] = await Promise.all([
         api.getQuestions({ limit: 100 }),
@@ -81,12 +93,12 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#080C14]">
         <div className="flex flex-col items-center space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-xl shadow-cyan-500/20">
             <Terminal className="w-7 h-7 text-white" />
           </div>
           <div className="flex items-center space-x-2 text-xs font-mono text-slate-400">
             <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-            <span>Loading Axly...</span>
+            <span>Loading Axly DSA Platform...</span>
           </div>
         </div>
       </div>
@@ -115,12 +127,52 @@ export default function App() {
           unreadCount={unreadNotifsCount}
         />
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-[#070B14]">
+          {/* PROBLEM SOLVING WORKSPACE */}
           {currentView === 'solve' && activeQuestionId ? (
             <ProblemWorkspace
               questionId={activeQuestionId}
-              onBack={() => setCurrentView('tasks')}
+              onBack={() => setCurrentView(isAdmin ? 'admin-challenges' : 'tasks')}
               onStatusUpdated={loadNotificationsCount}
             />
+          ) : currentView === 'admin-dashboard' ? (
+            <AdminDashboard
+              onOpenDailyModal={handleOpenAdminDailyModal}
+              onOpenCreateModal={() => setIsCreateChallengeModalOpen(true)}
+              onOpenAssignModal={handleOpenAssignModal}
+              onSelectProblem={handleSelectProblem}
+              onNavigate={setCurrentView}
+            />
+          ) : currentView === 'admin-challenges' || currentView === 'admin-questions' ? (
+            <AdminQuestions
+              onSelectProblem={handleSelectProblem}
+              onOpenCreateModal={() => setIsCreateChallengeModalOpen(true)}
+              onOpenAssignModal={handleOpenAssignModal}
+            />
+          ) : currentView === 'admin-daily' ? (
+            <AdminDailyChallenge
+              onSelectProblem={handleSelectProblem}
+            />
+          ) : currentView === 'admin-assignments' ? (
+            <AdminAssignments
+              onOpenAssignModal={handleOpenAssignModal}
+              onSelectProblem={handleSelectProblem}
+            />
+          ) : currentView === 'admin-users' ? (
+            <AdminUsers
+              onOpenAssignModal={handleOpenAssignModal}
+            />
+          ) : currentView === 'admin-progress' ? (
+            <AdminProgress
+              onSelectStudent={() => setCurrentView('admin-users')}
+            />
+          ) : currentView === 'admin-submissions' ? (
+            <AdminSubmissions
+              onSelectProblem={handleSelectProblem}
+            />
+          ) : currentView === 'admin-audit' ? (
+            <AdminAuditLogs />
+          ) : currentView === 'admin-settings' ? (
+            <AdminSettings />
           ) : currentView === 'dashboard' ? (
             <UserDashboard
               user={user}
@@ -154,31 +206,6 @@ export default function App() {
             <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800">
               <h1 className="text-lg font-bold text-white">Platform Settings</h1>
             </div>
-          ) : currentView === 'admin-dashboard' || currentView === 'admin-challenges' || currentView === 'admin-assignments' ? (
-            <AdminDashboard
-              onOpenDailyModal={handleOpenAdminDailyModal}
-              onOpenCreateModal={() => setIsCreateChallengeModalOpen(true)}
-              onOpenAssignModal={handleOpenAssignModal}
-              onSelectProblem={handleSelectProblem}
-            />
-          ) : currentView === 'admin-create' ? (
-            <AdminDashboard
-              onOpenDailyModal={handleOpenAdminDailyModal}
-              onOpenCreateModal={() => setIsCreateChallengeModalOpen(true)}
-              onOpenAssignModal={handleOpenAssignModal}
-              onSelectProblem={handleSelectProblem}
-            />
-          ) : currentView === 'admin-cohorts' ? (
-            <AdminCohorts onSelectProblem={handleSelectProblem} />
-          ) : currentView === 'admin-users' ? (
-            <AdminUsers
-              onOpenAssignModal={handleOpenAssignModal}
-              onSelectStudent={() => setCurrentView('admin-users')}
-            />
-          ) : currentView === 'admin-reviews' ? (
-            <SubmissionReviewConsole />
-          ) : currentView === 'admin-audit' ? (
-            <AdminAuditLogs />
           ) : (
             <UserDashboard
               user={user}
@@ -188,6 +215,7 @@ export default function App() {
           )}
         </div>
       </div>
+
       {isAdmin && (
         <>
           {isDailyModalOpen && (
@@ -211,6 +239,7 @@ export default function App() {
               isOpen={isAssignModalOpen}
               onClose={() => setIsAssignModalOpen(false)}
               targetUser={selectedUserForAssign}
+              targetQuestion={selectedQuestionForAssign}
               questions={questionsForModal}
               users={usersForModal}
             />
