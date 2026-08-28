@@ -116,7 +116,7 @@ export default function StudentProfile({ onSelectProblem }) {
               <p className="text-xs text-cyan-400 font-mono">@{profileData.username || profileData.email?.split('@')[0] || 'student'}</p>
               <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-1">
                 <span className="flex items-center gap-1">
-                  <Building className="w-3.5 h-3.5" /> {profileData.institution || 'Axly Tech Academy'}
+                  <Building className="w-3.5 h-3.5" /> {profileData.institution || '—'}
                 </span>
                 <span className="flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5" /> {profileData.email}

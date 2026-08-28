@@ -30,20 +30,20 @@ export default function StudentSidebar({
 }) {
   const studentSections = [
     {
-      title: 'MAIN',
+      title: 'DSA PRACTICE',
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'daily', label: 'Daily Challenge', icon: Calendar },
-        { id: 'available', label: 'Available Challenges', icon: Compass },
-        { id: 'tasks', label: 'My Tasks', icon: CheckSquare },
+        { id: 'available', label: 'Problem Repository', icon: Compass },
+        { id: 'tasks', label: 'Assigned Tasks', icon: CheckSquare },
         { id: 'submissions', label: 'Submission History', icon: History }
       ]
     },
     {
-      title: 'LEARNING',
+      title: 'PROGRESS & ANALYTICS',
       items: [
         { id: 'analytics', label: 'Skill Analytics', icon: TrendingUp },
-        { id: 'learning-path', label: 'Learning Path', icon: Route },
+        { id: 'learning-path', label: 'Topic Roadmap', icon: Route },
         { id: 'practice', label: 'Practice Bank', icon: Code2 },
         { id: 'leaderboard', label: 'Leaderboard', icon: Trophy }
       ]
@@ -76,7 +76,7 @@ export default function StudentSidebar({
                 AXLY DSA
               </span>
               <span className="text-[10px] font-bold uppercase tracking-widest mt-1 text-cyan-400 truncate">
-                Learning Hub
+                Tracker
               </span>
             </div>
           )}
@@ -91,16 +91,16 @@ export default function StudentSidebar({
         </button>
       </div>
 
-      {/* Gamification Pills (Streak & Points) */}
+      {/* Streak / Points Quick Status Card */}
       {!isCollapsed && (
         <div className="p-3 mx-3 my-2.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-inner">
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+            <div className="flex items-center gap-1.5 text-amber-400 font-bold font-mono">
               <Flame className="w-4 h-4 fill-amber-400" />
-              <span>{user?.streak || 1} Day Streak</span>
+              <span>{user?.streak || 1}d Streak</span>
             </div>
-            <div className="flex items-center gap-1 text-cyan-300 font-semibold text-[11px]">
-              <Zap className="w-3.5 h-3.5 fill-cyan-400 text-cyan-400" />
+            <div className="flex items-center gap-1 text-cyan-400 font-mono text-[11px] font-semibold">
+              <Zap className="w-3.5 h-3.5 fill-cyan-400" />
               <span>{user?.points || 100} pts</span>
             </div>
           </div>

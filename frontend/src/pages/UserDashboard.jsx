@@ -78,7 +78,7 @@ export default function UserDashboard({ user, onSelectProblem, onNavigate }) {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Interactive Learning Platform</span>
+            <span>DSA Practice & Tracking</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
             Welcome back, {user?.name || 'Developer'}! 👋

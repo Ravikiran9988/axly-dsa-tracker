@@ -29,14 +29,14 @@ export default function AdminNavbar({
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="text-base sm:text-lg font-black tracking-tight text-white font-mono">
-                    AXLY DSA PLATFORM
+                    AXLY DSA TRACKER
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/30">
                     Admin Portal
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-400 font-mono hidden sm:block">
-                  Platform Operations • Curate • Manage
+                  Operations • Curate • Manage
                 </p>
               </div>
             </div>

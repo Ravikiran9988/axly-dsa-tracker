@@ -138,7 +138,7 @@ export default function Sidebar({
               <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 truncate ${
                 isAdmin ? 'text-rose-400' : 'text-cyan-400'
               }`}>
-                {isAdmin ? 'Admin Portal' : 'Learning Hub'}
+                {isAdmin ? 'Admin Portal' : 'DSA Tracker'}
               </span>
             </div>
           )}

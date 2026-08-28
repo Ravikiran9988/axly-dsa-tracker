@@ -27,10 +27,10 @@ export default function StudentNavbar({
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="text-base sm:text-lg font-black tracking-tight text-white font-mono">
-                    AXLY DSA
+                    AXLY DSA TRACKER
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                    Learning Hub
+                    DSA Practice
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-400 font-mono hidden sm:block">
@@ -79,15 +79,11 @@ export default function StudentNavbar({
                   </div>
                 </div>
 
-                <span
-                  id="user-role-badge"
-                  className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                >
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                   STUDENT
                 </span>
 
                 <button
-                  id="logout-button"
                   onClick={logout}
                   title="Sign Out"
                   className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 transition-colors"
@@ -101,7 +97,7 @@ export default function StudentNavbar({
           {/* Mobile menu toggle */}
           <div className="flex items-center space-x-2 sm:hidden">
             {user && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                 STUDENT
               </span>
             )}

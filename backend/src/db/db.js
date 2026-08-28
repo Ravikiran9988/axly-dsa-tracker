@@ -31,7 +31,7 @@ function initSchema() {
       email TEXT NOT NULL UNIQUE,
       role TEXT NOT NULL DEFAULT 'user' REFERENCES roles(name),
       username TEXT,
-      institution TEXT DEFAULT 'Axly Tech Academy',
+      institution TEXT,
       bio TEXT,
       github_url TEXT,
       linkedin_url TEXT,

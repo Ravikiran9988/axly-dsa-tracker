@@ -17,7 +17,7 @@ export default function App() {
           </div>
           <div className="flex items-center space-x-2 text-xs font-mono text-slate-400">
             <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-            <span>Loading Axly DSA Platform...</span>
+            <span>Loading Axly DSA Tracker...</span>
           </div>
         </div>
       </div>
