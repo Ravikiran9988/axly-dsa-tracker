@@ -5,23 +5,26 @@ const { AppError } = require('../middleware/errorHandler');
 function getTodayUtcDate() { return new Date().toISOString().slice(0,10); }
 
 function getAutoDailyQuestion(date) {
-  const questions = db.prepare(`SELECT q.id,q.title,q.difficulty,q.topic_id,t.name AS topic_name,q.url,q.is_active,q.points
+  const unused = db.prepare(`SELECT q.id,q.title,q.difficulty,q.topic_id,t.name AS topic_name,q.url,q.is_active,q.points
     FROM questions q LEFT JOIN topics t ON q.topic_id=t.id
     WHERE q.is_active=1 AND q.status='published'
-      AND NOT EXISTS (SELECT 1 FROM daily_questions used WHERE used.question_id=q.id)
+      AND NOT EXISTS (SELECT 1 FROM daily_questions dq WHERE dq.question_id=q.id)
     ORDER BY q.created_at ASC,q.id ASC`).all();
-  // If every published question has already been used, start a new rotation.
-  const pool = questions.length ? questions : db.prepare(`SELECT q.id,q.title,q.difficulty,q.topic_id,t.name AS topic_name,q.url,q.is_active,q.points
+  if (unused.length) return unused[0];
+
+  // Start a new rotation only after every currently published question has been used.
+  const recycled = db.prepare(`SELECT q.id,q.title,q.difficulty,q.topic_id,t.name AS topic_name,q.url,q.is_active,q.points,
+      (SELECT MAX(dq.date) FROM daily_questions dq WHERE dq.question_id=q.id) AS last_daily_date
     FROM questions q LEFT JOIN topics t ON q.topic_id=t.id
-    WHERE q.is_active=1 AND q.status='published' ORDER BY q.created_at ASC,q.id ASC`).all();
-  if(!pool.length) return null;
-  const epochDays=Math.floor(Date.parse(`${date}T00:00:00Z`)/86400000);
-  return pool[((epochDays%pool.length)+pool.length)%pool.length];
+    WHERE q.is_active=1 AND q.status='published'
+    ORDER BY last_daily_date ASC,q.created_at ASC,q.id ASC`).all();
+  return recycled[0] || null;
 }
 
 function getDailyQuestion(user,targetDate=null) {
   const date=targetDate||getTodayUtcDate();
-  const scheduled=db.prepare(`SELECT dq.id AS daily_question_id,dq.date,dq.created_at AS scheduled_at,q.id,q.title,q.difficulty,q.topic_id,t.name AS topic_name,q.url,q.is_active,q.points
+  const scheduled=db.prepare(`SELECT dq.id AS daily_question_id,dq.date,dq.created_at AS scheduled_at,
+      q.id,q.title,q.difficulty,q.topic_id,t.name AS topic_name,q.url,q.is_active,q.points
     FROM daily_questions dq JOIN questions q ON dq.question_id=q.id LEFT JOIN topics t ON q.topic_id=t.id
     WHERE dq.date=? AND q.is_active=1 AND q.status='published'`).get(date);
   const question=scheduled||getAutoDailyQuestion(date);
