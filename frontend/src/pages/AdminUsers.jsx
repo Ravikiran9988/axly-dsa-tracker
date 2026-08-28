@@ -3,20 +3,19 @@ import {
   Users,
   Search,
   RefreshCw,
-  Award,
-  Flame,
   CheckCircle2,
   Clock,
   ExternalLink,
   Shield,
-  UserCheck,
   Send,
   Eye,
   Sliders,
   ChevronLeft,
   ChevronRight,
-  TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Building,
+  Layers,
+  X
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -25,12 +24,12 @@ export default function AdminUsers({ onOpenAssignModal }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('user');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentDetails, setStudentDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const limit = 20;
+  const limit = 25;
 
   useEffect(() => {
     loadUsers();
@@ -91,14 +90,14 @@ export default function AdminUsers({ onOpenAssignModal }) {
             Student & User Management
           </h1>
           <p className="text-xs text-slate-400">
-            Monitor registered developers, track individual problem-solving progress, and manage role permissions.
+            Monitor registered students, track assignment progress, evaluate task completions, and manage permissions.
           </p>
         </div>
 
         <button
           onClick={loadUsers}
           disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700"
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all active:scale-95"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -123,43 +122,45 @@ export default function AdminUsers({ onOpenAssignModal }) {
           onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
           className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
         >
-          <option value="">All Roles</option>
-          <option value="user">Students</option>
+          <option value="user">Students Only</option>
           <option value="admin">Administrators</option>
+          <option value="">All Roles</option>
         </select>
       </div>
 
       {/* Users Table */}
-      <div className="rounded-3xl bg-slate-900/60 border border-slate-800/80 overflow-hidden">
+      <div className="rounded-3xl bg-slate-900/60 border border-slate-800/80 overflow-hidden shadow-xl">
         {loading ? (
           <div className="py-20 text-center text-slate-400 space-y-3">
             <div className="w-8 h-8 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto" />
-            <div className="text-xs font-mono">Loading students directory...</div>
+            <div className="text-xs font-mono">Loading directory records...</div>
           </div>
         ) : error ? (
           <div className="py-16 text-center text-rose-400 text-xs">{error}</div>
         ) : users.length === 0 ? (
           <div className="py-20 text-center text-slate-500 text-xs">
-            No students found matching current filters.
+            No registered users found matching the current search criteria.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-semibold font-mono uppercase text-[10px] tracking-wider">
+                <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400 font-semibold font-mono uppercase text-[10px] tracking-wider">
                   <th className="py-3.5 px-4">Student</th>
                   <th className="py-3.5 px-4">Email</th>
-                  <th className="py-3.5 px-4">Solved</th>
-                  <th className="py-3.5 px-4">Streak</th>
-                  <th className="py-3.5 px-4">Points</th>
+                  <th className="py-3.5 px-4">Institution</th>
+                  <th className="py-3.5 px-4">Cohort</th>
+                  <th className="py-3.5 px-4 text-center">Assigned</th>
+                  <th className="py-3.5 px-4 text-center">Completed</th>
+                  <th className="py-3.5 px-4 text-center">Pending</th>
                   <th className="py-3.5 px-4">Role</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-300 text-xs">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-850/40 transition-colors">
-                    {/* Student */}
+                  <tr key={u.id} className="hover:bg-slate-800/30 transition-colors">
+                    {/* Student Name + Avatar */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
                         {u.avatar_url ? (
@@ -177,11 +178,6 @@ export default function AdminUsers({ onOpenAssignModal }) {
                           <div className="font-bold text-white">
                             {u.name || u.email?.split('@')[0]}
                           </div>
-                          {u.institution && (
-                            <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
-                              {u.institution}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </td>
@@ -191,22 +187,35 @@ export default function AdminUsers({ onOpenAssignModal }) {
                       {u.email}
                     </td>
 
-                    {/* Solved */}
-                    <td className="py-3.5 px-4 font-mono text-emerald-400 font-bold">
-                      {u.completed_count || 0} questions
+                    {/* Institution */}
+                    <td className="py-3.5 px-4 text-slate-300">
+                      {u.institution || '—'}
                     </td>
 
-                    {/* Streak */}
+                    {/* Cohort */}
                     <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1 text-amber-400 font-bold font-mono">
-                        <Flame className="w-3.5 h-3.5 fill-amber-400" />
-                        <span>{u.streak || 1}d</span>
-                      </div>
+                      {u.cohort_name ? (
+                        <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px]">
+                          {u.cohort_name}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 text-[11px]">—</span>
+                      )}
                     </td>
 
-                    {/* Points */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-cyan-400">
-                      {u.points || 100}
+                    {/* Assigned */}
+                    <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-300">
+                      {u.assigned_count || 0}
+                    </td>
+
+                    {/* Completed */}
+                    <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-400">
+                      {u.completed_count || 0}
+                    </td>
+
+                    {/* Pending */}
+                    <td className="py-3.5 px-4 text-center font-mono font-semibold text-amber-400">
+                      {u.pending_count || 0}
                     </td>
 
                     {/* Role */}
@@ -214,7 +223,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
                       <span className={`inline-block px-2 py-0.5 rounded font-bold uppercase text-[9px] border ${
                         u.role === 'admin'
                           ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                          : 'bg-slate-800 text-slate-300 border-slate-700'
+                          : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
                       }`}>
                         {u.role}
                       </span>
@@ -225,24 +234,24 @@ export default function AdminUsers({ onOpenAssignModal }) {
                       <div className="inline-flex items-center gap-1.5">
                         <button
                           onClick={() => handleOpenStudentDetails(u)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400"
-                          title="View student profile"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 transition-colors"
+                          title="View student profile details"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
 
                         <button
                           onClick={() => onOpenAssignModal && onOpenAssignModal(u)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-400"
-                          title="Assign challenge"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-400 transition-colors"
+                          title="Assign targeted problem"
                         >
                           <Send className="w-3.5 h-3.5" />
                         </button>
 
                         <button
                           onClick={() => handleToggleRole(u)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white"
-                          title="Toggle role"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                          title="Toggle role permissions"
                         >
                           <Shield className="w-3.5 h-3.5" />
                         </button>
@@ -258,95 +267,83 @@ export default function AdminUsers({ onOpenAssignModal }) {
 
       {/* Student Details Drawer Modal */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0A0F1D] border border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl animate-in fade-in">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0B101E] border border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div className="flex items-center gap-3">
-                {selectedStudent.avatar_url ? (
-                  <img
-                    src={selectedStudent.avatar_url}
-                    alt=""
-                    className="w-10 h-10 rounded-full border border-slate-700 object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-white text-sm">
-                    {(selectedStudent.name || selectedStudent.email || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold">
+                  {(selectedStudent.name || selectedStudent.email || 'U').charAt(0).toUpperCase()}
+                </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
-                    {selectedStudent.name || selectedStudent.email}
-                  </h3>
-                  <div className="text-xs text-slate-400 font-mono">
-                    {selectedStudent.email} &bull; Role: {selectedStudent.role}
-                  </div>
+                  <h3 className="text-base font-bold text-white">{selectedStudent.name || selectedStudent.email}</h3>
+                  <p className="text-xs text-slate-400 font-mono">{selectedStudent.email} • Role: {selectedStudent.role}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
-              >
-                ✕
+              <button onClick={() => setSelectedStudent(null)} className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-4 gap-3 text-xs font-mono">
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <span className="text-slate-500 block text-[10px]">POINTS:</span>
-                <span className="text-cyan-400 font-bold text-sm">{selectedStudent.points || 100}</span>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <span className="text-slate-500 block text-[10px]">STREAK:</span>
-                <span className="text-amber-400 font-bold text-sm">{selectedStudent.streak || 1} days</span>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <span className="text-slate-500 block text-[10px]">COMPLETED:</span>
-                <span className="text-emerald-400 font-bold text-sm">{selectedStudent.completed_count || 0}</span>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <span className="text-slate-500 block text-[10px]">PENDING:</span>
-                <span className="text-rose-400 font-bold text-sm">{selectedStudent.pending_count || 0}</span>
-              </div>
-            </div>
+            {detailsLoading ? (
+              <div className="py-12 text-center text-slate-400 text-xs">Loading learner history...</div>
+            ) : studentDetails ? (
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center">
+                    <div className="text-lg font-bold text-white">{studentDetails.assignments?.length || 0}</div>
+                    <div className="text-[10px] text-slate-400 uppercase">Assigned Tasks</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center">
+                    <div className="text-lg font-bold text-emerald-400">
+                      {studentDetails.assignments?.filter(a => a.submission_status === 'solved' || a.status === 'completed').length || 0}
+                    </div>
+                    <div className="text-[10px] text-slate-400 uppercase">Completed</div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-center">
+                    <div className="text-lg font-bold text-amber-400">
+                      {studentDetails.assignments?.filter(a => a.status === 'assigned' || a.status === 'ongoing').length || 0}
+                    </div>
+                    <div className="text-[10px] text-slate-400 uppercase">Pending</div>
+                  </div>
+                </div>
 
-            {studentDetails?.assignments && (
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-slate-300 font-mono uppercase">Assigned Tasks ({studentDetails.assignments.length})</span>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {studentDetails.assignments.length === 0 ? (
-                    <div className="p-3 text-center text-slate-500 text-xs bg-slate-950 rounded-xl">
-                      No active assignments.
+                {/* Assigned Challenges List */}
+                <div className="space-y-2">
+                  <h4 className="font-bold text-white text-xs uppercase tracking-wider">Assigned Challenges</h4>
+                  {studentDetails.assignments && studentDetails.assignments.length > 0 ? (
+                    <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1.5">
+                      {studentDetails.assignments.map(a => (
+                        <div key={a.id} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="font-semibold text-white">{a.question_title}</span>
+                            <span className="ml-2 text-[10px] text-slate-400">Due: {a.due_date || 'No deadline'}</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            a.submission_status === 'solved' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                          }`}>
+                            {a.submission_status || a.status}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    studentDetails.assignments.map((a) => (
-                      <div key={a.id} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
-                        <span className="text-white font-medium">{a.question_title}</span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-800 text-slate-300">
-                          {a.status}
-                        </span>
-                      </div>
-                    ))
+                    <div className="text-slate-500 italic text-xs">No problems currently assigned to this student.</div>
                   )}
                 </div>
               </div>
-            )}
+            ) : null}
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
               <button
                 onClick={() => {
-                  const s = selectedStudent;
+                  const target = selectedStudent;
                   setSelectedStudent(null);
-                  if (onOpenAssignModal) onOpenAssignModal(s);
+                  if (onOpenAssignModal) onOpenAssignModal(target);
                 }}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs"
               >
-                Assign Challenge
-              </button>
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold"
-              >
-                Close
+                <Send className="w-3.5 h-3.5" />
+                <span>Assign New Challenge</span>
               </button>
             </div>
           </div>
