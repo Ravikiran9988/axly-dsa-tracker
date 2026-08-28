@@ -1,0 +1,16 @@
+[
+  {"id":"two-pointers","name":"Two Pointers","applicableTopics":["arrays","strings","two-pointers-sliding-window"]},
+  {"id":"sliding-window","name":"Sliding Window","applicableTopics":["strings","two-pointers-sliding-window"]},
+  {"id":"fast-slow-pointers","name":"Fast & Slow Pointers","applicableTopics":["two-pointers-sliding-window"]},
+  {"id":"hash-map-lookup","name":"Hash Map Lookup","applicableTopics":["hashing","strings","arrays"]},
+  {"id":"prefix-sum","name":"Prefix Sum","applicableTopics":["arrays"]},
+  {"id":"kadanes-algorithm","name":"Kadane's Algorithm","applicableTopics":["arrays"]},
+  {"id":"monotonic-stack","name":"Monotonic Stack","applicableTopics":["stack"]},
+  {"id":"binary-search","name":"Binary Search","applicableTopics":["binary-search","arrays"]},
+  {"id":"binary-search-on-answer","name":"Binary Search on Answer","applicableTopics":["binary-search"]},
+  {"id":"tree-bfs","name":"Tree BFS (Level Order)","applicableTopics":["trees"]},
+  {"id":"tree-dfs","name":"Tree DFS","applicableTopics":["trees"]},
+  {"id":"tree-recursion","name":"Tree Recursion","applicableTopics":["trees"]},
+  {"id":"1d-dp","name":"1D DP","applicableTopics":["dynamic-programming"]},
+  {"id":"2d-dp","name":"2D DP","applicableTopics":["dynamic-programming"]}
+]
