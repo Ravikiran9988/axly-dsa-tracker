@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
-const { db } = require('../db/db');
+const authUserRepository = require('../db/authUserRepository');
 const { AppError } = require('./errorHandler');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -33,14 +33,12 @@ async function authenticate(req, res, next) {
     let userEmail = null;
     let userName = null;
 
-    // 1. Try local/JWT secret decoding (for tests, dev mode, or custom tokens)
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       userId = decoded.sub || decoded.id;
       userEmail = decoded.email;
       userName = decoded.name;
     } catch (jwtErr) {
-      // 2. If Supabase client configured, verify via Supabase Auth
       if (supabaseClient) {
         const { data: { user: sbUser }, error } = await supabaseClient.auth.getUser(token);
         if (error || !sbUser) {
@@ -58,21 +56,11 @@ async function authenticate(req, res, next) {
       return next(new AppError('User identity could not be verified', 401, 'UNAUTHORIZED'));
     }
 
-    // 3. Resolve user record from database (server-side single source of truth for role)
-    const userStmt = db.prepare('SELECT id, name, email, role, created_at FROM users WHERE id = ?');
-    let user = userStmt.get(userId);
-
-    // If user does not exist in local users table yet, auto-provision with default role 'user'
+    let user = await authUserRepository.findUserById(userId);
     if (!user) {
       const email = userEmail || `${userId}@example.com`;
       const name = userName || email.split('@')[0];
-      const insertStmt = db.prepare(`
-        INSERT INTO users (id, name, email, role)
-        VALUES (?, ?, ?, 'user')
-        ON CONFLICT(id) DO UPDATE SET email=excluded.email
-      `);
-      insertStmt.run(userId, name, email);
-      user = userStmt.get(userId);
+      user = await authUserRepository.provisionUser({ id: userId, name, email });
     }
 
     req.user = user;
@@ -82,7 +70,6 @@ async function authenticate(req, res, next) {
   }
 }
 
-// Optional helper to generate auth token for development / testing
 function generateTestToken(payload) {
   if (isProduction) {
     throw new Error('Test tokens are disabled in production.');
@@ -90,7 +77,4 @@ function generateTestToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
-module.exports = {
-  authenticate,
-  generateTestToken
-};
+module.exports = { authenticate, generateTestToken };
