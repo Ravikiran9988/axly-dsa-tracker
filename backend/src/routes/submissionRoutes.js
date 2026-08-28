@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {getSubmissions,submitViaGithub,reviewSubmission,aiReviewSubmission,updateSubmission,upsertQuestionSubmission}=require('../controllers/submissionController');
+const {getSubmissions,submitViaGithub,reviewSubmission,aiReviewSubmission,updateSubmission,upsertQuestionSubmission,abandonSubmission}=require('../controllers/submissionController');
 const {authenticate}=require('../middleware/auth');
 const {requireRole}=require('../middleware/rbac');
 const {validateBody}=require('../middleware/validator');
@@ -13,4 +13,5 @@ router.post('/:id/review',requireRole('admin','mentor'),validateBody(reviewSubmi
 router.post('/',upsertQuestionSubmission);
 router.post('/toggle',upsertQuestionSubmission);
 router.patch('/:id',validateBody(updateSubmissionSchema),updateSubmission);
+router.post('/:id/abandon',abandonSubmission);
 module.exports=router;
