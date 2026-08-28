@@ -12,7 +12,7 @@ import UserProfile from './pages/UserProfile';
 import NotificationsPage from './pages/NotificationsPage';
 import Leaderboard from './pages/Leaderboard';
 import StudentAnalytics from './pages/StudentAnalytics';
-import AdminDashboard from './pages/AdminDashboard';
+import AdminCoreDashboard from './pages/AdminCoreDashboard';
 import AdminUsers from './pages/AdminUsers';
 import AdminAuditLogs from './pages/AdminAuditLogs';
 import SubmissionReviewConsole from './pages/SubmissionReviewConsole';
@@ -30,15 +30,12 @@ export default function App() {
   const [isDailyModalOpen, setIsDailyModalOpen] = useState(false);
   const [isCreateChallengeModalOpen, setIsCreateChallengeModalOpen] = useState(false);
   const [questionsForModal, setQuestionsForModal] = useState([]);
-
   useEffect(() => { if (user) loadNotificationsCount(); }, [user, currentView]);
   async function loadNotificationsCount() { try { const res = await api.getNotifications(); setUnreadNotifsCount(res.data?.unreadCount || 0); } catch {} }
   const handleSelectProblem = (questionId) => { setActiveQuestionId(questionId); setCurrentView('solve'); };
   const handleOpenAdminDailyModal = async () => { try { const res = await api.getQuestions({ limit: 100 }); setQuestionsForModal(res.data || []); setIsDailyModalOpen(true); } catch (e) { console.error(e); } };
-
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#080C14]"><div className="flex flex-col items-center space-y-4"><div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center"><Terminal className="w-7 h-7 text-white" /></div><div className="flex items-center space-x-2 text-xs font-mono text-slate-400"><Loader2 className="w-4 h-4 text-cyan-400 animate-spin" /><span>Loading Axly...</span></div></div></div>;
   if (!user) return <Login />;
-
   const renderView = () => {
     if (currentView === 'solve' && activeQuestionId) return <ProblemWorkspace questionId={activeQuestionId} onBack={() => setCurrentView('practice')} onStatusUpdated={loadNotificationsCount} />;
     if (currentView === 'dashboard') return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} />;
@@ -49,24 +46,13 @@ export default function App() {
     if (currentView === 'profile') return <UserProfile onSelectProblem={handleSelectProblem} />;
     if (currentView === 'notifications') return <NotificationsPage onNavigate={setCurrentView} />;
     if (currentView === 'leaderboard') return <Leaderboard currentUser={user} />;
-    if (currentView === 'learning-path') return <div className="max-w-4xl mx-auto space-y-6"><div className="p-6 rounded-2xl bg-gradient-to-r from-[#0C1425] via-[#121E3E] to-[#0C1425] border border-cyan-900/30"><h1 className="text-2xl font-bold text-white">DSA & System Design Mastery Track</h1><p className="text-xs text-slate-400 mt-1">Step-by-step roadmap from Arrays & Two Pointers to Dynamic Programming and Graph traversals.</p></div></div>;
+    if (currentView === 'learning-path') return <div className="max-w-4xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800"><h1 className="text-2xl font-bold text-white">DSA & System Design Mastery Track</h1><p className="text-sm text-slate-400 mt-2">Step-by-step roadmap from Arrays & Two Pointers to Dynamic Programming and Graph traversals.</p></div>;
     if (currentView === 'settings') return <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800"><h1 className="text-lg font-bold text-white">Platform Settings</h1></div>;
-    if (currentView === 'admin-dashboard') return <AdminDashboard onOpenDailyModal={handleOpenAdminDailyModal} onOpenCreateModal={() => setIsCreateChallengeModalOpen(true)} onSelectProblem={handleSelectProblem} />;
+    if (currentView === 'admin-dashboard') return <AdminCoreDashboard onSelectProblem={handleSelectProblem} />;
     if (currentView === 'admin-users') return <AdminUsers onSelectStudent={() => setCurrentView('admin-users')} />;
     if (currentView === 'admin-reviews') return <SubmissionReviewConsole />;
     if (currentView === 'admin-audit') return <AdminAuditLogs />;
     return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} />;
   };
-
-  return <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-row font-sans">
-    <Sidebar currentView={currentView} setCurrentView={setCurrentView} user={user} onLogout={logout} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} unreadCount={unreadNotifsCount} />
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
-      <Navbar activeTab={currentView} setActiveTab={setCurrentView} onOpenAdminDailyModal={handleOpenAdminDailyModal} onOpenCreateChallenge={() => setIsCreateChallengeModalOpen(true)} unreadCount={unreadNotifsCount} />
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-[#070B14]">{renderView()}</div>
-    </div>
-    {isAdmin && <>
-      {isDailyModalOpen && <AdminDailyQuestionModal isOpen={isDailyModalOpen} onClose={() => setIsDailyModalOpen(false)} questions={questionsForModal} />}
-      {isCreateChallengeModalOpen && <AdminQuestionModal isOpen={isCreateChallengeModalOpen} onClose={() => setIsCreateChallengeModalOpen(false)} onSuccess={() => setIsCreateChallengeModalOpen(false)} />}
-    </>}
-  </div>;
+  return <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-row font-sans"><Sidebar currentView={currentView} setCurrentView={setCurrentView} user={user} onLogout={logout} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} unreadCount={unreadNotifsCount} /><div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen"><Navbar activeTab={currentView} setActiveTab={setCurrentView} onOpenAdminDailyModal={handleOpenAdminDailyModal} onOpenCreateChallenge={() => setIsCreateChallengeModalOpen(true)} unreadCount={unreadNotifsCount} /><div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-[#070B14]">{renderView()}</div></div>{isAdmin && <>{isDailyModalOpen && <AdminDailyQuestionModal isOpen={isDailyModalOpen} onClose={() => setIsDailyModalOpen(false)} questions={questionsForModal} />}{isCreateChallengeModalOpen && <AdminQuestionModal isOpen={isCreateChallengeModalOpen} onClose={() => setIsCreateChallengeModalOpen(false)} onSuccess={() => setIsCreateChallengeModalOpen(false)} />}</>}</div>;
 }
