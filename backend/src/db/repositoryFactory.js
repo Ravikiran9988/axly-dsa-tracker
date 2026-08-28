@@ -1,11 +1,16 @@
 const { getDatabaseDriver, getSqlite, getPostgres } = require('./repository');
+const SqliteRepository = require('./sqliteRepository');
+const PostgresRepository = require('./postgresRepository');
+
+function getRepository() {
+  const driver = getDatabaseDriver();
+  if (driver === 'postgres') return new PostgresRepository(getPostgres());
+  return new SqliteRepository(getSqlite());
+}
 
 function assertDriverCompatibility() {
   const driver = getDatabaseDriver();
-  if (driver === 'postgres') {
-    return { driver, db: getPostgres() };
-  }
-  return { driver, db: getSqlite() };
+  return { driver, repository: getRepository() };
 }
 
-module.exports = { assertDriverCompatibility };
+module.exports = { getRepository, assertDriverCompatibility };
