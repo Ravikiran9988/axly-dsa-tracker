@@ -84,15 +84,8 @@ export const api = {
   async unassignAssignment(id) { return request(`/assignments/${id}`, { method: 'DELETE' }); },
   async updateAssignmentStatus(id, status) { return request(`/assignments/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }); },
 
-  // Topics & Cohorts
+  // Topics
   async getTopics() { return request('/questions/topics'); },
-  async getCohorts() { return request('/cohorts'); },
-  async getCohortById(id) { return request(`/cohorts/${id}`); },
-  async createCohort(data) { return request('/cohorts', { method: 'POST', body: JSON.stringify(data) }); },
-  async addCohortMember(cohortId, userId) { return request(`/cohorts/${cohortId}/members`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }); },
-  async removeCohortMember(cohortId, userId) { return request(`/cohorts/${cohortId}/members/${userId}`, { method: 'DELETE' }); },
-  async assignCohortChallenge(cohortId, data) { return request(`/cohorts/${cohortId}/assign`, { method: 'POST', body: JSON.stringify(data) }); },
-  async startLiveSession(cohortId, data) { return request(`/cohorts/${cohortId}/live-session`, { method: 'POST', body: JSON.stringify(data) }); },
 
   // Notifications
   async getNotifications() { return request('/notifications'); },
