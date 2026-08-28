@@ -137,8 +137,8 @@ function getAdminStats() {
   const completedAssignments = completedAssignmentsRow ? completedAssignmentsRow.count : 0;
   const completionRate = totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0;
 
-  // Active Cohorts
-  const activeCohortsRow = db.prepare(`SELECT COUNT(*) AS count FROM cohorts WHERE is_active = 1`).get();
+  // Active Cohorts (all defined cohorts)
+  const activeCohortsRow = db.prepare(`SELECT COUNT(*) AS count FROM cohorts`).get();
   const activeCohorts = activeCohortsRow ? activeCohortsRow.count : 0;
 
   // Today's daily challenge
