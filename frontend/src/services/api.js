@@ -1,19 +1,126 @@
 const API_BASE = '/api/v1';
-function getAuthHeader() { const token = localStorage.getItem('axly_auth_token') || localStorage.getItem('axly_token'); return token ? { Authorization: `Bearer ${token}` } : {}; }
-async function request(endpoint, options = {}) { const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers }; const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers }); const data = await response.json().catch(() => null); if (!response.ok) { const error = new Error(data?.error?.message || 'An unexpected error occurred'); error.status = response.status; error.code = data?.error?.code; error.details = data?.error?.details; throw error; } return data; }
+
+function getAuthHeader() {
+  const token = localStorage.getItem('axly_auth_token') || localStorage.getItem('axly_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function request(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(data?.error?.message || 'An unexpected error occurred');
+    error.status = response.status;
+    error.code = data?.error?.code;
+    error.details = data?.error?.details;
+    throw error;
+  }
+  return data;
+}
+
 export const api = {
-  async verifyAuth(){return request('/auth/verify');}, async devLogin(email,role='user'){return request('/auth/dev-login',{method:'POST',body:JSON.stringify({email,role})});},
-  async getQuestions(params={}){const q=new URLSearchParams(); if(params.difficulty)q.append('difficulty',params.difficulty);if(params.topic_id)q.append('topic_id',params.topic_id);if(params.assigned!==undefined)q.append('assigned',params.assigned);if(params.search)q.append('search',params.search);if(params.page)q.append('page',params.page);if(params.limit)q.append('limit',params.limit);return request(`/questions?${q}`);},
-  async getQuestionById(id){return request(`/questions/${id}`);}, async createQuestion(data){return request('/questions',{method:'POST',body:JSON.stringify(data)});}, async updateQuestion(id,data){return request(`/questions/${id}`,{method:'PATCH',body:JSON.stringify(data)});}, async validateQuestion(id){return request(`/questions/${id}/validate`,{method:'POST'});}, async deleteQuestion(id){return request(`/questions/${id}`,{method:'DELETE'});},
-  async generateAIQuestion(data){return request('/ai-questions/generate',{method:'POST',body:JSON.stringify(data)});},
-  async getDailyQuestion(){return request('/daily');},async setDailyQuestion(data){return request('/daily',{method:'POST',body:JSON.stringify(data)});},
-  async runCode(data){return request('/code/run',{method:'POST',body:JSON.stringify(data)});},async submitCode(data){return request('/code/submit',{method:'POST',body:JSON.stringify(data)});},async getCodeSubmissions(questionId){return request(`/code/submissions/${questionId}`);},async getCodeSubmissionsHistory(questionId){return this.getCodeSubmissions(questionId);},
-  async submitChallenge(data){return request('/submissions',{method:'POST',body:JSON.stringify(data)});},async submitViaGithub(data){return request('/submissions/github',{method:'POST',body:JSON.stringify(data)});},
-  async getSubmissions(params={}){const q=new URLSearchParams();for(const k of ['status','review_status','submission_type','user_id','question_id','page','limit'])if(params[k])q.append(k,params[k]);return request(`/submissions?${q}`);},async reviewSubmission(id,data){return request(`/submissions/${id}/review`,{method:'POST',body:JSON.stringify(data)});},async aiReviewSubmission(id){return request(`/submissions/${id}/ai-review`,{method:'POST'});},
-  async getAssignments(params={}){const q=new URLSearchParams();for(const k of ['status','user_id','cohort_id','priority','page','limit'])if(params[k])q.append(k,params[k]);return request(`/assignments?${q}`);},async createAssignment(data){return request('/assignments',{method:'POST',body:JSON.stringify(data)});},async bulkAssign(data){return request('/assignments/bulk',{method:'POST',body:JSON.stringify(data)});},async updateAssignmentStatus(id,status){return request(`/assignments/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});},
-  async getTopics(){return request('/topics');},async createTopic(name){return request('/topics',{method:'POST',body:JSON.stringify({name})});},async getCohorts(){return request('/cohorts');},async getCohortById(id){return request(`/cohorts/${id}`);},async createCohort(data){return request('/cohorts',{method:'POST',body:JSON.stringify(data)});},async addCohortMember(cohortId,userId){return request(`/cohorts/${cohortId}/members`,{method:'POST',body:JSON.stringify({user_id:userId})});},async removeCohortMember(cohortId,userId){return request(`/cohorts/${cohortId}/members/${userId}`,{method:'DELETE'});},async assignCohortChallenge(cohortId,data){return request(`/cohorts/${cohortId}/assign`,{method:'POST',body:JSON.stringify(data)});},async startLiveSession(cohortId,data){return request(`/cohorts/${cohortId}/live-session`,{method:'POST',body:JSON.stringify(data)});},
-  async getNotifications(){return request('/notifications');},async markNotificationAsRead(id){return request(`/notifications/${id}/read`,{method:'PATCH'});},async markAllNotificationsAsRead(){return request('/notifications/read-all',{method:'POST'});},
-  async getMyProfile(){return request('/users/profile/me');},async updateMyProfile(data){return request('/users/profile/me',{method:'PATCH',body:JSON.stringify(data)});},
-  async getLeaderboard(period='all'){const q=new URLSearchParams({period});return request(`/users/leaderboard?${q}`);},
-  async getUsers(params={}){const q=new URLSearchParams();for(const k of ['role','search','page','limit'])if(params[k])q.append(k,params[k]);return request(`/users?${q}`);},async getUserById(id){return request(`/users/${id}`);},async updateUserRole(id,role){return request(`/users/${id}/role`,{method:'PATCH',body:JSON.stringify({role})});}
+  async verifyAuth() { return request('/auth/verify'); },
+  async devLogin(email, role = 'user') { return request('/auth/dev-login', { method: 'POST', body: JSON.stringify({ email, role }) }); },
+
+  // Questions
+  async getQuestions(params = {}) {
+    const q = new URLSearchParams();
+    if (params.difficulty) q.append('difficulty', params.difficulty);
+    if (params.topic_id) q.append('topic_id', params.topic_id);
+    if (params.assigned !== undefined) q.append('assigned', params.assigned);
+    if (params.search) q.append('search', params.search);
+    if (params.page) q.append('page', params.page);
+    if (params.limit) q.append('limit', params.limit);
+    return request(`/questions?${q}`);
+  },
+  async getQuestionById(id) { return request(`/questions/${id}`); },
+  async createQuestion(data) { return request('/questions', { method: 'POST', body: JSON.stringify(data) }); },
+  async updateQuestion(id, data) { return request(`/questions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); },
+  async validateQuestion(id) { return request(`/questions/${id}/validate`, { method: 'POST' }); },
+  async deleteQuestion(id) { return request(`/questions/${id}`, { method: 'DELETE' }); },
+
+  // Question Versioning
+  async getQuestionVersions(id) { return request(`/questions/${id}/versions`); },
+  async getQuestionVersion(id, version) { return request(`/questions/${id}/versions/${version}`); },
+  async compareQuestionVersions(id, v1, v2) { return request(`/questions/${id}/versions/compare?v1=${v1}&v2=${v2}`); },
+  async restoreQuestionVersion(id, version) { return request(`/questions/${id}/versions/${version}/restore`, { method: 'POST' }); },
+
+  // AI Questions & Reviews
+  async generateAIQuestion(data) { return request('/ai-questions/generate', { method: 'POST', body: JSON.stringify(data) }); },
+
+  // Daily Question
+  async getDailyQuestion() { return request('/daily-question'); },
+  async setDailyQuestion(data) { return request('/daily-question', { method: 'POST', body: JSON.stringify(data) }); },
+
+  // Code Execution & Submissions
+  async runCode(data) { return request('/code/run', { method: 'POST', body: JSON.stringify(data) }); },
+  async submitCode(data) { return request('/code/submit', { method: 'POST', body: JSON.stringify(data) }); },
+  async getCodeSubmissions(questionId) { return request(`/code/submissions/${questionId}`); },
+  async getCodeSubmissionsHistory(questionId) { return this.getCodeSubmissions(questionId); },
+  async submitChallenge(data) { return request('/submissions', { method: 'POST', body: JSON.stringify(data) }); },
+  async submitViaGithub(data) { return request('/submissions/github', { method: 'POST', body: JSON.stringify(data) }); },
+  async getSubmissions(params = {}) {
+    const q = new URLSearchParams();
+    for (const k of ['status', 'review_status', 'submission_type', 'user_id', 'question_id', 'page', 'limit']) {
+      if (params[k]) q.append(k, params[k]);
+    }
+    return request(`/submissions?${q}`);
+  },
+  async reviewSubmission(id, data) { return request(`/submissions/${id}/review`, { method: 'POST', body: JSON.stringify(data) }); },
+  async aiReviewSubmission(id) { return request(`/submissions/${id}/ai-review`, { method: 'POST' }); },
+
+  // Assignments
+  async getAssignments(params = {}) {
+    const q = new URLSearchParams();
+    for (const k of ['status', 'user_id', 'cohort_id', 'priority', 'page', 'limit']) {
+      if (params[k]) q.append(k, params[k]);
+    }
+    return request(`/assignments?${q}`);
+  },
+  async createAssignment(data) { return request('/assignments', { method: 'POST', body: JSON.stringify(data) }); },
+  async bulkAssign(data) { return request('/assignments/bulk', { method: 'POST', body: JSON.stringify(data) }); },
+  async updateAssignmentStatus(id, status) { return request(`/assignments/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }); },
+
+  // Topics & Cohorts
+  async getTopics() { return request('/questions/topics'); },
+  async getCohorts() { return request('/cohorts'); },
+  async getCohortById(id) { return request(`/cohorts/${id}`); },
+  async createCohort(data) { return request('/cohorts', { method: 'POST', body: JSON.stringify(data) }); },
+  async addCohortMember(cohortId, userId) { return request(`/cohorts/${cohortId}/members`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }); },
+  async removeCohortMember(cohortId, userId) { return request(`/cohorts/${cohortId}/members/${userId}`, { method: 'DELETE' }); },
+  async assignCohortChallenge(cohortId, data) { return request(`/cohorts/${cohortId}/assign`, { method: 'POST', body: JSON.stringify(data) }); },
+  async startLiveSession(cohortId, data) { return request(`/cohorts/${cohortId}/live-session`, { method: 'POST', body: JSON.stringify(data) }); },
+
+  // Notifications
+  async getNotifications() { return request('/notifications'); },
+  async markNotificationAsRead(id) { return request(`/notifications/${id}/read`, { method: 'PATCH' }); },
+  async markAllNotificationsAsRead() { return request('/notifications/read-all', { method: 'POST' }); },
+
+  // Analytics & Recommendations
+  async getUserAnalytics(userId) { return request(userId ? `/analytics/users/${userId}` : '/analytics/me'); },
+  async getRecommendations(limit = 8) { return request(`/recommendations?limit=${limit}`); },
+
+  // Users & Profiles
+  async getMyProfile() { return request('/users/profile/me'); },
+  async updateMyProfile(data) { return request('/users/profile/me', { method: 'PATCH', body: JSON.stringify(data) }); },
+  async getLeaderboard(period = 'all') { const q = new URLSearchParams({ period }); return request(`/users/leaderboard?${q}`); },
+  async getUsers(params = {}) {
+    const q = new URLSearchParams();
+    for (const k of ['role', 'search', 'page', 'limit']) {
+      if (params[k]) q.append(k, params[k]);
+    }
+    return request(`/users?${q}`);
+  },
+  async getUserById(id) { return request(`/users/${id}`); },
+  async updateUserRole(id, role) { return request(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); },
+
+  // Admin Audit Logs
+  async getAuditLogs(params = {}) {
+    const q = new URLSearchParams();
+    for (const k of ['action', 'resource_type', 'actor_id', 'from_date', 'to_date', 'page', 'limit']) {
+      if (params[k]) q.append(k, params[k]);
+    }
+    return request(`/admin/audit-logs?${q}`);
+  }
 };

@@ -151,6 +151,15 @@ function initSchema() {
       passed_tests INTEGER DEFAULT 0,
       total_tests INTEGER DEFAULT 0,
       execution_time_ms REAL DEFAULT 0,
+      manual_score REAL DEFAULT NULL,
+      manual_feedback TEXT,
+      started_at TEXT,
+      attempt_count INTEGER DEFAULT 0,
+      solve_duration_seconds REAL DEFAULT 0,
+      test_score REAL DEFAULT 0,
+      time_score REAL DEFAULT 0,
+      attempt_score REAL DEFAULT 0,
+      final_score REAL DEFAULT 0,
       attempted_at TEXT,
       solved_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -230,6 +239,38 @@ function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_daily_questions_date ON daily_questions(date);
+
+    CREATE TABLE IF NOT EXISTS admin_audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      actor_email TEXT,
+      action TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      resource_id TEXT,
+      before_data TEXT,
+      after_data TEXT,
+      metadata TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_actor ON admin_audit_logs(actor_id);
+    CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_resource ON admin_audit_logs(resource_type, resource_id);
+    CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created ON admin_audit_logs(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS question_versions (
+      id TEXT PRIMARY KEY,
+      question_id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      snapshot TEXT NOT NULL,
+      changed_by TEXT,
+      change_type TEXT NOT NULL DEFAULT 'update',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(question_id, version)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_question_versions_question ON question_versions(question_id, version DESC);
   `);
 
   // Safe individual column migrations

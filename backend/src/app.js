@@ -18,6 +18,7 @@ const codeExecutionRoutes = require('./routes/codeExecutionRoutes');
 const cohortRoutes = require('./routes/cohortRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const aiQuestionRoutes = require('./routes/aiQuestionRoutes');
+const auditRoutes = require('./routes/auditRoutes');
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
@@ -29,6 +30,6 @@ const apiLimiter=rateLimit({windowMs:15*60*1000,max:process.env.NODE_ENV==='prod
 app.use('/api/v1',apiLimiter);
 if(process.env.NODE_ENV!=='test') app.use(morgan('dev'));
 app.get('/health',(req,res)=>res.status(200).json({status:'ok',timestamp:new Date().toISOString()}));
-app.use('/api/v1/auth',authRoutes); app.use('/api/v1/questions',questionRoutes); app.use('/api/v1/daily-question',dailyQuestionRoutes); app.use('/api/v1/assignments',assignmentRoutes); app.use('/api/v1/submissions',submissionRoutes); app.use('/api/v1/progress',progressRoutes); app.use('/api/v1/analytics',analyticsRoutes); app.use('/api/v1/recommendations',recommendationRoutes); app.use('/api/v1/users',userRoutes); app.use('/api/v1/code',codeExecutionRoutes); app.use('/api/v1/cohorts',cohortRoutes); app.use('/api/v1/notifications',notificationRoutes); app.use('/api/v1/ai-questions',aiQuestionRoutes);
+app.use('/api/v1/auth',authRoutes); app.use('/api/v1/questions',questionRoutes); app.use('/api/v1/daily-question',dailyQuestionRoutes); app.use('/api/v1/assignments',assignmentRoutes); app.use('/api/v1/submissions',submissionRoutes); app.use('/api/v1/progress',progressRoutes); app.use('/api/v1/analytics',analyticsRoutes); app.use('/api/v1/recommendations',recommendationRoutes); app.use('/api/v1/users',userRoutes); app.use('/api/v1/code',codeExecutionRoutes); app.use('/api/v1/cohorts',cohortRoutes); app.use('/api/v1/notifications',notificationRoutes); app.use('/api/v1/ai-questions',aiQuestionRoutes); app.use('/api/v1/admin/audit-logs',auditRoutes);
 app.use((req,res)=>res.status(404).json({error:{code:'NOT_FOUND',message:`Cannot ${req.method} ${req.originalUrl}`}}));
 app.use(errorHandler); module.exports=app;

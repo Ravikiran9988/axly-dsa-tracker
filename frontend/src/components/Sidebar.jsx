@@ -22,7 +22,9 @@ import {
   ChevronRight,
   Flame,
   Zap,
-  Award
+  Award,
+  TrendingUp,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -45,6 +47,7 @@ export default function Sidebar({
   ];
 
   const learningNavItems = [
+    { id: 'analytics', label: 'Skill Analytics', icon: TrendingUp },
     { id: 'learning-path', label: 'Learning Path', icon: Route },
     { id: 'practice', label: 'Practice Bank', icon: Code2 },
     { id: 'leaderboard', label: 'Leaderboard', icon: Trophy }
@@ -55,7 +58,8 @@ export default function Sidebar({
     { id: 'admin-challenges', label: 'Manage Challenges', icon: Code2 },
     { id: 'admin-cohorts', label: 'Cohorts & Batches', icon: Radio },
     { id: 'admin-users', label: 'Student Directory', icon: Users },
-    { id: 'admin-reviews', label: 'Code & GitHub Reviews', icon: GitPullRequest }
+    { id: 'admin-reviews', label: 'Code & GitHub Reviews', icon: GitPullRequest },
+    { id: 'admin-audit', label: 'Security & Audit Logs', icon: ShieldAlert }
   ];
 
   const accountNavItems = [

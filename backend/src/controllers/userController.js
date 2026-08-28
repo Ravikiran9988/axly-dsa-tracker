@@ -1,5 +1,6 @@
 const { db } = require('../db/db');
 const { AppError } = require('../middleware/errorHandler');
+const auditService = require('../services/auditService');
 
 function listUsers(req, res, next) {
   try {
@@ -8,10 +9,23 @@ function listUsers(req, res, next) {
     let whereClauses = [];
     const params = [];
     if (role) { whereClauses.push('u.role = ?'); params.push(role); }
-    if (search) { whereClauses.push('(LOWER(u.name) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.institution) LIKE ?)'); params.push(`%${search.toLowerCase()}%`, `%${search.toLowerCase()}%`, `%${search.toLowerCase()}%`); }
+    if (search) {
+      whereClauses.push('(LOWER(u.name) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.institution) LIKE ?)');
+      params.push(`%${search.toLowerCase()}%`, `%${search.toLowerCase()}%`, `%${search.toLowerCase()}%`);
+    }
     const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
     const total = db.prepare(`SELECT COUNT(*) as total FROM users u ${whereSql}`).get(...params).total;
-    const users = db.prepare(`SELECT u.*, (SELECT GROUP_CONCAT(c.name, ', ') FROM cohort_members cm JOIN cohorts c ON cm.cohort_id = c.id WHERE cm.user_id = u.id) as cohort_name, (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id) as assigned_count, (SELECT COUNT(*) FROM assignments a JOIN submissions s ON s.question_id = a.question_id AND s.user_id = u.id WHERE s.status IN ('solved','completed','approved')) as completed_count, (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id AND a.status IN ('assigned','ongoing','under_review')) as pending_count FROM users u ${whereSql} ORDER BY u.points DESC, u.name ASC LIMIT ? OFFSET ?`).all(...params, Number(limit), offset);
+    const users = db.prepare(`
+      SELECT u.*,
+        (SELECT GROUP_CONCAT(c.name, ', ') FROM cohort_members cm JOIN cohorts c ON cm.cohort_id = c.id WHERE cm.user_id = u.id) as cohort_name,
+        (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id) as assigned_count,
+        (SELECT COUNT(*) FROM assignments a JOIN submissions s ON s.question_id = a.question_id AND s.user_id = u.id WHERE s.status IN ('solved','completed','approved')) as completed_count,
+        (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id AND a.status IN ('assigned','ongoing','under_review')) as pending_count
+      FROM users u
+      ${whereSql}
+      ORDER BY u.points DESC, u.name ASC
+      LIMIT ? OFFSET ?
+    `).all(...params, Number(limit), offset);
     return res.status(200).json({ data: users.map(u => ({ ...u, skills: safeParseJson(u.skills) })), page: Number(page), limit: Number(limit), total });
   } catch (err) { next(err); }
 }
@@ -53,7 +67,6 @@ function updateMyProfile(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// GET /api/v1/users/leaderboard?period=all|weekly|monthly
 function getLeaderboard(req, res, next) {
   try {
     const requestedPeriod = String(req.query.period || 'all').toLowerCase();
@@ -88,12 +101,28 @@ function updateUserRole(req, res, next) {
   try {
     const { role } = req.body;
     if (!['admin','user','mentor'].includes(role)) throw new AppError('role must be one of admin|user|mentor', 400, 'VALIDATION_ERROR', 'role');
-    const targetUser = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
+    const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
     if (!targetUser) throw new AppError('User not found', 404, 'NOT_FOUND');
+    
     db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, req.params.id);
-    return res.status(200).json({ data: db.prepare('SELECT id,name,email,role,created_at FROM users WHERE id = ?').get(req.params.id) });
+    const updated = db.prepare('SELECT id,name,email,role,created_at FROM users WHERE id = ?').get(req.params.id);
+
+    auditService.logAction({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      action: 'user_role_update',
+      resourceType: 'user',
+      resourceId: req.params.id,
+      beforeData: { role: targetUser.role },
+      afterData: { role: updated.role },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+
+    return res.status(200).json({ data: updated });
   } catch (err) { next(err); }
 }
 
 function safeParseJson(val) { if (!val) return []; try { return typeof val === 'string' ? JSON.parse(val) : val; } catch (e) { return [val]; } }
+
 module.exports = { listUsers, getMyProfile, updateMyProfile, getLeaderboard, getUserById, updateUserRole };

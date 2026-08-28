@@ -1,4 +1,5 @@
 const assignmentService = require('../services/assignmentService');
+const auditService = require('../services/auditService');
 
 async function createAssignment(req, res, next) {
   try {
@@ -12,6 +13,18 @@ async function createAssignment(req, res, next) {
       instructions,
       admin_id: req.user.id
     });
+
+    auditService.logAction({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      action: 'assignment_create',
+      resourceType: 'assignment',
+      resourceId: assignment.id,
+      afterData: assignment,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+
     return res.status(201).json({ data: assignment });
   } catch (err) {
     next(err);
@@ -30,6 +43,18 @@ async function bulkAssign(req, res, next) {
       instructions,
       admin_id: req.user.id
     });
+
+    auditService.logAction({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      action: 'assignment_bulk_create',
+      resourceType: 'assignment',
+      metadata: { user_count: user_ids?.length, question_count: question_ids?.length, cohort_id },
+      afterData: result,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+
     return res.status(200).json({ data: result });
   } catch (err) {
     next(err);
@@ -38,7 +63,20 @@ async function bulkAssign(req, res, next) {
 
 async function unassign(req, res, next) {
   try {
+    const existing = assignmentService.getAssignmentById(req.params.id);
     const result = assignmentService.unassign(req.params.id);
+
+    auditService.logAction({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      action: 'assignment_unassign',
+      resourceType: 'assignment',
+      resourceId: req.params.id,
+      beforeData: existing,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+
     return res.status(200).json(result);
   } catch (err) {
     next(err);
