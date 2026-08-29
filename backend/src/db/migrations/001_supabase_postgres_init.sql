@@ -82,8 +82,10 @@ CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens(user_id);
 CREATE TABLE IF NOT EXISTS topics (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
+  category TEXT DEFAULT 'Core',
   description TEXT,
-  order_index INTEGER DEFAULT 0
+  order_index INTEGER DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- 5. PATTERNS TABLE
@@ -194,6 +196,7 @@ CREATE TABLE IF NOT EXISTS daily_challenge_problems (
   created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'published', 'archived')),
   scheduled_date DATE UNIQUE,
+  custom_topic TEXT,
   created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

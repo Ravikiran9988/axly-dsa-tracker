@@ -12,12 +12,19 @@ const {
   publishDailyChallenge,
   unpublishDailyChallenge,
   archiveDailyChallenge,
-  deleteDailyChallenge
+  deleteDailyChallenge,
+  getDailyChallengeTopics,
+  recommendTopic,
+  createDailyChallengeFromPractice
 } = require('../controllers/dailyChallengeController');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
 
 router.use(authenticate);
+
+// Topic taxonomy & AI Topic recommendation
+router.get('/topics', getDailyChallengeTopics);
+router.post('/recommend-topic', requireRole('admin'), recommendTopic);
 
 // Public / Student active challenge endpoint
 router.get('/today', getTodayDailyChallenge);
@@ -27,6 +34,7 @@ router.get('/', listDailyChallenges);
 router.get('/:id', getDailyChallenge);
 
 // Admin-only creation, AI generation, and lifecycle actions
+router.post('/from-practice', requireRole('admin'), createDailyChallengeFromPractice);
 router.post('/generate-ai', requireRole('admin'), generateAiChallenge);
 router.post('/validate-duplicate', requireRole('admin'), validateDuplicate);
 router.post('/', requireRole('admin'), createDailyChallenge);

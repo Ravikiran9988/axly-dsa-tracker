@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import {
   X,
@@ -28,21 +28,6 @@ import {
   ShieldCheck,
   AlertTriangle
 } from 'lucide-react';
-
-const STANDARD_TOPICS = [
-  'Arrays',
-  'Strings',
-  'Hashing',
-  'Binary Search',
-  'Two Pointers / Sliding Window',
-  'Stack',
-  'Trees',
-  'Dynamic Programming',
-  'Graphs',
-  'Heap / Priority Queue',
-  'Recursion & Backtracking',
-  'Other'
-];
 
 export default function AdminDailyChallengeModal({
   isOpen,
@@ -108,6 +93,94 @@ export default function AdminDailyChallengeModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Dynamic Topics & Pattern Taxonomy State
+  const [modalTopics, setModalTopics] = useState(topics || []);
+  const [recLoading, setRecLoading] = useState(false);
+  const [recReason, setRecReason] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchDailyTopics();
+    }
+  }, [isOpen]);
+
+  async function fetchDailyTopics() {
+    try {
+      const res = await api.getDailyChallengeTopics();
+      if (res && res.data && Array.isArray(res.data.topics)) {
+        setModalTopics(res.data.topics);
+      } else if (topics && topics.length > 0) {
+        setModalTopics(topics);
+      }
+    } catch {
+      if (topics && topics.length > 0) setModalTopics(topics);
+    }
+  }
+
+  const handleRecommendTopic = async (targetDifficulty) => {
+    setRecLoading(true);
+    setRecReason('');
+    try {
+      const res = await api.recommendDailyChallengeTopic({ difficulty: targetDifficulty });
+      if (res && res.data) {
+        const rec = res.data;
+        setAiConfig(prev => ({
+          ...prev,
+          topic: rec.topic_name || rec.topic_id,
+          pattern: rec.pattern_name || prev.pattern
+        }));
+        setFormData(prev => ({
+          ...prev,
+          topic_id: rec.topic_id,
+          topic_name: rec.topic_name,
+          pattern_name: rec.pattern_name || prev.pattern_name
+        }));
+        if (rec.reason) {
+          setRecReason(rec.reason);
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to fetch topic recommendation.');
+    } finally {
+      setRecLoading(false);
+    }
+  };
+
+  const groupedTopics = useMemo(() => {
+    const map = {
+      'Core': [],
+      'Trees': [],
+      'Graphs': [],
+      'Advanced': [],
+      'Other': []
+    };
+
+    if (!modalTopics || modalTopics.length === 0) return map;
+
+    modalTopics.forEach(t => {
+      const cat = map[t.category] ? t.category : 'Other';
+      map[cat].push(t);
+    });
+
+    return map;
+  }, [modalTopics]);
+
+  const aiAvailablePatterns = useMemo(() => {
+    if (!aiConfig.topic) return [];
+    const matched = modalTopics.find(t =>
+      t.id === aiConfig.topic || t.name?.toLowerCase() === String(aiConfig.topic).toLowerCase()
+    );
+    return matched?.patterns || [];
+  }, [modalTopics, aiConfig.topic]);
+
+  const manualAvailablePatterns = useMemo(() => {
+    if (!formData.topic_id && !formData.topic_name) return [];
+    const matched = modalTopics.find(t =>
+      t.id === formData.topic_id || t.name?.toLowerCase() === String(formData.topic_name).toLowerCase()
+    );
+    return matched?.patterns || [];
+  }, [modalTopics, formData.topic_id, formData.topic_name]);
 
   useEffect(() => {
     if (isOpen) {
@@ -216,9 +289,16 @@ export default function AdminDailyChallengeModal({
     setAiValidationErrors([]);
 
     try {
-      const res = await api.generateDailyChallengeAI(aiConfig);
+      const payload = {
+        ...aiConfig,
+        topic: aiConfig.topic === 'Other' ? (aiConfig.custom_topic || 'Other') : aiConfig.topic
+      };
+      const res = await api.generateDailyChallengeAI(payload);
       if (res.data) {
         setAiGeneratedData(res.data);
+        if (res.data.recommendation_reason) {
+          setRecReason(res.data.recommendation_reason);
+        }
       }
     } catch (err) {
       setError(err.message || 'AI generation failed. Please try again or refine instructions.');
@@ -476,20 +556,40 @@ export default function AdminDailyChallengeModal({
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Primary Topic *</label>
+                <div className="col-span-full sm:col-span-1">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">Primary Topic *</label>
+                    <button
+                      type="button"
+                      onClick={() => handleRecommendTopic(aiConfig.difficulty)}
+                      disabled={recLoading}
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-[11px] font-semibold transition-all"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                      {recLoading ? 'Analyzing...' : '✨ AI Recommend Topic'}
+                    </button>
+                  </div>
                   <select
                     value={aiConfig.topic}
-                    onChange={(e) => setAiConfig(prev => ({ ...prev, topic: e.target.value }))}
+                    onChange={(e) => {
+                      setAiConfig(prev => ({ ...prev, topic: e.target.value }));
+                      setRecReason('');
+                    }}
                     className="input-field w-full text-xs"
                   >
-                    {STANDARD_TOPICS.map(t => (
-                      <option key={t} value={t}>{t}</option>
+                    <option value="Surprise Me">✨ Surprise Me (AI Select Optimal Topic)</option>
+                    {Object.entries(groupedTopics).map(([category, items]) => items.length > 0 && (
+                      <optgroup key={category} label={category}>
+                        {items.map(t => (
+                          <option key={t.id} value={t.name}>{t.name}</option>
+                        ))}
+                      </optgroup>
                     ))}
+                    <option value="Other">Other (Custom Topic)</option>
                   </select>
                 </div>
 
-                <div>
+                <div className="col-span-full sm:col-span-1">
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">Difficulty *</label>
                   <div className="grid grid-cols-3 gap-2">
                     {['easy', 'medium', 'hard'].map((d) => (
@@ -517,15 +617,51 @@ export default function AdminDailyChallengeModal({
                   </div>
                 </div>
 
-                <div>
+                {aiConfig.topic === 'Other' && (
+                  <div className="col-span-full">
+                    <label className="block text-xs font-semibold text-amber-300 mb-1.5">Custom Topic Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Quantum Sorting, Trie Hashing"
+                      value={aiConfig.custom_topic || ''}
+                      onChange={(e) => setAiConfig(prev => ({ ...prev, custom_topic: e.target.value }))}
+                      className="input-field w-full text-xs border-amber-500/40 text-amber-200"
+                    />
+                  </div>
+                )}
+
+                {recReason && (
+                  <div className="col-span-full p-2.5 rounded-xl bg-indigo-950/70 border border-indigo-500/40 text-xs text-indigo-200 flex items-start gap-2 animate-fadeIn">
+                    <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-amber-300">Topic Diversity Recommendation: </span>
+                      {recReason}
+                    </div>
+                  </div>
+                )}
+
+                <div className="col-span-full sm:col-span-1">
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">Algorithm Pattern (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Sliding Window, Two Pointers, Monotonic Stack, BFS"
-                    value={aiConfig.pattern}
-                    onChange={(e) => setAiConfig(prev => ({ ...prev, pattern: e.target.value }))}
-                    className="input-field w-full text-xs"
-                  />
+                  {aiAvailablePatterns.length > 0 ? (
+                    <select
+                      value={aiConfig.pattern}
+                      onChange={(e) => setAiConfig(prev => ({ ...prev, pattern: e.target.value }))}
+                      className="input-field w-full text-xs"
+                    >
+                      <option value="">Auto / Any Pattern for Topic</option>
+                      {aiAvailablePatterns.map(p => (
+                        <option key={p.id} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="e.g. Sliding Window, Two Pointers, Monotonic Stack, BFS"
+                      value={aiConfig.pattern}
+                      onChange={(e) => setAiConfig(prev => ({ ...prev, pattern: e.target.value }))}
+                      className="input-field w-full text-xs"
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -769,30 +905,84 @@ export default function AdminDailyChallengeModal({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Primary Topic *</label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-300">Primary Topic *</label>
+                        <button
+                          type="button"
+                          onClick={() => handleRecommendTopic(formData.difficulty)}
+                          disabled={recLoading}
+                          className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-[10px] font-semibold transition-all"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-400" />
+                          {recLoading ? 'Analyzing...' : '✨ AI Recommend'}
+                        </button>
+                      </div>
                       <select
                         name="topic_id"
                         value={formData.topic_id}
-                        onChange={handleFormChange}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const matched = modalTopics.find(t => t.id === val);
+                          setFormData(prev => ({
+                            ...prev,
+                            topic_id: val,
+                            topic_name: matched ? matched.name : (val === 'other' ? 'Other' : val),
+                            custom_topic: val === 'other' ? prev.custom_topic : ''
+                          }));
+                          setRecReason('');
+                        }}
                         className="input-field w-full text-xs"
                       >
                         <option value="">Select Topic</option>
-                        {topics.map(t => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
+                        {Object.entries(groupedTopics).map(([category, items]) => items.length > 0 && (
+                          <optgroup key={category} label={category}>
+                            {items.map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </optgroup>
                         ))}
+                        <option value="other">Other (Custom Topic)</option>
                       </select>
                     </div>
 
+                    {formData.topic_id === 'other' && (
+                      <div className="col-span-full">
+                        <label className="block text-xs font-semibold text-amber-300 mb-1.5">Custom Topic Name *</label>
+                        <input
+                          type="text"
+                          name="custom_topic"
+                          placeholder="e.g. Quantum Algorithms, Trie Hashing"
+                          value={formData.custom_topic || ''}
+                          onChange={handleFormChange}
+                          className="input-field w-full text-xs border-amber-500/40 text-amber-200"
+                        />
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1.5">Algorithm Pattern (Optional)</label>
-                      <input
-                        type="text"
-                        name="pattern_name"
-                        placeholder="e.g. Sliding Window, Monotonic Stack, Two Pointers"
-                        value={formData.pattern_name}
-                        onChange={handleFormChange}
-                        className="input-field w-full text-xs"
-                      />
+                      {manualAvailablePatterns.length > 0 ? (
+                        <select
+                          name="pattern_name"
+                          value={formData.pattern_name}
+                          onChange={handleFormChange}
+                          className="input-field w-full text-xs"
+                        >
+                          <option value="">Select Pattern / Technique</option>
+                          {manualAvailablePatterns.map(p => (
+                            <option key={p.id} value={p.name}>{p.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          name="pattern_name"
+                          placeholder="e.g. Sliding Window, Monotonic Stack, Two Pointers"
+                          value={formData.pattern_name}
+                          onChange={handleFormChange}
+                          className="input-field w-full text-xs"
+                        />
+                      )}
                     </div>
 
                     <div>

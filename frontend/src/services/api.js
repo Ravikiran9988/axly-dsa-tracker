@@ -59,7 +59,7 @@ export const api = {
   async generateAIQuestion(data) { return request('/ai-questions/generate', { method: 'POST', body: JSON.stringify(data) }); },
 
   // Daily Challenge & Daily Question
-  async getDailyQuestion() { return request('/daily-question'); },
+  async getDailyQuestion() { return request('/daily-challenges/today'); },
   async getTodayDailyChallenge() { return request('/daily-challenges/today'); },
   async setDailyQuestion(data) { return request('/daily-question', { method: 'POST', body: JSON.stringify(data) }); },
   async getDailyChallenges(params = {}) {
@@ -77,7 +77,8 @@ export const api = {
   async scheduleDailyChallenge(id, data) { return request(`/daily-challenges/${id}/schedule`, { method: 'POST', body: JSON.stringify(data) }); },
   async publishDailyChallenge(id) { return request(`/daily-challenges/${id}/publish`, { method: 'POST' }); },
   async unpublishDailyChallenge(id) { return request(`/daily-challenges/${id}/unpublish`, { method: 'POST' }); },
-  async archiveDailyChallenge(id) { return request(`/daily-challenges/${id}/archive`, { method: 'POST' }); },
+  async getDailyChallengeTopics() { return request('/daily-challenges/topics'); },
+  async recommendDailyChallengeTopic(params = {}) { return request('/daily-challenges/recommend-topic', { method: 'POST', body: JSON.stringify(params) }); },
   async deleteDailyChallenge(id) { return request(`/daily-challenges/${id}`, { method: 'DELETE' }); },
 
   // Code Execution & Submissions
@@ -172,7 +173,6 @@ export const api = {
   async updateUserRole(id, role) { return request(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); },
 
   // Admin Audit Logs & Stats
-  async getAdminStats() { return request('/analytics/admin/stats'); },
   async getAdminProgressStats() { return request('/progress/stats'); },
   async getAuditLogs(params = {}) {
     const q = new URLSearchParams();

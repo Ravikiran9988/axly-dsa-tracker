@@ -130,7 +130,7 @@ export default function AdminDashboard({
         </div>
       )}
 
-      {/* Primary 8-Metric Grid */}
+      {/* Primary Metric Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* 1. Total Students */}
         <div
@@ -138,49 +138,48 @@ export default function AdminDashboard({
           className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
         >
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Total Students</span>
+            <span>Students</span>
             <Users className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {loading ? <span className="text-slate-600 font-mono text-xl">Loading...</span> : (stats ? (students.total ?? 0) : '—')}
+            {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (students.total ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            Registered student accounts
+            {loading ? 'Fetching accounts...' : `${students.active || students.total || 0} active students`}
           </div>
         </div>
 
-        {/* 2. Active Students */}
-        <div
-          onClick={() => onNavigate && onNavigate('admin-users')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
-        >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Active Students</span>
-            <Activity className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-            {loading ? <span className="text-slate-600 font-mono text-xl">Loading...</span> : (stats ? (students.active || students.total || 0) : '—')}
-          </div>
-          <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Active student accounts</span>
-          </div>
-        </div>
-
-        {/* 3. Total Questions */}
+        {/* 2. Practice Questions */}
         <div
           onClick={() => onNavigate && onNavigate('admin-challenges')}
           className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
         >
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Total Questions</span>
+            <span>Practice Questions</span>
             <Code2 className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {questions.total}
+            {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (questions.total ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            {questions.published || questions.total} published &bull; {questions.draft || 0} drafts
+            {loading ? 'Fetching repository...' : `${questions.published || questions.total || 0} published • ${questions.draft || 0} drafts`}
+          </div>
+        </div>
+
+        {/* 3. Solved Practice Questions */}
+        <div
+          onClick={() => onNavigate && onNavigate('admin-submissions')}
+          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+        >
+          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+            <span>Solved Practice Questions</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
+            {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (stats.solved ?? submissions.solved ?? 0) : '—')}
+          </div>
+          <div className="text-[11px] text-emerald-400/90 font-mono">
+            {loading ? 'Calculating solves...' : `Unique solved practice problems`}
           </div>
         </div>
 
@@ -194,10 +193,10 @@ export default function AdminDashboard({
             <Target className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {assignments.active || assignments.total}
+            {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (assignments.active || assignments.total || 0) : '—')}
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            {assignments.total} total assignments
+            {loading ? 'Fetching assignments...' : `${assignments.total || 0} total assignments`}
           </div>
         </div>
 
@@ -211,10 +210,10 @@ export default function AdminDashboard({
             <TrendingUp className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {assignments.completion_rate || submissions.accuracy_rate}%
+            {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? `${assignments.completion_rate || submissions.accuracy_rate || 0}%` : '—')}
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            {assignments.completed} solved / completed
+            {loading ? 'Calculating rate...' : `${assignments.completed || 0} completed`}
           </div>
         </div>
 
@@ -228,10 +227,10 @@ export default function AdminDashboard({
             <GitPullRequest className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {pendingReviews}
+            {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (pendingReviews ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-purple-400 font-semibold">
-            Requires mentor score
+            {loading ? 'Checking reviews...' : 'Requires mentor score'}
           </div>
         </div>
 
@@ -245,10 +244,10 @@ export default function AdminDashboard({
             <Radio className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {cohorts.active}
+            {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (cohorts.active ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            Live student batches
+            {loading ? 'Fetching cohorts...' : 'Live student batches'}
           </div>
         </div>
 
@@ -262,10 +261,10 @@ export default function AdminDashboard({
             <History className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {submissions.total}
+            {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (submissions.total ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            {submissions.solved} solved ({submissions.accuracy_rate}%)
+            {loading ? 'Fetching submissions...' : `${submissions.solved || 0} solved (${submissions.accuracy_rate || 0}%)`}
           </div>
         </div>
       </div>

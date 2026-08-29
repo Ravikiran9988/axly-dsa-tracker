@@ -1,13 +1,15 @@
 const dailyQuestionService = require('../services/dailyQuestionService');
+const dailyChallengeService = require('../services/dailyChallengeService');
 
 async function getDailyQuestion(req, res, next) {
   try {
     const { date } = req.query;
-    // Students can only read the current Daily Challenge. Historical/future
-    // dates remain available to privileged users for administration/testing.
     const isPrivileged = req.user?.role === 'admin' || req.user?.role === 'mentor';
     const requestedDate = isPrivileged ? date : undefined;
-    const result = await dailyQuestionService.getDailyQuestion(req.user, requestedDate);
+    let result = await dailyChallengeService.getTodayDailyChallenge(req.user, requestedDate);
+    if (!result || !result.data) {
+      result = await dailyQuestionService.getDailyQuestion(req.user, requestedDate);
+    }
     return res.status(200).json(result);
   } catch (err) {
     next(err);

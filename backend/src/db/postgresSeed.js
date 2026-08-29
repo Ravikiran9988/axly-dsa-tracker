@@ -27,10 +27,10 @@ async function seedPostgresDatabase(pgPool = pool) {
     for (let i = 0; i < topics.length; i++) {
       const t = topics[i];
       await client.query(`
-        INSERT INTO topics (id, name, order_index)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, order_index = EXCLUDED.order_index
-      `, [t.id, t.name, i + 1]);
+        INSERT INTO topics (id, name, category, order_index)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category, order_index = EXCLUDED.order_index
+      `, [t.id, t.name, t.category || 'Core', i + 1]);
     }
 
     for (let i = 0; i < patterns.length; i++) {

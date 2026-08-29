@@ -1,16 +1,44 @@
 [
-  {"id":"two-pointers","name":"Two Pointers","applicableTopics":["arrays","strings","two-pointers-sliding-window"]},
-  {"id":"sliding-window","name":"Sliding Window","applicableTopics":["strings","two-pointers-sliding-window"]},
-  {"id":"fast-slow-pointers","name":"Fast & Slow Pointers","applicableTopics":["two-pointers-sliding-window"]},
-  {"id":"hash-map-lookup","name":"Hash Map Lookup","applicableTopics":["hashing","strings","arrays"]},
-  {"id":"prefix-sum","name":"Prefix Sum","applicableTopics":["arrays"]},
-  {"id":"kadanes-algorithm","name":"Kadane's Algorithm","applicableTopics":["arrays"]},
-  {"id":"monotonic-stack","name":"Monotonic Stack","applicableTopics":["stack"]},
-  {"id":"binary-search","name":"Binary Search","applicableTopics":["binary-search","arrays"]},
-  {"id":"binary-search-on-answer","name":"Binary Search on Answer","applicableTopics":["binary-search"]},
-  {"id":"tree-bfs","name":"Tree BFS (Level Order)","applicableTopics":["trees"]},
-  {"id":"tree-dfs","name":"Tree DFS","applicableTopics":["trees"]},
-  {"id":"tree-recursion","name":"Tree Recursion","applicableTopics":["trees"]},
-  {"id":"1d-dp","name":"1D DP","applicableTopics":["dynamic-programming"]},
-  {"id":"2d-dp","name":"2D DP","applicableTopics":["dynamic-programming"]}
+  { "id": "two-pointers", "name": "Two Pointers", "applicableTopics": ["two-pointers", "arrays", "strings", "two-pointers-sliding-window"] },
+  { "id": "sliding-window", "name": "Sliding Window", "applicableTopics": ["sliding-window", "strings", "arrays", "two-pointers-sliding-window"] },
+  { "id": "fast-slow-pointers", "name": "Fast & Slow Pointers", "applicableTopics": ["two-pointers", "linked-list", "two-pointers-sliding-window"] },
+  { "id": "hash-map-lookup", "name": "Hash Map Lookup", "applicableTopics": ["hashing", "strings", "arrays"] },
+  { "id": "prefix-sum", "name": "Prefix Sum", "applicableTopics": ["prefix-sum", "arrays"] },
+  { "id": "kadanes-algorithm", "name": "Kadane's Algorithm", "applicableTopics": ["arrays", "dynamic-programming"] },
+  { "id": "monotonic-stack", "name": "Monotonic Stack", "applicableTopics": ["monotonic-stack", "stack"] },
+  { "id": "binary-search", "name": "Binary Search", "applicableTopics": ["binary-search", "arrays", "sorting"] },
+  { "id": "binary-search-on-answer", "name": "Binary Search on Answer", "applicableTopics": ["binary-search"] },
+  { "id": "tree-bfs", "name": "Tree BFS (Level Order)", "applicableTopics": ["binary-trees", "trees", "tree-traversal", "bfs"] },
+  { "id": "tree-dfs", "name": "Tree DFS", "applicableTopics": ["binary-trees", "trees", "tree-traversal", "dfs"] },
+  { "id": "tree-recursion", "name": "Tree Recursion", "applicableTopics": ["binary-trees", "trees", "tree-traversal", "recursion"] },
+  { "id": "1d-dp", "name": "1D DP", "applicableTopics": ["dynamic-programming"] },
+  { "id": "2d-dp", "name": "2D DP", "applicableTopics": ["dynamic-programming"] },
+
+  { "id": "custom-comparator", "name": "Custom Comparator", "applicableTopics": ["sorting", "arrays"] },
+  { "id": "merge-sort-inversions", "name": "Merge Sort / Inversions", "applicableTopics": ["sorting", "divide-and-conquer"] },
+  { "id": "quickselect", "name": "Quickselect / Partitioning", "applicableTopics": ["sorting", "divide-and-conquer"] },
+
+  { "id": "trie-prefix", "name": "Prefix Tree / Trie Insertion", "applicableTopics": ["tries", "strings"] },
+  { "id": "bst-validation", "name": "BST Validation & Traversal", "applicableTopics": ["binary-search-trees", "binary-trees"] },
+
+  { "id": "bfs-shortest-path", "name": "BFS Shortest Path", "applicableTopics": ["graphs", "bfs", "shortest-path"] },
+  { "id": "dfs-grid-components", "name": "DFS Grid & Connected Components", "applicableTopics": ["graphs", "dfs"] },
+  { "id": "dijkstra", "name": "Dijkstra's Shortest Path", "applicableTopics": ["graphs", "shortest-path", "heap-priority-queue"] },
+  { "id": "topological-sort-kahn", "name": "Topological Sort (Kahn's / DFS)", "applicableTopics": ["graphs", "topological-sort"] },
+  { "id": "dsu-union-find", "name": "Disjoint Set Union (DSU / Union Find)", "applicableTopics": ["graphs", "union-find-dsu", "minimum-spanning-tree"] },
+  { "id": "kruskal-prim-mst", "name": "Minimum Spanning Tree (Kruskal / Prim)", "applicableTopics": ["graphs", "minimum-spanning-tree"] },
+
+  { "id": "knapsack-dp", "name": "Knapsack (0/1 & Unbounded)", "applicableTopics": ["dynamic-programming"] },
+  { "id": "lcs-lis-dp", "name": "Subsequence DP (LCS / LIS)", "applicableTopics": ["dynamic-programming"] },
+
+  { "id": "interval-scheduling", "name": "Interval Scheduling & Merge", "applicableTopics": ["greedy", "intervals"] },
+  { "id": "subsets-permutations", "name": "Subsets & Permutations Backtracking", "applicableTopics": ["recursion-backtracking", "recursion", "backtracking"] },
+
+  { "id": "bitwise-xor-mask", "name": "Bitwise XOR & Bitmasking", "applicableTopics": ["bit-manipulation"] },
+  { "id": "math-gcd-sieve", "name": "GCD / Sieve / Modular Arithmetic", "applicableTopics": ["math"] },
+  { "id": "top-k-heap", "name": "Top K Elements / Heap", "applicableTopics": ["heap-priority-queue"] },
+
+  { "id": "segment-tree-query", "name": "Segment Tree Range Query", "applicableTopics": ["segment-tree"] },
+  { "id": "fenwick-bit-query", "name": "Fenwick Tree (BIT) Point/Range Query", "applicableTopics": ["fenwick-tree-bit"] },
+  { "id": "design-lru-cache", "name": "System & Data Structure Design (e.g. LRU)", "applicableTopics": ["design-data-structures"] }
 ]

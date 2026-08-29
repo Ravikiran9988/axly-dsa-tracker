@@ -32,7 +32,7 @@ export default function DailyQuestionCard({ dailyQuestion, dailyData, onOpenInPl
               <span className="badge badge-neutral">{question.topic_name}</span>
             )}
             <span className="badge text-amber-400 bg-amber-500/10 border-amber-500/20">
-              <Zap className="w-3 h-3" /> +100 pts
+              <Zap className="w-3 h-3" /> +{question.points || 100} pts
             </span>
             {solved && (
               <span className="flex items-center gap-1 text-xs text-emerald-400 font-semibold">
@@ -48,7 +48,7 @@ export default function DailyQuestionCard({ dailyQuestion, dailyData, onOpenInPl
           </h3>
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <Calendar className="w-3.5 h-3.5" />
-            <span>{todayUtc} UTC</span>
+            <span>{question.date || question.scheduled_date || todayUtc}</span>
             <span className="mx-1">·</span>
             <span>One challenge for all students</span>
           </div>

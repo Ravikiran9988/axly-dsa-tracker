@@ -290,6 +290,18 @@ async function generateDailyChallenge({
     ? String(difficulty).toLowerCase()
     : 'medium';
 
+  let targetTopic = topic;
+  let targetPattern = pattern;
+  let recommendationReason = '';
+
+  if (!targetTopic || targetTopic === 'Surprise Me' || targetTopic === 'AI Recommend') {
+    const { recommendTopicForDailyChallenge } = require('./topicService');
+    const rec = await recommendTopicForDailyChallenge({ difficulty: normDifficulty });
+    targetTopic = rec.topic_name;
+    targetPattern = rec.pattern_name || pattern;
+    recommendationReason = rec.reason;
+  }
+
   const defaultPoints = normDifficulty === 'hard' ? 150 : normDifficulty === 'medium' ? 100 : 50;
   const finalPoints = Number(points) > 0 ? Number(points) : defaultPoints;
 
@@ -300,9 +312,9 @@ async function generateDailyChallenge({
       const prompt = `You are a Principal DSA Competition Author for AXLY DSA Tracker.
 Generate an original, rigorous, interview-caliber Daily Challenge problem.
 
-Topic: ${topic}
+Topic: ${targetTopic}
 Difficulty: ${normDifficulty}
-Pattern: ${pattern || 'Appropriate for topic'}
+Pattern: ${targetPattern || 'Appropriate for topic'}
 Target Points: ${finalPoints}
 Custom Instructions: ${instructions || 'Ensure high clarity, realistic constraints, clean examples, and progressive hints.'}
 
@@ -311,8 +323,8 @@ Respond ONLY with a single valid JSON object with NO markdown formatting around 
   "title": "Problem Title",
   "slug": "problem-title-slug",
   "difficulty": "${normDifficulty}",
-  "topic": "${topic}",
-  "pattern": "${pattern || 'Pattern Name'}",
+  "topic": "${targetTopic}",
+  "pattern": "${targetPattern || 'Pattern Name'}",
   "description": "Full problem description in markdown with backtick code tags.",
   "constraints": "1 <= N <= 10^5...",
   "input_format": "Input format specification",
@@ -355,6 +367,9 @@ Respond ONLY with a single valid JSON object with NO markdown formatting around 
           parsed.status = 'draft';
           parsed.scheduled_date = scheduled_date || null;
           parsed.points = finalPoints;
+          parsed.topic = targetTopic;
+          parsed.pattern = targetPattern || parsed.pattern;
+          if (recommendationReason) parsed.recommendation_reason = recommendationReason;
 
           const val = validateDailyChallenge(parsed);
           if (val.isValid) {
@@ -373,7 +388,7 @@ Respond ONLY with a single valid JSON object with NO markdown formatting around 
   // 2. High-Fidelity Algorithmic Synthesis Fallback
   // Match template based on difficulty or topic, or synthesize with variation seed
   const matched = PROBLEM_TEMPLATES.find(
-    t => t.difficulty === normDifficulty && (t.topic.toLowerCase() === topic.toLowerCase() || !topic)
+    t => t.difficulty === normDifficulty && (t.topic.toLowerCase() === targetTopic.toLowerCase() || !targetTopic)
   ) || PROBLEM_TEMPLATES.find(t => t.difficulty === normDifficulty) || PROBLEM_TEMPLATES[0];
 
   const seed = Date.now().toString().slice(-4);
@@ -384,8 +399,8 @@ Respond ONLY with a single valid JSON object with NO markdown formatting around 
     title: synthesizedTitle,
     slug: synthesizedSlug,
     difficulty: normDifficulty,
-    topic: topic || matched.topic,
-    pattern: pattern || matched.pattern,
+    topic: targetTopic || matched.topic,
+    pattern: targetPattern || matched.pattern,
     description: matched.description + (instructions ? `\n\n*Note*: Tailored for ${instructions}.` : ''),
     problem_statement: matched.description,
     constraints: matched.constraints,
@@ -406,6 +421,10 @@ Respond ONLY with a single valid JSON object with NO markdown formatting around 
     created_via: 'ai',
     scheduled_date: scheduled_date || null
   };
+
+  if (recommendationReason) {
+    synthesized.recommendation_reason = recommendationReason;
+  }
 
   const validation = validateDailyChallenge(synthesized);
   if (!validation.isValid) {

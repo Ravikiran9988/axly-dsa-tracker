@@ -82,10 +82,22 @@ function initSchema() {
 
     CREATE TABLE IF NOT EXISTS topics (
       id TEXT PRIMARY KEY,
-      name TEXT NOT NULL UNIQUE
+      name TEXT NOT NULL UNIQUE,
+      category TEXT,
+      order_index INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1
     );
 
     CREATE INDEX IF NOT EXISTS idx_topics_name ON topics(name);
+
+    CREATE TABLE IF NOT EXISTS patterns (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      topic_id TEXT REFERENCES topics(id) ON DELETE SET NULL,
+      description TEXT,
+      order_index INTEGER DEFAULT 0,
+      applicable_topics TEXT DEFAULT '[]'
+    );
 
     CREATE TABLE IF NOT EXISTS cohorts (
       id TEXT PRIMARY KEY,
@@ -292,6 +304,7 @@ function initSchema() {
       created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
       status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'scheduled', 'active', 'archived', 'completed')),
       scheduled_date TEXT,
+      custom_topic TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -394,7 +407,18 @@ function initSchema() {
     }
   }
 
-  // Daily Questions & Challenges migrations
+  // Daily Questions & Challenges & Patterns migrations
+  addColumnIfNotExists('topics', 'category', 'TEXT');
+  addColumnIfNotExists('topics', 'order_index', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('topics', 'is_active', 'INTEGER DEFAULT 1');
+  addColumnIfNotExists('patterns', 'topic_id', 'TEXT REFERENCES topics(id) ON DELETE SET NULL');
+  addColumnIfNotExists('patterns', 'description', 'TEXT');
+  addColumnIfNotExists('patterns', 'order_index', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('patterns', 'applicable_topics', "TEXT DEFAULT '[]'");
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_patterns_topic_id ON patterns(topic_id);`);
+  } catch (e) {}
+  addColumnIfNotExists('daily_challenge_problems', 'custom_topic', 'TEXT');
   addColumnIfNotExists('daily_questions', 'challenge_id', 'TEXT');
   addColumnIfNotExists('daily_challenge_problems', 'created_via', "TEXT NOT NULL DEFAULT 'manual'");
   addColumnIfNotExists('daily_challenge_problems', 'editorial', 'TEXT');

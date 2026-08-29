@@ -167,12 +167,23 @@ async function getAdminStats() {
   const draftQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE status = 'draft' AND (is_active = 1 OR is_active = TRUE)");
   const draftQuestions = Number(draftQuestionsRow?.count || 0);
 
-  // Submissions stats
+  // Submissions & Solved stats (strictly practice questions solved by students)
   const totalSubmissionsRow = await repo.one("SELECT COUNT(*) AS count FROM submissions");
   const totalSubmissions = Number(totalSubmissionsRow?.count || 0);
 
   const solvedSubmissionsRow = await repo.one("SELECT COUNT(*) AS count FROM submissions WHERE status IN ('solved', 'approved', 'completed')");
   const solvedSubmissions = Number(solvedSubmissionsRow?.count || 0);
+
+  const uniqueSolvedQuestionsRow = await repo.one(`
+    SELECT COUNT(DISTINCT question_id) AS count
+    FROM submissions
+    WHERE status IN ('solved', 'approved', 'completed')
+      AND user_id IN (SELECT id FROM users WHERE role NOT IN ('admin', 'system'))
+      AND question_id IN (SELECT id FROM questions WHERE (is_active = 1 OR is_active = TRUE))
+  `).catch(async () => {
+    return repo.one("SELECT COUNT(DISTINCT question_id) AS count FROM submissions WHERE status IN ('solved', 'approved', 'completed')");
+  });
+  const uniqueSolvedQuestions = Number(uniqueSolvedQuestionsRow?.count || 0);
 
   // Pending reviews count
   const pendingReviewsRow = await repo.one("SELECT COUNT(*) AS count FROM submissions WHERE status IN ('under_review', 'changes_requested') OR review_status = 'pending'");
@@ -196,15 +207,10 @@ async function getAdminStats() {
     activeCohorts = Number(activeCohortsRow?.count || 0);
   } catch (_) {}
 
-  // Today's daily challenge
-  const todayUtc = new Date().toISOString().slice(0, 10);
-  const todayDaily = await repo.one(`
-    SELECT dq.id, dq.date, dq.question_id, q.title, q.difficulty, q.points, t.name AS topic_name
-    FROM daily_questions dq
-    JOIN questions q ON dq.question_id = q.id
-    LEFT JOIN topics t ON q.topic_id = t.id
-    WHERE dq.date = ?
-  `, [todayUtc]);
+  // Today's daily challenge (authoritative single source of truth)
+  const { getTodayDailyChallenge } = require('./dailyChallengeService');
+  const todayChallengeRes = await getTodayDailyChallenge().catch(() => null);
+  const todayDaily = todayChallengeRes?.data || null;
 
   // Questions by difficulty
   const diffRows = await repo.many(`
@@ -248,8 +254,11 @@ async function getAdminStats() {
     students: { total: totalLearners, active: activeLearners || totalLearners },
     learners: { total: totalLearners, active: activeLearners || totalLearners },
     total_students: totalLearners,
+    total_users: totalLearners,
+    total_active_questions: totalQuestions,
+    total_solved_submissions: uniqueSolvedQuestions || solvedSubmissions,
     practiceQuestions: publishedQuestions,
-    solved: solvedSubmissions,
+    solved: uniqueSolvedQuestions || solvedSubmissions,
     questions: {
       total: totalQuestions,
       published: publishedQuestions,
@@ -260,6 +269,7 @@ async function getAdminStats() {
     submissions: {
       total: totalSubmissions,
       solved: solvedSubmissions,
+      unique_solved_questions: uniqueSolvedQuestions,
       accuracy_rate: totalSubmissions > 0 ? Math.round((solvedSubmissions / totalSubmissions) * 100) : 0
     },
     assignments: {

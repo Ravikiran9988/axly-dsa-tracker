@@ -136,11 +136,42 @@ async function deleteDailyChallenge(req, res, next) {
   }
 }
 
+async function getDailyChallengeTopics(req, res, next) {
+  try {
+    const topicService = require('../services/topicService');
+    const result = await topicService.listDailyChallengeTopics();
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function recommendTopic(req, res, next) {
+  try {
+    const topicService = require('../services/topicService');
+    const { difficulty } = req.body || req.query || {};
+    const result = await topicService.recommendTopicForDailyChallenge({ difficulty });
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createDailyChallengeFromPractice(req, res, next) {
+  try {
+    const result = await dailyChallengeService.createDailyChallengeFromPractice(req.body, req.user.id);
+    return res.status(201).json({ data: result, message: 'Daily challenge created from practice question' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listDailyChallenges,
   getTodayDailyChallenge,
   getDailyChallenge,
   createDailyChallenge,
+  createDailyChallengeFromPractice,
   generateAiChallenge,
   validateDuplicate,
   updateDailyChallenge,
@@ -148,5 +179,7 @@ module.exports = {
   publishDailyChallenge,
   unpublishDailyChallenge,
   archiveDailyChallenge,
-  deleteDailyChallenge
+  deleteDailyChallenge,
+  getDailyChallengeTopics,
+  recommendTopic
 };

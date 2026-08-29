@@ -113,7 +113,13 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
         ) : (
           <DailyQuestionCard
             dailyData={dailyData}
-            onOpenInPlatform={() => onOpenChallenge && onOpenChallenge(dailyQuestion?.id)}
+            onOpenInPlatform={() => {
+              if (onOpenChallenge && dailyQuestion?.id) {
+                onOpenChallenge(dailyQuestion.id);
+              } else if (onNavigate) {
+                onNavigate('daily');
+              }
+            }}
           />
         )}
       </section>

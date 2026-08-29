@@ -2,26 +2,44 @@ const { db } = require('./db');
 const { v4: uuidv4 } = require('uuid');
 
 function seedDatabase() {
-  // Topics
-  const topics = [
-    { id: 'arrays', name: 'Arrays' },
-    { id: 'strings', name: 'Strings' },
-    { id: 'hashing', name: 'Hashing' },
-    { id: 'two-pointers-sliding-window', name: 'Two Pointers / Sliding Window' },
-    { id: 'stack', name: 'Stack' },
-    { id: 'binary-search', name: 'Binary Search' },
-    { id: 'trees', name: 'Trees' },
-    { id: 'dynamic-programming', name: 'Dynamic Programming' },
-    { id: 'linked-list', name: 'Linked List' },
-    { id: 'graphs', name: 'Graphs' }
-  ];
+  const fs = require('fs');
+  const path = require('path');
 
-  topics.forEach(t => {
+  // Topics
+  const topicsJsonPath = path.join(__dirname, 'data', 'topics.json');
+  const patternsJsonPath = path.join(__dirname, 'data', 'patterns.json');
+
+  let topicsList = [];
+  try {
+    topicsList = JSON.parse(fs.readFileSync(topicsJsonPath, 'utf8'));
+  } catch (_) {
+    topicsList = [
+      { id: 'arrays', name: 'Arrays', category: 'Core', order: 1 }
+    ];
+  }
+
+  topicsList.forEach((t, idx) => {
     const existing = db.prepare('SELECT id FROM topics WHERE id = ? OR name = ?').get(t.id, t.name);
     if (!existing) {
-      db.prepare('INSERT INTO topics (id, name) VALUES (?, ?)').run(t.id, t.name);
-    } else if (existing.id !== t.id || existing.name !== t.name) {
-      db.prepare('UPDATE topics SET id = ?, name = ? WHERE id = ?').run(t.id, t.name, existing.id);
+      db.prepare('INSERT INTO topics (id, name, category, order_index) VALUES (?, ?, ?, ?)').run(t.id, t.name, t.category || 'Core', t.order || (idx + 1));
+    } else {
+      db.prepare('UPDATE topics SET id = ?, name = ?, category = ?, order_index = ? WHERE id = ?').run(t.id, t.name, t.category || 'Core', t.order || (idx + 1), existing.id);
+    }
+  });
+
+  let patternsList = [];
+  try {
+    patternsList = JSON.parse(fs.readFileSync(patternsJsonPath, 'utf8'));
+  } catch (_) {}
+
+  patternsList.forEach((p, idx) => {
+    const topicId = p.applicableTopics?.[0] || null;
+    const applicableStr = JSON.stringify(p.applicableTopics || []);
+    const existing = db.prepare('SELECT id FROM patterns WHERE id = ?').get(p.id);
+    if (!existing) {
+      db.prepare('INSERT INTO patterns (id, name, topic_id, order_index, applicable_topics) VALUES (?, ?, ?, ?, ?)').run(p.id, p.name, topicId, idx + 1, applicableStr);
+    } else {
+      db.prepare('UPDATE patterns SET name = ?, topic_id = ?, order_index = ?, applicable_topics = ? WHERE id = ?').run(p.name, topicId, idx + 1, applicableStr, p.id);
     }
   });
 
@@ -1141,6 +1159,7 @@ print(find_median(nums1, nums2))`
   // Dedicated Daily Challenge Problems (Independent from Practice bank)
   const todayUtc = new Date().toISOString().split('T')[0];
   const tomorrowUtc = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const yesterdayUtc = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
   const dailyChallenges = [
     {
@@ -1167,7 +1186,7 @@ print(find_median(nums1, nums2))`
       tags: JSON.stringify(['Arrays', 'Sliding Window', 'Two Pointers']),
       solution_approach: 'Use a dynamic sliding window. Expand the right boundary while adding nums[right] to current sum. If the sum exceeds k, increment the left boundary and subtract nums[left]. Track the maximum window size (right - left + 1).',
       status: 'scheduled',
-      scheduled_date: todayUtc,
+      scheduled_date: yesterdayUtc,
       created_by: 'usr-admin-01',
       test_cases: [
         { id: 'dc-tc-001-1', input: '{"nums": [1, 2, 1, 0, 1, 1, 0], "k": 4}', expected_output: '5', is_hidden: 0 },
@@ -1200,7 +1219,7 @@ print(find_median(nums1, nums2))`
       tags: JSON.stringify(['Arrays', 'Sliding Window']),
       solution_approach: 'Maintain a window [left, right] and track count of zeros. Expand right pointer. Whenever zero_count > k, increment left and decrement zero_count if nums[left] was zero.',
       status: 'published',
-      scheduled_date: tomorrowUtc,
+      scheduled_date: todayUtc,
       created_by: 'usr-admin-01',
       test_cases: [
         { id: 'dc-tc-002-1', input: '{"nums": [1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0], "k": 2}', expected_output: '6', is_hidden: 0 },
@@ -1252,9 +1271,16 @@ print(find_median(nums1, nums2))`
       topic_id = excluded.topic_id,
       pattern_id = excluded.pattern_id,
       points = excluded.points,
+      estimated_time = excluded.estimated_time,
       description = excluded.description,
+      problem_statement = excluded.problem_statement,
       constraints = excluded.constraints,
+      input_format = excluded.input_format,
+      output_format = excluded.output_format,
+      example_input = excluded.example_input,
+      example_output = excluded.example_output,
       hints = excluded.hints,
+      tags = excluded.tags,
       solution_approach = excluded.solution_approach,
       status = excluded.status,
       scheduled_date = excluded.scheduled_date
@@ -1288,7 +1314,7 @@ print(find_median(nums1, nums2))`
   db.prepare(`
     INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
     VALUES (?, ?, ?, ?, ?)
-  `).run('daily-today', 'dc-001', 'dc-001', todayUtc, 'usr-admin-01');
+  `).run('daily-today', 'dc-002', 'dc-002', todayUtc, 'usr-admin-01');
 
   console.log('Database seeded successfully with in-platform coding problems, notifications & independent daily challenges.');
 }

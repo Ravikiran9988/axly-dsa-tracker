@@ -68,12 +68,18 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
 
   async function loadTaxonomy() {
     try {
-      const [tRes, pRes] = await Promise.all([
-        api.getTopics().catch(() => ({ data: [] })),
-        api.getPatterns().catch(() => ({ data: [] }))
-      ]);
-      setTopics(tRes.data || []);
-      setPatterns(pRes.data || []);
+      const dcTopicsRes = await api.getDailyChallengeTopics().catch(() => null);
+      if (dcTopicsRes && dcTopicsRes.data) {
+        setTopics(dcTopicsRes.data.topics || []);
+        setPatterns(dcTopicsRes.data.patterns || []);
+      } else {
+        const [tRes, pRes] = await Promise.all([
+          api.getTopics().catch(() => ({ data: [] })),
+          api.getPatterns().catch(() => ({ data: [] }))
+        ]);
+        setTopics(tRes.data || []);
+        setPatterns(pRes.data || []);
+      }
     } catch {}
   }
 
