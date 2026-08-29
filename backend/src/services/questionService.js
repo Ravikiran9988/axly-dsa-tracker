@@ -1,6 +1,8 @@
-const { db } = require('../db/db');
+const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
+
+const repo = getRepository();
 
 function safeParseJson(value, fallback = null) {
   if (!value) return fallback;
@@ -8,15 +10,37 @@ function safeParseJson(value, fallback = null) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
-function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit = 20, search }) {
+function normalizeJsonArray(value, fallback = '[]') {
+  if (value === undefined || value === null) {
+    return typeof fallback === 'string' ? fallback : JSON.stringify(fallback);
+  }
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+function normalizeStarterCode(starter_code) {
+  return typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null);
+}
+
+async function validateQuestionInput({ title, difficulty, topic_id }, currentRepo = repo) {
+  if (!title || !title.trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
+  if (!['easy', 'medium', 'hard'].includes(String(difficulty || '').toLowerCase())) {
+    throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
+  }
+  if (topic_id) {
+    const topic = await currentRepo.one('SELECT id FROM topics WHERE id = ?', [topic_id]);
+    if (!topic) throw new AppError('Specified topic does not exist', 400, 'VALIDATION_ERROR', 'topic_id');
+  }
+}
+
+async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit = 20, search }) {
   const conditions = [];
   const params = [];
 
   if (user?.role !== 'admin') {
-    conditions.push('q.is_active = 1');
+    conditions.push('(q.is_active = 1 OR q.is_active = TRUE)');
   }
   if (difficulty) {
-    conditions.push('q.difficulty = ?');
+    conditions.push('LOWER(q.difficulty) = ?');
     params.push(difficulty.toLowerCase());
   }
   if (topic_id) {
@@ -37,16 +61,19 @@ function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit =
   }
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const countRow = db.prepare(`
+  const countRow = await repo.one(`
     SELECT COUNT(DISTINCT q.id) AS total
     FROM questions q
     LEFT JOIN assignments a ON a.question_id = q.id AND a.user_id = ? AND a.status != 'unassigned'
     ${whereSql}
-  `).get(user.id, ...params);
-  const total = countRow ? countRow.total : 0;
-  const offset = (Number(page) - 1) * Number(limit);
+  `, [user?.id || null, ...params]);
 
-  const rows = db.prepare(`
+  const total = Number(countRow?.total || 0);
+  const p = Math.max(1, Number(page) || 1);
+  const l = Math.max(1, Number(limit) || 20);
+  const offset = (p - 1) * l;
+
+  const rows = await repo.many(`
     SELECT 
       q.id, q.title, q.difficulty, q.topic_id, q.url, q.is_active, q.created_at,
       q.description, q.problem_statement, q.constraints, q.input_format, q.output_format,
@@ -65,79 +92,72 @@ function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit =
     ${whereSql}
     ORDER BY q.created_at DESC
     LIMIT ? OFFSET ?
-  `).all(user.id, user.id, ...params, Number(limit), offset);
+  `, [user?.id || null, user?.id || null, ...params, l, offset]);
 
   return {
     data: rows.map(item => ({
       ...item,
       starter_code: item.starter_code ? safeParseJson(item.starter_code) : null,
-      supported_languages: item.supported_languages ? safeParseJson(item.supported_languages) : ['javascript','python'],
+      supported_languages: item.supported_languages ? safeParseJson(item.supported_languages) : ['javascript', 'python'],
       tags: item.tags ? safeParseJson(item.tags) : [],
       is_active: Boolean(item.is_active),
       is_assigned_to_me: Boolean(item.assignment_id),
       submission_status: item.submission_status || 'not_started',
-      active_assignees_count: item.active_assignees_count || 0,
-      total_test_cases_count: item.total_test_cases_count || 0
+      active_assignees_count: Number(item.active_assignees_count || 0),
+      total_test_cases_count: Number(item.total_test_cases_count || 0)
     })),
-    page: Number(page), limit: Number(limit), total
+    page: p,
+    limit: l,
+    total
   };
 }
 
-function getQuestionById(id, user = null) {
-  const q = db.prepare(`SELECT q.*, t.name AS topic_name FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.id = ?`).get(id);
+async function getQuestionById(id, user = null) {
+  const q = await repo.one(
+    'SELECT q.*, t.name AS topic_name FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.id = ?',
+    [id]
+  );
   if (!q) return null;
 
   const isAdmin = user?.role === 'admin' || user?.role === 'mentor';
-  const testCases = db.prepare(isAdmin
-    ? 'SELECT id,input,expected_output,is_hidden FROM test_cases WHERE question_id=? ORDER BY is_hidden ASC,created_at ASC'
-    : 'SELECT id,input,expected_output,is_hidden FROM test_cases WHERE question_id=? AND is_hidden=0 ORDER BY created_at ASC'
-  ).all(id).map(tc => ({ ...tc, is_hidden: Boolean(tc.is_hidden) }));
+  const testCaseSql = isAdmin
+    ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC'
+    : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND (is_hidden = 0 OR is_hidden = FALSE) ORDER BY created_at ASC';
+
+  const testCases = await repo.many(testCaseSql, [id]);
+  const formattedTestCases = testCases.map(tc => ({
+    ...tc,
+    is_hidden: Boolean(tc.is_hidden)
+  }));
 
   const submission = user
-    ? db.prepare('SELECT * FROM submissions WHERE question_id=? AND user_id=?').get(id, user.id)
+    ? await repo.one('SELECT * FROM submissions WHERE question_id = ? AND user_id = ?', [id, user.id])
     : null;
 
   return {
     ...q,
     is_active: Boolean(q.is_active),
     starter_code: q.starter_code ? safeParseJson(q.starter_code) : null,
-    supported_languages: q.supported_languages ? safeParseJson(q.supported_languages) : ['javascript','python'],
+    supported_languages: q.supported_languages ? safeParseJson(q.supported_languages) : ['javascript', 'python'],
     tags: q.tags ? safeParseJson(q.tags) : [],
-    test_cases: testCases,
+    test_cases: formattedTestCases,
     submission_status: submission?.status || 'not_started'
   };
 }
 
-function validateQuestionInput({ title, difficulty, topic_id }) {
-  if (!title || !title.trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
-  if (!['easy','medium','hard'].includes(String(difficulty || '').toLowerCase())) {
-    throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
-  }
-  if (topic_id && !db.prepare('SELECT id FROM topics WHERE id=?').get(topic_id)) {
-    throw new AppError('Specified topic does not exist', 400, 'VALIDATION_ERROR', 'topic_id');
-  }
-}
-
-function normalizeStarterCode(starter_code) {
-  return typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null);
-}
-
-function normalizeJsonArray(value, fallback = '[]') {
-  if (value === undefined || value === null) {
-    return typeof fallback === 'string' ? fallback : JSON.stringify(fallback);
-  }
-  return typeof value === 'string' ? value : JSON.stringify(value);
-}
-
-function insertTestCases(questionId, test_cases = []) {
-  const insert = db.prepare('INSERT INTO test_cases (id,question_id,input,expected_output,is_hidden) VALUES (?,?,?,?,?)');
-  for (const tc of test_cases) {
+async function insertTestCases(questionId, testCases = [], currentRepo = repo) {
+  for (const tc of testCases || []) {
     if (!tc) continue;
-    insert.run(tc.id || uuidv4(), questionId, String(tc.input || ''), String(tc.expected_output || ''), tc.is_hidden ? 1 : 0);
+    const tcId = tc.id || uuidv4();
+    const isHidden = tc.is_hidden ? 1 : 0;
+    await currentRepo.execute(
+      'INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden) VALUES (?, ?, ?, ?, ?)',
+      [tcId, questionId, String(tc.input || ''), String(tc.expected_output || ''), isHidden]
+    );
   }
 }
 
-function createQuestion(input) {
+async function createQuestion(input) {
   const {
     title, difficulty, topic_id, url, description, problem_statement,
     constraints, input_format, output_format, example_input, example_output,
@@ -145,105 +165,147 @@ function createQuestion(input) {
     supported_languages, starter_code, test_cases = []
   } = input;
 
-  validateQuestionInput({ title, difficulty, topic_id });
-  if (db.prepare('SELECT id FROM questions WHERE LOWER(title)=LOWER(?) AND is_active=1').get(title.trim())) {
+  await validateQuestionInput({ title, difficulty, topic_id });
+  const duplicate = await repo.one(
+    'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND (is_active = 1 OR is_active = TRUE)',
+    [(title || '').trim()]
+  );
+  if (duplicate) {
     throw new AppError(`A question with title "${title}" already exists.`, 409, 'CONFLICT', 'title');
   }
 
-  const id = uuidv4();
+  const id = input.id || uuidv4();
   const fallbackUrl = url?.trim() || `https://dsatracker.axly.in/questions/${id}`;
-  db.prepare(`
-    INSERT INTO questions (
-      id, title, difficulty, topic_id, url, description, problem_statement,
-      constraints, input_format, output_format, example_input, example_output,
-      hints, tags, estimated_time, points, assigned_date, due_date, status,
-      supported_languages, starter_code, is_active
-    ) VALUES (
-      @id, @title, @difficulty, @topic_id, @url, @description, @problem_statement,
-      @constraints, @input_format, @output_format, @example_input, @example_output,
-      @hints, @tags, @estimated_time, @points, @assigned_date, @due_date, @status,
-      @supported_languages, @starter_code, 1
-    )
-  `).run({
-    id: id || null,
-    title: (title || '').trim(),
-    difficulty: (difficulty || 'easy').toLowerCase(),
-    topic_id: topic_id || null,
-    url: fallbackUrl || null,
-    description: description || null,
-    problem_statement: problem_statement || null,
-    constraints: constraints || null,
-    input_format: input_format || null,
-    output_format: output_format || null,
-    example_input: example_input || null,
-    example_output: example_output || null,
-    hints: hints || null,
-    tags: normalizeJsonArray(tags, '[]') || '[]',
-    estimated_time: estimated_time || '30 mins',
-    points: Number(points) || 20,
-    assigned_date: assigned_date || null,
-    due_date: due_date || null,
-    status: status || 'published',
-    supported_languages: normalizeJsonArray(supported_languages, ['javascript', 'python']) || '["javascript","python"]',
-    starter_code: normalizeStarterCode(starter_code) || null
+
+  await repo.transaction(async tx => {
+    await tx.execute(`
+      INSERT INTO questions (
+        id, title, difficulty, topic_id, url, description, problem_statement,
+        constraints, input_format, output_format, example_input, example_output,
+        hints, tags, estimated_time, points, assigned_date, due_date, status,
+        supported_languages, starter_code, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `, [
+      id,
+      (title || '').trim(),
+      (difficulty || 'easy').toLowerCase(),
+      topic_id || null,
+      fallbackUrl,
+      description || null,
+      problem_statement || null,
+      constraints || null,
+      input_format || null,
+      output_format || null,
+      example_input || null,
+      example_output || null,
+      hints || null,
+      normalizeJsonArray(tags, '[]'),
+      estimated_time || '30 mins',
+      Number(points) || 20,
+      assigned_date || null,
+      due_date || null,
+      status || 'published',
+      normalizeJsonArray(supported_languages, ['javascript', 'python']),
+      normalizeStarterCode(starter_code)
+    ]);
+
+    await insertTestCases(id, test_cases, tx);
   });
-  insertTestCases(id, test_cases);
+
   return getQuestionById(id, { role: 'admin' });
 }
 
-function updateQuestion(id, updates) {
-  const existing = getQuestionById(id, { role: 'admin' });
+async function updateQuestion(id, updates) {
+  const existing = await getQuestionById(id, { role: 'admin' });
   if (!existing) throw new AppError('Question not found', 404, 'NOT_FOUND');
 
   if (updates.title && updates.title.trim().toLowerCase() !== existing.title.toLowerCase()) {
-    if (db.prepare('SELECT id FROM questions WHERE LOWER(title)=LOWER(?) AND id!=? AND is_active=1').get(updates.title.trim(), id)) {
+    const duplicate = await repo.one(
+      'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND id != ? AND (is_active = 1 OR is_active = TRUE)',
+      [updates.title.trim(), id]
+    );
+    if (duplicate) {
       throw new AppError(`A question with title "${updates.title}" already exists.`, 409, 'CONFLICT', 'title');
     }
   }
+
   if (updates.difficulty !== undefined || updates.topic_id !== undefined) {
-    validateQuestionInput({ title: updates.title || existing.title, difficulty: updates.difficulty || existing.difficulty, topic_id: updates.topic_id !== undefined ? updates.topic_id : existing.topic_id });
+    await validateQuestionInput({
+      title: updates.title || existing.title,
+      difficulty: updates.difficulty || existing.difficulty,
+      topic_id: updates.topic_id !== undefined ? updates.topic_id : existing.topic_id
+    });
   }
 
   const columnMap = {
-    title:'title', difficulty:'difficulty', topic_id:'topic_id', url:'url', description:'description',
-    problem_statement:'problem_statement', constraints:'constraints', input_format:'input_format', output_format:'output_format',
-    example_input:'example_input', example_output:'example_output', hints:'hints', estimated_time:'estimated_time',
-    points:'points', assigned_date:'assigned_date', due_date:'due_date', status:'status', is_active:'is_active'
+    title: 'title', difficulty: 'difficulty', topic_id: 'topic_id', url: 'url', description: 'description',
+    problem_statement: 'problem_statement', constraints: 'constraints', input_format: 'input_format', output_format: 'output_format',
+    example_input: 'example_input', example_output: 'example_output', hints: 'hints', estimated_time: 'estimated_time',
+    points: 'points', assigned_date: 'assigned_date', due_date: 'due_date', status: 'status', is_active: 'is_active'
   };
+
   const fields = [];
   const params = [];
   for (const [key, column] of Object.entries(columnMap)) {
     if (updates[key] !== undefined) {
-      fields.push(`${column}=?`);
-      params.push(key === 'difficulty' ? String(updates[key]).toLowerCase() : key === 'is_active' ? (updates[key] ? 1 : 0) : updates[key]);
+      fields.push(`${column} = ?`);
+      let val = updates[key];
+      if (key === 'difficulty') val = String(val).toLowerCase();
+      else if (key === 'is_active') val = val ? 1 : 0;
+      params.push(val);
     }
   }
-  if (updates.tags !== undefined) { fields.push('tags=?'); params.push(normalizeJsonArray(updates.tags, '[]')); }
-  if (updates.supported_languages !== undefined) { fields.push('supported_languages=?'); params.push(normalizeJsonArray(updates.supported_languages, ['javascript','python'])); }
-  if (updates.starter_code !== undefined) { fields.push('starter_code=?'); params.push(normalizeStarterCode(updates.starter_code)); }
 
-  if (fields.length) {
-    db.prepare(`UPDATE questions SET ${fields.join(',')} WHERE id=?`).run(...params, id);
+  if (updates.tags !== undefined) {
+    fields.push('tags = ?');
+    params.push(normalizeJsonArray(updates.tags, '[]'));
+  }
+  if (updates.supported_languages !== undefined) {
+    fields.push('supported_languages = ?');
+    params.push(normalizeJsonArray(updates.supported_languages, ['javascript', 'python']));
+  }
+  if (updates.starter_code !== undefined) {
+    fields.push('starter_code = ?');
+    params.push(normalizeStarterCode(updates.starter_code));
   }
 
-  if (Array.isArray(updates.test_cases)) {
-    db.prepare('DELETE FROM test_cases WHERE question_id=?').run(id);
-    insertTestCases(id, updates.test_cases);
-  }
+  await repo.transaction(async tx => {
+    if (fields.length) {
+      await tx.execute(`UPDATE questions SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+    }
+    if (Array.isArray(updates.test_cases)) {
+      await tx.execute('DELETE FROM test_cases WHERE question_id = ?', [id]);
+      await insertTestCases(id, updates.test_cases, tx);
+    }
+  });
+
   return getQuestionById(id, { role: 'admin' });
 }
 
-function deleteQuestion(id) {
-  const q = db.prepare('SELECT id, is_active FROM questions WHERE id=?').get(id);
+async function deleteQuestion(id) {
+  const q = await repo.one('SELECT id, is_active FROM questions WHERE id = ?', [id]);
   if (!q) throw new AppError('Question not found', 404, 'NOT_FOUND');
+
   const today = new Date().toISOString().split('T')[0];
-  if (db.prepare('SELECT id FROM daily_questions WHERE question_id=? AND date=?').get(id, today)) {
+  const daily = await repo.one('SELECT id FROM daily_questions WHERE question_id = ? AND date = ?', [id, today]);
+  if (daily) {
     throw new AppError('Cannot delete the current daily question — change it first', 409, 'CONFLICT');
   }
-  db.prepare('UPDATE questions SET is_active=0, status=\'archived\' WHERE id=?').run(id);
+
+  await repo.execute("UPDATE questions SET is_active = 0, status = 'archived' WHERE id = ?", [id]);
   return { message: 'Question successfully deactivated (soft-deleted)', id };
 }
 
-function listTopics() { return db.prepare('SELECT id,name FROM topics ORDER BY name ASC').all(); }
+async function listTopics() {
+  return repo.many('SELECT id, name FROM topics ORDER BY name ASC');
+}
 
-module.exports = { listQuestions, getQuestionById, createQuestion, updateQuestion, deleteQuestion, listTopics };
+module.exports = {
+  listQuestions,
+  getQuestionById,
+  createQuestion,
+  updateQuestion,
+  deleteQuestion,
+  listTopics,
+  validateQuestionInput
+};

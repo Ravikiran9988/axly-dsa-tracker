@@ -1,55 +1,152 @@
-const { db } = require('../db/db');
+const { getRepository } = require('../db/repositoryFactory');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('../services/auditService');
-const { COMPETITIVE_ORDER } = require('../services/leaderboardService');
+const { COMPETITIVE_ORDER, getCompetitiveLeaders } = require('../services/leaderboardService');
 
-function listUsers(req, res, next) {
+const repo = getRepository();
+
+function safeParseJson(value, fallback = []) {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+async function listUsers(req, res, next) {
   try {
     const { role, search, page = 1, limit = 50 } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
-    let whereClauses = [];
+    const p = Math.max(1, Number(page) || 1);
+    const l = Math.max(1, Number(limit) || 50);
+    const offset = (p - 1) * l;
+    const whereClauses = [];
     const params = [];
-    if (role) { whereClauses.push('u.role = ?'); params.push(role); }
-    if (search) {
-      whereClauses.push('(LOWER(u.name) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.institution) LIKE ?)');
-      params.push(`%${search.toLowerCase()}%`, `%${search.toLowerCase()}%`, `%${search.toLowerCase()}%`);
+
+    if (role) {
+      whereClauses.push('u.role = ?');
+      params.push(role);
     }
+    if (search && search.trim()) {
+      whereClauses.push('(LOWER(u.name) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(COALESCE(u.institution, \'\')) LIKE ?)');
+      const s = `%${search.trim().toLowerCase()}%`;
+      params.push(s, s, s);
+    }
+
     const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
-    const total = db.prepare(`SELECT COUNT(*) as total FROM users u ${whereSql}`).get(...params).total;
-    const users = db.prepare(`SELECT u.*,
-        (SELECT GROUP_CONCAT(c.name, ', ') FROM cohort_members cm JOIN cohorts c ON cm.cohort_id = c.id WHERE cm.user_id = u.id) as cohort_name,
-        (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id) as assigned_count,
-        (SELECT COUNT(*) FROM assignments a JOIN submissions s ON s.question_id = a.question_id AND s.user_id = u.id WHERE s.status IN ('solved','completed','approved')) as completed_count,
-        (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id AND a.status IN ('assigned','ongoing','under_review')) as pending_count
-      FROM users u ${whereSql} ORDER BY ${COMPETITIVE_ORDER.replace(/\bpoints\b/g,'u.points').replace(/\bstreak\b/g,'u.streak').replace(/\blongest_streak\b/g,'u.longest_streak').replace(/\bname\b/g,'u.name').replace(/\bid\b/g,'u.id')} LIMIT ? OFFSET ?`).all(...params, Number(limit), offset);
-    return res.status(200).json({ data: users.map(u => ({ ...u, skills: safeParseJson(u.skills) })), page: Number(page), limit: Number(limit), total });
-  } catch (err) { next(err); }
+    const totalRow = await repo.one(`SELECT COUNT(*) AS total FROM users u ${whereSql}`, params);
+    const total = Number(totalRow?.total || 0);
+
+    const users = await repo.many(`
+      SELECT 
+        u.*,
+        (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id) AS assigned_count,
+        (SELECT COUNT(*) FROM assignments a JOIN submissions s ON s.question_id = a.question_id AND s.user_id = u.id WHERE s.status IN ('solved','completed','approved')) AS completed_count,
+        (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id AND a.status IN ('assigned','ongoing','under_review')) AS pending_count
+      FROM users u
+      ${whereSql}
+      ORDER BY u.points DESC, u.streak DESC, u.longest_streak DESC, u.name ASC, u.id ASC
+      LIMIT ? OFFSET ?
+    `, [...params, l, offset]);
+
+    return res.status(200).json({
+      data: users.map(u => ({ ...u, skills: safeParseJson(u.skills) })),
+      page: p,
+      limit: l,
+      total
+    });
+  } catch (err) {
+    next(err);
+  }
 }
 
-function getMyProfile(req, res, next) {
+async function getMyProfile(req, res, next) {
   try {
     const userId = req.user.id;
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    const user = await repo.one('SELECT * FROM users WHERE id = ?', [userId]);
     if (!user) throw new AppError('User not found', 404, 'NOT_FOUND');
-    const badges = db.prepare(`SELECT b.*, ub.awarded_at FROM user_badges ub JOIN badges b ON ub.badge_id = b.id WHERE ub.user_id = ?`).all(userId);
-    const totalAssigned = db.prepare('SELECT COUNT(*) as count FROM assignments WHERE user_id = ?').get(userId).count;
-    const completed = db.prepare(`SELECT COUNT(*) as count FROM submissions WHERE user_id = ? AND status IN ('solved','completed','approved')`).get(userId).count;
-    const ongoing = db.prepare(`SELECT COUNT(*) as count FROM submissions WHERE user_id = ? AND status IN ('attempted','under_review','changes_requested')`).get(userId).count;
+
+    const badges = await repo.many(`
+      SELECT b.*, ub.awarded_at
+      FROM user_badges ub
+      JOIN badges b ON ub.badge_id = b.id
+      WHERE ub.user_id = ?
+    `, [userId]);
+
+    const totalAssignedRow = await repo.one('SELECT COUNT(*) AS count FROM assignments WHERE user_id = ?', [userId]);
+    const totalAssigned = Number(totalAssignedRow?.count || 0);
+
+    const completedRow = await repo.one("SELECT COUNT(*) AS count FROM submissions WHERE user_id = ? AND status IN ('solved','completed','approved')", [userId]);
+    const completed = Number(completedRow?.count || 0);
+
+    const ongoingRow = await repo.one("SELECT COUNT(*) AS count FROM submissions WHERE user_id = ? AND status IN ('attempted','under_review','changes_requested')", [userId]);
+    const ongoing = Number(ongoingRow?.count || 0);
+
     const incomplete = Math.max(0, totalAssigned - completed - ongoing);
-    const totalAttempts = db.prepare('SELECT COUNT(*) as count FROM code_submissions_log WHERE user_id = ?').get(userId).count;
+
+    const totalAttemptsRow = await repo.one('SELECT COUNT(*) AS count FROM code_submissions_log WHERE user_id = ?', [userId]);
+    const totalAttempts = Number(totalAttemptsRow?.count || 0);
     const accuracy = totalAttempts > 0 ? Math.round((completed / totalAttempts) * 100) : (completed > 0 ? 85 : 0);
-    const recentSubmissions = db.prepare(`SELECT s.*, q.title as question_title, q.difficulty as question_difficulty, q.points as question_points FROM submissions s JOIN questions q ON s.question_id = q.id WHERE s.user_id = ? ORDER BY s.updated_at DESC, s.created_at DESC LIMIT 10`).all(userId);
-    const recentFeedback = db.prepare(`SELECT s.id, s.question_id, s.feedback, s.review_status, s.reviewed_at, q.title as question_title, rev.name as reviewer_name FROM submissions s JOIN questions q ON s.question_id = q.id LEFT JOIN users rev ON s.reviewer_id = rev.id WHERE s.user_id = ? AND s.feedback IS NOT NULL ORDER BY s.reviewed_at DESC LIMIT 5`).all(userId);
-    const cohorts = db.prepare(`SELECT c.*, cm.joined_at FROM cohort_members cm JOIN cohorts c ON cm.cohort_id = c.id WHERE cm.user_id = ?`).all(userId);
-    return res.status(200).json({ data: { ...user, skills: safeParseJson(user.skills), stats: { total_challenges: totalAssigned || completed, completed, ongoing, incomplete, accuracy_rate: `${accuracy}%`, points: user.points, streak: user.streak, longest_streak: user.longest_streak, rank: user.rank || 1 }, badges, cohorts, recent_submissions: recentSubmissions, recent_feedback: recentFeedback } });
-  } catch (err) { next(err); }
+
+    const recentSubmissions = await repo.many(`
+      SELECT s.*, q.title AS question_title, q.difficulty AS question_difficulty, q.points AS question_points
+      FROM submissions s
+      JOIN questions q ON s.question_id = q.id
+      WHERE s.user_id = ?
+      ORDER BY s.updated_at DESC, s.created_at DESC
+      LIMIT 10
+    `, [userId]);
+
+    const recentFeedback = await repo.many(`
+      SELECT s.id, s.question_id, s.feedback, s.review_status, s.reviewed_at, q.title AS question_title, rev.name AS reviewer_name
+      FROM submissions s
+      JOIN questions q ON s.question_id = q.id
+      LEFT JOIN users rev ON s.reviewer_id = rev.id
+      WHERE s.user_id = ? AND s.feedback IS NOT NULL
+      ORDER BY s.reviewed_at DESC
+      LIMIT 5
+    `, [userId]);
+
+    let cohorts = [];
+    try {
+      cohorts = await repo.many(`
+        SELECT c.*, cm.joined_at
+        FROM cohort_members cm
+        JOIN cohorts c ON cm.cohort_id = c.id
+        WHERE cm.user_id = ?
+      `, [userId]);
+    } catch (_) {}
+
+    return res.status(200).json({
+      data: {
+        ...user,
+        skills: safeParseJson(user.skills),
+        stats: {
+          total_challenges: totalAssigned || completed,
+          completed,
+          ongoing,
+          incomplete,
+          accuracy_rate: `${accuracy}%`,
+          points: Number(user.points || 0),
+          streak: Number(user.streak || 0),
+          longest_streak: Number(user.longest_streak || 0),
+          rank: Number(user.rank || 1)
+        },
+        badges,
+        cohorts,
+        recent_submissions: recentSubmissions,
+        recent_feedback: recentFeedback
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
 }
 
-function updateMyProfile(req, res, next) {
+async function updateMyProfile(req, res, next) {
   try {
     const userId = req.user.id;
     const { name, username, bio, institution, github_url, linkedin_url, skills, avatar_url } = req.body;
-    const fields = [], params = [];
+    const fields = [];
+    const params = [];
+
     if (name !== undefined) { fields.push('name = ?'); params.push(name.trim()); }
     if (username !== undefined) { fields.push('username = ?'); params.push(username.trim()); }
     if (bio !== undefined) { fields.push('bio = ?'); params.push(bio.trim()); }
@@ -58,53 +155,127 @@ function updateMyProfile(req, res, next) {
     if (linkedin_url !== undefined) { fields.push('linkedin_url = ?'); params.push(linkedin_url.trim()); }
     if (skills !== undefined) { fields.push('skills = ?'); params.push(typeof skills === 'object' ? JSON.stringify(skills) : skills); }
     if (avatar_url !== undefined) { fields.push('avatar_url = ?'); params.push(avatar_url.trim()); }
-    if (fields.length) { params.push(userId); db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...params); }
-    return getMyProfile(req, res, next);
-  } catch (err) { next(err); }
-}
 
-function getLeaderboard(req, res, next) {
-  try {
-    const requestedPeriod = String(req.query.period || 'all').toLowerCase();
-    const period = ['all', 'weekly', 'monthly'].includes(requestedPeriod) ? requestedPeriod : 'all';
-    let scoreExpr = 'COALESCE(u.points, 0)';
-    let completedExpr = `(SELECT COUNT(*) FROM submissions s WHERE s.user_id = u.id AND s.status IN ('solved','completed','approved'))`;
-    let streakExpr = 'COALESCE(u.streak, 0)';
-    if (period === 'weekly') {
-      scoreExpr = `(SELECT COALESCE(SUM(CASE WHEN l.status = 'Accepted' OR l.passed_tests = l.total_tests THEN CAST(COALESCE(q.points, 20) AS INTEGER) ELSE 0 END), 0) FROM code_submissions_log l JOIN questions q ON q.id = l.question_id WHERE l.user_id = u.id AND datetime(l.created_at) >= datetime('now','-7 days'))`;
-      completedExpr = `(SELECT COUNT(DISTINCT s.question_id) FROM submissions s WHERE s.user_id = u.id AND s.status IN ('solved','completed','approved') AND datetime(COALESCE(s.solved_at,s.updated_at,s.created_at)) >= datetime('now','-7 days'))`;
-    } else if (period === 'monthly') {
-      scoreExpr = `(SELECT COALESCE(SUM(CASE WHEN l.status = 'Accepted' OR l.passed_tests = l.total_tests THEN CAST(COALESCE(q.points, 20) AS INTEGER) ELSE 0 END), 0) FROM code_submissions_log l JOIN questions q ON q.id = l.question_id WHERE l.user_id = u.id AND datetime(l.created_at) >= datetime('now','-30 days'))`;
-      completedExpr = `(SELECT COUNT(DISTINCT s.question_id) FROM submissions s WHERE s.user_id = u.id AND s.status IN ('solved','completed','approved') AND datetime(COALESCE(s.solved_at,s.updated_at,s.created_at)) >= datetime('now','-30 days'))`;
+    if (fields.length) {
+      params.push(userId);
+      await repo.execute(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, params);
     }
-    const leaders = db.prepare(`SELECT u.id, u.name, u.email, u.avatar_url, ${scoreExpr} AS points, ${streakExpr} AS streak, COALESCE(u.longest_streak,0) AS longest_streak, u.institution, ${completedExpr} AS completed_count, (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count FROM users u WHERE u.role = 'user' ORDER BY points DESC, streak DESC, longest_streak DESC, u.name ASC, u.id ASC LIMIT 100`).all();
-    const ranked = leaders.map((leader, index) => ({ ...leader, rank: index + 1, period }));
-    return res.status(200).json({ data: ranked, period });
-  } catch (err) { next(err); }
+    return getMyProfile(req, res, next);
+  } catch (err) {
+    next(err);
+  }
 }
 
-function getUserById(req, res, next) {
+async function getLeaderboard(req, res, next) {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
-    if (!user) throw new AppError('User not found', 404, 'NOT_FOUND');
-    const assignments = db.prepare(`SELECT a.*, q.title as question_title, q.difficulty, q.points, s.status as submission_status, s.feedback FROM assignments a JOIN questions q ON a.question_id = q.id LEFT JOIN submissions s ON s.question_id = a.question_id AND s.user_id = a.user_id WHERE a.user_id = ? ORDER BY a.assigned_at DESC`).all(req.params.id);
-    const cohorts = db.prepare(`SELECT c.*, cm.joined_at FROM cohort_members cm JOIN cohorts c ON cm.cohort_id = c.id WHERE cm.user_id = ?`).all(req.params.id);
-    return res.status(200).json({ data: { ...user, skills: safeParseJson(user.skills), assignments, cohorts } });
-  } catch (err) { next(err); }
+    const period = String(req.query.period || 'all').toLowerCase();
+    const limit = Number(req.query.limit || 100);
+    const ranked = await getCompetitiveLeaders(limit, period);
+    return res.status(200).json({ data: ranked, period });
+  } catch (err) {
+    next(err);
+  }
 }
 
-function updateUserRole(req, res, next) {
+async function getUserById(req, res, next) {
+  try {
+    const user = await repo.one('SELECT * FROM users WHERE id = ?', [req.params.id]);
+    if (!user) throw new AppError('User not found', 404, 'NOT_FOUND');
+
+    const assignments = await repo.many(`
+      SELECT a.*, q.title AS question_title, q.difficulty, q.points, s.status AS submission_status, s.feedback
+      FROM assignments a
+      JOIN questions q ON a.question_id = q.id
+      LEFT JOIN submissions s ON s.question_id = a.question_id AND s.user_id = a.user_id
+      WHERE a.user_id = ?
+      ORDER BY a.assigned_at DESC
+    `, [req.params.id]);
+
+    let cohorts = [];
+    try {
+      cohorts = await repo.many(`
+        SELECT c.*, cm.joined_at
+        FROM cohort_members cm
+        JOIN cohorts c ON cm.cohort_id = c.id
+        WHERE cm.user_id = ?
+      `, [req.params.id]);
+    } catch (_) {}
+
+    return res.status(200).json({
+      data: {
+        ...user,
+        skills: safeParseJson(user.skills),
+        assignments,
+        cohorts
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateUserRole(req, res, next) {
   try {
     const { role } = req.body;
-    if (!['admin','user','mentor'].includes(role)) throw new AppError('role must be one of admin|user|mentor', 400, 'VALIDATION_ERROR', 'role');
-    const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!['admin', 'user', 'mentor'].includes(role)) {
+      throw new AppError('role must be one of admin|user|mentor', 400, 'VALIDATION_ERROR', 'role');
+    }
+
+    const targetUser = await repo.one('SELECT * FROM users WHERE id = ?', [req.params.id]);
     if (!targetUser) throw new AppError('User not found', 404, 'NOT_FOUND');
-    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, req.params.id);
-    const updated = db.prepare('SELECT id,name,email,role,created_at FROM users WHERE id = ?').get(req.params.id);
-    auditService.logAction({ actorId:req.user?.id, actorEmail:req.user?.email, action:'user_role_update', resourceType:'user', resourceId:req.params.id, beforeData:{role:targetUser.role}, afterData:{role:updated.role}, ipAddress:req.ip, userAgent:req.get('user-agent') });
-    return res.status(200).json({ data: updated });
-  } catch (err) { next(err); }
+
+    await repo.execute('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+    const updatedUser = await repo.one('SELECT * FROM users WHERE id = ?', [req.params.id]);
+
+    await auditService.logAction({
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'user_role_change',
+      resourceType: 'user',
+      resourceId: req.params.id,
+      beforeData: { role: targetUser.role },
+      afterData: { role },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+
+    return res.status(200).json({ data: updatedUser });
+  } catch (err) {
+    next(err);
+  }
 }
 
-function safeParseJson(val) { if (!val) return []; try { return typeof val === 'string' ? JSON.parse(val) : val; } catch (e) { return [val]; } }
-module.exports = { listUsers, getMyProfile, updateMyProfile, getLeaderboard, getUserById, updateUserRole };
+async function getUserStats(req, res, next) {
+  try {
+    const userId = req.params.id;
+    const user = await repo.one('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!user) throw new AppError('User not found', 404, 'NOT_FOUND');
+
+    const totalSubmissionsRow = await repo.one('SELECT COUNT(*) AS count FROM submissions WHERE user_id = ?', [userId]);
+    const solvedSubmissionsRow = await repo.one("SELECT COUNT(*) AS count FROM submissions WHERE user_id = ? AND status IN ('solved','completed','approved')", [userId]);
+
+    return res.status(200).json({
+      data: {
+        user_id: userId,
+        points: Number(user.points || 0),
+        streak: Number(user.streak || 0),
+        longest_streak: Number(user.longest_streak || 0),
+        rank: Number(user.rank || 1),
+        total_submissions: Number(totalSubmissionsRow?.count || 0),
+        solved_submissions: Number(solvedSubmissionsRow?.count || 0)
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  listUsers,
+  getMyProfile,
+  updateMyProfile,
+  getLeaderboard,
+  getUserById,
+  updateUserRole,
+  getUserStats
+};

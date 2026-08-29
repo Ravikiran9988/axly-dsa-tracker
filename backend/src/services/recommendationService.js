@@ -1,31 +1,33 @@
-const { db } = require('../db/db');
+const { getRepository } = require('../db/repositoryFactory');
 
-function getRecommendations(userId, limit = 8) {
+const repo = getRepository();
+
+async function getRecommendations(userId, limit = 8) {
   const safeLimit = Math.min(Math.max(Number(limit) || 8, 1), 20);
 
-  // Find weak topics for this user (topics with attempts where accuracy is < 60%)
-  const weakTopics = db.prepare(`
+  // Find weak topics for this user
+  const weakTopics = await repo.many(`
     SELECT q.topic_id, t.name AS topic_name, COUNT(s.id) AS attempts,
       SUM(CASE WHEN s.status IN ('solved','approved','completed') THEN 1 ELSE 0 END) AS solved
     FROM submissions s
     JOIN questions q ON q.id = s.question_id
     LEFT JOIN topics t ON q.topic_id = t.id
     WHERE s.user_id = ?
-    GROUP BY q.topic_id
+    GROUP BY q.topic_id, t.name
     HAVING (SUM(CASE WHEN s.status IN ('solved','approved','completed') THEN 1 ELSE 0 END) * 1.0 / COUNT(s.id)) < 0.6
     LIMIT 3
-  `).all(userId);
+  `, [userId]);
 
   const weakTopicIds = weakTopics.map(wt => wt.topic_id).filter(Boolean);
 
   let weakTopicQuestions = [];
   if (weakTopicIds.length > 0) {
     const placeholders = weakTopicIds.map(() => '?').join(',');
-    weakTopicQuestions = db.prepare(`
+    weakTopicQuestions = await repo.many(`
       SELECT q.id, q.title, q.difficulty, q.topic_id, q.points, q.estimated_time, t.name AS topic_name
       FROM questions q
       LEFT JOIN topics t ON q.topic_id = t.id
-      WHERE q.is_active = 1
+      WHERE (q.is_active = 1 OR q.is_active = TRUE)
         AND q.topic_id IN (${placeholders})
         AND NOT EXISTS (
           SELECT 1 FROM submissions s 
@@ -33,22 +35,22 @@ function getRecommendations(userId, limit = 8) {
         )
       ORDER BY CASE q.difficulty WHEN 'easy' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, q.created_at DESC
       LIMIT ?
-    `).all(...weakTopicIds, userId, Math.ceil(safeLimit / 2));
+    `, [...weakTopicIds, userId, Math.ceil(safeLimit / 2)]);
   }
 
-  // General progression recommendations (unsolved, ordered by difficulty & recency)
-  const generalQuestions = db.prepare(`
+  // General progression recommendations
+  const generalQuestions = await repo.many(`
     SELECT q.id, q.title, q.difficulty, q.topic_id, q.points, q.estimated_time, t.name AS topic_name
     FROM questions q
     LEFT JOIN topics t ON q.topic_id = t.id
-    WHERE q.is_active = 1
+    WHERE (q.is_active = 1 OR q.is_active = TRUE)
       AND NOT EXISTS (
         SELECT 1 FROM submissions s 
         WHERE s.question_id = q.id AND s.user_id = ? AND s.status IN ('solved', 'approved', 'completed')
       )
     ORDER BY CASE q.difficulty WHEN 'easy' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, q.created_at DESC
     LIMIT ?
-  `).all(userId, safeLimit);
+  `, [userId, safeLimit]);
 
   const seenIds = new Set();
   const combined = [];
@@ -76,13 +78,19 @@ function getRecommendations(userId, limit = 8) {
   return combined;
 }
 
-function getAchievements(userId) {
-  const solved = db.prepare("SELECT COUNT(DISTINCT question_id) AS n FROM submissions WHERE user_id=? AND status IN ('solved','approved','completed')").get(userId)?.n || 0;
-  const perfect = db.prepare("SELECT COUNT(*) AS n FROM submissions WHERE user_id=? AND status IN ('solved','approved','completed') AND COALESCE(final_score, test_score, manual_score, 0) >= 100").get(userId)?.n || 0;
-  const fast = db.prepare("SELECT COUNT(*) AS n FROM submissions WHERE user_id=? AND status IN ('solved','approved','completed') AND solve_duration_seconds > 0 AND solve_duration_seconds <= 300").get(userId)?.n || 0;
-  const user = db.prepare('SELECT streak, longest_streak FROM users WHERE id=?').get(userId) || {};
-  const currentStreak = user.streak || 0;
-  const longestStreak = user.longest_streak || 0;
+async function getAchievements(userId) {
+  const solvedRow = await repo.one("SELECT COUNT(DISTINCT question_id) AS n FROM submissions WHERE user_id = ? AND status IN ('solved','approved','completed')", [userId]);
+  const solved = Number(solvedRow?.n || 0);
+
+  const perfectRow = await repo.one("SELECT COUNT(*) AS n FROM submissions WHERE user_id = ? AND status IN ('solved','approved','completed') AND COALESCE(final_score, test_score, manual_score, 0) >= 100", [userId]);
+  const perfect = Number(perfectRow?.n || 0);
+
+  const fastRow = await repo.one("SELECT COUNT(*) AS n FROM submissions WHERE user_id = ? AND status IN ('solved','approved','completed') AND solve_duration_seconds > 0 AND solve_duration_seconds <= 300", [userId]);
+  const fast = Number(fastRow?.n || 0);
+
+  const user = (await repo.one('SELECT streak, longest_streak FROM users WHERE id = ?', [userId])) || {};
+  const currentStreak = Number(user.streak || 0);
+  const longestStreak = Number(user.longest_streak || 0);
 
   const achievements = [];
   const add = (id, title, description, icon, unlocked, progress, target) => {

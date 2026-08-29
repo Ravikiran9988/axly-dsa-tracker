@@ -10,14 +10,14 @@ const {
   restoreVersion
 } = require('../db/questionVersioning');
 
-function ensureVersioning() {
-  ensureQuestionVersioning();
+async function ensureVersioning() {
+  await ensureQuestionVersioning();
 }
 
 async function getQuestions(req, res, next) {
   try {
     const { difficulty, topic_id, assigned, page, limit, search } = req.query;
-    return res.status(200).json(questionService.listQuestions({
+    const result = await questionService.listQuestions({
       user: req.user,
       difficulty,
       topic_id,
@@ -25,7 +25,8 @@ async function getQuestions(req, res, next) {
       page,
       limit,
       search
-    }));
+    });
+    return res.status(200).json(result);
   } catch (err) {
     next(err);
   }
@@ -33,7 +34,7 @@ async function getQuestions(req, res, next) {
 
 async function getQuestionById(req, res, next) {
   try {
-    const question = questionService.getQuestionById(req.params.id, req.user);
+    const question = await questionService.getQuestionById(req.params.id, req.user);
     if (!question) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Question not found' } });
     }
@@ -45,11 +46,11 @@ async function getQuestionById(req, res, next) {
 
 async function createQuestion(req, res, next) {
   try {
-    const question = questionService.createQuestion(req.body);
-    ensureVersioning();
-    createVersion(question, req.user?.id, 'create');
+    const question = await questionService.createQuestion(req.body);
+    await ensureVersioning();
+    await createVersion(question, req.user?.id, 'create');
 
-    auditService.logAction({
+    await auditService.logAction({
       actorId: req.user?.id,
       actorEmail: req.user?.email,
       action: 'question_create',
@@ -68,12 +69,12 @@ async function createQuestion(req, res, next) {
 
 async function updateQuestion(req, res, next) {
   try {
-    const existing = questionService.getQuestionById(req.params.id, { role: 'admin' });
-    const question = questionService.updateQuestion(req.params.id, req.body);
-    ensureVersioning();
-    createVersion(question, req.user?.id, 'update');
+    const existing = await questionService.getQuestionById(req.params.id, { role: 'admin' });
+    const question = await questionService.updateQuestion(req.params.id, req.body);
+    await ensureVersioning();
+    await createVersion(question, req.user?.id, 'update');
 
-    auditService.logAction({
+    await auditService.logAction({
       actorId: req.user?.id,
       actorEmail: req.user?.email,
       action: req.body.status === 'published' && existing?.status !== 'published' ? 'question_publish' : 'question_update',
@@ -93,7 +94,7 @@ async function updateQuestion(req, res, next) {
 
 async function validateQuestion(req, res, next) {
   try {
-    const question = questionService.getQuestionById(req.params.id, { role: 'admin' });
+    const question = await questionService.getQuestionById(req.params.id, { role: 'admin' });
     if (!question) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Question not found' } });
     }
@@ -105,11 +106,13 @@ async function validateQuestion(req, res, next) {
 
 async function getQuestionVersions(req, res, next) {
   try {
-    ensureVersioning();
-    if (!questionService.getQuestionById(req.params.id, { role: 'admin' })) {
+    await ensureVersioning();
+    const existing = await questionService.getQuestionById(req.params.id, { role: 'admin' });
+    if (!existing) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Question not found' } });
     }
-    return res.status(200).json({ data: listVersions(req.params.id) });
+    const versions = await listVersions(req.params.id);
+    return res.status(200).json({ data: versions });
   } catch (err) {
     next(err);
   }
@@ -117,8 +120,8 @@ async function getQuestionVersions(req, res, next) {
 
 async function getQuestionVersion(req, res, next) {
   try {
-    ensureVersioning();
-    const version = getVersion(req.params.id, req.params.version);
+    await ensureVersioning();
+    const version = await getVersion(req.params.id, req.params.version);
     if (!version) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Question version not found' } });
     }
@@ -130,12 +133,12 @@ async function getQuestionVersion(req, res, next) {
 
 async function compareQuestionVersions(req, res, next) {
   try {
-    ensureVersioning();
+    await ensureVersioning();
     const { v1, v2 } = req.query;
     if (!v1 || !v2) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide both v1 and v2 version query parameters' } });
     }
-    const comparison = compareVersions(req.params.id, v1, v2);
+    const comparison = await compareVersions(req.params.id, v1, v2);
     if (!comparison) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'One or both versions not found for this question' } });
     }
@@ -147,10 +150,10 @@ async function compareQuestionVersions(req, res, next) {
 
 async function restoreQuestionVersion(req, res, next) {
   try {
-    ensureVersioning();
-    const result = restoreVersion(req.params.id, req.params.version, req.user?.id);
+    await ensureVersioning();
+    const result = await restoreVersion(req.params.id, req.params.version, req.user?.id);
 
-    auditService.logAction({
+    await auditService.logAction({
       actorId: req.user?.id,
       actorEmail: req.user?.email,
       action: 'question_version_restore',
@@ -169,10 +172,10 @@ async function restoreQuestionVersion(req, res, next) {
 
 async function deleteQuestion(req, res, next) {
   try {
-    const existing = questionService.getQuestionById(req.params.id, { role: 'admin' });
-    const result = questionService.deleteQuestion(req.params.id);
+    const existing = await questionService.getQuestionById(req.params.id, { role: 'admin' });
+    const result = await questionService.deleteQuestion(req.params.id);
 
-    auditService.logAction({
+    await auditService.logAction({
       actorId: req.user?.id,
       actorEmail: req.user?.email,
       action: 'question_delete',
@@ -191,7 +194,8 @@ async function deleteQuestion(req, res, next) {
 
 async function getTopics(req, res, next) {
   try {
-    return res.status(200).json({ data: questionService.listTopics() });
+    const topics = await questionService.listTopics();
+    return res.status(200).json({ data: topics });
   } catch (err) {
     next(err);
   }

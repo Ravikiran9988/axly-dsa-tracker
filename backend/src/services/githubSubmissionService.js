@@ -1,21 +1,24 @@
-const { db } = require('../db/db');
+const { getRepository } = require('../db/repositoryFactory');
 const { AppError } = require('../middleware/errorHandler');
 
-// Keep GitHub submission snapshots separate from the mutable submission row.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS github_submission_versions (
-    id TEXT PRIMARY KEY,
-    submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
-    github_url TEXT NOT NULL,
-    owner TEXT NOT NULL,
-    repository TEXT NOT NULL,
-    commit_sha TEXT NOT NULL,
-    commit_url TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE INDEX IF NOT EXISTS idx_github_versions_submission ON github_submission_versions(submission_id);
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_github_versions_submission_commit ON github_submission_versions(submission_id, commit_sha);
-`);
+const repo = getRepository();
+
+async function ensureGithubVersionsTable() {
+  try {
+    await repo.execute(`
+      CREATE TABLE IF NOT EXISTS github_submission_versions (
+        id TEXT PRIMARY KEY,
+        submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+        github_url TEXT NOT NULL,
+        owner TEXT NOT NULL,
+        repository TEXT NOT NULL,
+        commit_sha TEXT NOT NULL,
+        commit_url TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+  } catch (_) {}
+}
 
 function parseGithubUrl(value) {
   let url;
@@ -40,11 +43,11 @@ async function getRepositorySnapshot(githubUrl) {
   });
   if (response.status === 404) throw new AppError('GitHub repository was not found or is private', 400, 'GITHUB_REPOSITORY_NOT_FOUND', 'github_url');
   if (!response.ok) throw new AppError('Unable to verify the GitHub repository right now', 502, 'GITHUB_VERIFICATION_FAILED');
-  const repo = await response.json();
-  if (repo.archived) throw new AppError('Archived GitHub repositories cannot be submitted', 400, 'VALIDATION_ERROR', 'github_url');
-  if (!repo.default_branch) throw new AppError('GitHub repository has no default branch', 400, 'VALIDATION_ERROR', 'github_url');
+  const repoData = await response.json();
+  if (repoData.archived) throw new AppError('Archived GitHub repositories cannot be submitted', 400, 'VALIDATION_ERROR', 'github_url');
+  if (!repoData.default_branch) throw new AppError('GitHub repository has no default branch', 400, 'VALIDATION_ERROR', 'github_url');
 
-  const branchResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repository)}/commits/${encodeURIComponent(repo.default_branch)}`, {
+  const branchResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repository)}/commits/${encodeURIComponent(repoData.default_branch)}`, {
     headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Axly-DSA-Tracker' }
   });
   if (!branchResponse.ok) throw new AppError('Unable to resolve the latest GitHub commit', 502, 'GITHUB_VERIFICATION_FAILED');
@@ -53,27 +56,35 @@ async function getRepositorySnapshot(githubUrl) {
 
   return {
     ...parsed,
-    defaultBranch: repo.default_branch,
+    defaultBranch: repoData.default_branch,
     commitSha: commit.sha,
     commitUrl: `https://github.com/${parsed.owner}/${parsed.repository}/commit/${commit.sha}`
   };
 }
 
-function recordSnapshot({ id, submissionId, snapshot }) {
-  db.prepare(`
+async function recordSnapshot({ id, submissionId, snapshot }) {
+  await ensureGithubVersionsTable();
+  const nowIso = new Date().toISOString();
+  await repo.execute(`
     INSERT INTO github_submission_versions
-      (id, submission_id, github_url, owner, repository, commit_sha, commit_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, submissionId, snapshot.canonicalUrl, snapshot.owner, snapshot.repository, snapshot.commitSha, snapshot.commitUrl);
+      (id, submission_id, github_url, owner, repository, commit_sha, commit_url, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `, [id, submissionId, snapshot.canonicalUrl, snapshot.owner, snapshot.repository, snapshot.commitSha, snapshot.commitUrl, nowIso]);
 }
 
-function listSnapshots(submissionId) {
-  return db.prepare(`
+async function listSnapshots(submissionId) {
+  await ensureGithubVersionsTable();
+  return repo.many(`
     SELECT id, submission_id, github_url, owner, repository, commit_sha, commit_url, created_at
     FROM github_submission_versions
     WHERE submission_id = ?
     ORDER BY created_at DESC
-  `).all(submissionId);
+  `, [submissionId]);
 }
 
-module.exports = { parseGithubUrl, getRepositorySnapshot, recordSnapshot, listSnapshots };
+module.exports = {
+  parseGithubUrl,
+  getRepositorySnapshot,
+  recordSnapshot,
+  listSnapshots
+};

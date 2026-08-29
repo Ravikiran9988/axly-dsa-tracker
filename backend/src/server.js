@@ -1,7 +1,4 @@
 const app = require('./app');
-const { initSchema } = require('./db/db');
-const { seedDatabase } = require('./db/seed');
-const { seedPracticeProblems } = require('./db/practiceSeed');
 const { assertProductionDatabase } = require('./config/runtimeDatabase');
 const { checkPostgresHealth } = require('./db/postgres');
 
@@ -9,16 +6,21 @@ const PORT = process.env.PORT || 5000;
 
 async function startServer() {
   assertProductionDatabase();
-  initSchema();
-  if (process.env.NODE_ENV !== 'production') {
-    seedDatabase();
-    seedPracticeProblems();
-  }
 
   if (process.env.NODE_ENV === 'production') {
     const health = await checkPostgresHealth();
-    if (!health.healthy) throw new Error(`PostgreSQL health check failed: ${health.reason || 'database unavailable'}`);
-    console.log('✅ PostgreSQL connection verified.');
+    if (!health.healthy) {
+      throw new Error(`PostgreSQL health check failed: ${health.reason || 'database unavailable'}`);
+    }
+    console.log('✅ Production PostgreSQL connection verified.');
+  } else {
+    // Local / Test SQLite initialization
+    const { initSchema } = require('./db/db');
+    const { seedDatabase } = require('./db/seed');
+    const { seedPracticeProblems } = require('./db/practiceSeed');
+    initSchema();
+    seedDatabase();
+    seedPracticeProblems();
   }
 
   const server = app.listen(PORT, () => {

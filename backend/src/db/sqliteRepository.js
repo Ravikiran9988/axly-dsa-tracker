@@ -2,28 +2,54 @@ const RepositoryContract = require('./repositoryContract');
 const { db } = require('./db');
 
 /**
- * Compatibility adapter used while Phase 4 migrates services incrementally.
- * It exposes Promise-based methods while retaining SQLite's current runtime.
+ * SQLite implementation of RepositoryContract for local/test environments.
+ * It provides full Promise-based parity with the PostgreSQL adapter.
  */
 class SqliteRepository extends RepositoryContract {
+  constructor(sqliteDb = db) {
+    super();
+    this.db = sqliteDb;
+  }
+
   async query(sql, params = []) {
-    const statement = db.prepare(sql);
+    const statement = this.db.prepare(sql);
     const rows = statement.all(...params);
     return { rows, rowCount: rows.length };
   }
 
   async one(sql, params = []) {
-    return db.prepare(sql).get(...params) ?? null;
+    const statement = this.db.prepare(sql);
+    const row = statement.get(...params);
+    return row ?? null;
+  }
+
+  async many(sql, params = []) {
+    const statement = this.db.prepare(sql);
+    return statement.all(...params) ?? [];
   }
 
   async execute(sql, params = []) {
-    const result = db.prepare(sql).run(...params);
-    return { rowCount: result.changes, changes: result.changes, lastInsertRowid: result.lastInsertRowid };
+    const statement = this.db.prepare(sql);
+    const result = statement.run(...params);
+    return {
+      rowCount: result.changes,
+      changes: result.changes,
+      lastInsertRowid: result.lastInsertRowid
+    };
   }
 
   async transaction(callback) {
-    const transaction = db.transaction(() => callback(this));
-    return transaction();
+    this.db.exec('BEGIN');
+    try {
+      const result = await callback(this);
+      this.db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      try {
+        this.db.exec('ROLLBACK');
+      } catch (_) {}
+      throw error;
+    }
   }
 }
 

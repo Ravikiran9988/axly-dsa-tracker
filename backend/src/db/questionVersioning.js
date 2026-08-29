@@ -1,24 +1,24 @@
-const { db } = require('./db');
+const { getRepository } = require('./repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 
-function ensureQuestionVersioning() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS question_versions (
-      id TEXT PRIMARY KEY,
-      question_id TEXT NOT NULL,
-      version INTEGER NOT NULL,
-      snapshot TEXT NOT NULL,
-      changed_by TEXT,
-      change_type TEXT NOT NULL DEFAULT 'update',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(question_id, version)
-    );
-    CREATE INDEX IF NOT EXISTS idx_question_versions_question ON question_versions(question_id, version DESC);
-  `);
-  const columns = db.prepare('PRAGMA table_info(questions)').all().map(c => c.name);
-  if (!columns.includes('current_version')) {
-    db.exec("ALTER TABLE questions ADD COLUMN current_version INTEGER NOT NULL DEFAULT 1");
-  }
+const repo = getRepository();
+
+async function ensureQuestionVersioning() {
+  // Ensured via migrations 002/008. For SQLite compatibility, ensure table exists.
+  try {
+    await repo.execute(`
+      CREATE TABLE IF NOT EXISTS question_versions (
+        id TEXT PRIMARY KEY,
+        question_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        snapshot TEXT NOT NULL,
+        changed_by TEXT,
+        change_type TEXT NOT NULL DEFAULT 'update',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(question_id, version)
+      )
+    `);
+  } catch (_) {}
 }
 
 function snapshotQuestion(question) {
@@ -31,18 +31,23 @@ function snapshotQuestion(question) {
   return JSON.stringify(copy);
 }
 
-function createVersion(question, changedBy, changeType = 'update') {
+async function createVersion(question, changedBy, changeType = 'update') {
   if (!question || !question.id) return 1;
   try {
-    ensureQuestionVersioning();
-    const row = db.prepare('SELECT COALESCE(MAX(version),0) AS version FROM question_versions WHERE question_id=?').get(question.id);
+    await ensureQuestionVersioning();
+    const row = await repo.one(
+      'SELECT COALESCE(MAX(version), 0) AS version FROM question_versions WHERE question_id = ?',
+      [question.id]
+    );
     const version = Number(row?.version || 0) + 1;
-    db.prepare(`
-      INSERT INTO question_versions (id, question_id, version, snapshot, changed_by, change_type, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-    `).run(uuidv4(), question.id, version, snapshotQuestion(question), changedBy || null, changeType);
+    const nowIso = new Date().toISOString();
 
-    db.prepare('UPDATE questions SET current_version=? WHERE id=?').run(version, question.id);
+    await repo.execute(`
+      INSERT INTO question_versions (id, question_id, version, snapshot, changed_by, change_type, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [uuidv4(), question.id, version, snapshotQuestion(question), changedBy || null, changeType, nowIso]);
+
+    await repo.execute('UPDATE questions SET current_version = ? WHERE id = ?', [version, question.id]);
     return version;
   } catch (err) {
     console.warn('[Versioning Warning]', err.message);
@@ -50,34 +55,38 @@ function createVersion(question, changedBy, changeType = 'update') {
   }
 }
 
-function listVersions(questionId) {
-  ensureQuestionVersioning();
-  const rows = db.prepare(`
+async function listVersions(questionId) {
+  await ensureQuestionVersioning();
+  const rows = await repo.many(`
     SELECT v.id, v.question_id, v.version, v.changed_by, v.change_type, v.created_at, u.name AS changed_by_name, u.email AS changed_by_email
     FROM question_versions v
     LEFT JOIN users u ON v.changed_by = u.id
     WHERE v.question_id = ?
     ORDER BY v.version DESC
-  `).all(questionId);
+  `, [questionId]);
   return rows;
 }
 
-function getVersion(questionId, version) {
-  ensureQuestionVersioning();
-  const row = db.prepare(`
+async function getVersion(questionId, version) {
+  await ensureQuestionVersioning();
+  const row = await repo.one(`
     SELECT v.*, u.name AS changed_by_name, u.email AS changed_by_email
     FROM question_versions v
     LEFT JOIN users u ON v.changed_by = u.id
     WHERE v.question_id = ? AND v.version = ?
-  `).get(questionId, Number(version));
+  `, [questionId, Number(version)]);
 
   if (!row) return null;
-  return { ...row, snapshot: JSON.parse(row.snapshot) };
+  let snapshot = row.snapshot;
+  if (typeof snapshot === 'string') {
+    try { snapshot = JSON.parse(snapshot); } catch (_) {}
+  }
+  return { ...row, snapshot };
 }
 
-function compareVersions(questionId, v1, v2) {
-  const version1 = getVersion(questionId, v1);
-  const version2 = getVersion(questionId, v2);
+async function compareVersions(questionId, v1, v2) {
+  const version1 = await getVersion(questionId, v1);
+  const version2 = await getVersion(questionId, v2);
   if (!version1 || !version2) return null;
 
   const s1 = version1.snapshot;
@@ -109,16 +118,15 @@ function compareVersions(questionId, v1, v2) {
   };
 }
 
-function restoreVersion(questionId, targetVersion, restoredBy) {
-  ensureQuestionVersioning();
-  const target = getVersion(questionId, targetVersion);
+async function restoreVersion(questionId, targetVersion, restoredBy) {
+  await ensureQuestionVersioning();
+  const target = await getVersion(questionId, targetVersion);
   if (!target) throw new Error('Target version not found');
 
   const s = target.snapshot;
   const questionService = require('../services/questionService');
 
-  // Update question core fields
-  const updated = questionService.updateQuestion(questionId, {
+  const updated = await questionService.updateQuestion(questionId, {
     title: s.title,
     difficulty: s.difficulty,
     topic_id: s.topic_id,
@@ -138,7 +146,7 @@ function restoreVersion(questionId, targetVersion, restoredBy) {
     test_cases: s.test_cases || []
   });
 
-  const newVersion = createVersion(updated, restoredBy, `restore_v${targetVersion}`);
+  const newVersion = await createVersion(updated, restoredBy, `restore_v${targetVersion}`);
   return { message: `Question successfully restored to version ${targetVersion}`, new_version: newVersion, question: updated };
 }
 

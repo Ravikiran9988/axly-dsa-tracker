@@ -112,8 +112,12 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
           </div>
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="font-extrabold text-white text-sm tracking-wider font-mono leading-none truncate">AXLY DSA</span>
-              <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 truncate ${isAdmin ? 'text-rose-400' : 'text-cyan-400'}`}>
+              <span className="font-extrabold text-white text-sm tracking-wider font-mono leading-none truncate">
+                AXLY DSA
+              </span>
+              <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 truncate ${
+                isAdmin ? 'text-rose-400' : 'text-cyan-400'
+              }`}>
                 {isAdmin ? 'Admin Portal' : 'DSA Tracker'}
               </span>
             </div>

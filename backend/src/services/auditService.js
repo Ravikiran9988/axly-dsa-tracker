@@ -1,5 +1,7 @@
-const { db } = require('../db/db');
+const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
+
+const repo = getRepository();
 
 const SENSITIVE_KEYS = new Set([
   'password', 'password_hash', 'token', 'jwt', 'secret',
@@ -43,7 +45,7 @@ function stringifySafe(val) {
 /**
  * Log a sensitive admin or business action to the audit trail.
  */
-function logAction({
+async function logAction({
   actorId = null,
   actorEmail = null,
   action,
@@ -60,28 +62,27 @@ function logAction({
     const beforeStr = stringifySafe(beforeData);
     const afterStr = stringifySafe(afterData);
     const metaStr = stringifySafe(metadata);
+    const nowIso = new Date().toISOString();
 
-    db.prepare(`
+    await repo.execute(`
       INSERT INTO admin_audit_logs (
         id, actor_id, actor_email, action, resource_type, resource_id,
         before_data, after_data, metadata, ip_address, user_agent, created_at
-      ) VALUES (
-        @id, @actor_id, @actor_email, @action, @resource_type, @resource_id,
-        @before_data, @after_data, @metadata, @ip_address, @user_agent, datetime('now')
-      )
-    `).run({
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
       id,
-      actor_id: actorId || null,
-      actor_email: actorEmail || null,
-      action: String(action),
-      resource_type: String(resourceType),
-      resource_id: resourceId ? String(resourceId) : null,
-      before_data: beforeStr,
-      after_data: afterStr,
-      metadata: metaStr,
-      ip_address: ipAddress || null,
-      user_agent: userAgent || null
-    });
+      actorId || null,
+      actorEmail || null,
+      String(action),
+      String(resourceType),
+      resourceId ? String(resourceId) : null,
+      beforeStr,
+      afterStr,
+      metaStr,
+      ipAddress || null,
+      userAgent || null,
+      nowIso
+    ]);
 
     return { id, action, resource_type: resourceType, resource_id: resourceId };
   } catch (err) {
@@ -93,7 +94,7 @@ function logAction({
 /**
  * Query audit logs with pagination and filters.
  */
-function listAuditLogs({
+async function listAuditLogs({
   action,
   resourceType,
   actorId,
@@ -103,38 +104,38 @@ function listAuditLogs({
   limit = 25
 }) {
   const conditions = [];
-  const params = {};
+  const params = [];
 
   if (action && action.trim()) {
-    conditions.push('action = @action');
-    params.action = action.trim();
+    conditions.push('action = ?');
+    params.push(action.trim());
   }
   if (resourceType && resourceType.trim()) {
-    conditions.push('resource_type = @resource_type');
-    params.resource_type = resourceType.trim();
+    conditions.push('resource_type = ?');
+    params.push(resourceType.trim());
   }
   if (actorId && actorId.trim()) {
-    conditions.push('actor_id = @actor_id');
-    params.actor_id = actorId.trim();
+    conditions.push('actor_id = ?');
+    params.push(actorId.trim());
   }
   if (fromDate && fromDate.trim()) {
-    conditions.push('created_at >= @from_date');
-    params.from_date = fromDate.trim();
+    conditions.push('created_at >= ?');
+    params.push(fromDate.trim());
   }
   if (toDate && toDate.trim()) {
-    conditions.push('created_at <= @to_date');
-    params.to_date = toDate.trim();
+    conditions.push('created_at <= ?');
+    params.push(toDate.trim());
   }
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const countRow = db.prepare(`SELECT COUNT(*) AS total FROM admin_audit_logs ${whereSql}`).get(params);
-  const total = countRow ? countRow.total : 0;
+  const countRow = await repo.one(`SELECT COUNT(*) AS total FROM admin_audit_logs ${whereSql}`, params);
+  const total = Number(countRow?.total || 0);
 
-  const offset = (Math.max(1, Number(page)) - 1) * Math.max(1, Number(limit));
-  params.limit = Math.max(1, Number(limit));
-  params.offset = offset;
+  const p = Math.max(1, Number(page) || 1);
+  const l = Math.max(1, Number(limit) || 25);
+  const offset = (p - 1) * l;
 
-  const rows = db.prepare(`
+  const rows = await repo.many(`
     SELECT 
       l.id, l.actor_id, l.actor_email, l.action, l.resource_type, l.resource_id,
       l.before_data, l.after_data, l.metadata, l.ip_address, l.user_agent, l.created_at,
@@ -143,18 +144,24 @@ function listAuditLogs({
     LEFT JOIN users u ON l.actor_id = u.id
     ${whereSql}
     ORDER BY l.created_at DESC
-    LIMIT @limit OFFSET @offset
-  `).all(params);
+    LIMIT ? OFFSET ?
+  `, [...params, l, offset]);
+
+  function parseJson(str) {
+    if (!str) return null;
+    if (typeof str === 'object') return str;
+    try { return JSON.parse(str); } catch { return null; }
+  }
 
   return {
     data: rows.map(r => ({
       ...r,
-      before_data: r.before_data ? JSON.parse(r.before_data) : null,
-      after_data: r.after_data ? JSON.parse(r.after_data) : null,
-      metadata: r.metadata ? JSON.parse(r.metadata) : null
+      before_data: parseJson(r.before_data),
+      after_data: parseJson(r.after_data),
+      metadata: parseJson(r.metadata)
     })),
-    page: Number(page),
-    limit: Number(limit),
+    page: p,
+    limit: l,
     total
   };
 }

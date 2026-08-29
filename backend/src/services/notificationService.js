@@ -1,43 +1,45 @@
-const { db } = require('../db/db');
+const { getRepository } = require('../db/repositoryFactory');
 
-function listNotifications(userId) {
-  const notifications = db.prepare(`
+const repo = getRepository();
+
+async function listNotifications(userId) {
+  const notifications = await repo.many(`
     SELECT * FROM notifications 
     WHERE user_id = ? 
     ORDER BY created_at DESC 
     LIMIT 50
-  `).all(userId);
+  `, [userId]);
 
-  const unreadCount = db.prepare(`
-    SELECT COUNT(*) as count FROM notifications 
-    WHERE user_id = ? AND is_read = 0
-  `).get(userId)?.count || 0;
+  const unreadCountRow = await repo.one(`
+    SELECT COUNT(*) AS count FROM notifications 
+    WHERE user_id = ? AND (is_read = 0 OR is_read = FALSE)
+  `, [userId]);
 
   return {
     notifications: notifications.map(n => ({
       ...n,
       is_read: Boolean(n.is_read)
     })),
-    unreadCount
+    unreadCount: Number(unreadCountRow?.count || 0)
   };
 }
 
-function markAsRead(id, userId) {
-  db.prepare(`
+async function markAsRead(id, userId) {
+  await repo.execute(`
     UPDATE notifications 
     SET is_read = 1 
     WHERE id = ? AND user_id = ?
-  `).run(id, userId);
+  `, [id, userId]);
 
   return listNotifications(userId);
 }
 
-function markAllAsRead(userId) {
-  db.prepare(`
+async function markAllAsRead(userId) {
+  await repo.execute(`
     UPDATE notifications 
     SET is_read = 1 
     WHERE user_id = ?
-  `).run(userId);
+  `, [userId]);
 
   return listNotifications(userId);
 }

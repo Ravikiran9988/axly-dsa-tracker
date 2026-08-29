@@ -1,7 +1,10 @@
 const RepositoryContract = require('./repositoryContract');
 const { pool } = require('./postgres');
 
-/** PostgreSQL implementation of the Phase 4 repository contract. */
+/**
+ * PostgreSQL implementation of the Phase 4 repository contract.
+ * Used in production and production-like environments.
+ */
 class PostgresRepository extends RepositoryContract {
   constructor(pgPool = pool) {
     super();
@@ -9,15 +12,29 @@ class PostgresRepository extends RepositoryContract {
     this.pool = pgPool;
   }
 
-  async query(sql, params = []) {
+  formatSql(sql) {
     let index = 0;
-    const postgresSql = sql.replace(/\?/g, () => `$${++index}`);
+    return sql.replace(/\?/g, () => `$${++index}`);
+  }
+
+  async query(sql, params = []) {
+    const postgresSql = this.formatSql(sql);
     return this.pool.query(postgresSql, params);
+  }
+
+  async one(sql, params = []) {
+    const result = await this.query(sql, params);
+    return result.rows?.[0] ?? null;
+  }
+
+  async many(sql, params = []) {
+    const result = await this.query(sql, params);
+    return result.rows ?? [];
   }
 
   async execute(sql, params = []) {
     const result = await this.query(sql, params);
-    return { rowCount: result.rowCount, rows: result.rows };
+    return { rowCount: result.rowCount, changes: result.rowCount, rows: result.rows };
   }
 
   async transaction(callback) {
@@ -29,7 +46,9 @@ class PostgresRepository extends RepositoryContract {
       await client.query('COMMIT');
       return value;
     } catch (error) {
-      try { await client.query('ROLLBACK'); } catch (_) {}
+      try {
+        await client.query('ROLLBACK');
+      } catch (_) {}
       throw error;
     } finally {
       client.release();
