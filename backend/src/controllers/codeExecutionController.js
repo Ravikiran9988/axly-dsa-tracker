@@ -8,7 +8,8 @@ const practiceService = require('../services/practiceService');
 const gamificationService = require('../services/gamificationService');
 const { AppError } = require('../middleware/errorHandler');
 
-const repo = getRepository();
+function getRepo() { return getRepository(); }
+const repo = getRepo();  // controller uses synchronous DB - repo is stable after init
 
 /** Run code against public/sample test cases or custom input without updating progress. */
 async function runCode(req, res, next) {

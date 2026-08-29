@@ -4,7 +4,7 @@ const { AppError } = require('../middleware/errorHandler');
 const { getCalendarDate, getUserStreaks } = require('./streakService');
 const { checkDuplicateChallenge, validateDailyChallenge } = require('./aiDailyChallengeService');
 
-const repo = getRepository();
+function getRepo() { return getRepository(); }
 
 function safeParseJson(value, fallback = null) {
   if (!value) return fallback;
@@ -50,7 +50,7 @@ function getTodayDateString() {
 
 async function assertDateAvailable(date, excludeId = null) {
   if (!date) return;
-  const existing = await repo.one(
+  const existing = await getRepo().one(
     `SELECT id, title, scheduled_date FROM daily_challenge_problems 
      WHERE scheduled_date = ? AND status != 'archived' AND is_active = 1 ${excludeId ? 'AND id != ?' : ''}`,
     excludeId ? [date, excludeId] : [date]
@@ -86,14 +86,14 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   }
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const countRow = await repo.one(`SELECT COUNT(*) AS total FROM daily_challenge_problems dc ${whereSql}`, params);
+  const countRow = await getRepo().one(`SELECT COUNT(*) AS total FROM daily_challenge_problems dc ${whereSql}`, params);
   const total = Number(countRow?.total || 0);
 
   const p = Math.max(1, Number(page) || 1);
   const l = Math.max(1, Number(limit) || 50);
   const offset = (p - 1) * l;
 
-  const rows = await repo.many(`
+  const rows = await getRepo().many(`
     SELECT 
       dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dc.custom_topic,
       dc.source_question_id,
@@ -118,7 +118,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   `, [...params, l, offset]);
 
   // Aggregate stats across all daily challenges
-  const allStatusCounts = await repo.many(`
+  const allStatusCounts = await getRepo().many(`
     SELECT status, COUNT(*) AS count
     FROM daily_challenge_problems
     WHERE is_active = 1
@@ -146,7 +146,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   const todayStr = getTodayDateString();
 
   // Find today's challenge
-  const todayRow = await repo.one(`
+  const todayRow = await getRepo().one(`
     SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
@@ -157,7 +157,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   `, [todayStr, todayStr]);
 
   // Find next scheduled challenge
-  const nextScheduledRow = await repo.one(`
+  const nextScheduledRow = await getRepo().one(`
     SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
@@ -204,7 +204,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
 }
 
 async function getDailyChallengeById(id, isPrivileged = false) {
-  const challenge = await repo.one(`
+  const challenge = await getRepo().one(`
     SELECT 
       dc.*,
       t.name AS topic_name,
@@ -222,7 +222,7 @@ async function getDailyChallengeById(id, isPrivileged = false) {
     throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
   }
 
-  const testCases = await repo.many(`
+  const testCases = await getRepo().many(`
     SELECT id, input, expected_output, is_hidden
     FROM daily_challenge_test_cases
     WHERE challenge_id = ?
@@ -316,7 +316,7 @@ async function createDailyChallenge(data, admin_id) {
   let resolvedPatternId = pattern_id || null;
   if (data.pattern_name) {
     const pName = String(data.pattern_name).trim();
-    const exactP = await repo.one('SELECT id FROM patterns WHERE LOWER(name) = LOWER(?) OR id = ?', [pName, pName]);
+    const exactP = await getRepo().one('SELECT id FROM patterns WHERE LOWER(name) = LOWER(?) OR id = ?', [pName, pName]);
     if (exactP) {
       resolvedPatternId = exactP.id;
     } else {
@@ -324,7 +324,7 @@ async function createDailyChallenge(data, admin_id) {
     }
   }
 
-  await repo.transaction(async tx => {
+  await getRepo().transaction(async tx => {
     await tx.execute(`
       INSERT INTO daily_challenge_problems (
         id, title, slug, difficulty, topic_id, pattern_id, custom_topic, source_question_id,
@@ -401,7 +401,7 @@ async function createDailyChallenge(data, admin_id) {
 }
 
 async function updateDailyChallenge(id, data, admin_id) {
-  const current = await repo.one('SELECT * FROM daily_challenge_problems WHERE id = ?', [id]);
+  const current = await getRepo().one('SELECT * FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!current) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   if (data.scheduled_date && (data.status === 'scheduled' || data.status === 'published' || current.status === 'scheduled')) {
@@ -415,7 +415,7 @@ async function updateDailyChallenge(id, data, admin_id) {
     }
   }
 
-  await repo.transaction(async tx => {
+  await getRepo().transaction(async tx => {
     const fields = [];
     const values = [];
 
@@ -508,13 +508,13 @@ async function scheduleDailyChallenge(id, date, admin_id) {
     throw new AppError('Valid date in YYYY-MM-DD format is required', 400, 'VALIDATION_ERROR', 'date');
   }
 
-  const challenge = await repo.one('SELECT id, status, is_active FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT id, status, is_active FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   // Prevent duplicate schedule for the same date
   await assertDateAvailable(date, id);
 
-  await repo.transaction(async tx => {
+  await getRepo().transaction(async tx => {
     await tx.execute(`
       UPDATE daily_challenge_problems 
       SET scheduled_date = ?, status = 'scheduled', updated_at = CURRENT_TIMESTAMP 
@@ -535,7 +535,7 @@ async function scheduleDailyChallenge(id, date, admin_id) {
 }
 
 async function publishDailyChallenge(id, admin_id) {
-  const challenge = await repo.one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   const nextStatus = challenge.status === 'published'
@@ -546,7 +546,7 @@ async function publishDailyChallenge(id, admin_id) {
     await assertDateAvailable(challenge.scheduled_date, id);
   }
 
-  await repo.execute(`
+  await getRepo().execute(`
     UPDATE daily_challenge_problems 
     SET status = ?, updated_at = CURRENT_TIMESTAMP 
     WHERE id = ?
@@ -571,12 +571,12 @@ async function publishDailyChallenge(id, admin_id) {
 }
 
 async function unpublishDailyChallenge(id, admin_id) {
-  const challenge = await repo.one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   const nextStatus = challenge.scheduled_date ? 'scheduled' : 'draft';
 
-  await repo.execute(`
+  await getRepo().execute(`
     UPDATE daily_challenge_problems 
     SET status = ?, updated_at = CURRENT_TIMESTAMP 
     WHERE id = ?
@@ -586,10 +586,10 @@ async function unpublishDailyChallenge(id, admin_id) {
 }
 
 async function archiveDailyChallenge(id) {
-  const challenge = await repo.one('SELECT id FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT id FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
-  await repo.execute(`
+  await getRepo().execute(`
     UPDATE daily_challenge_problems 
     SET status = 'archived', is_active = 0, updated_at = CURRENT_TIMESTAMP 
     WHERE id = ?
@@ -599,10 +599,10 @@ async function archiveDailyChallenge(id) {
 }
 
 async function deleteDailyChallenge(id) {
-  const challenge = await repo.one('SELECT id, title FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT id, title FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
-  await repo.transaction(async tx => {
+  await getRepo().transaction(async tx => {
     await tx.execute('DELETE FROM daily_challenge_test_cases WHERE challenge_id = ?', [id]);
     await tx.execute('DELETE FROM daily_questions WHERE challenge_id = ? OR question_id = ?', [id, id]);
     await tx.execute('DELETE FROM daily_challenge_problems WHERE id = ?', [id]);
@@ -615,7 +615,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
   const dateStr = targetDate || getTodayDateString();
 
   // 1. Primary query: Find active published/scheduled challenge for dateStr in daily_challenge_problems
-  let challenge = await repo.one(`
+  let challenge = await getRepo().one(`
     SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
@@ -632,7 +632,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
 
   // 2. Fallback query if no record found by exact scheduled_date: Check daily_questions mapping
   if (!challenge) {
-    challenge = await repo.one(`
+    challenge = await getRepo().one(`
       SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
       FROM daily_challenge_problems dc
       LEFT JOIN topics t ON dc.topic_id = t.id
@@ -649,7 +649,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     return { data: null, message: 'No Daily Challenge available today.' };
   }
 
-  const submission = user ? await repo.one(`
+  const submission = user ? await getRepo().one(`
     SELECT id, status, attempted_at, started_at, solved_at, final_score
     FROM submissions WHERE user_id = ? AND question_id = ?
   `, [user.id, challenge.id]) : null;
@@ -695,11 +695,11 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
 
 async function createDailyChallengeFromPractice(data, admin_id) {
   const { question_id, title, points, difficulty, scheduled_date } = data;
-  const question = await repo.one('SELECT * FROM questions WHERE id = ?', [question_id]);
+  const question = await getRepo().one('SELECT * FROM questions WHERE id = ?', [question_id]);
   if (!question) throw new AppError('Source practice question not found', 404, 'NOT_FOUND');
 
-  const testCaseTable = repo.isPostgres ? 'question_test_cases' : 'test_cases';
-  const testCases = await repo.many(`SELECT input, expected_output, is_hidden FROM ${testCaseTable} WHERE question_id = ?`, [question_id]);
+  const testCaseTable = getRepo().isPostgres ? 'question_test_cases' : 'test_cases';
+  const testCases = await getRepo().many(`SELECT input, expected_output, is_hidden FROM ${testCaseTable} WHERE question_id = ?`, [question_id]);
 
   return createDailyChallenge({
     title: title || `${question.title} Daily Challenge`,
@@ -739,3 +739,4 @@ module.exports = {
   deleteDailyChallenge,
   getTodayDailyChallenge
 };
+

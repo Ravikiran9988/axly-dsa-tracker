@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
-const { ensurePracticeSchema } = require('../db/practiceSchema');
 const c = require('../controllers/practiceController');
 
 // Schema and seeds are managed by server.js initialization
