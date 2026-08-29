@@ -204,3 +204,59 @@ Base URL: `/api/v1`
 - **Role**: Admin only
 - **Query Parameters**: `page`, `limit`, `action`, `user_id`
 - **Response `200 OK`**: Paginated audit log of admin operations.
+
+---
+
+## 8. DSA AI Coach & Code Verification (`/api/v1/dsa-ai`)
+
+### `POST /dsa-ai/coach`
+- **Auth**: Required (User / Admin)
+- **Rate Limit**: 100 requests per 15 minutes
+- **Body**:
+```json
+{
+  "question": "How do I approach this problem?",
+  "problemId": "q-two-sum",
+  "action": "HINT" | "EXPLAIN" | "APPROACH" | "SOLUTION" | "COMPLEXITY" | "CODE_REVIEW" | "DEBUG",
+  "language": "javascript",
+  "code": "function twoSum(...) { ... }",
+  "hintIndex": 0,
+  "verify": true
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "data": {
+    "intent": "HINT",
+    "source": "database",
+    "topic": "Arrays",
+    "pattern": "Hash Map Lookup",
+    "answer": "Hint 1 of 2: Use a hash table to check for target complements in O(1) time.",
+    "code": null,
+    "complexity": {
+      "time": "O(N)",
+      "space": "O(N)"
+    },
+    "verification": null
+  }
+}
+```
+
+### `POST /dsa-ai/analyze`
+- **Auth**: Required
+- **Description**: Deterministic Phase 1 problem matching, intent detection, and Knowledge Graph lookup without LLM cost.
+- **Body**: `{ "question": "...", "problemId": "..." }`
+- **Response `200 OK`**: Detailed intent, matched problem, taxonomy, and graph context.
+
+### `POST /dsa-ai/generate`
+- **Auth**: Required
+- **Description**: Generates AI guidance with Groq multi-key failover (`GROQ_API_KEY_1`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3`).
+- **Body**: `{ "question": "...", "problemId": "...", "code": "..." }`
+
+### `POST /dsa-ai/verify`
+- **Auth**: Required
+- **Description**: Executes solution code inside the sandboxed code executor against problem test cases with bounded self-correction (max 2 attempts).
+- **Body**: `{ "problemId": "q-two-sum", "language": "javascript", "code": "..." }`
+- **Response `200 OK`**: `{ "data": { "verified": true, "status": "Accepted", "passed_tests": 5, "total_tests": 5, "execution_time_ms": 42 } }`
+
