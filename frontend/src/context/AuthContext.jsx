@@ -60,7 +60,14 @@ export function AuthProvider({ children }) {
     }
 
     async function initAuth() {
-      // 1. If Supabase is active, check active session from URL hash / local session
+      // 1. Check local session token first for instantaneous session resolution
+      const token = localStorage.getItem('axly_auth_token');
+      if (token) {
+        await syncBackendSession(token);
+        return;
+      }
+
+      // 2. If Supabase is active, check active session from URL hash / local session
       if (supabase) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -73,13 +80,7 @@ export function AuthProvider({ children }) {
         }
       }
 
-      // 2. Fall back to existing local storage token
-      const token = localStorage.getItem('axly_auth_token');
-      if (token) {
-        await syncBackendSession(token);
-      } else {
-        if (isMounted) setLoading(false);
-      }
+      if (isMounted) setLoading(false);
     }
 
     initAuth();

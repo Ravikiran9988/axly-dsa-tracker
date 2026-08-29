@@ -1,23 +1,47 @@
 const { test, expect } = require('@playwright/test');
 
+async function loginAsStudent(page) {
+  await page.goto('/');
+  const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
+    data: { email: 'alex@example.com', role: 'user' }
+  });
+  const body = await res.json();
+  await page.evaluate((token) => {
+    localStorage.setItem('axly_auth_token', token);
+  }, body.token);
+  await page.reload();
+  await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
+}
+
+async function loginAsAdmin(page) {
+  await page.goto('/');
+  const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
+    data: { email: 'admin@axly.in', role: 'admin' }
+  });
+  const body = await res.json();
+  await page.evaluate((token) => {
+    localStorage.setItem('axly_auth_token', token);
+  }, body.token);
+  await page.reload();
+  await expect(page.locator('text=Super Administrator').first()).toBeVisible({ timeout: 10000 });
+}
+
 test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
 
-  test.beforeEach(async ({ page }) => {
+  test('1. Authentication Flow: Production Landing Page & Secure Google Login Element', async ({ page }) => {
     await page.goto('/');
-  });
-
-  test('1. Authentication Flow: Brand Login and One-Click Demo Users', async ({ page }) => {
     await expect(page).toHaveTitle(/Axly DSA Tracker/);
     await expect(page.locator('text=Axly DSA Tracker').first()).toBeVisible();
     await expect(page.locator('#google-signin-btn')).toBeVisible();
-    await expect(page.locator('#btn-login-user-alex')).toBeVisible();
-    await expect(page.locator('#btn-login-admin-axly')).toBeVisible();
+
+    // Verify absence of dev login buttons
+    await expect(page.locator('#btn-login-user-alex')).not.toBeVisible();
+    await expect(page.locator('#btn-login-admin-axly')).not.toBeVisible();
   });
 
   test('2. Student Journey: Dashboard, In-Platform IDE, Run Code & Test Cases', async ({ page }) => {
     // Login as Alex Mercer
-    await page.click('#btn-login-user-alex');
-    await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
+    await loginAsStudent(page);
 
     // Open Practice Bank
     await page.click('button:has-text("Practice (80 Problems)")');
@@ -47,12 +71,11 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
   });
 
   test('3. Admin Journey: Admin Portal, Question Bank & Content Management', async ({ page }) => {
-    await page.click('#btn-login-admin-axly');
-    await expect(page.locator('text=Super Administrator').first()).toBeVisible({ timeout: 10000 });
+    await loginAsAdmin(page);
 
     // Navigate to Question Bank
     await page.click('button:has-text("Question Bank")');
-    await expect(page.locator('h1:has-text("Question Bank Management")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1:has-text("Question Bank")')).toBeVisible({ timeout: 10000 });
 
     // Navigate to Daily Challenge Admin
     await page.click('button:has-text("Daily Challenge")');
@@ -64,8 +87,7 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
   });
 
   test('4. RBAC & Security Boundary: Regular student cannot access Admin Question Bank', async ({ page }) => {
-    await page.click('#btn-login-user-alex');
-    await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
+    await loginAsStudent(page);
 
     // Question Bank and Admin actions should not exist for regular user
     await expect(page.locator('button:has-text("Question Bank")')).not.toBeVisible();
@@ -73,8 +95,7 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
   });
 
   test('5. Student Navigation: Practice, Daily Challenge & Leaderboard', async ({ page }) => {
-    await page.click('#btn-login-user-alex');
-    await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
+    await loginAsStudent(page);
 
     // Navigate to Practice
     await page.click('button:has-text("Practice (80 Problems)")');

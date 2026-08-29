@@ -40,8 +40,11 @@ export default function App() {
   useEffect(() => {
     if (user) {
       loadNotificationsCount();
+      if (user.role === 'admin' && currentView === 'dashboard') {
+        setCurrentView('admin-dashboard');
+      }
     }
-  }, [user, currentView]);
+  }, [user]);
 
   async function loadNotificationsCount() {
     try {
