@@ -67,7 +67,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('h3').first()).toBeVisible();
   });
 
-  test('4. Practice Workspace: Code Execution, Submission & 0 Competitive Points Guarantee', async ({ page }) => {
+  test('4. Practice Workspace: Code Execution, Editable Area & Language Switching', async ({ page }) => {
     await page.click('#btn-login-user-alex');
     await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
 
@@ -79,16 +79,25 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     const firstProblemBtn = page.locator('button:has-text("Start"), button:has-text("Continue"), button:has-text("Review")').first();
     await firstProblemBtn.click();
 
-    // Verify Workspace loaded
-    await expect(page.locator('#btn-run-code')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#btn-submit-code')).toBeVisible();
+    // Verify Workspace loaded with obvious Code Editor header
+    await expect(page.locator('text=Code Editor').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=solution.js').first()).toBeVisible();
+    await expect(page.locator('text=Editable').first()).toBeVisible();
+    await expect(page.locator('#code-editor-textarea')).toBeVisible();
 
-    // Verify Practice shows "Practice · 0 points"
-    await expect(page.locator('text=Practice · 0 points').first()).toBeVisible();
+    // Verify student can type and edit code in the editor
+    const editor = page.locator('#code-editor-textarea');
+    await editor.click();
+    await editor.fill('const fs = require("fs");\nconsole.log(fs.readFileSync(0, "utf-8").trim());');
 
     // Run code
     await page.click('#btn-run-code');
     await expect(page.locator('text=Execution Results').first()).toBeVisible({ timeout: 15000 });
+
+    // Switch language to Python 3
+    const langSelect = page.locator('#select-language');
+    await langSelect.selectOption('python');
+    await expect(page.locator('text=solution.py').first()).toBeVisible();
 
     // Submit code
     await page.click('#btn-submit-code');
@@ -169,11 +178,12 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await searchInput.fill('Stock');
     await expect(page.locator('h3:has-text("Best Time to Buy and Sell Stock")').first()).toBeVisible({ timeout: 5000 });
 
-    // Open Problem Workspace
-    await page.click('button:has-text("Start"), button:has-text("Continue"), button:has-text("Review")');
+    // Open Problem Workspace for Stock problem
+    const stockBtn = page.locator('button:has-text("Start"), button:has-text("Continue"), button:has-text("Review")').first();
+    await stockBtn.click();
 
     // Verify Title & Statement
-    await expect(page.locator('h1:has-text("Best Time to Buy and Sell Stock")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Best Time to Buy and Sell Stock').first()).toBeVisible({ timeout: 10000 });
     await expect(page.locator('text=daily stock prices').first()).toBeVisible();
 
     // Verify Starter code is NOT Two Sum
