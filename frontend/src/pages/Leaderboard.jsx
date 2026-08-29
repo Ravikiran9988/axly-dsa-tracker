@@ -1,26 +1,213 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Flame, Crown, CalendarDays } from 'lucide-react';
+import { Trophy, Medal, Flame, Star, Zap, ChevronUp } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { Skeleton, EmptyState, ErrorState } from '../components/ui/index.jsx';
 
-export default function Leaderboard({ currentUser }) {
-  const [leaders,setLeaders]=useState([]), [loading,setLoading]=useState(true), [period,setPeriod]=useState('all');
-  useEffect(()=>{loadLeaderboard();},[period]);
-  async function loadLeaderboard(){setLoading(true);try{const res=await api.getLeaderboard(period);setLeaders(res.data||[]);}catch(e){console.error(e);setLeaders([]);}finally{setLoading(false);}}
-  const labels={all:'All Time',weekly:'This Week',monthly:'This Month'};
-  return <div className="space-y-6 max-w-5xl mx-auto">
-    <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-[#0C1425] via-[#152042] to-[#0C1425] border border-cyan-900/30 shadow-2xl text-center space-y-3">
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold"><Trophy className="w-3.5 h-3.5"/> <span>Axly Rankings</span></div>
-      <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">Leaderboard</h1>
-      <p className="text-xs text-slate-400 max-w-xl mx-auto">Compete, solve challenges, build your streak and climb the rankings.</p>
+const PERIODS = [
+  { value: 'all',   label: 'All Time' },
+  { value: 'week',  label: 'This Week' },
+  { value: 'month', label: 'This Month' },
+];
+
+const RANK_MEDALS = {
+  1: { cls: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
+  2: { cls: 'text-slate-300', bg: 'bg-slate-500/10 border-slate-500/20' },
+  3: { cls: 'text-amber-600', bg: 'bg-amber-700/10 border-amber-700/20' },
+};
+
+export default function Leaderboard() {
+  const { user } = useAuth();
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [period, setPeriod] = useState('all');
+
+  useEffect(() => { load(); }, [period]);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.getLeaderboard(period);
+      setEntries(res.data || res || []);
+    } catch (err) {
+      setError(err.message || 'Failed to load leaderboard');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const top3 = entries.slice(0, 3);
+  const rest = entries.slice(3);
+  const myEntry = entries.find(e => e.user_id === user?.id || e.id === user?.id);
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-white tracking-tight">Leaderboard</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Rankings by Daily Challenge points</p>
+        </div>
+        {myEntry && (
+          <div className="card px-4 py-2.5 flex items-center gap-3 shrink-0">
+            <div className="text-xs text-slate-500">Your rank</div>
+            <div className="text-lg font-bold text-axly-400">#{entries.indexOf(myEntry) + 1}</div>
+            <div className="h-5 w-px bg-[#1a2540]" />
+            <div className="flex items-center gap-1 text-amber-400 text-sm font-bold">
+              <Zap className="w-4 h-4" /> {myEntry.total_points || myEntry.points || 0}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Period tabs */}
+      <div className="tab-bar">
+        {PERIODS.map(p => (
+          <button
+            key={p.value}
+            onClick={() => setPeriod(p.value)}
+            className={`tab-btn ${period === p.value ? 'tab-btn-active' : ''}`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {error && <ErrorState message={error} onRetry={load} />}
+
+      {/* Top 3 podium */}
+      {!loading && !error && top3.length >= 2 && (
+        <div className="grid grid-cols-3 gap-3">
+          {[top3[1], top3[0], top3[2]].filter(Boolean).map((entry, podiumIdx) => {
+            const rank = podiumIdx === 0 ? 2 : podiumIdx === 1 ? 1 : 3;
+            const isFirst = rank === 1;
+            const isMe = entry.user_id === user?.id || entry.id === user?.id;
+            return (
+              <div
+                key={entry.user_id || entry.id}
+                className={`card flex flex-col items-center py-5 px-3 text-center relative transition-colors ${isMe ? 'border-axly-500/40' : ''} ${isFirst ? 'col-start-2 row-start-1' : ''}`}
+              >
+                {isFirst && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <div className="bg-amber-500 rounded-full px-2 py-0.5 text-[10px] font-bold text-black">👑 #1</div>
+                  </div>
+                )}
+                <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg font-bold mb-2 ${
+                  isFirst ? 'border-amber-400 text-amber-400 bg-amber-500/10' :
+                  rank === 2 ? 'border-slate-400 text-slate-300 bg-slate-500/10' :
+                  'border-amber-600 text-amber-600 bg-amber-600/10'
+                }`}>
+                  {(entry.name || entry.display_name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="text-xs font-semibold text-white truncate max-w-full">
+                  {entry.name || entry.display_name || 'Unknown'}
+                  {isMe && <span className="ml-1 text-axly-400">(You)</span>}
+                </div>
+                <div className={`text-sm font-bold mt-1 ${
+                  isFirst ? 'text-amber-400' : rank === 2 ? 'text-slate-300' : 'text-amber-600'
+                }`}>
+                  {entry.total_points || entry.points || 0} pts
+                </div>
+                {entry.streak > 0 && (
+                  <div className="flex items-center gap-1 text-[10px] text-amber-400 mt-1">
+                    <Flame className="w-3 h-3" /> {entry.streak}d
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Full ranking table */}
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="w-16 text-center">Rank</th>
+                <th>Student</th>
+                <th className="text-right">Points</th>
+                <th className="hidden sm:table-cell text-right">Solved</th>
+                <th className="hidden md:table-cell text-right">Streak</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="text-center"><Skeleton className="h-4 w-8 mx-auto" /></td>
+                    <td><Skeleton className="h-4" style={{ width: `${60 + i * 5}%` }} /></td>
+                    <td className="text-right"><Skeleton className="h-4 w-14 ml-auto" /></td>
+                    <td className="hidden sm:table-cell text-right"><Skeleton className="h-4 w-10 ml-auto" /></td>
+                    <td className="hidden md:table-cell text-right"><Skeleton className="h-4 w-12 ml-auto" /></td>
+                  </tr>
+                ))
+              ) : entries.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="border-0 py-0">
+                    <EmptyState icon={Trophy} title="No rankings yet" description="Complete Daily Challenges to earn points and appear here." />
+                  </td>
+                </tr>
+              ) : (
+                entries.map((entry, idx) => {
+                  const rank = idx + 1;
+                  const isMe = entry.user_id === user?.id || entry.id === user?.id;
+                  const medal = RANK_MEDALS[rank];
+                  return (
+                    <tr key={entry.user_id || entry.id} className={isMe ? 'bg-axly-500/5' : ''}>
+                      <td className="text-center">
+                        {medal ? (
+                          <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full border text-xs font-bold ${medal.cls} ${medal.bg}`}>
+                            {rank}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600 font-mono text-sm">{rank}</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                            isMe ? 'bg-axly-600 text-white' : 'bg-[#1a2540] text-slate-300'
+                          }`}>
+                            {(entry.name || entry.display_name || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className={`text-sm font-medium ${isMe ? 'text-axly-300' : 'text-slate-200'}`}>
+                              {entry.name || entry.display_name || 'Unknown'}
+                              {isMe && <span className="ml-1.5 text-[10px] font-semibold text-axly-400 bg-axly-500/10 px-1.5 py-0.5 rounded">You</span>}
+                            </div>
+                            {entry.cohort_name && (
+                              <div className="text-[10px] text-slate-600">{entry.cohort_name}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="text-right">
+                        <span className={`font-bold text-sm ${rank <= 3 ? 'text-amber-400' : 'text-slate-200'}`}>
+                          {(entry.total_points || entry.points || 0).toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="hidden sm:table-cell text-right text-slate-400 text-sm">
+                        {entry.problems_solved || entry.solved_count || '—'}
+                      </td>
+                      <td className="hidden md:table-cell text-right">
+                        {entry.streak > 0 ? (
+                          <div className="inline-flex items-center gap-1 text-amber-400 text-xs font-semibold justify-end">
+                            <Flame className="w-3.5 h-3.5" /> {entry.streak}d
+                          </div>
+                        ) : <span className="text-slate-600 text-sm">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-    <div className="flex justify-center"><div className="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-800 gap-1">{Object.entries(labels).map(([key,label])=><button key={key} onClick={()=>setPeriod(key)} className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${period===key?'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30':'text-slate-400 hover:text-white'}`}><CalendarDays className="inline w-4 h-4 mr-1"/>{label}</button>)}</div></div>
-    {!loading&&leaders.length>=3&&<div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-      {[1,0,2].map((idx,pos)=><div key={idx} className={`p-5 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 flex flex-col items-center text-center space-y-3 ${idx===0?'border-2 border-amber-500/50 shadow-2xl shadow-amber-500/10 -translate-y-2':'border border-slate-700/60'}`}>
-        {idx===0?<Crown className="w-7 h-7 text-amber-400 fill-amber-400"/>:<div className="w-8 h-8 rounded-full bg-white/10 text-slate-300 font-extrabold flex items-center justify-center text-xs">#{idx+1}</div>}
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-xl font-bold text-white">{leaders[idx]?.name?.[0]?.toUpperCase()||'U'}</div>
-        <div><div className="text-sm font-bold text-white">{leaders[idx]?.name}</div><div className="text-[11px] text-slate-400">{leaders[idx]?.institution||'Student'}</div></div>
-        <div className="text-sm font-extrabold text-cyan-400">{leaders[idx]?.points||0} pts</div>
-      </div>)}</div>}
-    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 overflow-hidden shadow-xl"><div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between"><div className="text-sm font-bold text-white">{labels[period]} Rankings</div><div className="text-xs text-slate-500">Top 100 learners</div></div><div className="overflow-x-auto"><table className="w-full text-left text-xs text-slate-300"><thead className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider"><tr><th className="px-6 py-4">Rank</th><th className="px-6 py-4">Developer</th><th className="px-6 py-4">Institution</th><th className="px-6 py-4 text-center">Completed</th><th className="px-6 py-4 text-center">Streak</th><th className="px-6 py-4 text-right">Points</th></tr></thead><tbody className="divide-y divide-slate-800/60">{loading?<tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500">Loading rankings...</td></tr>:leaders.length===0?<tr><td colSpan={6} className="px-6 py-10 text-center text-slate-500">No ranking activity for this period yet.</td></tr>:leaders.map((user,idx)=>{const isCurrent=currentUser?.id===user.id;return <tr key={user.id} className={isCurrent?'bg-cyan-950/30 border-l-4 border-l-cyan-500':'hover:bg-white/[0.03]'}><td className="px-6 py-4 font-bold">{idx<3?['🥇','🥈','🥉'][idx]:`#${idx+1}`}</td><td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center font-bold text-white text-xs">{user.name?.[0]?.toUpperCase()||'U'}</div><div><div className="font-bold text-white">{user.name} {isCurrent&&<span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400">YOU</span>}</div><div className="text-[10px] text-slate-500 font-mono">{user.email}</div></div></div></td><td className="px-6 py-4 text-slate-400">{user.institution||'Axly Academy'}</td><td className="px-6 py-4 text-center font-semibold text-emerald-400">{user.completed_count||0}</td><td className="px-6 py-4 text-center"><span className="inline-flex items-center gap-1 font-semibold text-amber-400"><Flame className="w-3.5 h-3.5 fill-amber-400"/>{user.streak||0}d</span></td><td className="px-6 py-4 text-right font-extrabold text-cyan-400">{user.points||0}</td></tr>})}</tbody></table></div></div>
-  </div>;
+  );
 }

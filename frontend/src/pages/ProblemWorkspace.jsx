@@ -1,57 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Play,
-  CheckCircle2,
-  AlertTriangle,
-  RotateCcw,
-  Code,
-  Github,
-  Zap,
-  HelpCircle,
-  FileCode,
-  Check,
-  Copy,
-  ArrowLeft,
-  Terminal as TerminalIcon,
-  History,
-  Edit3
+  Play, CheckCircle2, AlertTriangle, RotateCcw, Code, Github, Zap,
+  HelpCircle, FileCode, Check, Copy, ArrowLeft, Terminal as TerminalIcon,
+  History, Edit3, XCircle, Clock, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { api } from '../services/api';
 import { practiceApi } from '../services/practiceApi';
 
 const FILE_EXTENSIONS = {
-  javascript: 'solution.js',
-  python: 'solution.py',
-  typescript: 'solution.ts',
-  java: 'Main.java',
-  cpp: 'solution.cpp',
-  c: 'solution.c'
+  javascript: 'solution.js', python: 'solution.py', typescript: 'solution.ts',
+  java: 'Main.java', cpp: 'solution.cpp', c: 'solution.c'
 };
 
 export function getStarterCodeForQuestion(question, language) {
   const lang = String(language || 'javascript').toLowerCase();
   if (question?.starter_code) {
     try {
-      const sc = typeof question.starter_code === 'string' ? JSON.parse(question.starter_code) : question.starter_code;
-      if (sc && sc[lang] && typeof sc[lang] === 'string' && sc[lang].trim()) {
-        return sc[lang];
-      }
+      const sc = typeof question.starter_code === 'string'
+        ? JSON.parse(question.starter_code)
+        : question.starter_code;
+      if (sc && sc[lang] && typeof sc[lang] === 'string' && sc[lang].trim()) return sc[lang];
     } catch {}
   }
-
   const title = question?.title || 'Coding Challenge';
-
   const templates = {
-    javascript: `// Problem: ${title}\n// Write your solution below. Input is provided via standard input (stdin).\nconst fs = require('fs');\n\nfunction solve(input) {\n  // TODO: Implement your solution here\n  return input;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif (raw) {\n  const result = solve(raw);\n  console.log(typeof result === 'object' ? JSON.stringify(result) : result);\n}\n`,
-    python: `# Problem: ${title}\n# Write your solution below. Input is provided via standard input (stdin).\nimport sys\nimport json\n\ndef solve(raw_input: str):\n    # TODO: Implement your solution here\n    return raw_input\n\nif __name__ == '__main__':\n    data = sys.stdin.read().strip()\n    if data:\n        res = solve(data)\n        if isinstance(res, (list, dict)):\n            print(json.dumps(res, separators=(',', ':')))\n        elif res is not None:\n            print(res)\n`,
-    typescript: `// Problem: ${title}\n// Write your solution below. Input is provided via standard input (stdin).\nimport * as fs from 'fs';\n\nfunction solve(input: string): any {\n  // TODO: Implement your solution here\n  return input;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif (raw) {\n  const result = solve(raw);\n  console.log(typeof result === 'object' ? JSON.stringify(result) : result);\n}\n`,
-    java: `// Problem: ${title}\n// Write your solution below. Input is provided via standard input (stdin).\nimport java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (!sc.hasNextLine()) return;\n        String line = sc.nextLine().trim();\n        \n        // TODO: Implement your solution here\n        System.out.println(line);\n    }\n}\n`,
-    cpp: `// Problem: ${title}\n// Write your solution below. Input is provided via standard input (stdin).\n#include <iostream>\n#include <vector>\n#include <string>\n#include <algorithm>\n\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    \n    string input;\n    if (getline(cin, input)) {\n        // TODO: Implement your solution here\n        cout << input << "\\n";\n    }\n    return 0;\n}\n`,
-    c: `// Problem: ${title}\n// Write your solution below. Input is provided via standard input (stdin).\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\nint main() {\n    char input[4096];\n    if (fgets(input, sizeof(input), stdin)) {\n        // TODO: Implement your solution here\n        printf("%s\\n", input);\n    }\n    return 0;\n}\n`
+    javascript: `// Problem: ${title}\nconst fs = require('fs');\nfunction solve(input) {\n  // TODO: Implement your solution\n  return input;\n}\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif (raw) {\n  const result = solve(raw);\n  console.log(typeof result === 'object' ? JSON.stringify(result) : result);\n}\n`,
+    python: `# Problem: ${title}\nimport sys\nimport json\n\ndef solve(raw_input: str):\n    # TODO: Implement your solution\n    return raw_input\n\nif __name__ == '__main__':\n    data = sys.stdin.read().strip()\n    if data:\n        res = solve(data)\n        if isinstance(res, (list, dict)):\n            print(json.dumps(res, separators=(',', ':')))\n        elif res is not None:\n            print(res)\n`,
+    typescript: `// Problem: ${title}\nimport * as fs from 'fs';\nfunction solve(input: string): any {\n  // TODO: Implement your solution\n  return input;\n}\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif (raw) {\n  const result = solve(raw);\n  console.log(typeof result === 'object' ? JSON.stringify(result) : result);\n}\n`,
+    java: `// Problem: ${title}\nimport java.util.*;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (!sc.hasNextLine()) return;\n        String line = sc.nextLine().trim();\n        // TODO: Implement your solution\n        System.out.println(line);\n    }\n}\n`,
+    cpp: `// Problem: ${title}\n#include <iostream>\n#include <vector>\n#include <string>\n#include <algorithm>\nusing namespace std;\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    string input;\n    if (getline(cin, input)) {\n        // TODO: Implement your solution\n        cout << input << "\\n";\n    }\n    return 0;\n}\n`,
+    c: `// Problem: ${title}\n#include <stdio.h>\n#include <string.h>\nint main() {\n    char input[4096];\n    if (fgets(input, sizeof(input), stdin)) {\n        // TODO: Implement your solution\n        printf("%s\\n", input);\n    }\n    return 0;\n}\n`
   };
-
   return templates[lang] || templates.javascript;
 }
+
+const STATUS_CONFIG = {
+  'Accepted':            { icon: CheckCircle2,  cls: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+  'Wrong Answer':        { icon: XCircle,        cls: 'text-rose-400',    bg: 'bg-rose-500/10 border-rose-500/20' },
+  'Time Limit Exceeded': { icon: Clock,          cls: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20' },
+  'Runtime Error':       { icon: AlertTriangle,  cls: 'text-orange-400',  bg: 'bg-orange-500/10 border-orange-500/20' },
+  'Compilation Error':   { icon: AlertTriangle,  cls: 'text-orange-400',  bg: 'bg-orange-500/10 border-orange-500/20' },
+};
 
 export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }) {
   const [question, setQuestion] = useState(null);
@@ -72,11 +61,24 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   const [bottomTab, setBottomTab] = useState('testcases');
   const [copied, setCopied] = useState(false);
   const [pastSubmissions, setPastSubmissions] = useState([]);
+  const [bottomOpen, setBottomOpen] = useState(true);
   const editorRef = useRef(null);
 
+  useEffect(() => { loadProblemData(); }, [questionId]);
+
   useEffect(() => {
-    loadProblemData();
-  }, [questionId]);
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isRunning && !isSubmitting && submissionMethod === 'code') handleSubmitSolution();
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isRunning && !isSubmitting && submissionMethod === 'code') handleRunCode();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRunning, isSubmitting, submissionMethod, sourceCode, language, customInput, bottomTab]);
 
   async function loadProblemData() {
     setLoading(true);
@@ -90,11 +92,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
       setQuestion(q);
       setPastSubmissions(subRes.data || []);
       if (q.is_practice) {
-        try {
-          await practiceApi.start(questionId);
-        } catch (e) {
-          console.warn('Practice start could not be recorded:', e);
-        }
+        practiceApi.start(questionId).catch(e => console.warn('Practice start:', e));
       }
       setSourceCode(getStarterCodeForQuestion(q, language));
     } catch (err) {
@@ -110,7 +108,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   }
 
   function handleResetCode() {
-    if (window.confirm('Reset code to default template for this problem?')) {
+    if (window.confirm('Reset code to template?')) {
       setSourceCode(getStarterCodeForQuestion(question, language));
     }
   }
@@ -125,6 +123,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
     setIsRunning(true);
     setExecResult(null);
     setBottomTab('results');
+    setBottomOpen(true);
     try {
       const res = await api.runCode({
         question_id: questionId,
@@ -150,16 +149,11 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
     setIsSubmitting(true);
     setExecResult(null);
     setBottomTab('results');
+    setBottomOpen(true);
     try {
-      const res = await api.submitCode({
-        question_id: questionId,
-        language,
-        source_code: sourceCode
-      });
+      const res = await api.submitCode({ question_id: questionId, language, source_code: sourceCode });
       setExecResult(res.data);
-      if (res.data.status === 'Accepted' && onStatusUpdated) {
-        onStatusUpdated();
-      }
+      if (res.data.status === 'Accepted' && onStatusUpdated) onStatusUpdated();
       const subRes = await api.getCodeSubmissions(questionId).catch(() => ({ data: [] }));
       setPastSubmissions(subRes.data || []);
     } catch (err) {
@@ -181,12 +175,8 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
     setIsSubmittingGithub(true);
     setGithubSuccessMessage(null);
     try {
-      await api.submitChallenge({
-        question_id: questionId,
-        submission_type: 'github',
-        github_url: githubUrl.trim()
-      });
-      setGithubSuccessMessage('GitHub submission received! Your code is queued for mentor code review.');
+      await api.submitChallenge({ question_id: questionId, submission_type: 'github', github_url: githubUrl.trim() });
+      setGithubSuccessMessage('GitHub submission received! Queued for mentor review.');
       if (onStatusUpdated) onStatusUpdated();
     } catch (err) {
       alert(err.message || 'Failed to submit GitHub link.');
@@ -197,466 +187,349 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[500px] text-slate-400">
-        <div className="w-10 h-10 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-4" />
-        <div className="text-xs font-mono">Initializing Sandboxed Problem Environment...</div>
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] space-y-3">
+        <div className="w-8 h-8 border-[3px] border-axly-500/20 border-t-axly-500 rounded-full animate-spin" />
+        <div className="text-xs text-slate-500 font-mono">Loading workspace...</div>
       </div>
     );
   }
 
   if (error || !question) {
     return (
-      <div className="p-8 text-center max-w-md mx-auto">
-        <AlertTriangle className="w-12 h-12 text-rose-400 mx-auto mb-4" />
-        <h2 className="text-lg font-bold text-white mb-2">Failed to load challenge</h2>
-        <p className="text-sm text-slate-400 mb-6">{error || 'Could not load problem statement.'}</p>
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700"
-        >
+      <div className="p-8 text-center max-w-md mx-auto space-y-4">
+        <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto" />
+        <div>
+          <h2 className="text-base font-bold text-white mb-1">Failed to load problem</h2>
+          <p className="text-sm text-slate-400">{error || 'Could not load problem statement.'}</p>
+        </div>
+        <button onClick={onBack} className="btn-secondary inline-flex items-center gap-2">
           <ArrowLeft className="w-4 h-4" /> Back to Practice
         </button>
       </div>
     );
   }
 
-  const difficultyColors = {
-    easy: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-    medium: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    hard: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
-  };
-
+  const diffBadge = { easy: 'badge-easy', medium: 'badge-medium', hard: 'badge-hard' };
   const sampleTestCases = question.test_cases || [];
   const isPractice = Boolean(question.is_practice);
   const currentFileName = FILE_EXTENSIONS[language] || `solution.${language}`;
+  const statusCfg = execResult ? STATUS_CONFIG[execResult.status] : null;
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] overflow-hidden bg-[#070B14]">
-      {/* Top Header Bar */}
-      <div className="min-h-[3.5rem] border-b border-slate-800/80 bg-[#0A0F1D] px-4 flex items-center justify-between gap-3 shrink-0 z-20 relative">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="flex flex-col bg-[#070B14]" style={{ height: 'calc(100vh - 56px)' }}>
+      {/* Top header */}
+      <div className="h-12 border-b border-[#1a2540] bg-[#0a1120] px-4 flex items-center gap-3 shrink-0">
+        <button onClick={onBack} className="btn-ghost btn-sm inline-flex items-center gap-1.5 shrink-0">
+          <ArrowLeft className="w-3.5 h-3.5" /> Practice
+        </button>
+        <div className="h-4 w-px bg-[#1a2540] shrink-0" />
+        <h1 className="text-sm font-semibold text-white truncate flex-1 min-w-0">{question.title}</h1>
+        <span className={`${diffBadge[question.difficulty] || 'badge-neutral'} shrink-0`}>{question.difficulty}</span>
+        {isPractice
+          ? <span className="hidden sm:inline-flex badge badge-neutral shrink-0">Practice &middot; 0 pts</span>
+          : <span className="hidden sm:inline-flex badge badge-prog shrink-0">+{question.points || 20} pts</span>
+        }
+
+        <div className="hidden sm:flex bg-[#0d1525] border border-[#1a2540] rounded p-0.5 gap-0.5 shrink-0">
           <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 text-xs font-medium shrink-0"
+            onClick={() => setSubmissionMethod('code')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${submissionMethod === 'code' ? 'bg-axly-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Practice</span>
+            <Code className="w-3.5 h-3.5" /> Code
           </button>
-          <div className="h-4 w-px bg-slate-800 shrink-0" />
-          <h1 className="text-sm font-bold text-white truncate max-w-xs md:max-w-md">
-            {question.title}
-          </h1>
-          <span className={`text-[11px] font-semibold uppercase px-2 py-0.5 rounded-md border shrink-0 ${difficultyColors[question.difficulty] || difficultyColors.easy}`}>
-            {question.difficulty}
-          </span>
-          {isPractice ? (
-            <span className="hidden sm:inline-flex text-xs text-slate-300 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-md shrink-0">
-              Practice · 0 points
-            </span>
-          ) : (
-            <span className="hidden sm:inline-flex text-xs text-cyan-400 bg-cyan-950/40 border border-cyan-800/40 px-2 py-0.5 rounded-md shrink-0">
-              +{question.points || 20} pts
-            </span>
-          )}
+          <button
+            onClick={() => setSubmissionMethod('github')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${submissionMethod === 'github' ? 'bg-axly-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            <Github className="w-3.5 h-3.5" /> GitHub
+          </button>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg p-0.5">
-            <button
-              onClick={() => setSubmissionMethod('code')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
-                submissionMethod === 'code' ? 'bg-cyan-600 text-white' : 'text-slate-400'
-              }`}
+        {submissionMethod === 'code' && (
+          <>
+            <select
+              id="select-language"
+              value={language}
+              onChange={e => handleLanguageChange(e.target.value)}
+              className="select-field h-8 text-xs shrink-0 hidden sm:block"
             >
-              <Code className="w-3.5 h-3.5" /> Code Editor
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python 3</option>
+              <option value="typescript">TypeScript</option>
+              <option value="java">Java</option>
+              <option value="cpp">C++</option>
+              <option value="c">C</option>
+            </select>
+            <button
+              id="btn-run-code"
+              onClick={handleRunCode}
+              disabled={isRunning || isSubmitting}
+              title="Run (Ctrl+Enter)"
+              className="btn-secondary btn-sm inline-flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+            >
+              <Play className="w-3.5 h-3.5 text-axly-400" />
+              {isRunning ? 'Running...' : 'Run'}
             </button>
             <button
-              onClick={() => setSubmissionMethod('github')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
-                submissionMethod === 'github' ? 'bg-cyan-600 text-white' : 'text-slate-400'
-              }`}
+              id="btn-submit-code"
+              onClick={handleSubmitSolution}
+              disabled={isRunning || isSubmitting}
+              title="Submit (Ctrl+Shift+Enter)"
+              className="btn-success btn-sm inline-flex items-center gap-1.5 shrink-0 disabled:opacity-50"
             >
-              <Github className="w-3.5 h-3.5" /> GitHub Link
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {isSubmitting ? 'Submitting...' : 'Submit'}
             </button>
-          </div>
-
-          {submissionMethod === 'code' && (
-            <>
-              <select
-                id="select-language"
-                value={language}
-                onChange={e => handleLanguageChange(e.target.value)}
-                className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:border-cyan-500 focus:outline-none"
-              >
-                <option value="javascript">JavaScript (Node.js)</option>
-                <option value="python">Python 3</option>
-                <option value="typescript">TypeScript</option>
-                <option value="java">Java</option>
-                <option value="cpp">C++</option>
-                <option value="c">C</option>
-              </select>
-
-              <button
-                id="btn-run-code"
-                onClick={handleRunCode}
-                disabled={isRunning || isSubmitting}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 text-xs font-semibold disabled:opacity-50 transition-all shadow-sm"
-              >
-                <Play className="w-3.5 h-3.5 text-cyan-400" />
-                {isRunning ? 'Running...' : 'Run Code'}
-              </button>
-
-              <button
-                id="btn-submit-code"
-                onClick={handleSubmitSolution}
-                disabled={isRunning || isSubmitting}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md shadow-emerald-900/20 disabled:opacity-50 transition-all"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {isSubmitting ? 'Evaluating...' : 'Submit Solution'}
-              </button>
-            </>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
-      {/* Main Workspace: Left Problem Info / Right Code Editor */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden relative z-10">
-        {/* Left Column: Problem Details / Constraints / Examples / Hints */}
-        <div className="lg:col-span-5 border-r border-slate-800/80 bg-[#0A0F1D]/70 flex flex-col overflow-hidden">
-          <div className="h-10 border-b border-slate-800 px-3 flex items-center gap-4 bg-slate-950/40 shrink-0">
-            <button
-              onClick={() => setLeftTab('description')}
-              className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 ${
-                leftTab === 'description' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400'
-              }`}
-            >
-              <FileCode className="w-3.5 h-3.5" /> Description
+      {/* Main workspace */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        {/* Left: Problem */}
+        <div className="lg:col-span-5 border-r border-[#1a2540] flex flex-col overflow-hidden">
+          <div className="tab-bar px-3 shrink-0">
+            <button onClick={() => setLeftTab('description')} className={`tab-btn ${leftTab === 'description' ? 'tab-btn-active' : ''}`}>
+              <FileCode className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />Description
             </button>
             {question.hints && (
-              <button
-                onClick={() => setLeftTab('hints')}
-                className={`text-xs font-medium h-full border-b-2 ${
-                  leftTab === 'hints' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400'
-                }`}
-              >
-                <HelpCircle className="w-3.5 h-3.5 inline mr-1" />
-                Hints
+              <button onClick={() => setLeftTab('hints')} className={`tab-btn ${leftTab === 'hints' ? 'tab-btn-active' : ''}`}>
+                <HelpCircle className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />Hints
               </button>
             )}
-            <button
-              onClick={() => setLeftTab('submissions')}
-              className={`text-xs font-medium h-full border-b-2 ${
-                leftTab === 'submissions' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400'
-              }`}
-            >
-              <History className="w-3.5 h-3.5 inline mr-1" />
-              Submissions ({pastSubmissions.length})
+            <button onClick={() => setLeftTab('submissions')} className={`tab-btn ${leftTab === 'submissions' ? 'tab-btn-active' : ''}`}>
+              <History className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+              Submissions{pastSubmissions.length > 0 && ` (${pastSubmissions.length})`}
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-5 text-xs text-slate-300">
+          <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-5">
             {leftTab === 'description' && (
               <>
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                    Problem Statement
-                  </h3>
-                  <div className="text-slate-200 leading-relaxed whitespace-pre-line text-[13px]">
-                    {question.description || question.problem_statement || 'No description provided.'}
-                  </div>
+                <div className="problem-prose whitespace-pre-line">
+                  {question.description || question.problem_statement || 'No description provided.'}
                 </div>
-
                 {question.constraints && (
-                  <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
-                    <h4 className="font-semibold text-amber-400 flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5" />
-                      Constraints:
-                    </h4>
-                    <pre className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-amber-200/90 font-mono text-[11px] whitespace-pre-line">
+                  <div className="space-y-2 pt-4 border-t border-[#1a2540]">
+                    <div className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5" /> Constraints
+                    </div>
+                    <pre className="p-3 rounded-md bg-[#0a1120] border border-[#1a2540] text-amber-200/80 font-mono text-[11px] whitespace-pre-line overflow-x-auto">
                       {question.constraints}
                     </pre>
                   </div>
                 )}
-
                 {sampleTestCases.length > 0 && (
-                  <div className="space-y-3 pt-2 border-t border-slate-800/80">
-                    <h4 className="font-semibold text-white">Examples:</h4>
-                    {sampleTestCases.slice(0, 2).map((tc, idx) => (
-                      <div key={idx} className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5 font-mono text-[11px]">
-                        <div className="text-slate-400 font-semibold">Example #{idx + 1}</div>
-                        <div>
-                          <span className="text-slate-500">Input: </span>
-                          <span className="text-cyan-300">{tc.input?.replace(/\n/g, ' ')}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-500">Output: </span>
-                          <span className="text-emerald-400">{tc.expected_output}</span>
-                        </div>
+                  <div className="space-y-3 pt-4 border-t border-[#1a2540]">
+                    <div className="text-xs font-semibold text-slate-300">Examples</div>
+                    {sampleTestCases.slice(0, 3).map((tc, idx) => (
+                      <div key={idx} className="p-3 rounded-md bg-[#0a1120] border border-[#1a2540] font-mono text-xs space-y-1.5">
+                        <div className="text-slate-500 font-semibold">Example {idx + 1}</div>
+                        <div><span className="text-slate-500">Input: </span><span className="text-axly-300">{tc.input?.replace(/\n/g, ' ')}</span></div>
+                        <div><span className="text-slate-500">Output: </span><span className="text-emerald-400">{tc.expected_output}</span></div>
                       </div>
                     ))}
                   </div>
                 )}
               </>
             )}
-
             {leftTab === 'hints' && (
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-cyan-400 font-semibold">
-                  <HelpCircle className="w-4 h-4" />
-                  Algorithmic Hints & Intuition
+                <div className="flex items-center gap-2 text-axly-400 text-xs font-semibold">
+                  <HelpCircle className="w-4 h-4" /> Hints
                 </div>
-                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 leading-relaxed whitespace-pre-line text-xs">
-                  {question.hints || 'No hints available for this problem.'}
+                <div className="problem-prose whitespace-pre-line p-4 rounded-md bg-[#0a1120] border border-[#1a2540]">
+                  {question.hints}
                 </div>
               </div>
             )}
-
             {leftTab === 'submissions' && (
               <div className="space-y-3">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Your Submission History
-                </div>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Submission History</div>
                 {pastSubmissions.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">No submissions recorded yet.</div>
+                  <div className="text-center py-8 text-slate-600 text-sm">No submissions yet.</div>
                 ) : (
-                  pastSubmissions.map((sub, idx) => (
-                    <div key={sub.id || idx} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${
-                          sub.status === 'Accepted' || sub.status === 'solved' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-                        }`}>
-                          {sub.status}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">{sub.created_at || 'Just now'}</span>
+                  pastSubmissions.map((sub, idx) => {
+                    const cfg = STATUS_CONFIG[sub.status] || STATUS_CONFIG['Runtime Error'];
+                    const StatusIcon = cfg.icon;
+                    return (
+                      <div key={sub.id || idx} className="p-3 rounded-md bg-[#0a1120] border border-[#1a2540] space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-semibold flex items-center gap-1.5 ${cfg.cls}`}>
+                            <StatusIcon className="w-3.5 h-3.5" /> {sub.status}
+                          </span>
+                          <span className="text-[10px] text-slate-600 font-mono">{sub.created_at || '—'}</span>
+                        </div>
+                        <div className="text-xs text-slate-500 flex gap-3">
+                          <span>{sub.passed_tests}/{sub.total_tests} passed</span>
+                          <span>{sub.execution_time_ms || 0} ms</span>
+                        </div>
                       </div>
-                      <div className="text-slate-400 flex items-center justify-between text-[11px]">
-                        <span>Passed: {sub.passed_tests}/{sub.total_tests} test cases</span>
-                        <span>{sub.execution_time_ms || 0} ms</span>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Column: Code Editor & Test Cases Area */}
-        <div className="lg:col-span-7 flex flex-col overflow-hidden bg-[#080C14]">
+        {/* Right: Code editor */}
+        <div className="lg:col-span-7 flex flex-col overflow-hidden bg-[#070B14]">
           {submissionMethod === 'code' ? (
             <>
-              {/* Code Editor Header */}
-              <div className="h-10 border-b border-slate-800 px-3 bg-slate-950/70 flex items-center justify-between text-xs shrink-0">
-                <div className="flex items-center gap-2 text-slate-300 font-mono text-[11px]">
-                  <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="font-semibold text-white">Code Editor</span>
-                  <span className="text-slate-600">·</span>
-                  <span className="text-cyan-300 font-semibold">{currentFileName}</span>
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
-                    Editable
-                  </span>
+              <div className="h-9 border-b border-[#1a2540] px-3 bg-[#0a1120] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2 text-xs">
+                  <Edit3 className="w-3.5 h-3.5 text-axly-400" />
+                  <span className="text-slate-400 font-mono">{currentFileName}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleCopyCode}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors"
-                    title="Copy code to clipboard"
-                  >
+                <div className="flex items-center gap-1">
+                  <button onClick={handleCopyCode} className="btn-ghost btn-sm p-1.5" title="Copy code" aria-label="Copy code">
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
-                  <button
-                    onClick={handleResetCode}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                    title="Reset to problem template"
-                  >
+                  <button onClick={handleResetCode} className="btn-ghost btn-sm p-1.5 hover:text-rose-400" title="Reset code" aria-label="Reset code">
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Code Editor Body */}
-              <div
-                className="flex-1 min-h-[260px] p-3 overflow-hidden bg-[#070B14] cursor-text"
-                onClick={() => editorRef.current?.focus()}
-              >
-                <div className="w-full h-full rounded-2xl border border-slate-800 bg-[#0A0F1D] focus-within:border-cyan-500/80 focus-within:ring-1 focus-within:ring-cyan-500/20 overflow-hidden flex flex-col shadow-inner transition-all">
-                  <textarea
-                    ref={editorRef}
-                    id="code-editor-textarea"
-                    aria-label="Code Editor"
-                    value={sourceCode}
-                    onChange={e => setSourceCode(e.target.value)}
-                    spellCheck={false}
-                    placeholder="// Write your solution here..."
-                    className="w-full h-full p-4 bg-transparent text-cyan-100 font-mono text-xs leading-relaxed focus:outline-none resize-none custom-scrollbar"
-                  />
-                </div>
+              <div className="flex-1 overflow-hidden cursor-text" onClick={() => editorRef.current?.focus()}>
+                <textarea
+                  ref={editorRef}
+                  id="code-editor-textarea"
+                  aria-label="Code editor"
+                  value={sourceCode}
+                  onChange={e => setSourceCode(e.target.value)}
+                  spellCheck={false}
+                  placeholder="// Write your solution here..."
+                  className="w-full h-full p-4 bg-[#070B14] text-axly-100 code-editor focus:outline-none resize-none custom-scrollbar"
+                />
               </div>
 
-              {/* Test Cases & Evaluation Section */}
-              <div className="h-60 border-t border-slate-800 bg-[#0A0F1D] flex flex-col shrink-0">
-                <div className="h-10 border-b border-slate-800 px-3 flex items-center gap-4 bg-slate-950/70 text-xs shrink-0">
-                  <button
-                    onClick={() => setBottomTab('testcases')}
-                    className={`h-full border-b-2 flex items-center gap-1.5 font-medium transition-colors ${
-                      bottomTab === 'testcases' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Test Cases ({sampleTestCases.length})</span>
-                  </button>
-
-                  <button
-                    onClick={() => setBottomTab('results')}
-                    className={`h-full border-b-2 flex items-center gap-1.5 font-medium transition-colors ${
-                      bottomTab === 'results' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <TerminalIcon className="w-3.5 h-3.5" />
-                    <span>Execution Results</span>
-                    {execResult && (
-                      <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                        execResult.status === 'Accepted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                      }`}>
-                        {execResult.status}
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => setBottomTab('custom')}
-                    className={`h-full border-b-2 flex items-center gap-1.5 font-medium transition-colors ${
-                      bottomTab === 'custom' ? 'border-cyan-500 text-cyan-400 font-semibold' : 'border-transparent text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <FileCode className="w-3.5 h-3.5" />
-                    <span>Custom Stdin</span>
+              <div className="border-t border-[#1a2540] bg-[#0a1120] flex flex-col shrink-0" style={{ height: bottomOpen ? '260px' : '36px' }}>
+                <div className="h-9 border-b border-[#1a2540] px-3 flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-0 flex-1">
+                    <button onClick={() => setBottomTab('testcases')} className={`tab-btn py-1 ${bottomTab === 'testcases' ? 'tab-btn-active' : ''}`}>
+                      Test Cases ({sampleTestCases.length})
+                    </button>
+                    <button onClick={() => setBottomTab('results')} className={`tab-btn py-1 ${bottomTab === 'results' ? 'tab-btn-active' : ''}`}>
+                      Results
+                      {execResult && <span className={`ml-1 text-[10px] font-bold ${statusCfg?.cls || ''}`}>{execResult.status}</span>}
+                    </button>
+                    <button onClick={() => setBottomTab('custom')} className={`tab-btn py-1 ${bottomTab === 'custom' ? 'tab-btn-active' : ''}`}>
+                      Custom Input
+                    </button>
+                  </div>
+                  <button onClick={() => setBottomOpen(!bottomOpen)} className="btn-ghost btn-sm p-1" aria-label="Toggle panel">
+                    {bottomOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
                   </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-3 custom-scrollbar text-xs">
-                  {bottomTab === 'testcases' && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        {sampleTestCases.map((tc, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setSelectedTestCaseTab(idx)}
-                            className={`px-3 py-1 rounded-lg font-mono text-[11px] transition-colors ${
-                              selectedTestCaseTab === idx ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                            }`}
-                          >
-                            Case #{idx + 1}
-                          </button>
-                        ))}
-                      </div>
-                      {sampleTestCases[selectedTestCaseTab] && (
-                        <div className="grid grid-cols-2 gap-3 pt-1">
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-semibold block mb-1">Input:</span>
-                            <pre className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-cyan-200 font-mono text-[11px] whitespace-pre-wrap">
-                              {sampleTestCases[selectedTestCaseTab].input}
-                            </pre>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-semibold block mb-1">Expected Output:</span>
-                            <pre className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-emerald-300 font-mono text-[11px] whitespace-pre-wrap">
-                              {sampleTestCases[selectedTestCaseTab].expected_output}
-                            </pre>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {bottomTab === 'results' && (
-                    <div>
-                      {!execResult ? (
-                        <div className="text-center py-8 text-slate-500 text-xs">
-                          Click <strong>"Run Code"</strong> or <strong>"Submit Solution"</strong> to view execution results.
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                            <span className={`text-xs font-bold uppercase px-2.5 py-0.5 rounded-full ${
-                              execResult.status === 'Accepted' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            }`}>
-                              {execResult.status}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                              Passed: <strong className="text-white">{execResult.passed_tests}/{execResult.total_tests}</strong> test cases
-                              {execResult.execution_time_ms !== undefined && (
-                                <span className="ml-2 text-slate-500">({execResult.execution_time_ms} ms)</span>
-                              )}
-                            </span>
-                          </div>
-
-                          {execResult.results?.map((r, i) => (
-                            <div key={i} className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono space-y-1">
-                              <div className="flex items-center justify-between font-bold">
-                                <span className="text-slate-300">Test Case #{r.test_index}</span>
-                                <span className={r.status === 'Passed' || r.status === 'Accepted' ? 'text-emerald-400' : 'text-rose-400'}>
-                                  {r.status}
-                                </span>
-                              </div>
-                              {r.input && r.input !== '[Hidden Test Case]' && (
-                                <div className="text-slate-400 text-[11px] pt-1">
-                                  <span className="text-slate-500">Input: </span>
-                                  <span className="text-cyan-300">{r.input}</span>
-                                </div>
-                              )}
-                              {r.expected_output && r.expected_output !== '[Hidden Output]' && (
-                                <div className="text-slate-400 text-[11px]">
-                                  <span className="text-slate-500">Expected: </span>
-                                  <span className="text-emerald-400">{r.expected_output}</span>
-                                </div>
-                              )}
-                              {r.actual_output && (
-                                <div className="text-slate-300 text-[11px]">
-                                  <span className="text-slate-500">Output: </span>
-                                  <span className="text-white">{r.actual_output}</span>
-                                </div>
-                              )}
-                              {r.stderr && (
-                                <div className="text-rose-300 text-[11px] whitespace-pre-wrap mt-1 p-2 rounded bg-rose-950/30 border border-rose-900/30">
-                                  {r.stderr}
-                                </div>
-                              )}
-                            </div>
+                {bottomOpen && (
+                  <div className="flex-1 overflow-y-auto p-3 custom-scrollbar text-xs">
+                    {bottomTab === 'testcases' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          {sampleTestCases.map((_, idx) => (
+                            <button key={idx} onClick={() => setSelectedTestCaseTab(idx)}
+                              className={`px-3 py-1 rounded font-mono text-xs transition-colors ${selectedTestCaseTab === idx ? 'bg-axly-600 text-white' : 'bg-[#0d1525] text-slate-400 hover:text-slate-200'}`}>
+                              Case {idx + 1}
+                            </button>
                           ))}
                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  {bottomTab === 'custom' && (
-                    <div className="space-y-2">
-                      <label className="block text-[11px] text-slate-400 font-semibold">
-                        Custom Standard Input (stdin):
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={customInput}
-                        onChange={e => setCustomInput(e.target.value)}
-                        placeholder="Enter custom input here..."
-                        className="w-full p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-cyan-200 font-mono text-xs focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-                  )}
-                </div>
+                        {sampleTestCases[selectedTestCaseTab] && (
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div>
+                              <div className="text-[10px] text-slate-500 font-semibold mb-1">Input</div>
+                              <pre className="p-2.5 rounded bg-[#0a1120] border border-[#1a2540] text-axly-200 font-mono text-[11px] whitespace-pre-wrap">
+                                {sampleTestCases[selectedTestCaseTab].input}
+                              </pre>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-500 font-semibold mb-1">Expected Output</div>
+                              <pre className="p-2.5 rounded bg-[#0a1120] border border-[#1a2540] text-emerald-300 font-mono text-[11px] whitespace-pre-wrap">
+                                {sampleTestCases[selectedTestCaseTab].expected_output}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {bottomTab === 'results' && (
+                      <div>
+                        {(isRunning || isSubmitting) ? (
+                          <div className="flex items-center gap-2 text-slate-400 py-6 justify-center">
+                            <div className="w-4 h-4 border-2 border-axly-500/20 border-t-axly-500 rounded-full animate-spin" />
+                            <span>{isRunning ? 'Running tests...' : 'Evaluating submission...'}</span>
+                          </div>
+                        ) : !execResult ? (
+                          <div className="text-center py-8 text-slate-600">
+                            Click <strong className="text-slate-400">Run</strong> or <strong className="text-slate-400">Submit</strong> to see results.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className={`flex items-center justify-between p-3 rounded-md border ${statusCfg?.bg || 'bg-[#0d1525] border-[#1a2540]'}`}>
+                              <div className={`flex items-center gap-2 font-semibold text-sm ${statusCfg?.cls || 'text-slate-300'}`}>
+                                {statusCfg && <statusCfg.icon className="w-4 h-4" />}
+                                {execResult.status}
+                              </div>
+                              <div className="text-xs text-slate-400 flex items-center gap-3">
+                                <span>{execResult.passed_tests}/{execResult.total_tests} tests passed</span>
+                                {execResult.execution_time_ms !== undefined && (
+                                  <span className="font-mono">{execResult.execution_time_ms}ms</span>
+                                )}
+                              </div>
+                            </div>
+                            {execResult.results?.map((r, i) => (
+                              <div key={i} className="p-2.5 rounded-md bg-[#0a1120] border border-[#1a2540] font-mono text-[11px] space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400 font-semibold">Test {r.test_index}</span>
+                                  <span className={`font-bold ${r.status === 'Passed' || r.status === 'Accepted' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {r.status}
+                                  </span>
+                                </div>
+                                {r.input && r.input !== '[Hidden Test Case]' && (
+                                  <div><span className="text-slate-600">In: </span><span className="text-axly-300">{r.input}</span></div>
+                                )}
+                                {r.expected_output && r.expected_output !== '[Hidden Output]' && (
+                                  <div><span className="text-slate-600">Expected: </span><span className="text-emerald-400">{r.expected_output}</span></div>
+                                )}
+                                {r.actual_output && (
+                                  <div><span className="text-slate-600">Got: </span><span className="text-white">{r.actual_output}</span></div>
+                                )}
+                                {r.stderr && (
+                                  <div className="text-rose-300 whitespace-pre-wrap mt-1 p-2 rounded bg-rose-950/30 border border-rose-900/20">{r.stderr}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {bottomTab === 'custom' && (
+                      <div className="space-y-2">
+                        <label htmlFor="custom-stdin" className="text-[11px] text-slate-400 font-semibold block">Custom stdin:</label>
+                        <textarea
+                          id="custom-stdin"
+                          rows={4}
+                          value={customInput}
+                          onChange={e => setCustomInput(e.target.value)}
+                          placeholder="Enter custom input..."
+                          className="input-field font-mono text-xs text-axly-200"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           ) : (
-            <div className="p-8 flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 max-w-xl mx-auto my-auto">
-              <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-600 flex items-center justify-center text-white shadow-xl">
-                <Github className="w-8 h-8" />
+            <div className="flex flex-col items-center justify-center flex-1 p-8 text-center space-y-5 max-w-lg mx-auto">
+              <div className="w-14 h-14 rounded-xl bg-[#0d1525] border border-[#1a2540] flex items-center justify-center">
+                <Github className="w-7 h-7 text-slate-300" />
               </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold text-white">Submit via GitHub Repository Link</h3>
-                <p className="text-xs text-slate-400">
-                  Provide a link to your public repository or specific solution file for mentor review.
-                </p>
+              <div>
+                <h3 className="text-base font-bold text-white mb-1">Submit via GitHub</h3>
+                <p className="text-sm text-slate-400">Link to your public repository or solution file for mentor review.</p>
               </div>
               <form onSubmit={handleSubmitGithub} className="w-full space-y-3">
                 <input
@@ -665,18 +538,14 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                   placeholder="https://github.com/username/repo/blob/main/solution.py"
                   value={githubUrl}
                   onChange={e => setGithubUrl(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:border-cyan-500 focus:outline-none"
+                  className="input-field"
                 />
-                <button
-                  type="submit"
-                  disabled={isSubmittingGithub}
-                  className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs disabled:opacity-50 transition-all"
-                >
+                <button type="submit" disabled={isSubmittingGithub} className="btn-primary btn-lg w-full justify-center disabled:opacity-50">
                   {isSubmittingGithub ? 'Submitting...' : 'Submit Repository Link'}
                 </button>
               </form>
               {githubSuccessMessage && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs">
+                <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
                   {githubSuccessMessage}
                 </div>
               )}

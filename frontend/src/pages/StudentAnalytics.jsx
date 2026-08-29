@@ -55,21 +55,21 @@ export default function StudentAnalytics({ onSelectProblem }) {
 
   if (loading) {
     return (
-      <div className="py-24 text-center text-slate-400 space-y-3">
-        <div className="w-8 h-8 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto" />
-        <div className="text-xs font-mono">Loading your progress & analytics data...</div>
+      <div className="flex flex-col items-center justify-center py-24 space-y-3">
+        <div className="w-8 h-8 border-[3px] border-axly-500/20 border-t-axly-500 rounded-full animate-spin" />
+        <div className="text-xs text-slate-500 font-mono">Loading analytics...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center justify-between">
+      <div className="p-4 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 shrink-0" />
-          <span>{error}</span>
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="text-sm">{error}</span>
         </div>
-        <button onClick={loadData} className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-white text-xs font-semibold">
+        <button onClick={loadData} className="btn-danger btn-sm ml-4">
           Retry
         </button>
       </div>

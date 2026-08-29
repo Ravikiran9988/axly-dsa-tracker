@@ -4,12 +4,10 @@ import {
   Calendar,
   Compass,
   History,
-  Route,
   Code2,
   Trophy,
   Bell,
   User,
-  Settings,
   LogOut,
   Shield,
   Users,
@@ -19,8 +17,8 @@ import {
   Zap,
   TrendingUp,
   ShieldAlert,
-  Sliders,
-  GitPullRequest
+  GitPullRequest,
+  Terminal
 } from 'lucide-react';
 
 export default function Sidebar({ currentView, setCurrentView, user, onLogout, isCollapsed, setIsCollapsed, unreadCount = 0 }) {
@@ -32,23 +30,23 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
       items: [{ id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard }]
     },
     {
-      title: 'Content & Challenges',
+      title: 'Content',
       items: [
         { id: 'admin-challenges', label: 'Question Bank', icon: Code2 },
         { id: 'admin-daily', label: 'Daily Challenge', icon: Calendar },
-        { id: 'admin-reviews', label: 'Submission Reviews', icon: GitPullRequest }
+        { id: 'admin-reviews', label: 'Reviews', icon: GitPullRequest }
       ]
     },
     {
-      title: 'Students & Progress',
+      title: 'Students',
       items: [
         { id: 'admin-users', label: 'Students', icon: Users },
-        { id: 'admin-progress', label: 'Student Progress', icon: TrendingUp },
-        { id: 'admin-submissions', label: 'Submissions Log', icon: History }
+        { id: 'admin-progress', label: 'Progress', icon: TrendingUp },
+        { id: 'admin-submissions', label: 'Submissions', icon: History }
       ]
     },
     {
-      title: 'System & Account',
+      title: 'System',
       items: [
         { id: 'admin-audit', label: 'Audit Logs', icon: ShieldAlert },
         { id: 'profile', label: 'Profile', icon: User }
@@ -58,19 +56,24 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
 
   const learnerSections = [
     {
-      title: 'Practice & Challenges',
+      title: null,
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'available', label: 'Practice (80 Problems)', icon: Compass },
-        { id: 'daily', label: 'Daily Challenge', icon: Calendar }
       ]
     },
     {
-      title: 'Progress & Rank',
+      title: 'Practice',
       items: [
-        { id: 'analytics', label: 'Progress & Analytics', icon: TrendingUp },
-        { id: 'leaderboard', label: 'Competitive Leaderboard', icon: Trophy },
-        { id: 'submissions', label: 'Submission History', icon: History }
+        { id: 'available', label: 'Problem Library', icon: Compass },
+        { id: 'daily', label: 'Daily Challenge', icon: Calendar },
+        { id: 'submissions', label: 'Submission History', icon: History },
+      ]
+    },
+    {
+      title: 'Compete',
+      items: [
+        { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
+        { id: 'analytics', label: 'My Progress', icon: TrendingUp },
       ]
     },
     {
@@ -84,129 +87,134 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
 
   const sections = isAdmin ? adminSections : learnerSections;
 
+  function isActive(item) {
+    if (currentView === item.id) return true;
+    if (item.id === 'available' && (currentView === 'practice' || currentView === 'available')) return true;
+    if (item.id === 'admin-challenges' && (currentView === 'admin-questions' || currentView === 'admin-challenges')) return true;
+    return false;
+  }
+
   return (
     <aside
-      className={`relative flex flex-col h-screen border-r border-slate-800/80 bg-[#080C14] transition-all duration-300 z-30 shrink-0 select-none ${
-        isCollapsed ? 'w-20' : 'w-64'
+      className={`relative flex flex-col h-screen border-r border-[#1a2540] bg-[#070B14] transition-all duration-200 z-30 shrink-0 select-none ${
+        isCollapsed ? 'w-[52px]' : 'w-56'
       }`}
     >
-      <div className="flex items-center justify-between p-4 border-b border-slate-800/80">
-        <div className="flex items-center gap-3 overflow-hidden">
-          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${
-            isAdmin
-              ? 'bg-gradient-to-tr from-rose-600 via-indigo-600 to-cyan-500 shadow-indigo-500/20'
-              : 'bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 shadow-cyan-500/20'
+      {/* Logo */}
+      <div className="flex items-center h-14 px-3 border-b border-[#1a2540] shrink-0">
+        <div className="flex items-center gap-2.5 overflow-hidden flex-1 min-w-0">
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+            isAdmin ? 'bg-amber-600' : 'bg-axly-600'
           }`}>
-            <span className="font-extrabold text-white text-base tracking-wider font-mono">AX</span>
+            <Terminal className="w-4 h-4 text-white" />
           </div>
           {!isCollapsed && (
-            <div className="flex flex-col min-w-0">
-              <span className="font-extrabold text-white text-sm tracking-wider font-mono leading-none truncate">
-                AXLY DSA
-              </span>
-              <span className={`text-[10px] font-bold uppercase tracking-widest mt-1 truncate ${
-                isAdmin ? 'text-rose-400' : 'text-cyan-400'
+            <div className="flex flex-col min-w-0 leading-none">
+              <span className="font-bold text-white text-sm tracking-tight font-mono truncate">AXLY</span>
+              <span className={`text-[10px] font-semibold tracking-wide truncate ${
+                isAdmin ? 'text-amber-500' : 'text-axly-400'
               }`}>
-                {isAdmin ? 'Admin Portal' : 'DSA Tracker'}
+                {isAdmin ? 'Admin Portal' : 'DSA Platform'}
               </span>
             </div>
           )}
         </div>
-
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="p-1 rounded text-slate-600 hover:text-slate-300 hover:bg-[#111c2e] transition-colors shrink-0 ml-auto"
+          title={isCollapsed ? 'Expand' : 'Collapse'}
         >
-          {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </button>
       </div>
 
-      {!isCollapsed && (
-        <div className="p-3 mx-3 my-2.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-inner">
-          {isAdmin ? (
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5 text-rose-400 font-bold">
-                <Shield className="w-4 h-4" />
-                <span>Super Administrator</span>
-              </div>
-              <span className="px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-[10px] font-mono text-rose-300">ACTIVE</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5 text-amber-400 font-bold">
-                <Flame className="w-4 h-4 fill-amber-400" />
-                <span>{user?.streak || 1} Day Streak</span>
-              </div>
-              <div className="flex items-center gap-1 text-cyan-300 font-semibold text-[11px]">
-                <Zap className="w-3.5 h-3.5 fill-cyan-400 text-cyan-400" />
-                <span>{user?.points || 100} pts</span>
-              </div>
-            </div>
-          )}
+      {/* Stats pill */}
+      {!isAdmin && !isCollapsed && (
+        <div className="mx-2.5 my-2 px-3 py-2 rounded-md bg-[#0d1525] border border-[#1a2540] flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold">
+            <Flame className="w-3.5 h-3.5 fill-amber-400" />
+            <span>{user?.streak || 0}d streak</span>
+          </div>
+          <div className="flex items-center gap-1 text-axly-400 text-xs font-semibold">
+            <Zap className="w-3.5 h-3.5" />
+            <span>{user?.points || 0} pts</span>
+          </div>
+        </div>
+      )}
+      {isAdmin && !isCollapsed && (
+        <div className="mx-2.5 my-2 px-3 py-2 rounded-md bg-amber-500/5 border border-amber-500/15 flex items-center gap-1.5">
+          <Shield className="w-3.5 h-3.5 text-amber-500" />
+          <span className="text-xs font-semibold text-amber-400">Administrator</span>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2 space-y-5">
+      {/* Nav sections */}
+      <nav className="flex-1 overflow-y-auto custom-scrollbar px-2 py-2 space-y-4">
         {sections.map((section, sIdx) => (
-          <div key={sIdx} className="space-y-1">
+          <div key={sIdx} className="space-y-0.5">
             {!isCollapsed && section.title && (
-              <div className="px-3 pb-1 text-[10px] font-bold tracking-wider text-slate-500 uppercase font-mono">{section.title}</div>
+              <div className="px-3 pb-1 pt-0.5 text-[10px] font-semibold tracking-widest text-slate-600 uppercase">
+                {section.title}
+              </div>
             )}
             {section.items.map((item) => {
               const Icon = item.icon;
-              const active = currentView === item.id || 
-                (item.id === 'available' && (currentView === 'practice' || currentView === 'available')) ||
-                (item.id === 'admin-challenges' && (currentView === 'admin-questions' || currentView === 'admin-challenges'));
+              const active = isActive(item);
               return (
                 <button
                   key={item.id}
                   onClick={() => setCurrentView(item.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
-                    active
-                      ? 'bg-gradient-to-r from-cyan-500/20 via-indigo-500/15 to-transparent text-cyan-300 border border-cyan-500/30 shadow-sm shadow-cyan-500/10 font-semibold'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-                  }`}
                   title={isCollapsed ? item.label : undefined}
+                  className={`nav-item ${active ? 'nav-item-active' : ''} ${isCollapsed ? 'justify-center px-0 w-full' : ''}`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${active ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-200'}`} />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
-                  {!isCollapsed && item.badge !== undefined && item.badge > 0 && (
-                    <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">{item.badge}</span>
+                  <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-axly-400' : 'text-slate-500'}`} />
+                  {!isCollapsed && (
+                    <>
+                      <span className="truncate flex-1 text-left">{item.label}</span>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span className="ml-auto w-5 h-5 rounded-full bg-axly-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {item.badge > 9 ? '9+' : item.badge}
+                        </span>
+                      )}
+                    </>
                   )}
                 </button>
               );
             })}
           </div>
         ))}
-      </div>
+      </nav>
 
-      <div className="p-3 border-t border-slate-800/80 bg-slate-950/40">
-        <div className="flex items-center justify-between gap-2">
-          {!isCollapsed && (
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              {user?.avatar_url ? (
-                <img src={user.avatar_url} alt={user.name || 'User'} className="w-8 h-8 rounded-full border border-slate-700 object-cover shrink-0" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 shrink-0">
-                  {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold text-white truncate">{user?.name || user?.email?.split('@')[0]}</span>
-                <span className="text-[10px] text-slate-500 truncate font-mono">{user?.email}</span>
-              </div>
+      {/* User footer */}
+      <div className="border-t border-[#1a2540] p-2 shrink-0">
+        {!isCollapsed ? (
+          <div className="flex items-center gap-2 px-1">
+            <div className="w-7 h-7 rounded-full bg-[#1a2540] border border-[#253556] flex items-center justify-center text-xs font-bold text-axly-300 shrink-0">
+              {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
             </div>
-          )}
-
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold text-slate-200 truncate leading-none">
+                {user?.name || user?.email?.split('@')[0]}
+              </div>
+              <div className="text-[10px] text-slate-600 truncate mt-0.5">{user?.email}</div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="p-1.5 rounded text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
+              title="Sign out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
           <button
             onClick={onLogout}
-            className={`p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all ${isCollapsed ? 'w-full flex justify-center' : ''}`}
-            title="Log out"
+            className="w-full flex justify-center p-2 rounded text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+            title="Sign out"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
           </button>
-        </div>
+        )}
       </div>
     </aside>
   );

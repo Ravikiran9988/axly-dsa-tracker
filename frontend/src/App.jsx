@@ -124,14 +124,14 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#080C14]">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-xl shadow-cyan-500/20">
-            <Terminal className="w-7 h-7 text-white" />
+      <div className="min-h-screen flex items-center justify-center bg-[#070B14]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-axly-600 flex items-center justify-center shadow-lg">
+            <Terminal className="w-6 h-6 text-white" />
           </div>
-          <div className="flex items-center space-x-2 text-xs font-mono text-slate-400">
-            <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-            <span>Loading Axly DSA Tracker...</span>
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+            <Loader2 className="w-4 h-4 text-axly-400 animate-spin" />
+            <span>Loading Axly...</span>
           </div>
         </div>
       </div>
@@ -201,7 +201,7 @@ export default function App() {
 
     // Student Views
     if (currentView === 'dashboard') {
-      return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} />;
+      return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} onOpenChallenge={handleSelectProblem} />;
     }
     if (currentView === 'practice' || currentView === 'available') {
       return <AvailableChallenges onSelectProblem={handleSelectProblem} />;
@@ -269,7 +269,7 @@ export default function App() {
       return <AdminSettings />;
     }
 
-    return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} />;
+    return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} onOpenChallenge={handleSelectProblem} />;
   };
 
   return (
@@ -293,7 +293,7 @@ export default function App() {
           unreadCount={unreadNotifsCount}
         />
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-[#070B14]">
+          <div className={`flex-1 overflow-y-auto custom-scrollbar bg-[#070B14] ${currentView === 'solve' ? '' : 'p-4 md:p-6 lg:p-8'}`}>
           {renderView()}
         </div>
       </div>

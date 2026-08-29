@@ -1,118 +1,220 @@
-import React, { useEffect, useState } from 'react';
-import { Calendar, Flame, Trophy, Compass, Sparkles, ChevronRight, MessageSquareQuote, TrendingUp, ArrowRight, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  Calendar, Flame, Trophy, Compass, CheckCircle2, ArrowRight, Zap,
+  TrendingUp, Clock, BookOpen, Code2, AlertTriangle, Sparkles
+} from 'lucide-react';
 import { api } from '../services/api';
+import { practiceApi } from '../services/practiceApi';
+import { Skeleton, DifficultyBadge, ErrorState } from '../components/ui/index.jsx';
 import DailyQuestionCard from '../components/DailyQuestionCard';
 
-export default function UserDashboard({ user, onSelectProblem, onNavigate }) {
+export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
+  const [dailyData, setDailyData] = useState(null);
+  const [practiceProgress, setPracticeProgress] = useState(null);
+  const [recentProblems, setRecentProblems] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dailyQuestion, setDailyQuestion] = useState(null);
-  const [submissions, setSubmissions] = useState([]);
-  const [recommended, setRecommended] = useState([]);
-  const [profile, setProfile] = useState(null);
+  const [error, setError] = useState(null);
 
-  useEffect(() => { loadDashboardData(); }, []);
+  useEffect(() => { loadDashboard(); }, []);
 
-  async function loadDashboardData() {
+  async function loadDashboard() {
     setLoading(true);
+    setError(null);
     try {
-      const [dailyRes, subsRes, qRes, profRes] = await Promise.all([
-        api.getDailyQuestion().catch(() => ({ data: null })),
-        api.getSubmissions({ limit: 5 }).catch(() => ({ data: [] })),
-        api.getQuestions({ limit: 6 }).catch(() => ({ data: [] })),
-        api.getMyProfile().catch(() => ({ data: null }))
+      const [dailyRes, practiceRes, analyticsRes] = await Promise.allSettled([
+        api.getDailyQuestion(),
+        practiceApi.getProgress(),
+        api.getUserAnalytics()
       ]);
-      setDailyQuestion(dailyRes?.data || null);
-      setSubmissions(subsRes?.data || []);
-      setRecommended(qRes?.data || []);
-      setProfile(profRes?.data || null);
+      if (dailyRes.status === 'fulfilled') setDailyData(dailyRes.value);
+      if (practiceRes.status === 'fulfilled') setPracticeProgress(practiceRes.value.data || practiceRes.value);
+      if (analyticsRes.status === 'fulfilled') setAnalytics(analyticsRes.value.data || analyticsRes.value);
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
     }
   }
 
-  const difficultyColors = {
-    easy: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-    medium: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    hard: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
-  };
-  const recentFeedback = profile?.recent_feedback || [];
-  const solvedCount = profile?.solved_count ?? user?.solved_count ?? 0;
-  const practiceCount = profile?.practice_solved_count ?? 0;
-  const points = user?.points ?? profile?.points ?? 0;
-  const streak = user?.streak ?? profile?.streak ?? 0;
+  const totalSolved = practiceProgress?.problems_solved || analytics?.problems_solved || 0;
+  const streak = user?.streak || analytics?.streak || 0;
+  const totalPoints = user?.points || analytics?.total_points || 0;
+  const dailyQuestion = dailyData?.data || dailyData;
+  const dailySolved = dailyQuestion?.submission_status === 'solved';
 
   return (
-    <div className="space-y-8">
-      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-[#0C1425] via-[#121E3D] to-[#0C1425] border border-cyan-900/30 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>DSA Practice & Tracking</span>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">Welcome back, {user?.name || 'Developer'}! 👋</h1>
-          <p className="text-xs md:text-sm text-slate-400 max-w-xl leading-relaxed">Keep your <strong>{streak} day streak</strong> alive with today's challenge, then practice any problem you want without affecting your competitive score.</p>
+    <div className="space-y-6 animate-fade-in">
+      {/* Welcome banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-white tracking-tight">
+            Welcome back, {user?.name?.split(' ')[0] || 'there'} 👋
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <button onClick={() => onNavigate('available')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-lg transition-all">
-            <Compass className="w-4 h-4" /> Practice Problems
+        <div className="flex items-center gap-2">
+          <button onClick={() => onNavigate('daily')} className="btn-primary btn-sm inline-flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" /> Daily Challenge
           </button>
-          <button onClick={() => onNavigate('leaderboard')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all">
-            <Trophy className="w-4 h-4" /> Leaderboard
+          <button onClick={() => onNavigate('available')} className="btn-secondary btn-sm inline-flex items-center gap-1.5">
+            <Compass className="w-3.5 h-3.5" /> Practice
           </button>
         </div>
       </div>
 
+      {error && <ErrorState message={error} onRetry={loadDashboard} />}
+
+      {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center"><div className="text-xl font-extrabold text-indigo-400">{points}</div><div className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">Daily Points</div></div>
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center"><div className="text-xl font-extrabold text-emerald-400">{solvedCount}</div><div className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">Problems Solved</div></div>
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center"><div className="text-xl font-extrabold text-cyan-400">{practiceCount}</div><div className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">Practice Solved</div></div>
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center"><div className="text-xl font-extrabold text-amber-400 flex items-center justify-center gap-1"><Flame className="w-4 h-4 fill-amber-400" /> {streak}d</div><div className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">Streak</div></div>
+        {[
+          { label: 'Problems Solved', value: loading ? '—' : totalSolved, icon: CheckCircle2, color: 'text-emerald-400' },
+          { label: 'Daily Streak',    value: loading ? '—' : `${streak}d`,  icon: Flame,        color: 'text-amber-400' },
+          { label: 'Total Points',   value: loading ? '—' : totalPoints,   icon: Zap,          color: 'text-axly-400' },
+          { label: 'Leaderboard',    value: loading ? '—' : analytics?.rank ? `#${analytics.rank}` : '—', icon: Trophy, color: 'text-violet-400' },
+        ].map((s) => (
+          <div key={s.label} className="card p-4">
+            <div className="text-xs text-slate-500 font-medium mb-1">{s.label}</div>
+            <div className={`text-2xl font-bold ${s.color} flex items-center gap-2`}>
+              {loading ? <Skeleton className="h-7 w-16" /> : (
+                <>
+                  <s.icon className="w-5 h-5 opacity-80" />
+                  {s.value}
+                </>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {dailyQuestion && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white flex items-center gap-2"><Calendar className="w-4 h-4 text-cyan-400" /> Today's Daily Challenge</h2>
-            <span className="text-xs text-slate-400">1 challenge • 100 competitive points</span>
+      {/* Daily Challenge (visually distinct: amber accent) */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 rounded-full bg-amber-500" />
+            <h2 className="text-sm font-semibold text-white">Today's Challenge</h2>
+            <span className="badge badge-neutral text-[10px]">Competitive · points</span>
           </div>
-          <DailyQuestionCard dailyQuestion={dailyQuestion} onStatusChange={loadDashboardData} onOpenInPlatform={() => onSelectProblem(dailyQuestion.question_id || dailyQuestion.id)} />
+          <button onClick={() => onNavigate('daily')} className="btn-ghost btn-sm inline-flex items-center gap-1">
+            View <ArrowRight className="w-3 h-3" />
+          </button>
         </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <div><h2 className="text-base font-bold text-white flex items-center gap-2"><Compass className="w-4 h-4 text-indigo-400" /> Practice freely</h2><p className="text-xs text-slate-400 mt-1">Choose any published problem. Practice has no competitive points.</p></div>
-            <button onClick={() => onNavigate('available')} className="text-xs text-cyan-400 font-semibold flex items-center gap-1">Explore <ChevronRight className="w-3.5 h-3.5" /></button>
+        {loading ? (
+          <div className="card p-5 space-y-3">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-32 mt-2" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {recommended.slice(0, 4).map(q => (
-              <button key={q.id} onClick={() => onSelectProblem(q.id)} className="text-left p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-indigo-500/40 transition-all">
-                <div className="flex items-center justify-between gap-2"><span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${difficultyColors[q.difficulty] || difficultyColors.easy}`}>{q.difficulty}</span><span className="text-[10px] text-slate-500">Practice</span></div>
-                <div className="text-sm font-bold text-white mt-2 truncate">{q.title}</div>
-                <div className="text-[11px] text-slate-400 mt-1">{q.topic_name || 'Algorithms'}</div>
-              </button>
+        ) : (
+          <DailyQuestionCard
+            dailyData={dailyData}
+            onOpenInPlatform={() => onOpenChallenge && onOpenChallenge(dailyQuestion?.id)}
+          />
+        )}
+      </section>
+
+      {/* Practice section */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 rounded-full bg-axly-500" />
+            <h2 className="text-sm font-semibold text-white">Practice Library</h2>
+            <span className="badge badge-neutral text-[10px]">Self-paced · 0 pts</span>
+          </div>
+          <button onClick={() => onNavigate('available')} className="btn-ghost btn-sm inline-flex items-center gap-1">
+            All problems <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="card divide-y divide-[#1a2540]">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="p-4 flex items-center justify-between">
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-7 w-20 ml-4" />
+              </div>
             ))}
           </div>
-        </div>
-
-        <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <div className="flex items-center justify-between"><h2 className="text-base font-bold text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-400" /> Recent Activity</h2><button onClick={() => onNavigate('submissions')} className="text-xs text-cyan-400 font-semibold">History</button></div>
-          {submissions.length === 0 ? <div className="text-center py-8 text-slate-400 text-xs">No submissions yet. Start with today's challenge or practice a problem.</div> : submissions.map(sub => (
-            <div key={sub.id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between gap-3">
-              <div className="min-w-0"><div className="font-bold text-white text-xs truncate">{sub.question_title}</div><div className="text-[10px] text-slate-400 mt-1">{sub.submission_type === 'github' ? 'GitHub Link' : 'In-Platform IDE'} • {sub.passed_tests || 0}/{sub.total_tests || 0} passed</div></div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">{sub.status}</span>
+        ) : practiceProgress ? (
+          <div className="card overflow-hidden">
+            {/* Progress summary */}
+            <div className="px-5 py-3 border-b border-[#1a2540] flex items-center justify-between">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-slate-400">{practiceProgress.problems_solved || 0} solved</span>
+                <span className="text-slate-600">/</span>
+                <span className="text-slate-400">{practiceProgress.total_problems || practiceProgress.problems_total || '?'} total</span>
+              </div>
+              {(practiceProgress.total_problems || 1) > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="w-32 h-1.5 bg-[#1a2540] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-axly-500 rounded-full"
+                      style={{ width: `${Math.round(((practiceProgress.problems_solved || 0) / (practiceProgress.total_problems || practiceProgress.problems_total || 1)) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    {Math.round(((practiceProgress.problems_solved || 0) / (practiceProgress.total_problems || practiceProgress.problems_total || 1)) * 100)}%
+                  </span>
+                </div>
+              )}
             </div>
+            {/* Difficulty breakdown */}
+            <div className="grid grid-cols-3 divide-x divide-[#1a2540]">
+              {[
+                { label: 'Easy',   key: 'easy_solved',   total: 'easy_total',   cls: 'text-emerald-400' },
+                { label: 'Medium', key: 'medium_solved',  total: 'medium_total', cls: 'text-amber-400' },
+                { label: 'Hard',   key: 'hard_solved',    total: 'hard_total',   cls: 'text-rose-400' },
+              ].map(d => (
+                <div key={d.label} className="p-4 text-center">
+                  <div className={`text-lg font-bold ${d.cls}`}>
+                    {practiceProgress[d.key] || 0}
+                    <span className="text-xs text-slate-600 font-normal">/{practiceProgress[d.total] || '?'}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">{d.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="card p-5 text-center space-y-3">
+            <BookOpen className="w-8 h-8 text-slate-600 mx-auto" />
+            <div>
+              <p className="text-sm font-medium text-slate-300">Start practicing</p>
+              <p className="text-xs text-slate-500 mt-1">Build problem-solving skills at your own pace.</p>
+            </div>
+            <button onClick={() => onNavigate('available')} className="btn-primary btn-sm mx-auto">
+              Browse Problems
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* Quick links */}
+      <section>
+        <h2 className="text-sm font-semibold text-white mb-3">Quick Links</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { label: 'Problem Library',   icon: Compass,    view: 'available' },
+            { label: 'Leaderboard',       icon: Trophy,     view: 'leaderboard' },
+            { label: 'My Progress',       icon: TrendingUp, view: 'analytics' },
+            { label: 'Submissions',       icon: Clock,      view: 'submissions' },
+          ].map(link => (
+            <button
+              key={link.view}
+              onClick={() => onNavigate(link.view)}
+              className="card-interactive p-3.5 flex items-center gap-2.5 text-left"
+            >
+              <link.icon className="w-4 h-4 text-axly-400 shrink-0" />
+              <span className="text-sm text-slate-300 font-medium">{link.label}</span>
+            </button>
           ))}
         </div>
-      </div>
-
-      {recentFeedback.length > 0 && <div className="p-5 rounded-2xl bg-orange-950/20 border border-orange-800/40 space-y-3"><div className="flex items-center justify-between"><div className="flex items-center gap-2 text-orange-400 text-xs font-bold uppercase tracking-wider"><MessageSquareQuote className="w-4 h-4" /> Latest Review</div><button onClick={() => onNavigate('submissions')} className="text-xs text-orange-300">View feedback</button></div><div className="text-xs text-slate-300">{recentFeedback[0].question_title}: <span className="italic">"{recentFeedback[0].feedback}"</span></div></div>}
-
-      <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div><div className="text-sm font-bold text-white flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Your practice still counts toward learning</div><p className="text-xs text-slate-400 mt-1">Practice submissions improve your history, analytics and recommendations, but never add competitive leaderboard points.</p></div>
-        <button onClick={() => onNavigate('available')} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white flex items-center gap-2">Browse Problems <ArrowRight className="w-3.5 h-3.5" /></button>
-      </div>
+      </section>
     </div>
   );
 }
