@@ -4,6 +4,7 @@ const { db, initSchema } = require('../src/db/db');
 const { seedDatabase } = require('../src/db/seed');
 const { generateTestToken } = require('../src/middleware/auth');
 const { calculateScore } = require('../src/services/scoringService');
+const { getCalendarDate } = require('../src/services/streakService');
 const { getCompetitiveLeaders } = require('../src/services/leaderboardService');
 const { getRepository } = require('../src/db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
@@ -150,20 +151,32 @@ describe('Phase 4: Comprehensive PostgreSQL/Runtime Parity & Production Verifica
 
   describe('3. Daily Challenge & Midnight Rule Verification', () => {
     let dailyQId;
-    const testDate = '2026-08-15';
+    const testDate = getCalendarDate();
 
     beforeAll(async () => {
+      await repo.execute('DELETE FROM daily_challenge_problems WHERE scheduled_date = ?', [testDate]);
+
       const q = await repo.one('SELECT id FROM questions WHERE (is_active = 1 OR is_active = TRUE) LIMIT 1');
-      dailyQId = q.id;
-      await request(app)
-        .post('/api/v1/daily-question')
+      const res = await request(app)
+        .post('/api/v1/daily-challenges/from-practice')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ question_id: dailyQId, date: testDate });
+        .send({ question_id: q.id, title: 'Test DC', points: 100 });
+      
+      dailyQId = res.body.data.id;
+      
+      await request(app)
+        .post(`/api/v1/daily-challenges/${dailyQId}/schedule`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ date: testDate });
+        
+      await request(app)
+        .post(`/api/v1/daily-challenges/${dailyQId}/publish`)
+        .set('Authorization', `Bearer ${adminToken}`);
     });
 
     it('Returns same Daily Challenge for all students on a given UTC date', async () => {
       const resAdmin = await request(app)
-        .get(`/api/v1/daily-question?date=${testDate}`)
+        .get(`/api/v1/daily-challenges/today`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(resAdmin.status).toBe(200);

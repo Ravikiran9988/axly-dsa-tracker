@@ -4,7 +4,7 @@
 
 **Production-grade Data Structures & Algorithms learning platform with competitive Daily Challenges, an 80-problem curated Practice Bank, and a 4-phase DSA AI Coach powered by Groq.**
 
-[![Tests](https://img.shields.io/badge/tests-249%20passed-brightgreen?style=flat-square)](#-testing)
+[![Tests](https://img.shields.io/badge/tests-245%20passed-brightgreen?style=flat-square)](#-testing)
 [![Suites](https://img.shields.io/badge/suites-21%20passed-brightgreen?style=flat-square)](#-testing)
 [![Languages](https://img.shields.io/badge/languages-JS%20%7C%20Python%20%7C%20TS%20%7C%20Java%20%7C%20C%20%7C%20C++-blue?style=flat-square)](#-code-execution-sandbox)
 [![Stack](https://img.shields.io/badge/stack-Node.js%20%7C%20React%20%7C%20SQLite%20%7C%20PostgreSQL-informational?style=flat-square)](#-technology-stack)
@@ -314,7 +314,7 @@ cd frontend && npm run build
 cd backend && npm test
 ```
 
-**Result: 21 suites / 249 tests / 0 failures**
+**Result: 21 suites / 245 tests / 0 failures**
 
 | Test Suite | Area |
 |-----------|------|

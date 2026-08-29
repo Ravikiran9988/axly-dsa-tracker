@@ -487,29 +487,29 @@ export default function AdminDailyChallengeModal({
 
           <div className="flex items-center gap-3">
             {/* Mode Switcher (Only when creating new) */}
-            {!challengeToEdit && !aiGeneratedData && (
-              <div className="flex items-center p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+            {!challengeToEdit && !aiGeneratedData && hasAiFeature && (
+              <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/50">
                 <button
                   type="button"
                   onClick={() => setCreationMode('manual')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                     creationMode === 'manual'
-                      ? 'bg-amber-500 text-black shadow-md shadow-amber-500/20'
+                      ? 'bg-slate-700 text-white shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Edit3 className="w-3.5 h-3.5" /> ✍ Manual
+                  <Edit3 className="w-4 h-4" /> Manual
                 </button>
                 <button
                   type="button"
                   onClick={() => setCreationMode('ai')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                     creationMode === 'ai'
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md shadow-purple-500/30'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5" /> ✨ Generate with AI
+                  <Sparkles className="w-4 h-4" /> Generate with AI
                 </button>
               </div>
             )}
@@ -542,14 +542,19 @@ export default function AdminDailyChallengeModal({
         {creationMode === 'ai' && !aiGeneratedData && (
           <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
             <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-950/20 via-slate-900 to-slate-950 border border-purple-500/30 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
-                  <Sparkles className="w-4 h-4 text-purple-400" />
-                  <span>AI Daily Challenge Generator</span>
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                  <span className="tracking-wide">AI Daily Challenge Generator</span>
                 </div>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  Autonomous Quality Validation &middot; Saves as Draft
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2.5 py-1 rounded-full shadow-sm">
+                    Autonomous Validation
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-full shadow-sm">
+                    Saves as Draft
+                  </span>
+                </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
                 Configure topic, difficulty, and requirements. The AI will synthesize an original interview-caliber problem with verified test cases, progressive hints, complexity analysis, and starter code.
@@ -566,7 +571,7 @@ export default function AdminDailyChallengeModal({
                       className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-[11px] font-semibold transition-all"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                      {recLoading ? 'Analyzing...' : '✨ AI Recommend Topic'}
+                      {recLoading ? 'Analyzing...' : 'AI Recommend Topic'}
                     </button>
                   </div>
                   <select
@@ -577,7 +582,7 @@ export default function AdminDailyChallengeModal({
                     }}
                     className="input-field w-full text-xs"
                   >
-                    <option value="Surprise Me">✨ Surprise Me (AI Select Optimal Topic)</option>
+                    <option value="Surprise Me">🚀 Surprise Me (AI Select Optimal Topic)</option>
                     {Object.entries(groupedTopics).map(([category, items]) => items.length > 0 && (
                       <optgroup key={category} label={category}>
                         {items.map(t => (
@@ -709,7 +714,7 @@ export default function AdminDailyChallengeModal({
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4" />
-                      <span>✨ Generate Challenge</span>
+                      <span>Generate Challenge</span>
                     </>
                   )}
                 </button>
@@ -838,10 +843,10 @@ export default function AdminDailyChallengeModal({
             {/* Sub-tabs */}
             <div className="flex items-center gap-2 px-6 pt-3 border-b border-slate-800 bg-slate-900/30 shrink-0">
               {[
-                { id: 'details', label: '1. Basic Details', icon: Sliders },
-                { id: 'content', label: '2. Statement & Examples', icon: BookOpen },
-                { id: 'testcases', label: `3. Test Cases (${formData.test_cases.length})`, icon: CheckCircle2 },
-                { id: 'hints_editorial', label: '4. Hints & Editorial', icon: Lightbulb }
+                { id: 'details', label: 'Basic Details', icon: Sliders },
+                { id: 'content', label: 'Statement & Examples', icon: BookOpen },
+                { id: 'testcases', label: `Test Cases (${formData.test_cases.length})`, icon: CheckCircle2 },
+                { id: 'hints_editorial', label: 'Hints & Editorial', icon: Lightbulb }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -914,7 +919,7 @@ export default function AdminDailyChallengeModal({
                           className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-[10px] font-semibold transition-all"
                         >
                           <Sparkles className="w-3 h-3 text-amber-400" />
-                          {recLoading ? 'Analyzing...' : '✨ AI Recommend'}
+                          {recLoading ? 'Analyzing...' : 'AI Recommend'}
                         </button>
                       </div>
                       <select

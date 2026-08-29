@@ -12,7 +12,7 @@ const { getRepository } = require('./db/repositoryFactory');
 const authRoutes = require('./routes/authRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const practiceRoutes = require('./routes/practiceRoutes');
-const dailyQuestionRoutes = require('./routes/dailyQuestionRoutes');
+
 const dailyChallengeRoutes = require('./routes/dailyChallengeRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
@@ -123,7 +123,7 @@ app.get('/health/ready', async (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/questions', questionRoutes);
 app.use('/api/v1/practice', practiceRoutes);
-app.use('/api/v1/daily-question', dailyQuestionRoutes);
+
 app.use('/api/v1/daily-challenges', dailyChallengeRoutes);
 app.use('/api/v1/assignments', assignmentRoutes);
 app.use('/api/v1/submissions', submissionRoutes);

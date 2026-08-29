@@ -61,7 +61,7 @@ export const api = {
   // Daily Challenge & Daily Question
   async getDailyQuestion() { return request('/daily-challenges/today'); },
   async getTodayDailyChallenge() { return request('/daily-challenges/today'); },
-  async setDailyQuestion(data) { return request('/daily-question', { method: 'POST', body: JSON.stringify(data) }); },
+
   async getDailyChallenges(params = {}) {
     const q = new URLSearchParams();
     for (const k of ['status', 'difficulty', 'topic_id', 'search', 'date', 'page', 'limit']) {

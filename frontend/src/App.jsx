@@ -26,7 +26,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminAuditLogs from './pages/AdminAuditLogs';
 import AdminSettings from './pages/AdminSettings';
 import SubmissionReviewConsole from './pages/SubmissionReviewConsole';
-import AdminDailyQuestionModal from './components/AdminDailyQuestionModal';
+
 import AdminQuestionModal from './components/AdminQuestionModal';
 import DsaAiCoachPanel from './components/DsaAiCoachPanel';
 import { api } from './services/api';
@@ -308,13 +308,7 @@ export default function App() {
 
       {isAdmin && (
         <>
-          {isDailyModalOpen && (
-            <AdminDailyQuestionModal
-              isOpen={isDailyModalOpen}
-              onClose={() => setIsDailyModalOpen(false)}
-              questions={questionsForModal}
-            />
-          )}
+
           {isCreateChallengeModalOpen && (
             <AdminQuestionModal
               isOpen={isCreateChallengeModalOpen}

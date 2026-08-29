@@ -13,7 +13,7 @@ import AdminSettings from '../pages/AdminSettings';
 import AdminProfile from '../pages/AdminProfile';
 import NotificationsPage from '../pages/NotificationsPage';
 import ProblemWorkspace from '../pages/ProblemWorkspace';
-import AdminDailyQuestionModal from '../components/AdminDailyQuestionModal';
+
 import AdminQuestionModal from '../components/AdminQuestionModal';
 import AdminAssignModal from '../components/AdminAssignModal';
 import { api } from '../services/api';
@@ -159,13 +159,7 @@ export default function AdminLayout({ user, onLogout }) {
       </div>
 
       {/* Admin Action Modals */}
-      {isDailyModalOpen && (
-        <AdminDailyQuestionModal
-          isOpen={isDailyModalOpen}
-          onClose={() => setIsDailyModalOpen(false)}
-          questions={questionsForModal}
-        />
-      )}
+
       {isCreateChallengeModalOpen && (
         <AdminQuestionModal
           isOpen={isCreateChallengeModalOpen}
