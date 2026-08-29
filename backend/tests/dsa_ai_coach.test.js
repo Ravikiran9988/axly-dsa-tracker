@@ -348,7 +348,7 @@ if (input.length >= 2) {
       expect(res.body.data.complexity).toBeDefined();
     });
 
-    it('also responds via legacy alias route /api/dsa-ai/coach', async () => {
+    it('no longer responds via legacy alias route /api/dsa-ai/coach', async () => {
       const res = await request(app)
         .post('/api/dsa-ai/coach')
         .set('Authorization', `Bearer ${studentToken}`)
@@ -358,8 +358,7 @@ if (input.length >= 2) {
           action: 'EXPLAIN'
         });
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.intent).toBe('EXPLANATION');
+      expect(res.status).toBe(404);
     });
   });
 });

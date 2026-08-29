@@ -2,13 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { ensurePracticeSchema } = require('../db/practiceSchema');
-const { seedPracticeProblems } = require('../db/practiceSeed');
 const c = require('../controllers/practiceController');
 
-ensurePracticeSchema();
-if (process.env.NODE_ENV !== 'test') {
-  seedPracticeProblems();
-}
+// Schema and seeds are managed by server.js initialization
 
 router.use(authenticate);
 

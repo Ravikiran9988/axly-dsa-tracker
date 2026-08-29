@@ -210,15 +210,13 @@ describe('Phase 1: DSA AI Foundation Suite', () => {
       expect(res.body.data.context.matched).toBe(false);
     });
 
-    it('also responds via legacy alias route /api/dsa-ai/analyze', async () => {
+    it('no longer responds via legacy alias route /api/dsa-ai/analyze', async () => {
       const res = await request(app)
         .post('/api/dsa-ai/analyze')
         .set('Authorization', `Bearer ${studentToken}`)
         .send({ question: 'Give me a hint for Two Sum' });
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.intent).toBe('HINT');
-      expect(res.body.data.matchedProblem).toBeDefined();
+      expect(res.status).toBe(404);
     });
   });
 });

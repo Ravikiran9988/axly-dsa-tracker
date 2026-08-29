@@ -27,6 +27,10 @@ async function generateGuidance(req, res, next) {
       forceLlm,
       user: req.user
     });
+    
+    if (result && result.providerErrors) {
+      delete result.providerErrors;
+    }
     return res.status(200).json({
       data: result
     });
@@ -57,6 +61,10 @@ async function coach(req, res, next) {
       verify,
       user: req.user
     });
+
+    if (result && result.providerErrors) {
+      delete result.providerErrors;
+    }
 
     return res.status(200).json({
       data: result

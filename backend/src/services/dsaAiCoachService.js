@@ -198,7 +198,7 @@ class DsaAiCoachService {
           source: 'database',
           topic,
           pattern,
-          answer: `Hint ${idx + 1}: As you iterate, check if (target - current_element) exists in your seen lookup table. If found, return their indices immediately.`,
+          answer: `Hint ${idx + 1}: Think about what information you need to track while applying the ${pattern || 'optimal'} technique.`,
           code: null,
           complexity: { time: timeComplexity, space: spaceComplexity },
           verification: null

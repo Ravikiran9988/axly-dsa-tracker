@@ -106,7 +106,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
-              {problem?.title ? `Grounding on: ${problem.title}` : 'Deterministic Intelligence & Fallback'}
+              {problem?.title ? `Grounding on: ${problem.title}` : 'No problem selected — ask any DSA question.'}
             </p>
           </div>
         </div>

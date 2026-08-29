@@ -214,7 +214,7 @@ describe('Phase 2: DSA LLM Router & Provider Fallback Suite', () => {
       expect(res.body.data.source).toBe('llm');
     });
 
-    it('also responds via legacy alias route /api/dsa-ai/generate', async () => {
+    it('no longer responds via legacy alias route /api/dsa-ai/generate', async () => {
       const res = await request(app)
         .post('/api/dsa-ai/generate')
         .set('Authorization', `Bearer ${studentToken}`)
@@ -222,10 +222,7 @@ describe('Phase 2: DSA LLM Router & Provider Fallback Suite', () => {
           question: 'Give me a hint for Two Sum'
         });
 
-      expect(res.status).toBe(200);
-      expect(res.body.data).toBeDefined();
-      expect(res.body.data.source).toBe('database');
-      expect(res.body.data.guidance).toBeDefined();
+      expect(res.status).toBe(404);
     });
   });
 });

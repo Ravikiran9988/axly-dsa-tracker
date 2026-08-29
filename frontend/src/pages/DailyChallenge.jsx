@@ -70,6 +70,7 @@ export default function DailyChallenge({ onSelectProblem }) {
 
   const diffStr = String(daily.difficulty || '').toLowerCase();
   const calculatedPoints = diffStr === 'hard' ? 150 : diffStr === 'medium' ? 100 : 50;
+  const displayPoints = daily?.points ?? calculatedPoints;
   const diffCls = { easy: 'badge-easy', medium: 'badge-medium', hard: 'badge-hard' }[diffStr] || 'badge-neutral';
 
   const totalScore = userProfile?.stats?.total_score || userProfile?.points || 0;
@@ -86,7 +87,7 @@ export default function DailyChallenge({ onSelectProblem }) {
         </div>
         <div className="flex items-center gap-2">
           <div className="badge text-cyan-400 bg-cyan-500/10 border-cyan-500/20">
-            <Zap className="w-3.5 h-3.5" /> +{calculatedPoints} pts
+            <Zap className="w-3.5 h-3.5" /> +{displayPoints} pts
           </div>
           <div className="badge text-rose-400 bg-rose-500/10 border-rose-500/20" title="Consecutive days you've completed the Daily Challenge">
             <Flame className="w-3.5 h-3.5 fill-rose-400" /> {challengeStreak}d Challenge Streak
@@ -136,7 +137,7 @@ export default function DailyChallenge({ onSelectProblem }) {
                 <span>✓ Challenge Solved</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-slate-300">
-                <div>+ {calculatedPoints} Daily Challenge Points</div>
+                <div>+ {displayPoints} Daily Challenge Points</div>
                 <div>+ 20 Streak Bonus</div>
                 <div className="text-cyan-400 font-bold">Total Score: {totalScore} pts</div>
                 <div className="text-amber-400 font-bold">Leaderboard: {lbScore} pts</div>

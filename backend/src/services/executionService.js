@@ -123,7 +123,7 @@ async function executeLocally({ language, sourceCode, testCases, isSubmit }) {
     java: 'java', cpp: 'cpp', c: 'c'
   };
   const ext = extMap[lang] || 'js';
-  const fileName = `solution_${uuidv4()}.${ext}`;
+  const fileName = lang === 'java' ? 'Main.java' : `solution_${uuidv4()}.${ext}`;
   const filePath = path.join(tempDir, fileName);
 
   try {
@@ -132,9 +132,27 @@ async function executeLocally({ language, sourceCode, testCases, isSubmit }) {
     let command = 'node';
     let args = [filePath];
 
+    const isWin = process.platform === 'win32';
+    const shellCmd = isWin ? 'cmd' : 'sh';
+    const shellArg = isWin ? '/c' : '-c';
+
     if (lang.includes('python') || lang === 'py') {
-      command = process.platform === 'win32' ? 'python' : 'python3';
+      command = isWin ? 'python' : 'python3';
       args = [filePath];
+    } else if (lang === 'typescript' || lang === 'ts') {
+      command = isWin ? 'npx.cmd' : 'npx';
+      args = ['ts-node', '--skip-project', filePath];
+    } else if (lang === 'java') {
+      command = shellCmd;
+      args = [shellArg, `javac "${filePath}" && java -cp "${tempDir}" Main`];
+    } else if (lang === 'cpp' || lang === 'c++') {
+      const outPath = path.join(tempDir, isWin ? 'a.exe' : 'a.out');
+      command = shellCmd;
+      args = [shellArg, `g++ -O2 -o "${outPath}" "${filePath}" && "${outPath}"`];
+    } else if (lang === 'c') {
+      const outPath = path.join(tempDir, isWin ? 'a.exe' : 'a.out');
+      command = shellCmd;
+      args = [shellArg, `gcc -o "${outPath}" "${filePath}" && "${outPath}"`];
     }
 
     const results = [];

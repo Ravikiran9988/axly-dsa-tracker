@@ -37,11 +37,11 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
     }
   }
 
+  const dailyQuestion = dailyData?.data || dailyData;
   const totalSolved = practiceProgress?.problems_solved || analytics?.summary?.solved_submissions || analytics?.problems_solved || 0;
   const individualStreak = user?.individualStreak ?? analytics?.summary?.individualStreak ?? user?.streak ?? 1;
   const dailyChallengeStreak = user?.dailyChallengeStreak ?? analytics?.summary?.dailyChallengeStreak ?? dailyQuestion?.dailyChallengeStreak ?? 0;
   const totalPoints = user?.points || analytics?.summary?.total_score || analytics?.total_points || 0;
-  const dailyQuestion = dailyData?.data || dailyData;
   const dailySolved = dailyQuestion?.submission_status === 'solved' || dailyQuestion?.is_solved;
 
   return (
@@ -75,7 +75,7 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
           { label: 'Individual Streak', value: loading ? '—' : `${individualStreak}d`, icon: Zap, color: 'text-amber-400', desc: "Consecutive days you've logged in to AXLY." },
           { label: 'Challenge Streak', value: loading ? '—' : `${dailyChallengeStreak}d`, icon: Flame, color: 'text-rose-400', desc: "Consecutive days you've completed the Daily Challenge." },
           { label: 'Total Score', value: loading ? '—' : totalPoints, icon: Award, color: 'text-cyan-400', desc: 'Practice + Daily + Streak bonus' },
-          { label: 'Leaderboard', value: loading ? '—' : analytics?.rank ? `#${analytics.rank}` : '#1', icon: Trophy, color: 'text-violet-400', desc: 'Rank by Daily Challenge points' },
+          { label: 'Leaderboard', value: loading ? '—' : analytics?.rank ? `#${analytics.rank}` : '—', icon: Trophy, color: 'text-violet-400', desc: 'Rank by Daily Challenge points' },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex flex-col justify-between hover:border-slate-700 transition-colors" title={s.desc}>
             <div className="text-xs text-slate-400 font-medium mb-1 truncate">{s.label}</div>
