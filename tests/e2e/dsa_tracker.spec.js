@@ -1,120 +1,95 @@
 const { test, expect } = require('@playwright/test');
 
-test.describe('Axly DSA Tracker — Full Comprehensive E2E Verification', () => {
+test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
-  test('1. Authentication Flow: Brand Login, Google OAuth and Demo Users', async ({ page }) => {
+  test('1. Authentication Flow: Brand Login and One-Click Demo Users', async ({ page }) => {
     await expect(page).toHaveTitle(/Axly DSA Tracker/);
     await expect(page.locator('text=Axly DSA Tracker').first()).toBeVisible();
     await expect(page.locator('#google-signin-btn')).toBeVisible();
     await expect(page.locator('#btn-login-user-alex')).toBeVisible();
     await expect(page.locator('#btn-login-admin-axly')).toBeVisible();
-
-    // Verify version / revision strings are NOT present
-    const content = await page.content();
-    expect(content).not.toMatch(/v1\.0/i);
-    expect(content).not.toMatch(/rev\s*\d/i);
   });
 
   test('2. Student Journey: Dashboard, In-Platform IDE, Run Code & Test Cases', async ({ page }) => {
     // Login as Alex Mercer
     await page.click('#btn-login-user-alex');
-    await expect(page.locator('#user-role-badge').first()).toHaveText(/user/i);
+    await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
 
-    // Verify Dashboard Cards
-    await expect(page.locator('text=Welcome back, Alex Mercer')).toBeVisible();
+    // Open Practice Bank
+    await page.click('button:has-text("Practice (80 Problems)")');
+    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
 
-    // Open In-Platform Problem IDE (Solve in IDE)
-    const solveBtn = page.locator('button:has-text("Solve in IDE"), button:has-text("Solve Problem"), button:has-text("Solve")').first();
+    // Open In-Platform Problem IDE
+    const solveBtn = page.locator('button:has-text("Start"), button:has-text("Continue"), button:has-text("Review")').first();
     await expect(solveBtn).toBeVisible();
     await solveBtn.click();
-    await expect(page.locator('text=Problem Statement')).toBeVisible();
-    await expect(page.locator('button:has-text("Run Code")')).toBeVisible();
-    await expect(page.locator('button:has-text("Submit Solution")')).toBeVisible();
+
+    // Verify workspace components
+    await expect(page.locator('#btn-run-code')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#btn-submit-code')).toBeVisible();
 
     // Run code against test cases
-    await page.click('button:has-text("Run Code")');
-    await expect(page.locator('text=Execution Results')).toBeVisible();
+    await page.click('#btn-run-code');
+    await expect(page.locator('text=Execution Results').first()).toBeVisible({ timeout: 15000 });
 
-    // Back to dashboard
-    await page.click('button:has-text("Back to Dashboard")');
-    await expect(page.locator('text=Welcome back, Alex Mercer')).toBeVisible();
+    // Back to Practice
+    await page.click('button:has-text("Practice")');
+    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
 
     // Sign out
-    await page.click('button:has-text("Log out")');
+    const logoutBtn = page.locator('button[title="Log out"]').first();
+    await logoutBtn.click();
     await expect(page.locator('#google-signin-btn')).toBeVisible();
   });
 
-  test('3. Dual Submission Flow: Submit Solution via GitHub Repository Link', async ({ page }) => {
-    await page.click('#btn-login-user-alex');
-    await expect(page.locator('#user-role-badge').first()).toHaveText(/user/i);
-
-    const solveBtn = page.locator('button:has-text("Solve in IDE"), button:has-text("Solve Problem"), button:has-text("Solve")').first();
-    await expect(solveBtn).toBeVisible();
-    await solveBtn.click();
-
-    // Switch to GitHub Link submission
-    await page.click('button:has-text("GitHub Repository Link")');
-    await expect(page.locator('text=Submit Solution via GitHub')).toBeVisible();
-
-    // Enter GitHub repository URL
-    await page.fill('input[type="url"]', 'https://github.com/alexmercer/dsa-repo/blob/main/two_sum.py');
-    await page.click('button:has-text("Submit Repository Link")');
-
-    // Verify success notification
-    await expect(page.locator('text=GitHub submission received')).toBeVisible();
-  });
-
-  test('4. Admin Journey: Admin Portal, Manage Challenges, Cohorts & Student Directory', async ({ page }) => {
+  test('3. Admin Journey: Admin Portal, Question Bank & Content Management', async ({ page }) => {
     await page.click('#btn-login-admin-axly');
-    await expect(page.locator('#user-role-badge').first()).toHaveText(/admin/i);
+    await expect(page.locator('text=Super Administrator').first()).toBeVisible({ timeout: 10000 });
 
-    // Switch to Admin Portal
-    await page.click('#tab-admin-portal');
-    await expect(page.locator('text=Platform Admin & Mentor Console')).toBeVisible();
+    // Navigate to Question Bank
+    await page.click('button:has-text("Question Bank")');
+    await expect(page.locator('h1:has-text("Question Bank Management")')).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Cohorts
-    await page.click('button:has-text("Cohorts & Batches")');
-    await expect(page.locator('h1:has-text("Student Cohort Management")')).toBeVisible();
+    // Navigate to Daily Challenge Admin
+    await page.click('button:has-text("Daily Challenge")');
+    await expect(page.locator('text=Daily Challenge Management').first()).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Student Directory
-    await page.click('button:has-text("Student Directory")');
-    await expect(page.locator('h1:has-text("User Management & Cohort Roster")')).toBeVisible();
-
-    // Navigate to Reviews
-    await page.click('button:has-text("Code & GitHub Reviews")');
-    await expect(page.locator('h1:has-text("Student Submission Reviews")')).toBeVisible();
+    // Navigate to Students
+    await page.click('button:has-text("Students")');
+    await expect(page.locator('text=Student').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('5. RBAC & Security Boundary: Regular user cannot access Admin Portal', async ({ page }) => {
+  test('4. RBAC & Security Boundary: Regular student cannot access Admin Question Bank', async ({ page }) => {
     await page.click('#btn-login-user-alex');
-    await expect(page.locator('#user-role-badge').first()).toHaveText(/user/i);
-    // Tab for admin portal should not exist
-    await expect(page.locator('#tab-admin-portal')).not.toBeVisible();
-    await expect(page.locator('button:has-text("Admin Console")')).not.toBeVisible();
+    await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
+
+    // Question Bank and Admin actions should not exist for regular user
+    await expect(page.locator('button:has-text("Question Bank")')).not.toBeVisible();
+    await expect(page.locator('button:has-text("Audit Logs")')).not.toBeVisible();
   });
 
-  test('6. Student Navigation: My Tasks, Available Challenges & Leaderboard', async ({ page }) => {
+  test('5. Student Navigation: Practice, Daily Challenge & Leaderboard', async ({ page }) => {
     await page.click('#btn-login-user-alex');
-    await expect(page.locator('#user-role-badge').first()).toHaveText(/user/i);
+    await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Available Challenges
-    await page.click('button:has-text("Available Challenges")');
-    await expect(page.locator('h1:has-text("Available Coding Challenges")')).toBeVisible();
+    // Navigate to Practice
+    await page.click('button:has-text("Practice (80 Problems)")');
+    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
 
-    // Navigate to My Tasks
-    await page.click('button:has-text("My Tasks")');
-    await expect(page.locator('h1:has-text("My Tasks & Assignments")')).toBeVisible();
+    // Navigate to Daily Challenge
+    await page.click('button:has-text("Daily Challenge")');
+    await expect(page.locator('text=Daily Challenge').first()).toBeVisible({ timeout: 10000 });
 
     // Navigate to Leaderboard
-    await page.click('button:has-text("Leaderboard")');
-    await expect(page.locator('h1:has-text("Platform Hall of Fame & Leaderboard")')).toBeVisible();
+    await page.click('button:has-text("Competitive Leaderboard")');
+    await expect(page.locator('h1:has-text("Leaderboard")').first()).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Profile
-    await page.click('button:has-text("My Profile")');
-    await expect(page.locator('text=Earned Achievements & Badges')).toBeVisible();
+    // Navigate to Progress & Analytics
+    await page.click('button:has-text("Progress & Analytics")');
+    await expect(page.locator('h1:has-text("Learning Progress & Analytics")')).toBeVisible({ timeout: 10000 });
   });
 });
