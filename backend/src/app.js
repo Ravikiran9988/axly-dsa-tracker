@@ -25,6 +25,7 @@ const cohortRoutes = require('./routes/cohortRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const aiQuestionRoutes = require('./routes/aiQuestionRoutes');
 const auditRoutes = require('./routes/auditRoutes');
+const dsaAiRoutes = require('./routes/dsaAiRoutes');
 
 const app = express();
 
@@ -135,6 +136,8 @@ app.use('/api/v1/cohorts', cohortRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/ai-questions', aiQuestionRoutes);
 app.use('/api/v1/admin/audit-logs', auditRoutes);
+app.use('/api/v1/dsa-ai', dsaAiRoutes);
+app.use('/api/dsa-ai', dsaAiRoutes);
 
 // 404 Fallback Handler
 app.use((req, res) =>
