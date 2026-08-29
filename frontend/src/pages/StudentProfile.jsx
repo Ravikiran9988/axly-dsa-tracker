@@ -189,7 +189,7 @@ export default function StudentProfile({ onSelectProblem }) {
           <span className="text-[11px] text-slate-500 font-mono">Server Authoritative</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           {/* Total Score */}
           <div className="p-4 rounded-2xl bg-slate-950/80 border border-cyan-500/30 text-center">
             <div className="text-xl font-black text-cyan-400">{stats?.total_score || stats?.points || 0}</div>
@@ -220,12 +220,20 @@ export default function StudentProfile({ onSelectProblem }) {
             <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Leaderboard Score</div>
           </div>
 
-          {/* Current & Best Streak */}
+          {/* Individual Activity Streak */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/20 text-center">
+            <div className="text-xl font-black text-amber-400 flex items-center justify-center gap-1">
+              <Zap className="w-4 h-4" /> {stats?.individualStreak ?? stats?.streak ?? 1}d
+            </div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Activity (Best: {stats?.individualBestStreak ?? stats?.longest_streak ?? 1}d)</div>
+          </div>
+
+          {/* Challenge Streak */}
           <div className="p-4 rounded-2xl bg-slate-950/80 border border-rose-500/20 text-center">
             <div className="text-xl font-black text-rose-400 flex items-center justify-center gap-1">
-              <Flame className="w-4 h-4 fill-rose-400" /> {stats?.streak || 1}d
+              <Flame className="w-4 h-4 fill-rose-400" /> {stats?.dailyChallengeStreak ?? 0}d
             </div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Best: {stats?.longest_streak || 1}d</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Challenge (Best: {stats?.dailyChallengeBestStreak ?? 0}d)</div>
           </div>
         </div>
       </div>

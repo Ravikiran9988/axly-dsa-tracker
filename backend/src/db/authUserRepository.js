@@ -6,14 +6,24 @@ function getRepo() {
 
 async function findUserById(id) {
   return getRepo().one(
-    'SELECT id, name, email, role, avatar_url, institution, points, streak, longest_streak, rank, email_verified, last_active_at, created_at FROM users WHERE id = ?',
+    `SELECT id, name, email, role, avatar_url, institution, points, 
+            practice_points, daily_challenge_points, streak_bonus, leaderboard_score,
+            individual_streak, individual_best_streak, daily_challenge_streak, daily_challenge_best_streak,
+            streak, longest_streak, rank, email_verified, last_login_date, last_daily_challenge_solve_date,
+            last_active_at, created_at 
+     FROM users WHERE id = ?`,
     [id]
   );
 }
 
 async function findUserByEmail(email) {
   return getRepo().one(
-    'SELECT id, name, email, role, password_hash, avatar_url, institution, points, streak, longest_streak, rank, email_verified, last_active_at, created_at FROM users WHERE LOWER(email) = LOWER(?)',
+    `SELECT id, name, email, role, password_hash, avatar_url, institution, points, 
+            practice_points, daily_challenge_points, streak_bonus, leaderboard_score,
+            individual_streak, individual_best_streak, daily_challenge_streak, daily_challenge_best_streak,
+            streak, longest_streak, rank, email_verified, last_login_date, last_daily_challenge_solve_date,
+            last_active_at, created_at 
+     FROM users WHERE LOWER(email) = LOWER(?)`,
     [email]
   );
 }

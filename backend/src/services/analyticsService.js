@@ -100,7 +100,10 @@ async function getUserAnalytics(userId) {
   }
   const activity = Object.values(activityMap).slice(0, 30);
   const { getUserScoreBreakdown } = require('./gamificationService');
+  const { getUserStreaks } = require('./streakService');
+
   const scoreBreakdown = await getUserScoreBreakdown(userId);
+  const streaks = await getUserStreaks(userId);
 
   return {
     summary: {
@@ -110,8 +113,17 @@ async function getUserAnalytics(userId) {
       average_score: Math.round(Number(summary.average_score || 0) * 100) / 100,
       average_time_seconds: Math.round(Number(summary.average_time_seconds || 0) * 100) / 100,
       success_percentage: successPercentage,
-      current_streak: user.streak || 0,
-      longest_streak: user.longest_streak || 0,
+      individualStreak: streaks.individualStreak,
+      individualBestStreak: streaks.individualBestStreak,
+      individual_streak: streaks.individualStreak,
+      individual_best_streak: streaks.individualBestStreak,
+      dailyChallengeStreak: streaks.dailyChallengeStreak,
+      dailyChallengeBestStreak: streaks.dailyChallengeBestStreak,
+      daily_challenge_streak: streaks.dailyChallengeStreak,
+      daily_challenge_best_streak: streaks.dailyChallengeBestStreak,
+      current_streak: streaks.individualStreak,
+      longest_streak: streaks.individualBestStreak,
+      streak: streaks.individualStreak,
       points: scoreBreakdown.total_score,
       total_score: scoreBreakdown.total_score,
       practice_points: scoreBreakdown.practice_points,
@@ -120,6 +132,7 @@ async function getUserAnalytics(userId) {
       leaderboard_score: scoreBreakdown.leaderboard_score
     },
     score_breakdown: scoreBreakdown,
+    streaks,
     difficulty_breakdown: difficulty,
     topic_breakdown: topics,
     weak_topics: weakTopics.slice(0, 5),

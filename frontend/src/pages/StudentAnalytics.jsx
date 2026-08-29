@@ -17,7 +17,9 @@ import {
   Ban,
   BookOpen,
   PieChart,
-  ChevronRight
+  ChevronRight,
+  Trophy,
+  Zap
 } from 'lucide-react';
 import { api } from '../services/api';
 import { practiceApi } from '../services/practiceApi';
@@ -122,18 +124,25 @@ export default function StudentAnalytics({ onSelectProblem }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center shrink-0">
-            <div className="text-lg font-black text-emerald-400 flex items-center justify-center gap-1">
+          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center shrink-0">
+            <div className="text-base font-black text-emerald-400 flex items-center justify-center gap-1">
               <CheckCircle2 className="w-4 h-4" /> {prac.solved} / {prac.total}
             </div>
             <div className="text-[10px] text-emerald-300/80 uppercase font-mono mt-0.5">{prac.completionPercent}% Solved</div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center shrink-0">
-            <div className="text-lg font-black text-amber-400 flex items-center justify-center gap-1">
-              <Flame className="w-4 h-4 fill-amber-400" /> {summary.current_streak}d
+          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center shrink-0" title="Consecutive days you've logged in">
+            <div className="text-base font-black text-amber-400 flex items-center justify-center gap-1">
+              <Zap className="w-4 h-4" /> {summary.individual_streak || summary.individualStreak || 1}d
             </div>
-            <div className="text-[10px] text-amber-300/80 uppercase font-mono mt-0.5">Daily Streak</div>
+            <div className="text-[10px] text-amber-300/80 uppercase font-mono mt-0.5">Activity Streak</div>
+          </div>
+
+          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center shrink-0" title="Consecutive days you've completed Daily Challenge">
+            <div className="text-base font-black text-rose-400 flex items-center justify-center gap-1">
+              <Flame className="w-4 h-4 fill-rose-400" /> {summary.daily_challenge_streak || summary.dailyChallengeStreak || 0}d
+            </div>
+            <div className="text-[10px] text-rose-300/80 uppercase font-mono mt-0.5">Challenge Streak</div>
           </div>
         </div>
       </div>
@@ -148,8 +157,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
               : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
           }`}
         >
-          <Code2 className="w-4 h-4" />
-          <span>Practice Bank Progress (80 Problems)</span>
+          <BookOpen className="w-3.5 h-3.5" /> Practice Problem Bank (80 V1)
         </button>
 
         <button
@@ -160,32 +168,29 @@ export default function StudentAnalytics({ onSelectProblem }) {
               : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
           }`}
         >
-          <TrendingUp className="w-4 h-4" />
-          <span>Skill Telemetry & Insights</span>
+          <BarChart3 className="w-3.5 h-3.5" /> Submission Telemetry & Accuracy
         </button>
       </div>
 
-      {/* YOUR SCORE SECTION */}
-      <div className="p-6 rounded-3xl bg-slate-900/80 border border-cyan-500/20 space-y-4 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+      {/* Unified Score & Streak Architecture Cards */}
+      <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4">
+        <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
-              <Award className="w-4 h-4" />
-              <span>YOUR SCORE & LEADERBOARD METRICS</span>
-            </div>
-            <h2 className="text-base font-bold text-white mt-0.5">Score Breakdown & Progression</h2>
-          </div>
-          <div className="text-[11px] text-slate-400 font-mono">
-            Authoritative Server Calculation
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Award className="w-5 h-5 text-cyan-400" /> Score & Streaks Architecture
+            </h2>
+            <p className="text-xs text-slate-400">
+              Clear separation between personal engagement metrics and competitive ranking points.
+            </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Individual / Total Score Card */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-950/40 to-slate-950 border border-cyan-500/30 space-y-3">
+          {/* Individual Total Score Card */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-950/30 to-slate-950 border border-cyan-500/30 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase text-cyan-400">Total Score</span>
-              <Award className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-mono font-bold uppercase text-cyan-400">Individual Total Score</span>
+              <Sparkles className="w-4 h-4 text-cyan-400" />
             </div>
             <div className="text-3xl font-black text-white font-mono">
               {summary.total_score || summary.points || 0} <span className="text-xs font-normal text-slate-400">pts</span>
@@ -205,7 +210,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
               </div>
             </div>
             <p className="text-[11px] text-slate-400 italic pt-1">
-              * Total Score includes Practice, Daily Challenge, and Streak rewards.
+              * Total Score includes Practice, Daily Challenge, and Activity Streak rewards.
             </p>
           </div>
 
@@ -237,31 +242,44 @@ export default function StudentAnalytics({ onSelectProblem }) {
             </p>
           </div>
 
-          {/* Streak & Consistency Card */}
+          {/* Streaks Card */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-orange-950/30 to-slate-950 border border-orange-500/30 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono font-bold uppercase text-orange-400">Daily Streak</span>
+              <span className="text-xs font-mono font-bold uppercase text-orange-400">Streaks & Consistency</span>
               <Flame className="w-4 h-4 text-orange-400 fill-orange-400" />
             </div>
-            <div className="text-3xl font-black text-orange-400 font-mono">
-              {summary.current_streak || 1} <span className="text-xs font-normal text-slate-400">days</span>
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                <div className="text-[11px] text-amber-300/90 font-mono flex items-center justify-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-400" /> Activity
+                </div>
+                <div className="text-xl font-black text-white font-mono mt-0.5">
+                  {summary.individual_streak || summary.individualStreak || 1}d
+                </div>
+                <div className="text-[10px] text-slate-400">Best: {summary.individual_best_streak || summary.individualBestStreak || 1}d</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                <div className="text-[11px] text-rose-300/90 font-mono flex items-center justify-center gap-1">
+                  <Flame className="w-3 h-3 text-rose-400" /> Challenge
+                </div>
+                <div className="text-xl font-black text-rose-400 font-mono mt-0.5">
+                  {summary.daily_challenge_streak || summary.dailyChallengeStreak || 0}d
+                </div>
+                <div className="text-[10px] text-slate-400">Best: {summary.daily_challenge_best_streak || summary.dailyChallengeBestStreak || 0}d</div>
+              </div>
             </div>
-            <div className="space-y-1.5 pt-2 border-t border-slate-800/80 text-xs font-mono">
+            <div className="space-y-1 pt-2 border-t border-slate-800/80 text-xs font-mono">
               <div className="flex justify-between text-slate-300">
-                <span>Current Streak:</span>
-                <span className="text-orange-400 font-bold">{summary.current_streak || 1}d</span>
+                <span>⚡ Activity Rewards:</span>
+                <span className="text-amber-400 font-bold">+{summary.streak_bonus || 0} pts</span>
               </div>
               <div className="flex justify-between text-slate-300">
-                <span>Best Streak:</span>
-                <span className="text-amber-300 font-bold">{summary.longest_streak || 1}d</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Next Streak Bonus:</span>
+                <span>Next Activity Bonus:</span>
                 <span className="text-emerald-400 font-bold">+20 pts</span>
               </div>
             </div>
             <p className="text-[11px] text-slate-400 italic pt-1">
-              * Keep solving daily challenges every calendar day to grow your streak.
+              * Login daily for Activity streak; solve Daily Challenges for Challenge streak.
             </p>
           </div>
         </div>

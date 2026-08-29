@@ -40,6 +40,12 @@ function initSchema() {
       password_hash TEXT,
       email_verified INTEGER DEFAULT 1,
       points INTEGER DEFAULT 100,
+      individual_streak INTEGER NOT NULL DEFAULT 0,
+      individual_best_streak INTEGER NOT NULL DEFAULT 0,
+      daily_challenge_streak INTEGER NOT NULL DEFAULT 0,
+      daily_challenge_best_streak INTEGER NOT NULL DEFAULT 0,
+      last_login_date TEXT,
+      last_daily_challenge_solve_date TEXT,
       streak INTEGER DEFAULT 1,
       longest_streak INTEGER DEFAULT 1,
       rank INTEGER DEFAULT 1,
@@ -62,6 +68,17 @@ function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+    CREATE TABLE IF NOT EXISTS user_daily_activity (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      activity_date TEXT NOT NULL,
+      activity_type TEXT NOT NULL DEFAULT 'login',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (user_id, activity_date)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_daily_activity_user_date ON user_daily_activity(user_id, activity_date);
 
     CREATE TABLE IF NOT EXISTS topics (
       id TEXT PRIMARY KEY,
@@ -727,6 +744,45 @@ function initSchema() {
          OR title LIKE '%Mentor%' 
          OR title LIKE '%Cohort%'
     `).run();
+  } catch (e) {
+    // ignore
+  }
+
+  // Individual & Daily Challenge Streak columns migration & safe backfill
+  addColumnIfNotExists('users', 'individual_streak', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('users', 'individual_best_streak', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('users', 'daily_challenge_streak', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('users', 'daily_challenge_best_streak', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('users', 'last_login_date', 'TEXT');
+  addColumnIfNotExists('users', 'last_daily_challenge_solve_date', 'TEXT');
+
+  try {
+    // Backfill individual streak from existing streak if not set
+    db.prepare(`
+      UPDATE users 
+      SET 
+        individual_streak = COALESCE(NULLIF(individual_streak, 0), streak, 0),
+        individual_best_streak = COALESCE(NULLIF(individual_best_streak, 0), longest_streak, streak, 0)
+      WHERE individual_streak = 0 OR individual_streak IS NULL
+    `).run();
+
+    // Reconstruct daily challenge streak from points_ledger records
+    const dcSolves = db.prepare(`
+      SELECT user_id, COUNT(DISTINCT source_id) AS solve_count
+      FROM points_ledger
+      WHERE category = 'daily_challenge' AND source_type = 'DAILY_CHALLENGE_SOLVE'
+      GROUP BY user_id
+    `).all();
+
+    for (const s of dcSolves) {
+      db.prepare(`
+        UPDATE users 
+        SET 
+          daily_challenge_streak = CASE WHEN daily_challenge_streak = 0 THEN ? ELSE daily_challenge_streak END,
+          daily_challenge_best_streak = CASE WHEN daily_challenge_best_streak = 0 THEN ? ELSE daily_challenge_best_streak END
+        WHERE id = ?
+      `).run(s.solve_count, s.solve_count, s.user_id);
+    }
   } catch (e) {
     // ignore
   }

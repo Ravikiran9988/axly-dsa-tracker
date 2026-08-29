@@ -7,12 +7,12 @@ const repo = getRepository();
  *
  * CRITICAL RULE:
  * Leaderboard Score = Daily Challenge Points ONLY.
- * Practice points and streak bonuses NEVER affect the leaderboard.
+ * Practice points and streak bonuses NEVER affect the leaderboard ranking.
  *
  * ALL-TIME RULE:
  * 1. Leaderboard Score / Daily Challenge Points (descending)
- * 2. Active Daily Streak (descending)
- * 3. Longest Streak (descending)
+ * 2. Daily Challenge Streak (descending)
+ * 3. Daily Challenge Best Streak (descending)
  * 4. User Name (ascending alphabetical)
  * 5. User ID (ascending stable tiebreaker)
  *
@@ -22,7 +22,7 @@ const repo = getRepository();
  * 3. User Name (ascending alphabetical)
  * 4. User ID (ascending stable tiebreaker)
  */
-const ALL_TIME_ORDER = 'COALESCE(leaderboard_score, daily_challenge_points, 0) DESC, streak DESC, longest_streak DESC, name ASC, id ASC';
+const ALL_TIME_ORDER = 'COALESCE(leaderboard_score, daily_challenge_points, 0) DESC, daily_challenge_streak DESC, daily_challenge_best_streak DESC, name ASC, id ASC';
 const PERIOD_ORDER = 'points DESC, completed_count DESC, name ASC, id ASC';
 
 async function refreshCompetitiveRanks() {
@@ -45,8 +45,16 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
         COALESCE(points, 0) AS total_score,
         COALESCE(practice_points, 0) AS practice_points,
         COALESCE(streak_bonus, 0) AS streak_bonus,
-        COALESCE(streak, 0) AS streak,
-        COALESCE(longest_streak, 0) AS longest_streak,
+        COALESCE(daily_challenge_streak, 0) AS daily_challenge_streak,
+        COALESCE(daily_challenge_best_streak, 0) AS daily_challenge_best_streak,
+        COALESCE(daily_challenge_streak, 0) AS dailyChallengeStreak,
+        COALESCE(daily_challenge_best_streak, 0) AS dailyChallengeBestStreak,
+        COALESCE(individual_streak, streak, 0) AS individual_streak,
+        COALESCE(individual_best_streak, longest_streak, 0) AS individual_best_streak,
+        COALESCE(individual_streak, streak, 0) AS individualStreak,
+        COALESCE(individual_best_streak, longest_streak, 0) AS individualBestStreak,
+        COALESCE(daily_challenge_streak, 0) AS streak,
+        COALESCE(daily_challenge_best_streak, 0) AS longest_streak,
         (
           SELECT COUNT(DISTINCT s.question_id)
           FROM submissions s
@@ -67,8 +75,14 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
   const rows = await repo.many(`
     SELECT 
       u.id, u.name, u.email, u.avatar_url, u.institution,
-      COALESCE(u.streak, 0) AS streak,
-      COALESCE(u.longest_streak, 0) AS longest_streak,
+      COALESCE(u.daily_challenge_streak, 0) AS daily_challenge_streak,
+      COALESCE(u.daily_challenge_best_streak, 0) AS daily_challenge_best_streak,
+      COALESCE(u.daily_challenge_streak, 0) AS dailyChallengeStreak,
+      COALESCE(u.daily_challenge_best_streak, 0) AS dailyChallengeBestStreak,
+      COALESCE(u.individual_streak, u.streak, 0) AS individual_streak,
+      COALESCE(u.individual_best_streak, u.longest_streak, 0) AS individual_best_streak,
+      COALESCE(u.daily_challenge_streak, 0) AS streak,
+      COALESCE(u.daily_challenge_best_streak, 0) AS longest_streak,
       COALESCE(u.points, 0) AS total_score,
       (
         SELECT COALESCE(SUM(pl.points), 0)
@@ -93,21 +107,27 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
     return repo.many(`
       SELECT 
         u.id, u.name, u.email, u.avatar_url, u.institution,
-        COALESCE(u.streak, 0) AS streak,
-        COALESCE(u.longest_streak, 0) AS longest_streak,
+        COALESCE(u.daily_challenge_streak, 0) AS daily_challenge_streak,
+        COALESCE(u.daily_challenge_best_streak, 0) AS daily_challenge_best_streak,
+        COALESCE(u.daily_challenge_streak, 0) AS dailyChallengeStreak,
+        COALESCE(u.daily_challenge_best_streak, 0) AS dailyChallengeBestStreak,
+        COALESCE(u.individual_streak, u.streak, 0) AS individual_streak,
+        COALESCE(u.individual_best_streak, u.longest_streak, 0) AS individual_best_streak,
+        COALESCE(u.daily_challenge_streak, 0) AS streak,
+        COALESCE(u.daily_challenge_best_streak, 0) AS longest_streak,
         COALESCE(u.points, 0) AS total_score,
         (
           SELECT COALESCE(SUM(pl.points), 0)
           FROM points_ledger pl
           WHERE pl.user_id = u.id AND pl.category = 'daily_challenge'
-            AND datetime(pl.created_at) >= datetime('now', '-${days} days')
+            AND pl.created_at >= datetime('now', '-${days} days')
         ) AS points,
         (
           SELECT COUNT(DISTINCT s.question_id)
           FROM submissions s
           WHERE s.user_id = u.id AND s.status IN ('solved', 'completed', 'approved')
             AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT id FROM daily_challenge_problems))
-            AND datetime(COALESCE(s.solved_at, s.updated_at, s.created_at)) >= datetime('now', '-${days} days')
+            AND COALESCE(s.solved_at, s.updated_at, s.created_at) >= datetime('now', '-${days} days')
         ) AS completed_count,
         (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count
       FROM users u
@@ -119,15 +139,14 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
 
   return rows.map((u, i) => ({
     ...u,
-    competitive_points: u.points,
     rank: i + 1,
+    competitive_points: Number(u.points || 0),
     period: normalizedPeriod
   }));
 }
 
 module.exports = {
   COMPETITIVE_ORDER: ALL_TIME_ORDER,
-  PERIOD_ORDER,
   refreshCompetitiveRanks,
   getCompetitiveLeaders
 };

@@ -12,6 +12,9 @@ const {
   sendPasswordResetEmail
 } = require('../services/emailService');
 
+const { recordDailyLogin, getUserStreaks } = require('../services/streakService');
+const { getUserScoreBreakdown } = require('../services/gamificationService');
+
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -34,6 +37,34 @@ function validatePasswordStrength(password) {
 
 function generateNumericOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function formatAuthUser(user) {
+  if (!user) return null;
+  const streaks = await getUserStreaks(user.id);
+  const score = await getUserScoreBreakdown(user.id);
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    avatar_url: user.avatar_url,
+    institution: user.institution,
+    individualStreak: streaks.individualStreak,
+    individualBestStreak: streaks.individualBestStreak,
+    dailyChallengeStreak: streaks.dailyChallengeStreak,
+    dailyChallengeBestStreak: streaks.dailyChallengeBestStreak,
+    streak: streaks.individualStreak,
+    longest_streak: streaks.individualBestStreak,
+    points: score.total_score,
+    practicePoints: score.practice_points,
+    dailyChallengePoints: score.daily_challenge_points,
+    streakBonus: score.streak_bonus,
+    totalScore: score.total_score,
+    leaderboardScore: score.leaderboard_score,
+    created_at: user.created_at
+  };
 }
 
 // 1. POST /api/v1/auth/signup
@@ -179,6 +210,8 @@ async function verifyOtp(req, res, next) {
     await authUserRepository.setEmailVerified(user.id, 1);
 
     const updatedUser = await authUserRepository.findUserById(user.id);
+    await recordDailyLogin(updatedUser.id);
+    const formattedUser = await formatAuthUser(updatedUser);
     const sessionToken = generateToken({
       id: updatedUser.id,
       email: updatedUser.email,
@@ -189,7 +222,7 @@ async function verifyOtp(req, res, next) {
     return res.status(200).json({
       message: 'Account verified and created successfully.',
       token: sessionToken,
-      user: updatedUser
+      user: formattedUser
     });
   } catch (err) {
     next(err);
@@ -309,21 +342,11 @@ async function login(req, res, next) {
       });
     }
 
+    await recordDailyLogin(user.id);
     const token = generateToken({ id: user.id, email: user.email, name: user.name, role: user.role });
-    const userSafe = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar_url: user.avatar_url,
-      institution: user.institution,
-      points: user.points || 0,
-      streak: user.streak || 1,
-      longest_streak: user.longest_streak || 1,
-      created_at: user.created_at
-    };
+    const formattedUser = await formatAuthUser(user);
 
-    return res.status(200).json({ token, user: userSafe });
+    return res.status(200).json({ token, user: formattedUser });
   } catch (err) {
     next(err);
   }
@@ -366,12 +389,14 @@ async function verifyEmail(req, res, next) {
     await authUserRepository.setEmailVerified(authToken.user_id, 1);
 
     const user = await authUserRepository.findUserById(authToken.user_id);
+    await recordDailyLogin(user.id);
     const sessionToken = generateToken({ id: user.id, email: user.email, name: user.name, role: user.role });
+    const formattedUser = await formatAuthUser(user);
 
     return res.status(200).json({
       message: 'Your email address has been verified successfully.',
       token: sessionToken,
-      user
+      user: formattedUser
     });
   } catch (err) {
     next(err);
@@ -479,20 +504,9 @@ async function resetPassword(req, res, next) {
 // 9. GET or POST /api/v1/auth/verify
 async function verifySession(req, res, next) {
   try {
-    return res.status(200).json({
-      user: {
-        id: req.user.id,
-        name: req.user.name,
-        email: req.user.email,
-        role: req.user.role,
-        avatar_url: req.user.avatar_url,
-        institution: req.user.institution,
-        points: req.user.points || 0,
-        streak: req.user.streak || 1,
-        longest_streak: req.user.longest_streak || 1,
-        created_at: req.user.created_at
-      }
-    });
+    await recordDailyLogin(req.user.id);
+    const formattedUser = await formatAuthUser(req.user);
+    return res.status(200).json({ user: formattedUser });
   } catch (err) {
     next(err);
   }
@@ -532,8 +546,11 @@ async function devLogin(req, res, next) {
       user = { ...user, role };
     }
 
+    await recordDailyLogin(user.id);
     const token = generateToken({ id: user.id, email: user.email, name: user.name, role: user.role });
-    return res.status(200).json({ token, user });
+    const formattedUser = await formatAuthUser(user);
+
+    return res.status(200).json({ token, user: formattedUser });
   } catch (err) {
     next(err);
   }

@@ -29,6 +29,12 @@ CREATE TABLE IF NOT EXISTS users (
   daily_challenge_points INTEGER NOT NULL DEFAULT 0,
   streak_bonus INTEGER NOT NULL DEFAULT 0,
   leaderboard_score INTEGER NOT NULL DEFAULT 0,
+  individual_streak INTEGER NOT NULL DEFAULT 0,
+  individual_best_streak INTEGER NOT NULL DEFAULT 0,
+  daily_challenge_streak INTEGER NOT NULL DEFAULT 0,
+  daily_challenge_best_streak INTEGER NOT NULL DEFAULT 0,
+  last_login_date DATE,
+  last_daily_challenge_solve_date DATE,
   streak INTEGER NOT NULL DEFAULT 0,
   longest_streak INTEGER NOT NULL DEFAULT 0,
   password_hash TEXT,
@@ -43,6 +49,20 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_leaderboard_score ON users(leaderboard_score DESC);
 CREATE INDEX IF NOT EXISTS idx_users_points ON users(points DESC);
+CREATE INDEX IF NOT EXISTS idx_users_individual_streak ON users(individual_streak DESC);
+CREATE INDEX IF NOT EXISTS idx_users_challenge_streak ON users(daily_challenge_streak DESC);
+
+-- 2b. USER DAILY ACTIVITY TABLE (Activity / Login Streaks)
+CREATE TABLE IF NOT EXISTS user_daily_activity (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  activity_date DATE NOT NULL,
+  activity_type TEXT NOT NULL DEFAULT 'login' CHECK (activity_type IN ('login', 'session_refresh')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, activity_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_daily_activity_user_date ON user_daily_activity(user_id, activity_date);
 
 -- 3. AUTH TOKENS TABLE (Password Reset & Email Verification)
 CREATE TABLE IF NOT EXISTS auth_tokens (

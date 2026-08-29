@@ -95,9 +95,9 @@ export default function StudentSidebar({
       {!isCollapsed && (
         <div className="p-3 mx-3 my-2.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-inner">
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-amber-400 font-bold font-mono" title="Daily Challenge Streak">
-              <Flame className="w-4 h-4 fill-amber-400" />
-              <span>{user?.streak || 1}d Streak</span>
+            <div className="flex items-center gap-1.5 text-amber-400 font-bold font-mono" title="Consecutive days you've logged in to AXLY">
+              <Zap className="w-4 h-4" />
+              <span>{user?.individualStreak ?? user?.streak ?? 1}d Streak</span>
             </div>
             <div className="flex items-center gap-1 text-cyan-400 font-mono text-[11px] font-semibold" title="Total Score (Practice + Daily Challenge + Streak)">
               <Trophy className="w-3.5 h-3.5 text-cyan-400" />

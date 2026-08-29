@@ -60,6 +60,16 @@ export function AuthProvider({ children }) {
     }
 
     async function initAuth() {
+      // Clean URL if OAuth error params or invalid state are present
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const errDesc = urlParams.get('error_description') || urlParams.get('error');
+        if (errDesc) {
+          console.warn('OAuth redirect notice:', errDesc);
+          window.history.replaceState({}, document.title, window.location.pathname || '/');
+        }
+      }
+
       // 1. Check local session token first for instantaneous session resolution
       const token = localStorage.getItem('axly_auth_token');
       if (token) {

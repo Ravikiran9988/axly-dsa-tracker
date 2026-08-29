@@ -115,12 +115,18 @@ async function getMyProfile(req, res, next) {
     } catch (_) {}
 
     const { getUserScoreBreakdown } = require('../services/gamificationService');
+    const { getUserStreaks } = require('../services/streakService');
     const scoreBreakdown = await getUserScoreBreakdown(userId);
+    const streaks = await getUserStreaks(userId);
 
     return res.status(200).json({
       data: {
         ...user,
         skills: safeParseJson(user.skills),
+        individualStreak: streaks.individualStreak,
+        individualBestStreak: streaks.individualBestStreak,
+        dailyChallengeStreak: streaks.dailyChallengeStreak,
+        dailyChallengeBestStreak: streaks.dailyChallengeBestStreak,
         points: scoreBreakdown.total_score,
         total_score: scoreBreakdown.total_score,
         practice_points: scoreBreakdown.practice_points,
@@ -128,6 +134,7 @@ async function getMyProfile(req, res, next) {
         streak_bonus: scoreBreakdown.streak_bonus,
         leaderboard_score: scoreBreakdown.leaderboard_score,
         score_breakdown: scoreBreakdown,
+        streaks,
         stats: {
           total_challenges: totalAssigned || completed,
           completed,
@@ -140,8 +147,12 @@ async function getMyProfile(req, res, next) {
           daily_challenge_points: scoreBreakdown.daily_challenge_points,
           streak_bonus: scoreBreakdown.streak_bonus,
           leaderboard_score: scoreBreakdown.leaderboard_score,
-          streak: Number(user.streak || 0),
-          longest_streak: Number(user.longest_streak || 0),
+          individualStreak: streaks.individualStreak,
+          individualBestStreak: streaks.individualBestStreak,
+          dailyChallengeStreak: streaks.dailyChallengeStreak,
+          dailyChallengeBestStreak: streaks.dailyChallengeBestStreak,
+          streak: streaks.individualStreak,
+          longest_streak: streaks.individualBestStreak,
           rank: Number(user.rank || 1)
         },
         badges,

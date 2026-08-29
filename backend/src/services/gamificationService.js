@@ -1,12 +1,9 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { refreshCompetitiveRanks } = require('./leaderboardService');
+const { getCalendarDate, recordDailyChallengeSolve } = require('./streakService');
 const { v4: uuidv4 } = require('uuid');
 
 const repo = getRepository();
-
-function todayUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function getPracticePointsForDifficulty(difficulty) {
   const d = String(difficulty || '').toLowerCase();
@@ -79,9 +76,10 @@ async function syncUserScore(userId) {
  * Award practice solve points (10/20/30 pts based on difficulty).
  * Strictly idempotent: awarded once per practice problem.
  * Contributes to practice_points and total_score ONLY (0 to leaderboard).
+ * Does NOT alter login streak or challenge streak.
  */
 async function awardPracticeSolve(userId, questionId) {
-  const question = await repo.one('SELECT id, difficulty FROM questions WHERE id = ?', [questionId]);
+  const question = await repo.one('SELECT id, difficulty, title FROM questions WHERE id = ?', [questionId]);
   if (!question) return { pointsAwarded: 0, breakdown: await getUserScoreBreakdown(userId) };
 
   const pts = getPracticePointsForDifficulty(question.difficulty);
@@ -137,14 +135,13 @@ async function awardPracticeSolve(userId, questionId) {
 }
 
 /**
- * Award daily challenge solve points (50/100/150 pts based on difficulty) and streak bonus (+20 pts).
+ * Award daily challenge solve points (50/100/150 pts based on difficulty) and updates Daily Challenge Streak.
  * Idempotent: points awarded once per daily challenge.
  * Daily challenge points contribute to total_score and leaderboard_score.
- * Streak bonus contributes to total_score ONLY.
  */
 async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
   const user = await repo.one(
-    'SELECT id, streak, longest_streak, last_active_at FROM users WHERE id = ?',
+    'SELECT id, daily_challenge_streak, daily_challenge_best_streak, last_active_at FROM users WHERE id = ?',
     [userId]
   );
   if (!user) return null;
@@ -163,7 +160,7 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
   }
 
   const nowIso = new Date().toISOString();
-  const today = todayUtc();
+  const today = getCalendarDate();
   const ledgerId = `pl-dc-${userId}-${challengeId}`;
 
   const existingDc = await repo.one(
@@ -180,43 +177,10 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
     pointsAwarded = pts;
   }
 
-  // Calculate Streak & Streak Bonus
-  const last = user.last_active_at ? String(user.last_active_at).slice(0, 10) : null;
-  let streak = Number(user.streak || 0);
+  // Update Daily Challenge Streak independently
+  const streakResult = await recordDailyChallengeSolve(userId, today);
 
-  if (last === today) {
-    if (streak === 0) streak = 1;
-  } else if (last) {
-    const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${last}T00:00:00Z`)) / 86400000);
-    streak = days === 1 ? streak + 1 : 1;
-  } else {
-    streak = 1;
-  }
-
-  const longest = Math.max(Number(user.longest_streak || 0), streak);
-
-  // Award Streak Bonus (+20 pts) once per date
-  const streakLedgerId = `pl-sr-${userId}-${today}`;
-  const existingStreakBonus = await repo.one(
-    "SELECT id FROM points_ledger WHERE user_id = ? AND source_type = 'STREAK_REWARD' AND source_id = ?",
-    [userId, today]
-  );
-
-  let streakBonusAwarded = 0;
-  if (!existingStreakBonus) {
-    await repo.execute(`
-      INSERT INTO points_ledger (id, user_id, source_type, source_id, points, category, reason, created_at)
-      VALUES (?, ?, 'STREAK_REWARD', ?, 20, 'streak', 'Daily Streak Bonus', ?)
-    `, [streakLedgerId, userId, today, nowIso]);
-    streakBonusAwarded = 20;
-  }
-
-  await repo.execute(
-    'UPDATE users SET streak = ?, longest_streak = ?, last_active_at = ? WHERE id = ?',
-    [streak, longest, nowIso, userId]
-  );
-
-  // Send notifications for daily solve & streak milestone
+  // Send notifications for daily solve
   if (pointsAwarded > 0) {
     try {
       const notificationService = require('./notificationService');
@@ -224,22 +188,11 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
       await notificationService.createNotification({
         userId,
         title: 'Daily Challenge Solved! 🏆',
-        message: `You solved "${challengeTitle}"! +${pts} Daily Challenge points and +${streakBonusAwarded} streak bonus awarded.`,
+        message: `You solved "${challengeTitle}"! +${pts} Daily Challenge points added to Leaderboard & Total Score.`,
         category: 'daily_challenge',
         type: 'daily_challenge_completed',
         link: '/daily-challenge'
       });
-
-      if ([3, 7, 14, 30, 60, 100].includes(streak)) {
-        await notificationService.createNotification({
-          userId,
-          title: `🔥 ${streak}-Day Streak Milestone!`,
-          message: `You've maintained a ${streak}-day Daily Challenge streak! Streak bonus unlocked.`,
-          category: 'achievement',
-          type: 'streak_milestone',
-          link: '/daily-challenge'
-        });
-      }
     } catch (_) {}
   }
 
@@ -248,30 +201,30 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
 
   return {
     pointsAwarded,
-    streakBonusAwarded,
-    streak,
-    longest_streak: longest,
-    breakdown
+    breakdown,
+    streakBonusAwarded: pointsAwarded > 0 ? 20 : 0,
+    dailyChallengeStreak: streakResult.dailyChallengeStreak,
+    dailyChallengeBestStreak: streakResult.dailyChallengeBestStreak
   };
 }
 
-// Backward compatibility alias for legacy tests
 async function awardSolve(userId, questionId, startedAt = null) {
-  const q = await repo.one('SELECT id, is_practice FROM questions WHERE id = ?', [questionId]);
-  if (q && Boolean(q.is_practice)) {
-    const res = await awardPracticeSolve(userId, questionId);
-    return { points: res.breakdown.total_score, streak: 1, longest_streak: 1 };
-  } else {
-    const res = await awardDailyChallengeSolve(userId, questionId, startedAt);
-    return { points: res?.breakdown?.total_score || 100, streak: res?.streak || 1, longest_streak: res?.longest_streak || 1 };
+  const isDaily = String(questionId || '').startsWith('dc-') || 
+                  Boolean(await repo.one('SELECT id FROM daily_challenge_problems WHERE id = ?', [questionId])) || 
+                  Boolean(await repo.one('SELECT id FROM daily_questions WHERE question_id = ? OR challenge_id = ?', [questionId, questionId]));
+  if (isDaily) {
+    return awardDailyChallengeSolve(userId, questionId, startedAt);
   }
+  return awardPracticeSolve(userId, questionId);
 }
 
 module.exports = {
   getUserScoreBreakdown,
   syncUserScore,
+  recalculateUserScore: syncUserScore,
   awardPracticeSolve,
   awardDailyChallengeSolve,
   awardSolve,
-  refreshCompetitiveRanks
+  getPracticePointsForDifficulty,
+  getDailyChallengePointsForDifficulty
 };

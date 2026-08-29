@@ -37,11 +37,12 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
     }
   }
 
-  const totalSolved = practiceProgress?.problems_solved || analytics?.problems_solved || 0;
-  const streak = user?.streak || analytics?.streak || 0;
-  const totalPoints = user?.points || analytics?.total_points || 0;
+  const totalSolved = practiceProgress?.problems_solved || analytics?.summary?.solved_submissions || analytics?.problems_solved || 0;
+  const individualStreak = user?.individualStreak ?? analytics?.summary?.individualStreak ?? user?.streak ?? 1;
+  const dailyChallengeStreak = user?.dailyChallengeStreak ?? analytics?.summary?.dailyChallengeStreak ?? dailyQuestion?.dailyChallengeStreak ?? 0;
+  const totalPoints = user?.points || analytics?.summary?.total_score || analytics?.total_points || 0;
   const dailyQuestion = dailyData?.data || dailyData;
-  const dailySolved = dailyQuestion?.submission_status === 'solved';
+  const dailySolved = dailyQuestion?.submission_status === 'solved' || dailyQuestion?.is_solved;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -68,23 +69,25 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
       {error && <ErrorState message={error} onRetry={loadDashboard} />}
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
-          { label: 'Problems Solved', value: loading ? '—' : totalSolved, icon: CheckCircle2, color: 'text-emerald-400' },
-          { label: 'Daily Streak',    value: loading ? '—' : `${streak}d`,  icon: Flame,        color: 'text-amber-400' },
-          { label: 'Total Points',   value: loading ? '—' : totalPoints,   icon: Zap,          color: 'text-axly-400' },
-          { label: 'Leaderboard',    value: loading ? '—' : analytics?.rank ? `#${analytics.rank}` : '—', icon: Trophy, color: 'text-violet-400' },
+          { label: 'Problems Solved', value: loading ? '—' : totalSolved, icon: CheckCircle2, color: 'text-emerald-400', desc: 'Total problems completed' },
+          { label: 'Individual Streak', value: loading ? '—' : `${individualStreak}d`, icon: Zap, color: 'text-amber-400', desc: "Consecutive days you've logged in to AXLY." },
+          { label: 'Challenge Streak', value: loading ? '—' : `${dailyChallengeStreak}d`, icon: Flame, color: 'text-rose-400', desc: "Consecutive days you've completed the Daily Challenge." },
+          { label: 'Total Score', value: loading ? '—' : totalPoints, icon: Award, color: 'text-cyan-400', desc: 'Practice + Daily + Streak bonus' },
+          { label: 'Leaderboard', value: loading ? '—' : analytics?.rank ? `#${analytics.rank}` : '#1', icon: Trophy, color: 'text-violet-400', desc: 'Rank by Daily Challenge points' },
         ].map((s) => (
-          <div key={s.label} className="card p-4">
-            <div className="text-xs text-slate-500 font-medium mb-1">{s.label}</div>
+          <div key={s.label} className="card p-4 flex flex-col justify-between hover:border-slate-700 transition-colors" title={s.desc}>
+            <div className="text-xs text-slate-400 font-medium mb-1 truncate">{s.label}</div>
             <div className={`text-2xl font-bold ${s.color} flex items-center gap-2`}>
               {loading ? <Skeleton className="h-7 w-16" /> : (
                 <>
-                  <s.icon className="w-5 h-5 opacity-80" />
-                  {s.value}
+                  <s.icon className="w-5 h-5 opacity-85" />
+                  <span>{s.value}</span>
                 </>
               )}
             </div>
+            <div className="text-[11px] text-slate-500 mt-1 truncate">{s.desc}</div>
           </div>
         ))}
       </div>

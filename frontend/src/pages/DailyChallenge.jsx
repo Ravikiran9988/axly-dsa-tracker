@@ -74,7 +74,7 @@ export default function DailyChallenge({ onSelectProblem }) {
 
   const totalScore = userProfile?.stats?.total_score || userProfile?.points || 0;
   const lbScore = userProfile?.stats?.leaderboard_score || 0;
-  const streak = userProfile?.streak || userProfile?.stats?.streak || 1;
+  const challengeStreak = daily?.dailyChallengeStreak ?? userProfile?.dailyChallengeStreak ?? userProfile?.stats?.dailyChallengeStreak ?? 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 animate-fade-in">
@@ -82,14 +82,14 @@ export default function DailyChallenge({ onSelectProblem }) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">Daily Challenge</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Competitive &middot; earn points &middot; build your streak</p>
+          <p className="text-sm text-slate-400 mt-0.5">Competitive &middot; earn points &middot; build your challenge streak</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="badge text-amber-400 bg-amber-500/10 border-amber-500/20">
+          <div className="badge text-cyan-400 bg-cyan-500/10 border-cyan-500/20">
             <Zap className="w-3.5 h-3.5" /> +{calculatedPoints} pts
           </div>
-          <div className="badge text-orange-400 bg-orange-500/10 border-orange-500/20">
-            <Flame className="w-3.5 h-3.5" /> {streak}d Streak
+          <div className="badge text-rose-400 bg-rose-500/10 border-rose-500/20" title="Consecutive days you've completed the Daily Challenge">
+            <Flame className="w-3.5 h-3.5 fill-rose-400" /> {challengeStreak}d Challenge Streak
           </div>
         </div>
       </div>

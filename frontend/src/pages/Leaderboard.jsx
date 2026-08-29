@@ -139,7 +139,7 @@ export default function Leaderboard() {
                 <th>Student</th>
                 <th className="text-right">Competitive Points</th>
                 <th className="hidden sm:table-cell text-right">Daily Challenges Solved</th>
-                <th className="hidden md:table-cell text-right">Current Streak</th>
+                <th className="hidden md:table-cell text-right">Challenge Streak</th>
               </tr>
             </thead>
             <tbody>
@@ -164,6 +164,7 @@ export default function Leaderboard() {
                   const rank = idx + 1;
                   const isMe = entry.user_id === user?.id || entry.id === user?.id;
                   const medal = RANK_MEDALS[rank];
+                  const challengeStreak = entry.dailyChallengeStreak ?? entry.daily_challenge_streak ?? entry.streak ?? 0;
                   return (
                     <tr key={entry.user_id || entry.id} className={isMe ? 'bg-axly-500/5' : ''}>
                       <td className="text-center">
@@ -199,12 +200,12 @@ export default function Leaderboard() {
                         </span>
                       </td>
                       <td className="hidden sm:table-cell text-right text-slate-400 text-sm">
-                        {entry.problems_solved || entry.solved_count || '—'}
+                        {entry.problems_solved || entry.solved_count || entry.completed_count || '—'}
                       </td>
                       <td className="hidden md:table-cell text-right">
-                        {entry.streak > 0 ? (
-                          <div className="inline-flex items-center gap-1 text-amber-400 text-xs font-semibold justify-end">
-                            <Flame className="w-3.5 h-3.5" /> {entry.streak}d
+                        {challengeStreak > 0 ? (
+                          <div className="inline-flex items-center gap-1 text-rose-400 text-xs font-semibold justify-end">
+                            <Flame className="w-3.5 h-3.5 fill-rose-400" /> {challengeStreak}d
                           </div>
                         ) : <span className="text-slate-600 text-sm">—</span>}
                       </td>

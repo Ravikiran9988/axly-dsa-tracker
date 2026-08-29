@@ -42,8 +42,10 @@ function generateSlug(title) {
     .replace(/^-|-$/g, '') || `dc-${Date.now()}`;
 }
 
+const { getCalendarDate, getUserStreaks } = require('./streakService');
+
 function getTodayDateString() {
-  return new Date().toISOString().split('T')[0];
+  return getCalendarDate();
 }
 
 async function assertDateAvailable(date, excludeId = null) {
@@ -588,6 +590,13 @@ async function getTodayDailyChallenge(user = null) {
     FROM submissions WHERE user_id = ? AND question_id = ?
   `, [user.id, challenge.id]) : null;
 
+  const streaks = user ? await getUserStreaks(user.id) : {
+    individualStreak: 0,
+    individualBestStreak: 0,
+    dailyChallengeStreak: 0,
+    dailyChallengeBestStreak: 0
+  };
+
   return {
     data: {
       id: challenge.id,
@@ -602,7 +611,12 @@ async function getTodayDailyChallenge(user = null) {
       points: Number(challenge.points) || 100,
       hints: parseHints(challenge.hints),
       submission_status: submission?.status || 'not_started',
-      is_solved: ['solved', 'completed', 'approved'].includes(submission?.status)
+      is_solved: ['solved', 'completed', 'approved'].includes(submission?.status),
+      dailyChallengeStreak: streaks.dailyChallengeStreak,
+      dailyChallengeBestStreak: streaks.dailyChallengeBestStreak,
+      individualStreak: streaks.individualStreak,
+      individualBestStreak: streaks.individualBestStreak,
+      streak: streaks.dailyChallengeStreak
     }
   };
 }
