@@ -4,6 +4,7 @@
 -- Enable RLS on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE topics ENABLE ROW LEVEL SECURITY;
+ALTER TABLE patterns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE test_cases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assignments ENABLE ROW LEVEL SECURITY;
@@ -46,6 +47,18 @@ CREATE POLICY "Anyone authenticated can view topics"
 
 CREATE POLICY "Admins can manage topics"
   ON topics FOR ALL
+  TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+-- 2b. patterns table policies
+CREATE POLICY "Anyone authenticated can view patterns"
+  ON patterns FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Admins can manage patterns"
+  ON patterns FOR ALL
   TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());

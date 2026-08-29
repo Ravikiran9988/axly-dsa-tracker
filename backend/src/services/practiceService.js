@@ -190,9 +190,9 @@ async function recordPracticeSubmission({ user, questionId, submissionId, passed
     INSERT INTO practice_progress (user_id, question_id, status, started_at, updated_at, solved_at, attempts, last_submission_id)
     VALUES (?, ?, ?, ?, ?, ?, 1, ?)
     ON CONFLICT(user_id, question_id) DO UPDATE SET
-      status = excluded.status,
+      status = CASE WHEN practice_progress.status = 'solved' THEN 'solved' ELSE excluded.status END,
       updated_at = excluded.updated_at,
-      solved_at = CASE WHEN excluded.status = 'solved' THEN excluded.solved_at ELSE practice_progress.solved_at END,
+      solved_at = CASE WHEN practice_progress.status = 'solved' THEN practice_progress.solved_at WHEN excluded.status = 'solved' THEN excluded.solved_at ELSE practice_progress.solved_at END,
       attempts = practice_progress.attempts + 1,
       last_submission_id = excluded.last_submission_id
   `, [user.id, questionId, status, now, now, solvedAt, submissionId || null]);

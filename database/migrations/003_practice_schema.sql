@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_questions_pattern_id ON questions(pattern_id);
 CREATE TABLE IF NOT EXISTS practice_progress (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-    status VARCHAR(20) NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'solved', 'abandoned')),
+    status VARCHAR(20) NOT NULL DEFAULT 'in_progress' CHECK (status IN ('not_started', 'in_progress', 'solved', 'abandoned')),
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     solved_at TIMESTAMPTZ,
