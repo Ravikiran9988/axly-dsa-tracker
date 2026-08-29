@@ -22,6 +22,8 @@ async function request(endpoint, options = {}) {
 export const api = {
   async verifyAuth() { return request('/auth/verify'); },
   async signup(data) { return request('/auth/signup', { method: 'POST', body: JSON.stringify(data) }); },
+  async verifyOtp(data) { return request('/auth/verify-otp', { method: 'POST', body: JSON.stringify(data) }); },
+  async resendOtp(data) { return request('/auth/resend-otp', { method: 'POST', body: JSON.stringify(data) }); },
   async login(data) { return request('/auth/login', { method: 'POST', body: JSON.stringify(data) }); },
   async verifyEmail(data) { return request('/auth/verify-email', { method: 'POST', body: JSON.stringify(data) }); },
   async resendVerification(data) { return request('/auth/resend-verification', { method: 'POST', body: JSON.stringify(data) }); },

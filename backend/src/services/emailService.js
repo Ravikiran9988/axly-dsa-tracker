@@ -4,16 +4,26 @@ const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10) || 587;
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD;
-const SMTP_FROM = process.env.SMTP_FROM || 'Axly DSA Tracker <noreply@axly.in>';
+const SMTP_FROM = process.env.SMTP_FROM || 'Axly <noreply@axly.in>';
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 let transporter = null;
+const sentMailLog = [];
 
 function getTransporter() {
   if (transporter) return transporter;
 
-  if (SMTP_HOST && SMTP_USER && SMTP_PASSWORD) {
-    transporter = nodemailer.createTransport({
+  let rawTransporter = null;
+  const isRealSmtpConfigured =
+    process.env.NODE_ENV !== 'test' &&
+    SMTP_HOST &&
+    SMTP_USER &&
+    SMTP_PASSWORD &&
+    !SMTP_USER.includes('your-domain') &&
+    !SMTP_PASSWORD.includes('your-');
+
+  if (isRealSmtpConfigured) {
+    rawTransporter = nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
       secure: SMTP_PORT === 465,
@@ -22,18 +32,66 @@ function getTransporter() {
         pass: SMTP_PASSWORD
       }
     });
-  } else {
-    // In dev / test mode without configured SMTP credentials, use a fallback logger transport
-    transporter = {
-      sendMail: async (mailOptions) => {
-        if (process.env.NODE_ENV !== 'test') {
-          console.log(`[EMAIL DISPATCH - DEV/TEST FALLBACK] To: ${mailOptions.to} | Subject: ${mailOptions.subject}`);
-        }
-        return { messageId: `mock-${Date.now()}` };
-      }
-    };
   }
+
+  transporter = {
+    sendMail: async (mailOptions) => {
+      const emailRecord = {
+        ...mailOptions,
+        from: mailOptions.from || SMTP_FROM,
+        timestamp: Date.now()
+      };
+      sentMailLog.push(emailRecord);
+
+      if (rawTransporter) {
+        return rawTransporter.sendMail(mailOptions);
+      }
+
+      if (process.env.NODE_ENV !== 'test') {
+        console.log(`[EMAIL DISPATCH] From: ${emailRecord.from} | To: ${emailRecord.to} | Subject: ${emailRecord.subject}`);
+      }
+      return { messageId: `msg-${Date.now()}` };
+    }
+  };
+
   return transporter;
+}
+
+function getOtpEmailHtml({ name, otp, expiresMinutes = 10 }) {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #070B14; color: #E2E8F0; margin: 0; padding: 24px; }
+    .container { max-width: 560px; margin: 0 auto; background: #0A0F1D; border: 1px solid #1E293B; border-radius: 16px; padding: 36px 32px; }
+    .logo-badge { display: inline-block; background: linear-gradient(135deg, #06B6D4, #4F46E5); color: #FFFFFF; font-weight: 800; font-size: 14px; padding: 6px 14px; border-radius: 8px; font-family: monospace; }
+    h1 { color: #FFFFFF; font-size: 22px; margin-top: 20px; font-weight: 700; letter-spacing: -0.02em; }
+    p { color: #94A3B8; font-size: 14px; line-height: 1.6; margin: 16px 0; }
+    .otp-card { margin: 28px 0; text-align: center; background: #0F172A; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+    .otp-code { font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #38BDF8; font-family: monospace; }
+    .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #1E293B; font-size: 12px; color: #64748B; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-badge">AXLY DSA TRACKER</div>
+    <h1>Verify your registration</h1>
+    <p>Hi ${name || 'there'},</p>
+    <p>Thank you for creating an account on <strong>Axly DSA Tracker</strong>. Use the following One-Time Password (OTP) to complete your registration:</p>
+    <div class="otp-card">
+      <div class="otp-code">${otp}</div>
+    </div>
+    <p>This verification code is single-use and will expire in <strong>${expiresMinutes} minutes</strong>.</p>
+    <p>If you did not request this verification code, please disregard this email.</p>
+    <div class="footer">
+      © ${new Date().getFullYear()} Axly DSA Tracker. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
 }
 
 function getVerificationEmailHtml({ name, verifyUrl, expiresHours = 24 }) {
@@ -113,6 +171,19 @@ function getPasswordResetEmailHtml({ name, resetUrl, expiresMinutes = 60 }) {
   `.trim();
 }
 
+async function sendOtpEmail({ to, name, otp, expiresMinutes = 10 }) {
+  const mailer = getTransporter();
+  const html = getOtpEmailHtml({ name, otp, expiresMinutes });
+
+  return mailer.sendMail({
+    from: SMTP_FROM,
+    to,
+    subject: 'Your Axly Verification Code',
+    html,
+    text: `Hi ${name || 'there'},\n\nYour Axly DSA Tracker verification code is: ${otp}\n\nThis code expires in ${expiresMinutes} minutes.`
+  });
+}
+
 async function sendVerificationEmail({ to, name, token }) {
   const mailer = getTransporter();
   const verifyUrl = `${APP_URL}/verify-email?token=${token}`;
@@ -141,8 +212,21 @@ async function sendPasswordResetEmail({ to, name, token }) {
   });
 }
 
+function getLatestSentEmail(toEmail) {
+  if (!toEmail) return sentMailLog[sentMailLog.length - 1];
+  return [...sentMailLog].reverse().find((mail) => mail.to === toEmail);
+}
+
+function clearMailLog() {
+  sentMailLog.length = 0;
+}
+
 module.exports = {
+  sendOtpEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
-  getTransporter
+  getTransporter,
+  getLatestSentEmail,
+  clearMailLog,
+  SMTP_FROM
 };

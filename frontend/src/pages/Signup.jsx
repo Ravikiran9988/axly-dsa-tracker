@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Terminal, ArrowRight, AlertCircle, ArrowLeft, Eye, EyeOff, CheckCircle2, Mail } from 'lucide-react';
+import { Terminal, ArrowRight, AlertCircle, ArrowLeft, Eye, EyeOff, CheckCircle2, ShieldCheck, RefreshCw } from 'lucide-react';
 
 export default function Signup({ onNavigate, onBackToHome }) {
-  const { loginWithGoogle, signupWithEmail, error: authError } = useAuth();
+  const { loginWithGoogle, signupWithEmail, verifyOtp, resendOtp, error: authError } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,14 +11,26 @@ export default function Signup({ onNavigate, onBackToHome }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState('');
+
+  // OTP Verification Step state
+  const [step, setStep] = useState('register'); // 'register' | 'otp'
+  const [otp, setOtp] = useState('');
+  const [resendStatus, setResendStatus] = useState(null); // null | 'sending' | 'sent' | 'error'
+  const [resendTimer, setResendTimer] = useState(0);
 
   const hasLength = password.length >= 8;
   const hasUpper = /[A-Z]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const isPasswordValid = hasLength && hasUpper && hasLower && hasNumber;
+
+  useEffect(() => {
+    let interval;
+    if (resendTimer > 0) {
+      interval = setInterval(() => setResendTimer((t) => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -41,12 +53,45 @@ export default function Signup({ onNavigate, onBackToHome }) {
       setLoading(true);
       setError(null);
       await signupWithEmail({ name: name.trim(), email: email.trim(), password });
-      setRegisteredEmail(email.trim());
-      setIsSubmitted(true);
+      setStep('otp');
+      setResendTimer(30);
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (!otp.trim()) {
+      setError('Please enter the 6-digit verification code.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      await verifyOtp({ email: email.trim(), otp: otp.trim() });
+      // Authenticated user state updates automatically in AuthContext, redirecting to Dashboard
+    } catch (err) {
+      setError(err.message || 'Invalid or expired verification code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    try {
+      setResendStatus('sending');
+      setError(null);
+      await resendOtp({ email: email.trim() });
+      setResendStatus('sent');
+      setResendTimer(60);
+    } catch (err) {
+      setResendStatus('error');
+      setError(err.message || 'Failed to resend verification code.');
     }
   };
 
@@ -73,43 +118,98 @@ export default function Signup({ onNavigate, onBackToHome }) {
       {/* Top back navigation */}
       <div className="w-full max-w-md mb-6 relative z-10">
         <button
-          onClick={onBackToHome}
+          onClick={step === 'otp' ? () => setStep('register') : onBackToHome}
           className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
+          <span>{step === 'otp' ? 'Back to Registration' : 'Back to Home'}</span>
         </button>
       </div>
 
-      {/* Dedicated Signup Card */}
+      {/* Dedicated Card */}
       <div className="w-full max-w-md relative z-10">
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 rounded-3xl blur-xl transition-all" />
 
           <div className="relative rounded-3xl bg-[#0A0F1D] border border-slate-800/90 shadow-2xl p-7 sm:p-9 space-y-6">
-            {isSubmitted ? (
-              <div className="text-center space-y-5 py-4">
-                <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mx-auto">
-                  <Mail className="w-8 h-8" />
+            {step === 'otp' ? (
+              /* OTP VERIFICATION VIEW */
+              <div className="space-y-6">
+                <div className="text-center space-y-2.5">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mx-auto">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-mono font-bold tracking-wider text-cyan-400 uppercase">Verification Code</span>
+                    <h1 className="text-2xl font-bold text-white tracking-tight">Enter your OTP</h1>
+                    <p className="text-xs text-slate-400">
+                      We've sent a 6-digit code to <strong className="text-white">{email}</strong> from <span className="text-cyan-400 font-mono text-[11px]">Axly &lt;noreply@axly.in&gt;</span>.
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-bold text-white tracking-tight">Check your email</h1>
-                  <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                    We've sent a verification link to <strong className="text-white">{registeredEmail}</strong>. Please verify your email to activate your account.
-                  </p>
-                </div>
-                <div className="pt-2">
+
+                {/* Error Banner */}
+                {(error || authError) && (
+                  <div id="otp-error-msg" className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span className="font-medium">{error || authError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300">6-Digit Verification Code</label>
+                    <input
+                      id="otp-input"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      required
+                      autoFocus
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="••••••"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-950/80 border border-slate-700 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-center font-mono text-xl tracking-[0.4em] font-bold text-white placeholder-slate-600 transition"
+                    />
+                    <p className="text-[11px] text-slate-500 text-center">Code expires in 10 minutes</p>
+                  </div>
+
                   <button
-                    onClick={() => onNavigate('login')}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-500/50 text-xs font-bold text-white transition"
+                    id="btn-verify-otp"
+                    type="submit"
+                    disabled={loading || otp.length !== 6}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-cyan-500/20 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Back to Sign In
+                    <span>{loading ? 'Verifying Code…' : 'Confirm & Complete Registration'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </form>
+
+                {/* Resend OTP Actions */}
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Didn't receive code?</span>
+                  <button
+                    id="btn-resend-otp"
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendTimer > 0 || resendStatus === 'sending'}
+                    className="font-semibold text-cyan-400 hover:text-cyan-300 disabled:text-slate-500 disabled:cursor-not-allowed transition flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${resendStatus === 'sending' ? 'animate-spin' : ''}`} />
+                    <span>
+                      {resendTimer > 0
+                        ? `Resend in ${resendTimer}s`
+                        : resendStatus === 'sent'
+                        ? 'Code Sent Again!'
+                        : 'Resend Code'}
+                    </span>
                   </button>
                 </div>
               </div>
             ) : (
+              /* REGISTRATION FORM VIEW */
               <>
-                {/* Brand Header */}
                 <div className="text-center space-y-2.5">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-xl shadow-cyan-500/25 mx-auto">
                     <Terminal className="w-6 h-6 text-white" />
@@ -132,6 +232,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-300">Full Name</label>
                     <input
+                      id="signup-name-input"
                       type="text"
                       required
                       value={name}
@@ -144,6 +245,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-300">Email Address</label>
                     <input
+                      id="signup-email-input"
                       type="email"
                       required
                       value={email}
@@ -157,6 +259,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
                     <label className="text-xs font-semibold text-slate-300">Password</label>
                     <div className="relative">
                       <input
+                        id="signup-password-input"
                         type={showPassword ? 'text' : 'password'}
                         required
                         value={password}
@@ -177,6 +280,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-300">Confirm Password</label>
                     <input
+                      id="signup-confirm-password-input"
                       type={showPassword ? 'text' : 'password'}
                       required
                       value={confirmPassword}
@@ -206,6 +310,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
                   </div>
 
                   <button
+                    id="btn-submit-signup"
                     type="submit"
                     disabled={loading}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-cyan-500/20 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed"

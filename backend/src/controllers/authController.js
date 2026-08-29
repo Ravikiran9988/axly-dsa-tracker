@@ -6,7 +6,11 @@ const authUserRepository = require('../db/authUserRepository');
 const { getDatabaseDriver } = require('../db/repository');
 const PostgresRepository = require('../db/postgresRepository');
 const SqliteRepository = require('../db/sqliteRepository');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
+const {
+  sendOtpEmail,
+  sendVerificationEmail,
+  sendPasswordResetEmail
+} = require('../services/emailService');
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -26,6 +30,10 @@ function validatePasswordStrength(password) {
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   return hasUpper && hasLower && hasNumber;
+}
+
+function generateNumericOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 // 1. POST /api/v1/auth/signup
@@ -57,9 +65,9 @@ async function signup(req, res, next) {
       });
     }
 
-    // Check if user already exists
+    // Check if user already exists and is verified
     const existingUser = await authUserRepository.findUserByEmail(normalizedEmail);
-    if (existingUser && existingUser.password_hash) {
+    if (existingUser && existingUser.password_hash && (existingUser.email_verified === 1 || existingUser.email_verified === true)) {
       return res.status(409).json({
         error: { code: 'EMAIL_EXISTS', message: 'An account with this email address already exists.' }
       });
@@ -69,9 +77,10 @@ async function signup(req, res, next) {
     let user;
 
     if (existingUser) {
-      // User exists (e.g. from Google OAuth), add password
+      // User exists (unverified previous attempt or Google OAuth without password)
       await authUserRepository.updatePassword(existingUser.id, passwordHash);
-      user = existingUser;
+      await authUserRepository.updateProfile(existingUser.id, { name: trimmedName });
+      user = await authUserRepository.findUserById(existingUser.id);
     } else {
       const id = `usr-${uuidv4()}`;
       user = await authUserRepository.provisionUser({
@@ -83,32 +92,46 @@ async function signup(req, res, next) {
       });
     }
 
-    // Generate single-use email verification token (24h expiry)
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = hashToken(rawToken);
+    // Generate 6-digit OTP (10 minutes expiration)
+    const otp = generateNumericOtp();
+    const tokenHash = hashToken(otp);
     const tokenId = `tok-${uuidv4()}`;
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
+    // Invalidate any previous OTPs for this user
+    await authUserRepository.invalidateUserTokens(user.id, 'otp_verification');
     await authUserRepository.invalidateUserTokens(user.id, 'verification');
+
     await authUserRepository.createAuthToken({
       id: tokenId,
       userId: user.id,
       tokenHash,
-      tokenType: 'verification',
+      tokenType: 'otp_verification',
       expiresAt
     });
 
-    // Send verification email via Nodemailer
-    await sendVerificationEmail({
+    // Also support link-based token for backwards compatibility
+    const rawLinkToken = crypto.randomBytes(32).toString('hex');
+    await authUserRepository.createAuthToken({
+      id: `tok-link-${uuidv4()}`,
+      userId: user.id,
+      tokenHash: hashToken(rawLinkToken),
+      tokenType: 'verification',
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    });
+
+    // Send OTP email from Axly <noreply@axly.in>
+    await sendOtpEmail({
       to: user.email,
       name: user.name,
-      token: rawToken
+      otp,
+      expiresMinutes: 10
     }).catch((err) => {
-      console.warn('Failed to dispatch verification email:', err.message);
+      console.warn('Failed to dispatch OTP email:', err.message);
     });
 
     return res.status(201).json({
-      message: 'Account created successfully. Please check your email to verify your account.',
+      message: 'Account created successfully. A 6-digit verification code has been sent to your email.',
       email: user.email
     });
   } catch (err) {
@@ -116,7 +139,112 @@ async function signup(req, res, next) {
   }
 }
 
-// 2. POST /api/v1/auth/login
+// 2. POST /api/v1/auth/verify-otp
+async function verifyOtp(req, res, next) {
+  try {
+    const { email, otp } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const cleanOtp = typeof otp === 'string' ? otp.trim() : '';
+
+    if (!normalizedEmail || !cleanOtp) {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'Email and 6-digit verification code are required' }
+      });
+    }
+
+    const user = await authUserRepository.findUserByEmail(normalizedEmail);
+    if (!user) {
+      return res.status(400).json({
+        error: { code: 'INVALID_OTP', message: 'Invalid verification code. Please check and try again.' }
+      });
+    }
+
+    const tokenHash = hashToken(cleanOtp);
+    const authToken = await authUserRepository.findAuthTokenByHash(tokenHash, 'otp_verification');
+
+    if (!authToken || authToken.user_id !== user.id || authToken.used_at) {
+      return res.status(400).json({
+        error: { code: 'INVALID_OTP', message: 'Invalid verification code. Please check and try again.' }
+      });
+    }
+
+    if (isTokenExpired(authToken.expires_at)) {
+      return res.status(400).json({
+        error: { code: 'EXPIRED_OTP', message: 'The verification code has expired. Please request a new code.' }
+      });
+    }
+
+    // Mark token as used and set email_verified = 1
+    await authUserRepository.markAuthTokenUsed(authToken.id);
+    await authUserRepository.setEmailVerified(user.id, 1);
+
+    const updatedUser = await authUserRepository.findUserById(user.id);
+    const sessionToken = generateTestToken({
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      role: updatedUser.role
+    });
+
+    return res.status(200).json({
+      message: 'Account verified and created successfully.',
+      token: sessionToken,
+      user: updatedUser
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// 3. POST /api/v1/auth/resend-otp
+async function resendOtp(req, res, next) {
+  try {
+    const { email } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' }
+      });
+    }
+
+    const user = await authUserRepository.findUserByEmail(normalizedEmail);
+    if (user && (user.email_verified === 0 || user.email_verified === false)) {
+      // Invalidate all previous OTPs
+      await authUserRepository.invalidateUserTokens(user.id, 'otp_verification');
+
+      const newOtp = generateNumericOtp();
+      const tokenHash = hashToken(newOtp);
+      const tokenId = `tok-${uuidv4()}`;
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+      await authUserRepository.createAuthToken({
+        id: tokenId,
+        userId: user.id,
+        tokenHash,
+        tokenType: 'otp_verification',
+        expiresAt
+      });
+
+      await sendOtpEmail({
+        to: user.email,
+        name: user.name,
+        otp: newOtp,
+        expiresMinutes: 10
+      }).catch((err) => {
+        console.warn('Failed to dispatch resend OTP email:', err.message);
+      });
+    }
+
+    return res.status(200).json({
+      message: 'If an unverified account exists for this email, a new verification code has been sent.'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// 4. POST /api/v1/auth/login
 async function login(req, res, next) {
   try {
     const { email, password, user_id, role = 'user' } = req.body || {};
@@ -201,18 +329,26 @@ async function login(req, res, next) {
   }
 }
 
-// 3. POST /api/v1/auth/verify-email
+// 5. POST /api/v1/auth/verify-email (Supports both token-based and OTP verification)
 async function verifyEmail(req, res, next) {
   try {
-    const { token } = req.body || {};
+    const { token, email, otp } = req.body || {};
+
+    if (email && otp) {
+      return verifyOtp(req, res, next);
+    }
+
     if (!token || typeof token !== 'string') {
       return res.status(400).json({
-        error: { code: 'INVALID_TOKEN', message: 'Verification token is required' }
+        error: { code: 'INVALID_TOKEN', message: 'Verification token or code is required' }
       });
     }
 
     const tokenHash = hashToken(token.trim());
-    const authToken = await authUserRepository.findAuthTokenByHash(tokenHash, 'verification');
+    let authToken = await authUserRepository.findAuthTokenByHash(tokenHash, 'verification');
+    if (!authToken) {
+      authToken = await authUserRepository.findAuthTokenByHash(tokenHash, 'otp_verification');
+    }
 
     if (!authToken || authToken.used_at) {
       return res.status(400).json({
@@ -226,7 +362,6 @@ async function verifyEmail(req, res, next) {
       });
     }
 
-    // Mark token as used and set email_verified = 1
     await authUserRepository.markAuthTokenUsed(authToken.id);
     await authUserRepository.setEmailVerified(authToken.user_id, 1);
 
@@ -243,53 +378,12 @@ async function verifyEmail(req, res, next) {
   }
 }
 
-// 4. POST /api/v1/auth/resend-verification
+// 6. POST /api/v1/auth/resend-verification
 async function resendVerification(req, res, next) {
-  try {
-    const { email } = req.body || {};
-    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-
-    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' }
-      });
-    }
-
-    const user = await authUserRepository.findUserByEmail(normalizedEmail);
-    if (user && (user.email_verified === 0 || user.email_verified === false)) {
-      const rawToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = hashToken(rawToken);
-      const tokenId = `tok-${uuidv4()}`;
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-      await authUserRepository.invalidateUserTokens(user.id, 'verification');
-      await authUserRepository.createAuthToken({
-        id: tokenId,
-        userId: user.id,
-        tokenHash,
-        tokenType: 'verification',
-        expiresAt
-      });
-
-      await sendVerificationEmail({
-        to: user.email,
-        name: user.name,
-        token: rawToken
-      }).catch((err) => {
-        console.warn('Failed to dispatch verification email:', err.message);
-      });
-    }
-
-    // Always return safe generic message to prevent email enumeration
-    return res.status(200).json({
-      message: 'If an unverified account exists for this email, a verification link has been sent.'
-    });
-  } catch (err) {
-    next(err);
-  }
+  return resendOtp(req, res, next);
 }
 
-// 5. POST /api/v1/auth/forgot-password
+// 7. POST /api/v1/auth/forgot-password
 async function forgotPassword(req, res, next) {
   try {
     const { email } = req.body || {};
@@ -326,7 +420,6 @@ async function forgotPassword(req, res, next) {
       });
     }
 
-    // Always return generic message to prevent email enumeration
     return res.status(200).json({
       message: 'If an account exists for this email, a password reset link has been sent.'
     });
@@ -335,7 +428,7 @@ async function forgotPassword(req, res, next) {
   }
 }
 
-// 6. POST /api/v1/auth/reset-password
+// 8. POST /api/v1/auth/reset-password
 async function resetPassword(req, res, next) {
   try {
     const { token, password } = req.body || {};
@@ -383,7 +476,7 @@ async function resetPassword(req, res, next) {
   }
 }
 
-// 7. GET or POST /api/v1/auth/verify
+// 9. GET or POST /api/v1/auth/verify
 async function verifySession(req, res, next) {
   try {
     return res.status(200).json({
@@ -405,7 +498,7 @@ async function verifySession(req, res, next) {
   }
 }
 
-// 8. POST /api/v1/auth/dev-login (Disabled in production)
+// 10. POST /api/v1/auth/dev-login (Disabled in production)
 async function devLogin(req, res, next) {
   try {
     if (process.env.NODE_ENV === 'production') {
@@ -448,6 +541,8 @@ async function devLogin(req, res, next) {
 
 module.exports = {
   signup,
+  verifyOtp,
+  resendOtp,
   login,
   verifyEmail,
   resendVerification,

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const {
   signup,
+  verifyOtp,
+  resendOtp,
   login,
   verifyEmail,
   resendVerification,
@@ -15,6 +17,8 @@ const { authRateLimiter } = require('../middleware/rateLimiter');
 
 // Public Authentication Endpoints (Rate Limited)
 router.post('/signup', authRateLimiter, signup);
+router.post('/verify-otp', authRateLimiter, verifyOtp);
+router.post('/resend-otp', authRateLimiter, resendOtp);
 router.post('/login', authRateLimiter, login);
 router.post('/verify-email', authRateLimiter, verifyEmail);
 router.post('/resend-verification', authRateLimiter, resendVerification);

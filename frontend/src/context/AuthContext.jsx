@@ -144,18 +144,43 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Email + Password Signup
+  // Email + Password Signup (does NOT set global loading — Signup manages its own)
   const signupWithEmail = async ({ name, email, password }) => {
     setError(null);
-    setLoading(true);
     try {
       const res = await api.signup({ name, email, password });
       return res;
     } catch (err) {
       setError(err.message);
       throw err;
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  // Verify OTP (only sets global loading on success to trigger auth transition)
+  const verifyOtp = async ({ email, otp }) => {
+    setError(null);
+    try {
+      const res = await api.verifyOtp({ email, otp });
+      if (res.token) {
+        localStorage.setItem('axly_auth_token', res.token);
+      }
+      setUser(res.user);
+      return res;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  // Resend OTP
+  const resendOtp = async ({ email }) => {
+    setError(null);
+    try {
+      const res = await api.resendOtp({ email });
+      return res;
+    } catch (err) {
+      setError(err.message);
+      throw err;
     }
   };
 
@@ -196,6 +221,8 @@ export function AuthProvider({ children }) {
       loginWithGoogle,
       loginWithEmail,
       signupWithEmail,
+      verifyOtp,
+      resendOtp,
       devLogin,
       logout,
       isAdmin: user?.role === 'admin'

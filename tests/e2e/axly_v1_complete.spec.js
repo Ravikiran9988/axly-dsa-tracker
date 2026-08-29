@@ -28,6 +28,15 @@ async function loginAsAdmin(page) {
 
 test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
 
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.goto('/');
+  });
+
   test('1. Marketing Landing Page & Dedicated /login Flow Separation', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/Axly DSA Tracker/);
@@ -78,17 +87,44 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('text=Question Bank').first()).toBeVisible();
   });
 
-  test('2. Dedicated Auth Pages: Signup, Forgot Password & Password Requirements', async ({ page }) => {
-    await page.goto('/login');
-    await expect(page.locator('#google-signin-btn')).toBeVisible();
-
-    // Navigate to Signup
-    await page.click('button:has-text("Create account")');
+  test('2. User Registration & OTP Email Verification Flow', async ({ page }) => {
+    await page.goto('/signup');
     await expect(page.locator('h1:has-text("Create your Axly account")')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('text=Password Requirements:')).toBeVisible();
-    await expect(page.locator('text=8+ characters')).toBeVisible();
 
-    // Navigate to Login then Forgot Password
+    const testEmail = `student.otp.${Date.now()}@axly.in`;
+
+    // 1. Explicitly fill registration form
+    const nameInput = page.locator('#signup-name-input');
+    await expect(nameInput).toBeVisible();
+    await nameInput.fill('Kavya Nair');
+
+    const emailInput = page.locator('#signup-email-input');
+    await emailInput.fill(testEmail);
+
+    const passwordInput = page.locator('#signup-password-input');
+    await passwordInput.fill('Password123');
+
+    const confirmInput = page.locator('#signup-confirm-password-input');
+    await confirmInput.fill('Password123');
+
+    // 2. Submit form -> transitions to OTP screen
+    await page.locator('#btn-submit-signup').click();
+    await expect(page.locator('h1:has-text("Enter your OTP")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Axly <noreply@axly.in>')).toBeVisible();
+    await expect(page.locator('#otp-input')).toBeVisible();
+
+    // 3. Test incorrect OTP -> error message displayed and registration blocked
+    await page.fill('#otp-input', '000000');
+    await page.click('#btn-verify-otp');
+    await expect(page.locator('#otp-error-msg')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Invalid verification code')).toBeVisible();
+
+    // 4. Test Resend OTP button
+    await expect(page.locator('#btn-resend-otp')).toBeVisible();
+
+    // 5. Navigate to Login then Forgot Password
+    await page.click('button:has-text("Back to Registration")');
     await page.click('button:has-text("Sign In")');
     await expect(page.locator('h1:has-text("Welcome back")')).toBeVisible({ timeout: 5000 });
 

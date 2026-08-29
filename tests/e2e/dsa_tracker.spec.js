@@ -28,6 +28,14 @@ async function loginAsAdmin(page) {
 
 test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
 
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+  });
+
   test('1. Authentication Flow: Marketing Landing Page & Dedicated Login Page', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/Axly DSA Tracker/);
