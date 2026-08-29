@@ -218,8 +218,6 @@ function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
     CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
-    CREATE INDEX IF NOT EXISTS idx_notifications_category ON notifications(category);
-    CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
 
     CREATE TABLE IF NOT EXISTS badges (
       id TEXT PRIMARY KEY,
@@ -638,8 +636,51 @@ function initSchema() {
     // ignore
   }
 
+  // Notifications table schema migration (remove legacy CHECK constraint & ensure category column)
+  try {
+    const tableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='notifications'").get();
+    if (tableSql && tableSql.sql && (tableSql.sql.includes("'mentor'") || !tableSql.sql.includes('category'))) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS notifications_new (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT 'system',
+          type TEXT NOT NULL DEFAULT 'system_alert',
+          link TEXT,
+          is_read INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        INSERT OR IGNORE INTO notifications_new (id, user_id, title, message, category, type, link, is_read, created_at)
+        SELECT 
+          id, 
+          user_id, 
+          title, 
+          message, 
+          'system', 
+          type, 
+          link, 
+          is_read, 
+          created_at 
+        FROM notifications;
+
+        DROP TABLE notifications;
+        ALTER TABLE notifications_new RENAME TO notifications;
+      `);
+    }
+  } catch (e) {}
+
   // Notifications category migration and obsolete data cleanup
   addColumnIfNotExists('notifications', 'category', "TEXT NOT NULL DEFAULT 'system'");
+  try {
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)').run();
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)').run();
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_notifications_category ON notifications(category)').run();
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)').run();
+  } catch (e) {}
+
   try {
     db.prepare(`
       UPDATE notifications 
