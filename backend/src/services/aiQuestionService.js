@@ -18,14 +18,15 @@ function extractJson(content) {
   return JSON.parse(candidate);
 }
 
-async function generateQuestion({topic, difficulty, language='javascript', count=8}) {
-  const key=process.env.LLM_API_KEY, base=(process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/,''); model=process.env.LLM_MODEL || 'gpt-4o-mini';
+async function generateQuestion({topic, difficulty, count=8}) {
+  const key=process.env.LLM_API_KEY, base=(process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/,''), model=process.env.LLM_MODEL || 'gpt-4o-mini';
   if(!key) throw Object.assign(new Error('LLM is not configured. Set LLM_API_KEY, LLM_BASE_URL and LLM_MODEL.'),{statusCode:503});
-  const prompt=`Create one original coding challenge for Axly DSA Tracker. Topic: ${topic}. Difficulty: ${difficulty}. Preferred language: ${language}. Generate exactly ${count} test cases, including public and hidden cases. Return ONLY valid JSON with keys title,description,constraints,input_format,output_format,examples,starter_code,solution_explanation,test_cases,time_limit_ms,memory_limit_mb. test_cases must be an array of {input,expected_output,is_hidden}. Make outputs deterministic and ensure hidden cases cover edge cases.`;
+  const prompt=`Create one original, language-independent algorithmic coding problem for Axly DSA Tracker. Topic: ${topic}. Difficulty: ${difficulty}. The problem must be language-agnostic and solvable in Python, JavaScript, TypeScript, Java, C++, and C using standard I/O (stdin/stdout). Generate exactly ${count} test cases, including public and hidden cases. Return ONLY valid JSON with keys title, description, constraints, input_format, output_format, examples, solution_approach, test_cases, time_limit_ms, memory_limit_mb. test_cases must be an array of {input, expected_output, is_hidden}. Make outputs deterministic and ensure hidden cases cover edge cases.`;
   const response=await postJson(`${base}/chat/completions`,{model,temperature:0.3,messages:[{role:'system',content:'You generate reliable programming problems. Return strict JSON only.'},{role:'user',content:prompt}]},{Authorization:`Bearer ${key}`});
   const content=response.choices?.[0]?.message?.content;
   const data=extractJson(content);
   if(!data.title || !data.description || !Array.isArray(data.test_cases) || !data.test_cases.length) throw new Error('Generated question is incomplete');
   return data;
 }
+
 module.exports={generateQuestion};
