@@ -1,6 +1,7 @@
 const { db } = require('../db/db');
 const { AppError } = require('../middleware/errorHandler');
 const auditService = require('../services/auditService');
+const { COMPETITIVE_ORDER } = require('../services/leaderboardService');
 
 function listUsers(req, res, next) {
   try {
@@ -15,17 +16,12 @@ function listUsers(req, res, next) {
     }
     const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
     const total = db.prepare(`SELECT COUNT(*) as total FROM users u ${whereSql}`).get(...params).total;
-    const users = db.prepare(`
-      SELECT u.*,
+    const users = db.prepare(`SELECT u.*,
         (SELECT GROUP_CONCAT(c.name, ', ') FROM cohort_members cm JOIN cohorts c ON cm.cohort_id = c.id WHERE cm.user_id = u.id) as cohort_name,
         (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id) as assigned_count,
         (SELECT COUNT(*) FROM assignments a JOIN submissions s ON s.question_id = a.question_id AND s.user_id = u.id WHERE s.status IN ('solved','completed','approved')) as completed_count,
         (SELECT COUNT(*) FROM assignments a WHERE a.user_id = u.id AND a.status IN ('assigned','ongoing','under_review')) as pending_count
-      FROM users u
-      ${whereSql}
-      ORDER BY u.points DESC, u.name ASC
-      LIMIT ? OFFSET ?
-    `).all(...params, Number(limit), offset);
+      FROM users u ${whereSql} ORDER BY ${COMPETITIVE_ORDER.replace(/\bpoints\b/g,'u.points').replace(/\bstreak\b/g,'u.streak').replace(/\blongest_streak\b/g,'u.longest_streak').replace(/\bname\b/g,'u.name').replace(/\bid\b/g,'u.id')} LIMIT ? OFFSET ?`).all(...params, Number(limit), offset);
     return res.status(200).json({ data: users.map(u => ({ ...u, skills: safeParseJson(u.skills) })), page: Number(page), limit: Number(limit), total });
   } catch (err) { next(err); }
 }
@@ -81,7 +77,7 @@ function getLeaderboard(req, res, next) {
       scoreExpr = `(SELECT COALESCE(SUM(CASE WHEN l.status = 'Accepted' OR l.passed_tests = l.total_tests THEN CAST(COALESCE(q.points, 20) AS INTEGER) ELSE 0 END), 0) FROM code_submissions_log l JOIN questions q ON q.id = l.question_id WHERE l.user_id = u.id AND datetime(l.created_at) >= datetime('now','-30 days'))`;
       completedExpr = `(SELECT COUNT(DISTINCT s.question_id) FROM submissions s WHERE s.user_id = u.id AND s.status IN ('solved','completed','approved') AND datetime(COALESCE(s.solved_at,s.updated_at,s.created_at)) >= datetime('now','-30 days'))`;
     }
-    const leaders = db.prepare(`SELECT u.id, u.name, u.email, u.avatar_url, ${scoreExpr} AS points, ${streakExpr} AS streak, COALESCE(u.longest_streak,0) AS longest_streak, u.institution, ${completedExpr} AS completed_count, (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count FROM users u WHERE u.role = 'user' ORDER BY points DESC, completed_count DESC, streak DESC, u.name ASC LIMIT 100`).all();
+    const leaders = db.prepare(`SELECT u.id, u.name, u.email, u.avatar_url, ${scoreExpr} AS points, ${streakExpr} AS streak, COALESCE(u.longest_streak,0) AS longest_streak, u.institution, ${completedExpr} AS completed_count, (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count FROM users u WHERE u.role = 'user' ORDER BY points DESC, streak DESC, longest_streak DESC, u.name ASC, u.id ASC LIMIT 100`).all();
     const ranked = leaders.map((leader, index) => ({ ...leader, rank: index + 1, period }));
     return res.status(200).json({ data: ranked, period });
   } catch (err) { next(err); }
@@ -103,26 +99,12 @@ function updateUserRole(req, res, next) {
     if (!['admin','user','mentor'].includes(role)) throw new AppError('role must be one of admin|user|mentor', 400, 'VALIDATION_ERROR', 'role');
     const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
     if (!targetUser) throw new AppError('User not found', 404, 'NOT_FOUND');
-    
     db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, req.params.id);
     const updated = db.prepare('SELECT id,name,email,role,created_at FROM users WHERE id = ?').get(req.params.id);
-
-    auditService.logAction({
-      actorId: req.user?.id,
-      actorEmail: req.user?.email,
-      action: 'user_role_update',
-      resourceType: 'user',
-      resourceId: req.params.id,
-      beforeData: { role: targetUser.role },
-      afterData: { role: updated.role },
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
-
+    auditService.logAction({ actorId:req.user?.id, actorEmail:req.user?.email, action:'user_role_update', resourceType:'user', resourceId:req.params.id, beforeData:{role:targetUser.role}, afterData:{role:updated.role}, ipAddress:req.ip, userAgent:req.get('user-agent') });
     return res.status(200).json({ data: updated });
   } catch (err) { next(err); }
 }
 
 function safeParseJson(val) { if (!val) return []; try { return typeof val === 'string' ? JSON.parse(val) : val; } catch (e) { return [val]; } }
-
 module.exports = { listUsers, getMyProfile, updateMyProfile, getLeaderboard, getUserById, updateUserRole };

@@ -1,10 +1,11 @@
 const { generateTestToken } = require('../middleware/auth');
-const { db } = require('../db/db');
+const authUserRepository = require('../db/authUserRepository');
+const { getDatabaseDriver } = require('../db/repository');
+const PostgresRepository = require('../db/postgresRepository');
+const SqliteRepository = require('../db/sqliteRepository');
 
-// GET or POST /api/v1/auth/verify
 async function verifySession(req, res, next) {
   try {
-    // req.user is populated by authenticate middleware
     return res.status(200).json({
       user: {
         id: req.user.id,
@@ -24,13 +25,10 @@ async function verifySession(req, res, next) {
   }
 }
 
-// POST /api/v1/auth/dev-login (Development/demo helper only)
 async function devLogin(req, res, next) {
   try {
     if (process.env.NODE_ENV === 'production') {
-      return res.status(404).json({
-        error: { code: 'NOT_FOUND', message: 'Development login is disabled in production.' }
-      });
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Development login is disabled in production.' } });
     }
 
     const { email, role = 'user' } = req.body || {};
@@ -38,37 +36,33 @@ async function devLogin(req, res, next) {
     const allowedRoles = new Set(['user', 'mentor', 'admin']);
 
     if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'A valid email is required', field: 'email' }
-      });
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid email is required', field: 'email' } });
     }
-
     if (!allowedRoles.has(role)) {
-      return res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'Invalid role', field: 'role' }
-      });
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid role', field: 'role' } });
     }
 
-    let user = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail);
+    let user = await authUserRepository.findUserByEmail(normalizedEmail);
     if (!user) {
       const id = `usr-${Date.now()}`;
       const name = normalizedEmail.split('@')[0];
-      db.prepare('INSERT INTO users (id, name, email, role, points, streak, longest_streak) VALUES (?, ?, ?, ?, 100, 1, 1)').run(id, name, normalizedEmail, role);
-      user = { id, name, email: normalizedEmail, role, points: 100, streak: 1, longest_streak: 1 };
+      user = await authUserRepository.provisionUser({ id, name, email: normalizedEmail });
+      if (role !== 'user') {
+        const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : new SqliteRepository();
+        await repo.execute('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+        user = await authUserRepository.findUserById(id);
+      }
+    } else if (role !== user.role) {
+      const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : new SqliteRepository();
+      await repo.execute('UPDATE users SET role = ? WHERE id = ?', [role, user.id]);
+      user = { ...user, role };
     }
 
     const token = generateTestToken({ id: user.id, email: user.email, name: user.name, role: user.role });
-
-    return res.status(200).json({
-      token,
-      user
-    });
+    return res.status(200).json({ token, user });
   } catch (err) {
     next(err);
   }
 }
 
-module.exports = {
-  verifySession,
-  devLogin
-};
+module.exports = { verifySession, devLogin };
