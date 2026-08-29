@@ -18,7 +18,8 @@ import {
   TrendingUp,
   ShieldAlert,
   GitPullRequest,
-  Terminal
+  Terminal,
+  Sparkles
 } from 'lucide-react';
 
 export default function Sidebar({ currentView, setCurrentView, user, onLogout, isCollapsed, setIsCollapsed, unreadCount = 0 }) {
@@ -66,6 +67,7 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
       items: [
         { id: 'available', label: 'Problem Library', icon: Compass },
         { id: 'daily', label: 'Daily Challenge', icon: Calendar },
+        { id: 'dsa-ai', label: 'DSA AI Coach', icon: Sparkles },
         { id: 'submissions', label: 'Submission History', icon: History },
       ]
     },

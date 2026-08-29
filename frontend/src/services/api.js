@@ -180,5 +180,19 @@ export const api = {
       if (params[k]) q.append(k, params[k]);
     }
     return request(`/admin/audit-logs?${q}`);
+  },
+
+  // DSA AI Foundation, LLM Router & Coach (Phases 1-4)
+  async analyzeDsaQuestion(data) {
+    return request('/dsa-ai/analyze', { method: 'POST', body: JSON.stringify(data) });
+  },
+  async generateDsaGuidance(data) {
+    return request('/dsa-ai/generate', { method: 'POST', body: JSON.stringify(data) });
+  },
+  async getDsaAiCoach(data) {
+    return request('/dsa-ai/coach', { method: 'POST', body: JSON.stringify(data) });
+  },
+  async verifyDsaCode(data) {
+    return request('/dsa-ai/verify', { method: 'POST', body: JSON.stringify(data) });
   }
 };

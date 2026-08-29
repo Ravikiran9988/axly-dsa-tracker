@@ -1,6 +1,7 @@
 const dsaAiService = require('./dsaAiService');
 const llmRouter = require('./llm/llmRouter');
 const executionService = require('./executionService');
+const observability = require('./dsaAiObservabilityService');
 const { getRepository } = require('../db/repositoryFactory');
 const { AppError } = require('../middleware/errorHandler');
 
@@ -41,6 +42,7 @@ class DsaAiCoachService {
       throw new AppError('Question text is required and must be a string', 400, 'VALIDATION_ERROR', 'question');
     }
 
+    const startTime = Date.now();
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) {
       throw new AppError('Question cannot be empty', 400, 'VALIDATION_ERROR', 'question');
@@ -59,9 +61,10 @@ class DsaAiCoachService {
     const timeComplexity = context?.timeComplexity || 'O(N)';
     const spaceComplexity = context?.spaceComplexity || 'O(1)';
 
+    let result;
     // 2. Progressive Hint Action
     if (targetIntent === 'HINT') {
-      return this.handleProgressiveHint({
+      result = await this.handleProgressiveHint({
         question: trimmedQuestion,
         matchedProblem,
         context,
@@ -71,11 +74,8 @@ class DsaAiCoachService {
         timeComplexity,
         spaceComplexity
       });
-    }
-
-    // 3. Explanation Action
-    if (targetIntent === 'EXPLANATION' || targetIntent === 'EXPLAIN') {
-      return this.handleExplanation({
+    } else if (targetIntent === 'EXPLANATION' || targetIntent === 'EXPLAIN') {
+      result = await this.handleExplanation({
         question: trimmedQuestion,
         matchedProblem,
         context,
@@ -84,11 +84,8 @@ class DsaAiCoachService {
         timeComplexity,
         spaceComplexity
       });
-    }
-
-    // 4. Approach Action
-    if (targetIntent === 'APPROACH') {
-      return this.handleApproach({
+    } else if (targetIntent === 'APPROACH') {
+      result = await this.handleApproach({
         question: trimmedQuestion,
         matchedProblem,
         context,
@@ -97,11 +94,8 @@ class DsaAiCoachService {
         timeComplexity,
         spaceComplexity
       });
-    }
-
-    // 5. Complexity Action
-    if (targetIntent === 'COMPLEXITY') {
-      return this.handleComplexity({
+    } else if (targetIntent === 'COMPLEXITY') {
+      result = await this.handleComplexity({
         question: trimmedQuestion,
         matchedProblem,
         context,
@@ -110,11 +104,8 @@ class DsaAiCoachService {
         timeComplexity,
         spaceComplexity
       });
-    }
-
-    // 6. Code Review Action
-    if (targetIntent === 'CODE_REVIEW') {
-      return this.handleCodeReview({
+    } else if (targetIntent === 'CODE_REVIEW') {
+      result = await this.handleCodeReview({
         question: trimmedQuestion,
         matchedProblem,
         context,
@@ -125,11 +116,8 @@ class DsaAiCoachService {
         timeComplexity,
         spaceComplexity
       });
-    }
-
-    // 7. Debug Action
-    if (targetIntent === 'DEBUG') {
-      return this.handleDebug({
+    } else if (targetIntent === 'DEBUG') {
+      result = await this.handleDebug({
         question: trimmedQuestion,
         matchedProblem,
         context,
@@ -140,11 +128,8 @@ class DsaAiCoachService {
         timeComplexity,
         spaceComplexity
       });
-    }
-
-    // 8. Concept Action
-    if (targetIntent === 'CONCEPT') {
-      return this.handleConcept({
+    } else if (targetIntent === 'CONCEPT') {
+      result = await this.handleConcept({
         question: trimmedQuestion,
         matchedProblem,
         context,
@@ -153,11 +138,8 @@ class DsaAiCoachService {
         timeComplexity,
         spaceComplexity
       });
-    }
-
-    // 9. Solution Action (with optional sandbox verification)
-    if (targetIntent === 'SOLUTION') {
-      return this.handleSolution({
+    } else if (targetIntent === 'SOLUTION') {
+      result = await this.handleSolution({
         question: trimmedQuestion,
         matchedProblem,
         context,
@@ -168,18 +150,27 @@ class DsaAiCoachService {
         timeComplexity,
         spaceComplexity
       });
+    } else {
+      result = await this.handleGeneralDsa({
+        question: trimmedQuestion,
+        matchedProblem,
+        context,
+        topic,
+        pattern,
+        timeComplexity,
+        spaceComplexity
+      });
     }
 
-    // Default / General DSA fallback
-    return this.handleGeneralDsa({
-      question: trimmedQuestion,
-      matchedProblem,
-      context,
-      topic,
-      pattern,
-      timeComplexity,
-      spaceComplexity
+    observability.recordEvent({
+      intent: result.intent,
+      source: result.source,
+      provider: result.provider || 'none',
+      latencyMs: Date.now() - startTime,
+      verified: result.verification?.verified ?? null
     });
+
+    return result;
   }
 
   /**
@@ -238,8 +229,11 @@ class DsaAiCoachService {
    * Handle Explanation (Idea, Why it works, Pattern, Complexity)
    */
   async handleExplanation({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity }) {
-    if (context?.storedSolution && context.confidence >= 0.9) {
-      const formatted = `### Core Idea & Mechanism\n${context.storedSolution}\n\n**Pattern Applied**: ${pattern}\n**Expected Time Complexity**: ${timeComplexity}\n**Expected Space Complexity**: ${spaceComplexity}`;
+    const explanationText = context?.storedSolution ||
+      (matchedProblem ? `Use ${pattern} (${context?.algorithm || 'One-Pass Hash Map Lookup'}) to solve ${matchedProblem.title}. Store seen elements in a hash table to check complements in constant time.` : null);
+
+    if (explanationText && (context?.confidence >= 0.8 || matchedProblem)) {
+      const formatted = `### Core Idea & Mechanism\n${explanationText}\n\n**Pattern Applied**: ${pattern}\n**Expected Time Complexity**: ${timeComplexity}\n**Expected Space Complexity**: ${spaceComplexity}`;
       return {
         intent: 'EXPLANATION',
         source: 'database',

@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, CheckCircle2, AlertTriangle, RotateCcw, Code, Github, Zap,
   HelpCircle, FileCode, Check, Copy, ArrowLeft, Terminal as TerminalIcon,
-  History, Edit3, XCircle, Clock, ChevronDown, ChevronUp
+  History, Edit3, XCircle, Clock, ChevronDown, ChevronUp, Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
 import { practiceApi } from '../services/practiceApi';
+import DsaAiCoachPanel from '../components/DsaAiCoachPanel';
 
 const FILE_EXTENSIONS = {
   javascript: 'solution.js', python: 'solution.py', typescript: 'solution.ts',
@@ -277,6 +278,14 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
               <option value="c">C (GCC 13)</option>
             </select>
             <button
+              onClick={() => setLeftTab('ai-coach')}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 hover:bg-cyan-500/20 transition-all shrink-0"
+              title="Open DSA AI Coach for Hints, Explanations and Code Review"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              Ask DSA AI
+            </button>
+            <button
               onClick={handleRunCode}
               disabled={isRunning || isSubmitting}
               title="Run (Ctrl+Enter)"
@@ -309,6 +318,10 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
             <button onClick={() => setLeftTab('hints')} className={`tab-btn ${leftTab === 'hints' ? 'tab-btn-active' : ''}`}>
               <HelpCircle className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
               Hints{hintsList.length > 0 && ` (${hintsList.length})`}
+            </button>
+            <button onClick={() => setLeftTab('ai-coach')} className={`tab-btn ${leftTab === 'ai-coach' ? 'tab-btn-active !text-cyan-300 !border-b-cyan-400' : ''}`}>
+              <Sparkles className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5 text-cyan-400" />
+              Ask DSA AI
             </button>
             <button onClick={() => setLeftTab('submissions')} className={`tab-btn ${leftTab === 'submissions' ? 'tab-btn-active' : ''}`}>
               <History className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
@@ -379,6 +392,11 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+            {leftTab === 'ai-coach' && (
+              <div className="h-full -m-5">
+                <DsaAiCoachPanel problem={question} currentCode={sourceCode} language={language} />
               </div>
             )}
             {leftTab === 'submissions' && (

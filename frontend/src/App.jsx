@@ -28,6 +28,7 @@ import AdminSettings from './pages/AdminSettings';
 import SubmissionReviewConsole from './pages/SubmissionReviewConsole';
 import AdminDailyQuestionModal from './components/AdminDailyQuestionModal';
 import AdminQuestionModal from './components/AdminQuestionModal';
+import DsaAiCoachPanel from './components/DsaAiCoachPanel';
 import { api } from './services/api';
 import { practiceApi } from './services/practiceApi';
 import { Loader2, Terminal } from 'lucide-react';
@@ -223,6 +224,13 @@ export default function App() {
     }
     if (currentView === 'leaderboard') {
       return <Leaderboard currentUser={user} />;
+    }
+    if (currentView === 'dsa-ai' || currentView === 'ai-coach') {
+      return (
+        <div className="max-w-4xl mx-auto h-[84vh] p-2">
+          <DsaAiCoachPanel />
+        </div>
+      );
     }
     if (currentView === 'learning-path') {
       return (
