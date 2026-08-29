@@ -173,8 +173,8 @@ class GroqProvider extends BaseLLMProvider {
       } catch (err) {
         // Mark failed key in cooldown
         this.markKeyCooldown(keyIndex, err);
-        // Sanitize error message to ensure no API key is ever logged
-        const sanitizedMsg = err.message ? err.message.replace(/Bearer\s+[a-zA-Z0-9_\-\.]+/gi, 'Bearer [REDACTED]') : 'Request failed';
+        // Sanitize error message to ensure no API key is ever logged or exposed
+        const sanitizedMsg = this.sanitizeError(err?.message || 'Request failed');
         errors.push(`${keyLabel}: ${sanitizedMsg}`);
       }
     }
@@ -183,6 +183,20 @@ class GroqProvider extends BaseLLMProvider {
     const combinedError = new Error(`[groq] All ${this.keys.length} Groq API keys failed. Failures: ${errors.join(' | ')}`);
     combinedError.provider = this.name;
     throw combinedError;
+  }
+
+  /**
+   * Helper to strip any configured secret keys from error messages
+   */
+  sanitizeError(errorMsg) {
+    if (!errorMsg || typeof errorMsg !== 'string') return 'Request failed';
+    let clean = errorMsg.replace(/Bearer\s+[a-zA-Z0-9_\-\.]+/gi, 'Bearer [REDACTED]');
+    for (const key of this.keys) {
+      if (key && key.length > 4) {
+        clean = clean.split(key).join('[REDACTED]');
+      }
+    }
+    return clean;
   }
 }
 
