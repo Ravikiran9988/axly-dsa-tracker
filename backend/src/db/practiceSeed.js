@@ -70,8 +70,14 @@ function seedPracticeProblems() {
   const patternMap = new Map(patterns.map(p => [p.id, p]));
 
   const tx = db.transaction(() => {
-    const ti = db.prepare('INSERT OR REPLACE INTO topics (id, name) VALUES (?, ?)');
-    topics.forEach(t => ti.run(t.id, t.name));
+    topics.forEach(t => {
+      const existing = db.prepare('SELECT id FROM topics WHERE id = ? OR name = ?').get(t.id, t.name);
+      if (!existing) {
+        db.prepare('INSERT INTO topics (id, name) VALUES (?, ?)').run(t.id, t.name);
+      } else if (existing.id !== t.id || existing.name !== t.name) {
+        db.prepare('UPDATE topics SET id = ?, name = ? WHERE id = ?').run(t.id, t.name, existing.id);
+      }
+    });
 
     const pi = db.prepare(`
       INSERT OR REPLACE INTO patterns (id, name, applicable_topics) VALUES (?, ?, ?)

@@ -4,19 +4,26 @@ const { v4: uuidv4 } = require('uuid');
 function seedDatabase() {
   // Topics
   const topics = [
-    { id: 'top-arrays', name: 'Arrays & Hashing' },
-    { id: 'top-two-pointers', name: 'Two Pointers' },
-    { id: 'top-sliding-window', name: 'Sliding Window' },
-    { id: 'top-stack', name: 'Stack' },
-    { id: 'top-binary-search', name: 'Binary Search' },
-    { id: 'top-linked-list', name: 'Linked List' },
-    { id: 'top-trees', name: 'Trees' },
-    { id: 'top-dp', name: 'Dynamic Programming' },
-    { id: 'top-graphs', name: 'Graphs' }
+    { id: 'arrays', name: 'Arrays' },
+    { id: 'strings', name: 'Strings' },
+    { id: 'hashing', name: 'Hashing' },
+    { id: 'two-pointers-sliding-window', name: 'Two Pointers / Sliding Window' },
+    { id: 'stack', name: 'Stack' },
+    { id: 'binary-search', name: 'Binary Search' },
+    { id: 'trees', name: 'Trees' },
+    { id: 'dynamic-programming', name: 'Dynamic Programming' },
+    { id: 'linked-list', name: 'Linked List' },
+    { id: 'graphs', name: 'Graphs' }
   ];
 
-  const insertTopic = db.prepare('INSERT OR IGNORE INTO topics (id, name) VALUES (?, ?)');
-  topics.forEach(t => insertTopic.run(t.id, t.name));
+  topics.forEach(t => {
+    const existing = db.prepare('SELECT id FROM topics WHERE id = ? OR name = ?').get(t.id, t.name);
+    if (!existing) {
+      db.prepare('INSERT INTO topics (id, name) VALUES (?, ?)').run(t.id, t.name);
+    } else if (existing.id !== t.id || existing.name !== t.name) {
+      db.prepare('UPDATE topics SET id = ?, name = ? WHERE id = ?').run(t.id, t.name, existing.id);
+    }
+  });
 
   // Users
   const users = [
@@ -174,7 +181,7 @@ function seedDatabase() {
       id: 'q-two-sum',
       title: 'Two Sum',
       difficulty: 'easy',
-      topic_id: 'top-arrays',
+      topic_id: 'arrays',
       url: 'https://leetcode.com/problems/two-sum/',
       description: `Given an array of integers \`nums\` and an integer \`target\`, return *indices of the two numbers such that they add up to \`target\`*.\n\nYou may assume that each input would have ***exactly one solution***, and you may not use the same element twice.\n\nYou can return the answer in any order.`,
       problem_statement: `Given an array of integers nums and an integer target, find the two distinct indices that sum to target.`,
@@ -243,7 +250,7 @@ if len(lines) >= 2:
       id: 'q-valid-anagram',
       title: 'Valid Anagram',
       difficulty: 'easy',
-      topic_id: 'top-arrays',
+      topic_id: 'arrays',
       url: 'https://leetcode.com/problems/valid-anagram/',
       description: `Given two strings \`s\` and \`t\`, return \`true\` if \`t\` is an anagram of \`s\`, and \`false\` otherwise.`,
       constraints: `1 <= s.length, t.length <= 5 * 10^4\ns and t consist of lowercase English letters.`,
@@ -303,7 +310,7 @@ if len(lines) >= 2:
       id: 'q-valid-parentheses',
       title: 'Valid Parentheses',
       difficulty: 'easy',
-      topic_id: 'top-stack',
+      topic_id: 'stack',
       url: 'https://leetcode.com/problems/valid-parentheses/',
       description: `Given a string \`s\` containing just brackets \`'()[]{}'\`, determine if valid.`,
       constraints: `1 <= s.length <= 10^4\ns consists of parentheses only.`,
@@ -364,7 +371,7 @@ print("true" if is_valid(s) else "false")`
       id: 'q-binary-search',
       title: 'Binary Search',
       difficulty: 'easy',
-      topic_id: 'top-binary-search',
+      topic_id: 'binary-search',
       url: 'https://leetcode.com/problems/binary-search/',
       description: `Given an array of integers \`nums\` which is sorted in ascending order, search for \`target\`.`,
       constraints: `1 <= nums.length <= 10^4\n-10^4 < nums[i], target < 10^4\nArray is sorted ascending.`,
@@ -431,7 +438,7 @@ if len(lines) >= 2:
       id: 'q-group-anagrams',
       title: 'Group Anagrams',
       difficulty: 'medium',
-      topic_id: 'top-arrays',
+      topic_id: 'arrays',
       url: 'https://leetcode.com/problems/group-anagrams/',
       description: `Given an array of strings \`strs\`, group the anagrams together.`,
       constraints: `1 <= strs.length <= 10^4\n0 <= strs[i].length <= 100`,
@@ -485,7 +492,7 @@ print(group_anagrams_count(strs))`
       id: 'q-top-k-frequent',
       title: 'Top K Frequent Elements',
       difficulty: 'medium',
-      topic_id: 'top-arrays',
+      topic_id: 'arrays',
       url: 'https://leetcode.com/problems/top-k-frequent-elements/',
       description: `Given integer array \`nums\` and integer \`k\`, return the \`k\` most frequent elements.`,
       constraints: `1 <= nums.length <= 10^5\nk is in range [1, unique elements count].`,
@@ -541,7 +548,7 @@ if len(lines) >= 2:
       id: 'q-trapping-rain-water',
       title: 'Trapping Rain Water',
       difficulty: 'hard',
-      topic_id: 'top-two-pointers',
+      topic_id: 'two-pointers-sliding-window',
       url: 'https://leetcode.com/problems/trapping-rain-water/',
       description: `Compute how much water can be trapped after raining over elevation bars.`,
       constraints: `1 <= height.length <= 2 * 10^4\n0 <= height[i] <= 10^5`,
@@ -614,7 +621,7 @@ print(trap(height))`
       id: 'q-3sum',
       title: '3Sum',
       difficulty: 'medium',
-      topic_id: 'top-two-pointers',
+      topic_id: 'two-pointers-sliding-window',
       url: 'https://leetcode.com/problems/3sum/',
       description: `Given integer array nums, return count of unique triplets summing to 0.`,
       constraints: `3 <= nums.length <= 3000\n-10^5 <= nums[i] <= 10^5`,
@@ -699,7 +706,7 @@ print(three_sum_count(nums))`
       id: 'q-longest-substring',
       title: 'Longest Substring Without Repeating Characters',
       difficulty: 'medium',
-      topic_id: 'top-sliding-window',
+      topic_id: 'two-pointers-sliding-window',
       url: 'https://leetcode.com/problems/longest-substring-without-repeating-characters/',
       description: `Find length of the longest substring without repeating characters.`,
       constraints: `0 <= s.length <= 5 * 10^4\ns consists of English letters, digits, symbols.`,
@@ -761,7 +768,7 @@ print(length_of_longest_substring(s))`
       id: 'q-median-two-sorted-arrays',
       title: 'Median of Two Sorted Arrays',
       difficulty: 'hard',
-      topic_id: 'top-binary-search',
+      topic_id: 'binary-search',
       url: 'https://leetcode.com/problems/median-of-two-sorted-arrays/',
       description: `Return median of two sorted arrays in O(log(m+n)) runtime.`,
       constraints: `0 <= m, n <= 1000\n1 <= m + n <= 2000`,
