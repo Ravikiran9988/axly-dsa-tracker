@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Calendar,
   Compass,
-  CheckSquare,
   History,
   Route,
   Code2,
@@ -14,7 +13,6 @@ import {
   LogOut,
   Shield,
   Users,
-  ClipboardList,
   ChevronLeft,
   ChevronRight,
   Flame,
@@ -36,25 +34,24 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
     {
       title: 'DSA Management',
       items: [
-        { id: 'admin-challenges', label: 'Questions', icon: Code2 },
+        { id: 'admin-challenges', label: 'Questions & Versions', icon: Code2 },
         { id: 'admin-daily', label: 'Daily Challenge', icon: Calendar },
-        { id: 'admin-assignments', label: 'Assignments', icon: ClipboardList },
-        { id: 'admin-reviews', label: 'Code Reviews', icon: GitPullRequest }
+        { id: 'admin-reviews', label: 'Manual & AI Reviews', icon: GitPullRequest }
       ]
     },
     {
-      title: 'Learners',
+      title: 'Learners & Progress',
       items: [
         { id: 'admin-users', label: 'Students', icon: Users },
-        { id: 'admin-progress', label: 'Progress', icon: TrendingUp },
-        { id: 'admin-submissions', label: 'Submissions', icon: History }
+        { id: 'admin-progress', label: 'Student Progress', icon: TrendingUp },
+        { id: 'admin-submissions', label: 'Submissions History', icon: History }
       ]
     },
     {
-      title: 'System',
+      title: 'System & Security',
       items: [
         { id: 'admin-audit', label: 'Audit Logs', icon: ShieldAlert },
-        { id: 'admin-settings', label: 'Settings', icon: Sliders }
+        { id: 'admin-settings', label: 'Platform Settings', icon: Sliders }
       ]
     },
     {
@@ -65,22 +62,20 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
 
   const learnerSections = [
     {
-      title: 'Main',
+      title: 'Core Product',
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'daily', label: 'Daily Challenge', icon: Calendar },
-        { id: 'available', label: 'Available Challenges', icon: Compass },
-        { id: 'tasks', label: 'My Tasks', icon: CheckSquare },
+        { id: 'available', label: 'Practice Library', icon: Compass },
         { id: 'submissions', label: 'Submission History', icon: History }
       ]
     },
     {
-      title: 'Learning',
+      title: 'Progress & Rank',
       items: [
-        { id: 'analytics', label: 'Skill Analytics', icon: TrendingUp },
-        { id: 'learning-path', label: 'Learning Path', icon: Route },
-        { id: 'practice', label: 'Practice Bank', icon: Code2 },
-        { id: 'leaderboard', label: 'Leaderboard', icon: Trophy }
+        { id: 'analytics', label: 'My Progress & Analytics', icon: TrendingUp },
+        { id: 'leaderboard', label: 'Competitive Leaderboard', icon: Trophy },
+        { id: 'learning-path', label: 'Learning Path', icon: Route }
       ]
     },
     {
@@ -166,7 +161,9 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
             )}
             {section.items.map((item) => {
               const Icon = item.icon;
-              const active = currentView === item.id || (item.id === 'admin-challenges' && currentView === 'admin-questions');
+              const active = currentView === item.id || 
+                (item.id === 'available' && (currentView === 'practice' || currentView === 'available')) ||
+                (item.id === 'admin-challenges' && (currentView === 'admin-questions' || currentView === 'admin-challenges'));
               return (
                 <button
                   key={item.id}

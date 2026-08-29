@@ -186,7 +186,7 @@ async function deleteQuestion(req, res, next) {
       userAgent: req.get('user-agent')
     });
 
-    return res.status(200).json(result);
+    return res.status(200).json({ ...result, data: result });
   } catch (err) {
     next(err);
   }

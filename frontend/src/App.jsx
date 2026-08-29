@@ -13,8 +13,13 @@ import NotificationsPage from './pages/NotificationsPage';
 import Leaderboard from './pages/Leaderboard';
 import StudentAnalytics from './pages/StudentAnalytics';
 import AdminCoreDashboard from './pages/AdminCoreDashboard';
+import AdminQuestions from './pages/AdminQuestions';
+import AdminDailyChallenge from './pages/AdminDailyChallenge';
+import AdminProgress from './pages/AdminProgress';
+import AdminSubmissions from './pages/AdminSubmissions';
 import AdminUsers from './pages/AdminUsers';
 import AdminAuditLogs from './pages/AdminAuditLogs';
+import AdminSettings from './pages/AdminSettings';
 import SubmissionReviewConsole from './pages/SubmissionReviewConsole';
 import AdminDailyQuestionModal from './components/AdminDailyQuestionModal';
 import AdminQuestionModal from './components/AdminQuestionModal';
@@ -54,7 +59,6 @@ export default function App() {
         await practiceApi.start(questionId);
       } catch (error) {
         console.error('Failed to start practice problem:', error);
-        return;
       }
     }
     setActiveQuestionId(questionId);
@@ -92,9 +96,18 @@ export default function App() {
   }
 
   const renderView = () => {
+    // Problem Solving IDE
     if (currentView === 'solve' && activeQuestionId) {
-      return <ProblemWorkspace questionId={activeQuestionId} onBack={() => setCurrentView('practice')} onStatusUpdated={loadNotificationsCount} />;
+      return (
+        <ProblemWorkspace
+          questionId={activeQuestionId}
+          onBack={() => setCurrentView('practice')}
+          onStatusUpdated={loadNotificationsCount}
+        />
+      );
     }
+
+    // Student Views
     if (currentView === 'dashboard') {
       return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} />;
     }
@@ -123,29 +136,47 @@ export default function App() {
       return (
         <div className="max-w-4xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800">
           <h1 className="text-2xl font-bold text-white">DSA & System Design Mastery Track</h1>
-          <p className="text-sm text-slate-400 mt-2">Step-by-step roadmap from Arrays & Two Pointers to Dynamic Programming and Graph traversals.</p>
+          <p className="text-sm text-slate-400 mt-2">Structured mastery roadmap from Foundations & Two Pointers to Trees, Graphs, and Dynamic Programming.</p>
         </div>
       );
     }
     if (currentView === 'settings') {
       return (
         <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800">
-          <h1 className="text-lg font-bold text-white">Platform Settings</h1>
+          <h1 className="text-lg font-bold text-white">Account & Editor Settings</h1>
         </div>
       );
     }
+
+    // Admin Views
     if (currentView === 'admin-dashboard') {
-      return <AdminCoreDashboard onSelectProblem={handleSelectProblem} />;
+      return <AdminCoreDashboard onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} />;
     }
-    if (currentView === 'admin-users') {
-      return <AdminUsers onSelectStudent={() => setCurrentView('admin-users')} />;
+    if (currentView === 'admin-challenges' || currentView === 'admin-questions') {
+      return <AdminQuestions onSelectProblem={handleSelectProblem} />;
+    }
+    if (currentView === 'admin-daily') {
+      return <AdminDailyChallenge onSelectProblem={handleSelectProblem} />;
     }
     if (currentView === 'admin-reviews') {
       return <SubmissionReviewConsole />;
     }
+    if (currentView === 'admin-users') {
+      return <AdminUsers onSelectStudent={() => setCurrentView('admin-users')} />;
+    }
+    if (currentView === 'admin-progress') {
+      return <AdminProgress />;
+    }
+    if (currentView === 'admin-submissions') {
+      return <AdminSubmissions onSelectProblem={handleSelectProblem} />;
+    }
     if (currentView === 'admin-audit') {
       return <AdminAuditLogs />;
     }
+    if (currentView === 'admin-settings') {
+      return <AdminSettings />;
+    }
+
     return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} />;
   };
 

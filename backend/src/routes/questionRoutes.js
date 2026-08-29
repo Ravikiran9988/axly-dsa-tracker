@@ -27,6 +27,7 @@ router.get('/:id/versions/:version', requireRole('admin'), getQuestionVersion);
 router.post('/:id/versions/:version/restore', requireRole('admin'), restoreQuestionVersion);
 router.get('/:id', getQuestionById);
 router.post('/', requireRole('admin'), validateBody(createQuestionSchema), createQuestion);
+router.put('/:id', requireRole('admin'), validateBody(updateQuestionSchema), updateQuestion);
 router.patch('/:id', requireRole('admin'), validateBody(updateQuestionSchema), updateQuestion);
 router.post('/:id/validate', requireRole('admin'), validateQuestion);
 router.delete('/:id', requireRole('admin'), deleteQuestion);

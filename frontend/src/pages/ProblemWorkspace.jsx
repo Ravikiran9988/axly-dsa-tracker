@@ -42,10 +42,213 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   if(error||!question)return <div className="p-8 text-center max-w-md mx-auto"><AlertTriangle className="w-12 h-12 text-rose-400 mx-auto mb-4"/><h2 className="text-lg font-bold text-white mb-2">Failed to load challenge</h2><p className="text-sm text-slate-400 mb-6">{error||'Could not load problem statement.'}</p><button onClick={onBack} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700"><ArrowLeft className="w-4 h-4"/> Back to Practice</button></div>;
   const difficultyColors={easy:'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',medium:'text-amber-400 bg-amber-500/10 border-amber-500/20',hard:'text-rose-400 bg-rose-500/10 border-rose-500/20'};
   const sampleTestCases=question.test_cases||[]; const isPractice=Boolean(question.is_practice);
-  return <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] overflow-hidden bg-[#070B14]">
-    <div className="h-14 border-b border-slate-800/80 bg-[#0A0F1D] px-4 flex items-center justify-between shrink-0"><div className="flex items-center gap-3"><button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 text-xs font-medium"><ArrowLeft className="w-4 h-4"/><span>Practice</span></button><div className="h-4 w-px bg-slate-800"/><h1 className="text-sm font-bold text-white truncate max-w-xs md:max-w-md">{question.title}</h1><span className={`text-[11px] font-semibold uppercase px-2 py-0.5 rounded-md border ${difficultyColors[question.difficulty]||difficultyColors.easy}`}>{question.difficulty}</span>{isPractice?<span className="hidden sm:inline-flex text-xs text-slate-300 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-md">Practice · 0 points</span>:<span className="hidden sm:inline-flex text-xs text-cyan-400 bg-cyan-950/40 border border-cyan-800/40 px-2 py-0.5 rounded-md">+{question.points||20} pts</span>}</div>
-      <div className="flex items-center gap-2.5"><div className="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg p-0.5"><button onClick={()=>setSubmissionMethod('code')} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${submissionMethod==='code'?'bg-cyan-600 text-white':'text-slate-400'}`}><Code className="w-3.5 h-3.5"/> Code Editor</button><button onClick={()=>setSubmissionMethod('github')} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${submissionMethod==='github'?'bg-cyan-600 text-white':'text-slate-400'}`}><Github className="w-3.5 h-3.5"/> GitHub Link</button></div>{submissionMethod==='code'&&<><select id="select-language" value={language} onChange={e=>handleLanguageChange(e.target.value)} className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5"><option value="javascript">JavaScript (Node.js)</option><option value="python">Python 3</option><option value="typescript">TypeScript</option><option value="java">Java</option><option value="cpp">C++</option><option value="c">C</option></select><button id="btn-run-code" onClick={handleRunCode} disabled={isRunning||isSubmitting} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 text-xs disabled:opacity-50"><Play className="w-3.5 h-3.5 text-cyan-400"/>{isRunning?'Running...':'Run Code'}</button><button id="btn-submit-code" onClick={handleSubmitSolution} disabled={isRunning||isSubmitting} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-semibold disabled:opacity-50"><CheckCircle2 className="w-3.5 h-3.5"/>{isSubmitting?'Evaluating...':'Submit Solution'}</button></>}</div></div>
-    <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden"><div className="lg:col-span-5 border-r border-slate-800/80 bg-[#0A0F1D]/70 flex flex-col overflow-hidden"><div className="h-10 border-b border-slate-800 px-3 flex items-center gap-4 bg-slate-950/40"><button onClick={()=>setLeftTab('description')} className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 ${leftTab==='description'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}><FileCode className="w-3.5 h-3.5"/> Description</button>{question.hints&&<button onClick={()=>setLeftTab('hints')} className={`text-xs font-medium h-full border-b-2 ${leftTab==='hints'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}><HelpCircle className="w-3.5 h-3.5 inline mr-1"/>Hints</button>}<button onClick={()=>setLeftTab('submissions')} className={`text-xs font-medium h-full border-b-2 ${leftTab==='submissions'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}><History className="w-3.5 h-3.5 inline mr-1"/>Submissions ({pastSubmissions.length})</button></div><div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-5 text-xs text-slate-300">{leftTab==='description'&&<><div className="space-y-2"><h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">Problem Statement</h3><div className="text-slate-200 leading-relaxed whitespace-pre-line text-[13px]">{question.description||question.problem_statement||'No description provided.'}</div></div>{question.constraints&&<div className="space-y-1.5 pt-2 border-t border-slate-800/80"><h4 className="font-semibold text-amber-400 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5"/>Constraints:</h4><pre className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-amber-200/90 font-mono text-[11px] whitespace-pre-line">{question.constraints}</pre></div>}{sampleTestCases.length>0&&<div className="space-y-3 pt-2 border-t border-slate-800/80"><h4 className="font-semibold text-white">Examples:</h4>{sampleTestCases.slice(0,2).map((tc,idx)=><div key={idx} className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5 font-mono text-[11px]"><div className="text-slate-400 font-semibold">Example #{idx+1}</div><div><span className="text-slate-500">Input: </span><span className="text-cyan-300">{tc.input?.replace(/\n/g,' ')}</span></div><div><span className="text-slate-500">Output: </span><span className="text-emerald-400">{tc.expected_output}</span></div></div>)}</div>}</>}{leftTab==='hints'&&<div className="space-y-3"><div className="flex items-center gap-2 text-cyan-400 font-semibold"><HelpCircle className="w-4 h-4"/>Algorithmic Hints & Intuition</div><div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 leading-relaxed whitespace-pre-line text-xs">{question.hints||'No hints available for this problem.'}</div></div>}{leftTab==='submissions'&&<div className="space-y-3"><div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Your Submission History</div>{pastSubmissions.length===0?<div className="text-center py-8 text-slate-500">No submissions recorded yet.</div>:pastSubmissions.map((sub,idx)=><div key={sub.id||idx} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs"><div className="flex items-center justify-between"><span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${sub.status==='Accepted'||sub.status==='solved'?'bg-emerald-500/10 text-emerald-400':'bg-rose-500/10 text-rose-400'}`}>{sub.status}</span><span className="text-[10px] text-slate-500 font-mono">{sub.created_at||'Just now'}</span></div><div className="text-slate-400 flex items-center justify-between text-[11px]"><span>Passed: {sub.passed_tests}/{sub.total_tests} test cases</span><span>{sub.execution_time_ms||0} ms</span></div></div>)}</div>}</div></div>
-      <div className="lg:col-span-7 flex flex-col overflow-hidden bg-[#080C14]">{submissionMethod==='code'?<><div className="h-9 border-b border-slate-800 px-3 bg-slate-950/60 flex items-center justify-between text-xs"><div className="flex items-center gap-2 text-slate-400 font-mono text-[11px]"><TerminalIcon className="w-3.5 h-3.5 text-cyan-400"/>solution.{language==='python'?'py':language==='javascript'?'js':language}</div><div className="flex items-center gap-2"><button onClick={handleCopyCode} className="p-1 text-slate-400">{copied?<Check className="w-3.5 h-3.5 text-emerald-400"/>:<Copy className="w-3.5 h-3.5"/>}</button><button onClick={handleResetCode} className="p-1 text-slate-400"><RotateCcw className="w-3.5 h-3.5"/></button></div></div><div className="flex-1 min-h-[260px] p-3 overflow-hidden bg-[#070B14]"><textarea id="code-editor-textarea" value={sourceCode} onChange={e=>setSourceCode(e.target.value)} spellCheck={false} className="w-full h-full p-4 bg-[#0A0F1D] text-cyan-100 font-mono text-xs leading-relaxed rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500 resize-none custom-scrollbar"/></div><div className="h-56 border-t border-slate-800 bg-[#0A0F1D] flex flex-col shrink-0"><div className="h-9 border-b border-slate-800 px-3 flex items-center gap-4 bg-slate-950/60 text-xs"><button onClick={()=>setBottomTab('testcases')} className={`h-full border-b-2 ${bottomTab==='testcases'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>Test Cases ({sampleTestCases.length})</button><button onClick={()=>setBottomTab('results')} className={`h-full border-b-2 ${bottomTab==='results'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>Execution Results</button><button onClick={()=>setBottomTab('custom')} className={`h-full border-b-2 ${bottomTab==='custom'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>Custom Stdin</button></div><div className="flex-1 overflow-y-auto p-3 custom-scrollbar text-xs">{bottomTab==='testcases'&&<div className="space-y-2"><div className="flex items-center gap-2">{sampleTestCases.map((tc,idx)=><button key={idx} onClick={()=>setSelectedTestCaseTab(idx)} className={`px-3 py-1 rounded-lg font-mono text-[11px] ${selectedTestCaseTab===idx?'bg-cyan-600 text-white':'bg-slate-900 text-slate-400'}`}>Case #{idx+1}</button>)}</div>{sampleTestCases[selectedTestCaseTab]&&<div className="grid grid-cols-2 gap-3 pt-1"><div><span className="text-[10px] text-slate-400 font-semibold block mb-1">Input:</span><pre className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-cyan-200 font-mono text-[11px]">{sampleTestCases[selectedTestCaseTab].input}</pre></div><div><span className="text-[10px] text-slate-400 font-semibold block mb-1">Expected Output:</span><pre className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-emerald-300 font-mono text-[11px]">{sampleTestCases[selectedTestCaseTab].expected_output}</pre></div></div>}</div>}{bottomTab==='results'&&<div>{!execResult?<div className="text-center py-8 text-slate-500 text-xs">Click "Run Code" or "Submit Solution" to view execution results.</div>:<div className="space-y-3"><div className="flex items-center justify-between"><span className={`text-xs font-bold uppercase px-2.5 py-0.5 rounded-full ${execResult.status==='Accepted'?'bg-emerald-500/10 text-emerald-400':'bg-rose-500/10 text-rose-400'}`}>{execResult.status}</span><span className="text-xs text-slate-400">Passed: <strong>{execResult.passed_tests}/{execResult.total_tests}</strong> test cases</span></div>{execResult.results?.map((r,i)=><div key={i} className="p-2.5 rounded-xl border text-xs font-mono"><div className="flex items-center justify-between font-bold"><span>Test Case #{r.test_index}</span><span>{r.status}</span></div>{r.stderr&&<div className="text-rose-300 text-[11px] whitespace-pre-wrap mt-1">{r.stderr}</div>}{r.actual_output&&<div className="text-slate-300 text-[11px]">Output: {r.actual_output}</div>}</div>)}</div>}</div>}{bottomTab==='custom'&&<div className="space-y-2"><label className="block text-[11px] text-slate-400 font-semibold">Custom Standard Input (stdin):</label><textarea rows={3} value={customInput} onChange={e=>setCustomInput(e.target.value)} placeholder="Enter custom input here..." className="w-full p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-cyan-200 font-mono text-xs"/></div>}</div></div></div>:<div className="p-8 flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 max-w-xl mx-auto my-auto"><div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-600 flex items-center justify-center text-white shadow-xl"><Github className="w-8 h-8"/></div><div><h2 className="text-lg font-bold text-white">Submit Solution via GitHub</h2><p className="text-xs text-slate-400 mt-2">Submit your public GitHub repository or solution file URL. A mentor will review your code architecture, complexity, and cleanliness.</p></div>{githubSuccessMessage&&<div className="w-full p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/>{githubSuccessMessage}</div>}<form onSubmit={handleSubmitGithub} className="w-full space-y-4"><input type="url" required placeholder="https://github.com/username/repo-name/blob/main/solution.py" value={githubUrl} onChange={e=>setGithubUrl(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs"/><button type="submit" disabled={isSubmittingGithub} className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 text-white font-bold disabled:opacity-50">{isSubmittingGithub?'Submitting...':'Submit Repository Link'}</button></form></div>}</div>
-    </div></div>;
+  return (
+    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] overflow-hidden bg-[#070B14]">
+      <div className="h-14 border-b border-slate-800/80 bg-[#0A0F1D] px-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 text-xs font-medium">
+            <ArrowLeft className="w-4 h-4"/><span>Practice</span>
+          </button>
+          <div className="h-4 w-px bg-slate-800"/>
+          <h1 className="text-sm font-bold text-white truncate max-w-xs md:max-w-md">{question.title}</h1>
+          <span className={`text-[11px] font-semibold uppercase px-2 py-0.5 rounded-md border ${difficultyColors[question.difficulty]||difficultyColors.easy}`}>{question.difficulty}</span>
+          {isPractice ? (
+            <span className="hidden sm:inline-flex text-xs text-slate-300 bg-slate-800/80 border border-slate-700 px-2 py-0.5 rounded-md">Practice · 0 points</span>
+          ) : (
+            <span className="hidden sm:inline-flex text-xs text-cyan-400 bg-cyan-950/40 border border-cyan-800/40 px-2 py-0.5 rounded-md">+{question.points||20} pts</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg p-0.5">
+            <button onClick={()=>setSubmissionMethod('code')} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${submissionMethod==='code'?'bg-cyan-600 text-white':'text-slate-400'}`}>
+              <Code className="w-3.5 h-3.5"/> Code Editor
+            </button>
+            <button onClick={()=>setSubmissionMethod('github')} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${submissionMethod==='github'?'bg-cyan-600 text-white':'text-slate-400'}`}>
+              <Github className="w-3.5 h-3.5"/> GitHub Link
+            </button>
+          </div>
+          {submissionMethod==='code' && (
+            <>
+              <select id="select-language" value={language} onChange={e=>handleLanguageChange(e.target.value)} className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5">
+                <option value="javascript">JavaScript (Node.js)</option>
+                <option value="python">Python 3</option>
+                <option value="typescript">TypeScript</option>
+                <option value="java">Java</option>
+                <option value="cpp">C++</option>
+                <option value="c">C</option>
+              </select>
+              <button id="btn-run-code" onClick={handleRunCode} disabled={isRunning||isSubmitting} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 text-xs disabled:opacity-50">
+                <Play className="w-3.5 h-3.5 text-cyan-400"/>{isRunning?'Running...':'Run Code'}
+              </button>
+              <button id="btn-submit-code" onClick={handleSubmitSolution} disabled={isRunning||isSubmitting} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-semibold disabled:opacity-50">
+                <CheckCircle2 className="w-3.5 h-3.5"/>{isSubmitting?'Evaluating...':'Submit Solution'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        <div className="lg:col-span-5 border-r border-slate-800/80 bg-[#0A0F1D]/70 flex flex-col overflow-hidden">
+          <div className="h-10 border-b border-slate-800 px-3 flex items-center gap-4 bg-slate-950/40">
+            <button onClick={()=>setLeftTab('description')} className={`text-xs font-medium h-full border-b-2 flex items-center gap-1.5 ${leftTab==='description'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>
+              <FileCode className="w-3.5 h-3.5"/> Description
+            </button>
+            {question.hints && (
+              <button onClick={()=>setLeftTab('hints')} className={`text-xs font-medium h-full border-b-2 ${leftTab==='hints'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>
+                <HelpCircle className="w-3.5 h-3.5 inline mr-1"/>Hints
+              </button>
+            )}
+            <button onClick={()=>setLeftTab('submissions')} className={`text-xs font-medium h-full border-b-2 ${leftTab==='submissions'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>
+              <History className="w-3.5 h-3.5 inline mr-1"/>Submissions ({pastSubmissions.length})
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-5 text-xs text-slate-300">
+            {leftTab==='description' && (
+              <>
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">Problem Statement</h3>
+                  <div className="text-slate-200 leading-relaxed whitespace-pre-line text-[13px]">{question.description||question.problem_statement||'No description provided.'}</div>
+                </div>
+                {question.constraints && (
+                  <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                    <h4 className="font-semibold text-amber-400 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5"/>Constraints:</h4>
+                    <pre className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-amber-200/90 font-mono text-[11px] whitespace-pre-line">{question.constraints}</pre>
+                  </div>
+                )}
+                {sampleTestCases.length>0 && (
+                  <div className="space-y-3 pt-2 border-t border-slate-800/80">
+                    <h4 className="font-semibold text-white">Examples:</h4>
+                    {sampleTestCases.slice(0,2).map((tc,idx)=>(
+                      <div key={idx} className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-1.5 font-mono text-[11px]">
+                        <div className="text-slate-400 font-semibold">Example #{idx+1}</div>
+                        <div><span className="text-slate-500">Input: </span><span className="text-cyan-300">{tc.input?.replace(/\n/g,' ')}</span></div>
+                        <div><span className="text-slate-500">Output: </span><span className="text-emerald-400">{tc.expected_output}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+            {leftTab==='hints' && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-cyan-400 font-semibold"><HelpCircle className="w-4 h-4"/>Algorithmic Hints & Intuition</div>
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 leading-relaxed whitespace-pre-line text-xs">{question.hints||'No hints available for this problem.'}</div>
+              </div>
+            )}
+            {leftTab==='submissions' && (
+              <div className="space-y-3">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Your Submission History</div>
+                {pastSubmissions.length===0 ? (
+                  <div className="text-center py-8 text-slate-500">No submissions recorded yet.</div>
+                ) : (
+                  pastSubmissions.map((sub,idx)=>(
+                    <div key={sub.id||idx} className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-0.5 rounded-full font-bold uppercase text-[10px] ${sub.status==='Accepted'||sub.status==='solved'?'bg-emerald-500/10 text-emerald-400':'bg-rose-500/10 text-rose-400'}`}>{sub.status}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{sub.created_at||'Just now'}</span>
+                      </div>
+                      <div className="text-slate-400 flex items-center justify-between text-[11px]">
+                        <span>Passed: {sub.passed_tests}/{sub.total_tests} test cases</span>
+                        <span>{sub.execution_time_ms||0} ms</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="lg:col-span-7 flex flex-col overflow-hidden bg-[#080C14]">
+          {submissionMethod==='code' ? (
+            <>
+              <div className="h-9 border-b border-slate-800 px-3 bg-slate-950/60 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
+                  <TerminalIcon className="w-3.5 h-3.5 text-cyan-400"/>solution.{language==='python'?'py':language==='javascript'?'js':language}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleCopyCode} className="p-1 text-slate-400">{copied?<Check className="w-3.5 h-3.5 text-emerald-400"/>:<Copy className="w-3.5 h-3.5"/>}</button>
+                  <button onClick={handleResetCode} className="p-1 text-slate-400"><RotateCcw className="w-3.5 h-3.5"/></button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-[260px] p-3 overflow-hidden bg-[#070B14]">
+                <textarea id="code-editor-textarea" value={sourceCode} onChange={e=>setSourceCode(e.target.value)} spellCheck={false} className="w-full h-full p-4 bg-[#0A0F1D] text-cyan-100 font-mono text-xs leading-relaxed rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500 resize-none custom-scrollbar"/>
+              </div>
+              <div className="h-56 border-t border-slate-800 bg-[#0A0F1D] flex flex-col shrink-0">
+                <div className="h-9 border-b border-slate-800 px-3 flex items-center gap-4 bg-slate-950/60 text-xs">
+                  <button onClick={()=>setBottomTab('testcases')} className={`h-full border-b-2 ${bottomTab==='testcases'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>Test Cases ({sampleTestCases.length})</button>
+                  <button onClick={()=>setBottomTab('results')} className={`h-full border-b-2 ${bottomTab==='results'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>Execution Results</button>
+                  <button onClick={()=>setBottomTab('custom')} className={`h-full border-b-2 ${bottomTab==='custom'?'border-cyan-500 text-cyan-400':'border-transparent text-slate-400'}`}>Custom Stdin</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 custom-scrollbar text-xs">
+                  {bottomTab==='testcases' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        {sampleTestCases.map((tc,idx)=>(
+                          <button key={idx} onClick={()=>setSelectedTestCaseTab(idx)} className={`px-3 py-1 rounded-lg font-mono text-[11px] ${selectedTestCaseTab===idx?'bg-cyan-600 text-white':'bg-slate-900 text-slate-400'}`}>Case #{idx+1}</button>
+                        ))}
+                      </div>
+                      {sampleTestCases[selectedTestCaseTab] && (
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          <div><span className="text-[10px] text-slate-400 font-semibold block mb-1">Input:</span><pre className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-cyan-200 font-mono text-[11px]">{sampleTestCases[selectedTestCaseTab].input}</pre></div>
+                          <div><span className="text-[10px] text-slate-400 font-semibold block mb-1">Expected Output:</span><pre className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-emerald-300 font-mono text-[11px]">{sampleTestCases[selectedTestCaseTab].expected_output}</pre></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {bottomTab==='results' && (
+                    <div>
+                      {!execResult ? (
+                        <div className="text-center py-8 text-slate-500 text-xs">Click "Run Code" or "Submit Solution" to view execution results.</div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-xs font-bold uppercase px-2.5 py-0.5 rounded-full ${execResult.status==='Accepted'?'bg-emerald-500/10 text-emerald-400':'bg-rose-500/10 text-rose-400'}`}>{execResult.status}</span>
+                            <span className="text-xs text-slate-400">Passed: <strong>{execResult.passed_tests}/{execResult.total_tests}</strong> test cases</span>
+                          </div>
+                          {execResult.results?.map((r,i)=>(
+                            <div key={i} className="p-2.5 rounded-xl border text-xs font-mono">
+                              <div className="flex items-center justify-between font-bold"><span>Test Case #{r.test_index}</span><span>{r.status}</span></div>
+                              {r.stderr && <div className="text-rose-300 text-[11px] whitespace-pre-wrap mt-1">{r.stderr}</div>}
+                              {r.actual_output && <div className="text-slate-300 text-[11px]">Output: {r.actual_output}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {bottomTab==='custom' && (
+                    <div className="space-y-2">
+                      <label className="block text-[11px] text-slate-400 font-semibold">Custom Standard Input (stdin):</label>
+                      <textarea rows={3} value={customInput} onChange={e=>setCustomInput(e.target.value)} placeholder="Enter custom input here..." className="w-full p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-cyan-200 font-mono text-xs"/>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="p-8 flex flex-col items-center justify-center min-h-[400px] text-center space-y-6 max-w-xl mx-auto my-auto">
+              <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-600 flex items-center justify-center text-white shadow-xl">
+                <Github className="w-8 h-8"/>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-white">Submit Solution via GitHub</h2>
+                <p className="text-xs text-slate-400 mt-2">Submit your public GitHub repository or solution file URL. A mentor will review your code architecture, complexity, and cleanliness.</p>
+              </div>
+              {githubSuccessMessage && (
+                <div className="w-full p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4"/>{githubSuccessMessage}
+                </div>
+              )}
+              <form onSubmit={handleSubmitGithub} className="w-full space-y-4">
+                <input type="url" required placeholder="https://github.com/username/repo-name/blob/main/solution.py" value={githubUrl} onChange={e=>setGithubUrl(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs"/>
+                <button type="submit" disabled={isSubmittingGithub} className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 text-white font-bold disabled:opacity-50">{isSubmittingGithub?'Submitting...':'Submit Repository Link'}</button>
+              </form>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

@@ -22,7 +22,7 @@ async function setDailyQuestion(req, res, next) {
       date,
       admin_id: req.user.id
     });
-    return res.status(200).json(result);
+    return res.status(201).json(result);
   } catch (err) {
     next(err);
   }

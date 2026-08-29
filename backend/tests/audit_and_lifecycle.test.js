@@ -63,8 +63,8 @@ describe('Phases 6A–6R: Production Audit Logs, Lifecycle, Versioning & Securit
       expect(clean.test_cases[1].expected_output).toBe('[HIDDEN_EXPECTED_OUTPUT]');
     });
 
-    test('Records audit log entry successfully', () => {
-      const entry = auditService.logAction({
+    test('Records audit log entry successfully', async () => {
+      const entry = await auditService.logAction({
         actorId: adminId,
         actorEmail: 'auditor@axly.in',
         action: 'system_test',
@@ -185,15 +185,15 @@ describe('Phases 6A–6R: Production Audit Logs, Lifecycle, Versioning & Securit
   });
 
   describe('4. Analytics & Recommendations Endpoints', () => {
-    test('Calculates student performance analytics without error', () => {
-      const data = getUserAnalytics(userId);
+    test('Calculates student performance analytics without error', async () => {
+      const data = await getUserAnalytics(userId);
       expect(data).toBeDefined();
       expect(data.summary).toBeDefined();
       expect(Array.isArray(data.topic_breakdown)).toBe(true);
     });
 
-    test('Generates smart recommendations with reasoning', () => {
-      const recs = getRecommendations(userId, 5);
+    test('Generates smart recommendations with reasoning', async () => {
+      const recs = await getRecommendations(userId, 5);
       expect(Array.isArray(recs)).toBe(true);
       if (recs.length > 0) {
         expect(recs[0].reason).toBeDefined();

@@ -1,25 +1,23 @@
-const SqliteRepository = require('./sqliteRepository');
-const PostgresRepository = require('./postgresRepository');
-const { getDatabaseDriver } = require('./repository');
+const { getRepository } = require('./repositoryFactory');
 
-function createRepository() {
-  return getDatabaseDriver() === 'postgres' ? new PostgresRepository() : new SqliteRepository();
+function getRepo() {
+  return getRepository();
 }
 
 async function findUserById(id) {
-  return createRepository().one('SELECT id, name, email, role, created_at FROM users WHERE id = ?', [id]);
+  return getRepo().one('SELECT id, name, email, role, avatar_url, institution, points, streak, longest_streak, rank, last_active_at, created_at FROM users WHERE id = ?', [id]);
 }
 
 async function findUserByEmail(email) {
-  return createRepository().one('SELECT id, name, email, role FROM users WHERE email = ?', [email]);
+  return getRepo().one('SELECT id, name, email, role, avatar_url, institution, points, streak, longest_streak, rank, last_active_at, created_at FROM users WHERE LOWER(email) = LOWER(?)', [email]);
 }
 
 async function provisionUser({ id, name, email }) {
-  const repo = createRepository();
+  const repo = getRepo();
   await repo.execute(`
     INSERT INTO users (id, name, email, role)
     VALUES (?, ?, ?, 'user')
-    ON CONFLICT(id) DO UPDATE SET email=excluded.email
+    ON CONFLICT(id) DO UPDATE SET email = EXCLUDED.email
   `, [id, name, email]);
   return findUserById(id);
 }
@@ -29,7 +27,7 @@ async function updateProfile(id, updates) {
   if (!entries.length) return findUserById(id);
   const fields = entries.map(([key]) => `${key} = ?`).join(', ');
   const values = entries.map(([, value]) => value);
-  const repo = createRepository();
+  const repo = getRepo();
   await repo.execute(`UPDATE users SET ${fields} WHERE id = ?`, [...values, id]);
   return findUserById(id);
 }

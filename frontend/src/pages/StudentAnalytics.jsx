@@ -11,12 +11,17 @@ import {
   BarChart3,
   Target,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Code2,
+  Clock3,
+  Ban
 } from 'lucide-react';
 import { api } from '../services/api';
+import { practiceApi } from '../services/practiceApi';
 
 export default function StudentAnalytics({ onSelectProblem }) {
   const [analytics, setAnalytics] = useState(null);
+  const [practiceProgress, setPracticeProgress] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,11 +34,13 @@ export default function StudentAnalytics({ onSelectProblem }) {
     setLoading(true);
     setError(null);
     try {
-      const [anRes, recRes] = await Promise.all([
+      const [anRes, pracRes, recRes] = await Promise.all([
         api.getUserAnalytics().catch(() => ({ data: null })),
+        practiceApi.getProgress().catch(() => ({ data: null })),
         api.getRecommendations(4).catch(() => ({ data: [] }))
       ]);
       setAnalytics(anRes?.data || null);
+      setPracticeProgress(pracRes?.data || null);
       setRecommendations(recRes?.data || []);
     } catch (err) {
       setError(err.message || 'Failed to load performance analytics');
@@ -73,13 +80,13 @@ export default function StudentAnalytics({ onSelectProblem }) {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold uppercase tracking-wider">
             <TrendingUp className="w-4 h-4" />
-            <span>Telemetry & Performance Intelligence</span>
+            <span>Telemetry & Progress Intelligence</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Skill Analytics & Growth Intelligence
+            Progress & Skill Growth Intelligence
           </h1>
           <p className="text-xs text-slate-400 max-w-xl">
-            Real-time algorithmic mastery insights, problem-solving velocity, weak-area detection, and personalized difficulty trajectories.
+            Real-time algorithmic mastery insights, problem-solving velocity, weak-area detection, and personalized practice progress.
           </p>
         </div>
 
@@ -93,15 +100,49 @@ export default function StudentAnalytics({ onSelectProblem }) {
 
           <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-center shrink-0">
             <div className="text-lg font-black text-cyan-400">{summary.points}</div>
-            <div className="text-[10px] text-cyan-300/80 uppercase font-mono mt-0.5">Score Points</div>
+            <div className="text-[10px] text-cyan-300/80 uppercase font-mono mt-0.5">Competitive Pts</div>
           </div>
         </div>
       </div>
 
+      {/* Practice Progress Bar */}
+      {practiceProgress && (
+        <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-white flex items-center gap-1.5">
+              <Code2 className="w-4 h-4 text-cyan-400" /> Practice Bank Status
+            </span>
+            <span className="text-slate-400 font-mono">
+              {practiceProgress.solved || 0} Solved · {practiceProgress.in_progress || 0} In Progress · {practiceProgress.abandoned || 0} Abandoned
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+              <div className="text-lg font-black text-emerald-400 flex items-center justify-center gap-1">
+                <CheckCircle2 className="w-4 h-4" /> {practiceProgress.solved || 0}
+              </div>
+              <div className="text-[10px] text-emerald-300/80 uppercase font-mono">Practice Solved</div>
+            </div>
+            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-center">
+              <div className="text-lg font-black text-cyan-400 flex items-center justify-center gap-1">
+                <Clock3 className="w-4 h-4" /> {practiceProgress.in_progress || 0}
+              </div>
+              <div className="text-[10px] text-cyan-300/80 uppercase font-mono">In Progress</div>
+            </div>
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+              <div className="text-lg font-black text-amber-400 flex items-center justify-center gap-1">
+                <Ban className="w-4 h-4" /> {practiceProgress.abandoned || 0}
+              </div>
+              <div className="text-[10px] text-amber-300/80 uppercase font-mono">Abandoned</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* KPI Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-1">
-          <div className="text-slate-400 text-xs font-medium">Challenges Solved</div>
+          <div className="text-slate-400 text-xs font-medium">Daily Solved</div>
           <div className="text-2xl font-black text-white">
             {summary.solved_submissions}
             <span className="text-xs font-normal text-slate-500 ml-1">/ {summary.total_submissions}</span>
@@ -124,7 +165,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
             {Math.round(summary.average_time_seconds / 60) || 12}
             <span className="text-xs font-normal text-slate-500 ml-1">mins</span>
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">Per accepted submission</div>
+          <div className="text-[11px] text-slate-400 font-mono">Per accepted challenge</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-1">
@@ -152,7 +193,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
 
             {topicBreakdown.length === 0 ? (
               <div className="py-8 text-center text-slate-500 text-xs">
-                Solve coding challenges to unlock topic mastery telemetry.
+                Solve coding challenges or practice problems to unlock topic mastery telemetry.
               </div>
             ) : (
               <div className="space-y-3">
@@ -176,7 +217,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
             )}
           </div>
 
-          {/* Weak Topics Spotlight (Phase 6F/6G) */}
+          {/* Weak Topics Spotlight */}
           {weakTopics.length > 0 && (
             <div className="p-6 rounded-3xl bg-gradient-to-r from-rose-950/20 via-slate-900 to-slate-950 border border-rose-800/30 space-y-3">
               <div className="flex items-center gap-2 text-rose-400 font-mono text-xs font-bold uppercase">
@@ -184,7 +225,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
                 <span>Identified Improvement Areas</span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                The platform detected lower accuracy or repeated failures in these topics. Focus on foundational easy/medium questions here to strengthen your problem-solving foundations:
+                The platform detected lower accuracy in these topics. Focus on foundational easy/medium practice problems to build confidence:
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 {weakTopics.map((wt, idx) => (
@@ -240,7 +281,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
             </div>
           </div>
 
-          {/* Smart Recommendations Widget (Phase 6G) */}
+          {/* Smart Recommendations Widget */}
           {recommendations.length > 0 && (
             <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 space-y-4">
               <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold uppercase">

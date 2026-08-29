@@ -293,7 +293,7 @@ async function deleteQuestion(id) {
   }
 
   await repo.execute("UPDATE questions SET is_active = 0, status = 'archived' WHERE id = ?", [id]);
-  return { message: 'Question successfully deactivated (soft-deleted)', id };
+  return { message: 'Question successfully deactivated (soft-deleted)', id, is_active: false };
 }
 
 async function listTopics() {

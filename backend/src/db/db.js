@@ -271,6 +271,17 @@ function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_question_versions_question ON question_versions(question_id, version DESC);
+
+    CREATE TABLE IF NOT EXISTS submission_score_audit (
+      id TEXT PRIMARY KEY,
+      submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+      reviewer_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      previous_score REAL,
+      new_score REAL NOT NULL,
+      feedback TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_submission_score_audit_submission ON submission_score_audit(submission_id);
   `);
 
   // Safe individual column migrations
@@ -317,6 +328,12 @@ function initSchema() {
   addColumnIfNotExists('questions', 'supported_languages', 'TEXT DEFAULT \'["python", "javascript", "java", "cpp", "c", "typescript"]\'');
   addColumnIfNotExists('questions', 'starter_code', 'TEXT');
   addColumnIfNotExists('questions', 'current_version', 'INTEGER NOT NULL DEFAULT 1');
+  addColumnIfNotExists('questions', 'is_practice', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('questions', 'slug', 'TEXT');
+  addColumnIfNotExists('questions', 'pattern_id', 'TEXT');
+  addColumnIfNotExists('questions', 'secondary_topics', "TEXT DEFAULT '[]'");
+  addColumnIfNotExists('questions', 'prerequisites', "TEXT DEFAULT '[]'");
+  addColumnIfNotExists('questions', 'solution_approach', 'TEXT');
 
   // Assignments migrations
   addColumnIfNotExists('assignments', 'cohort_id', 'TEXT');
@@ -337,6 +354,20 @@ function initSchema() {
   addColumnIfNotExists('submissions', 'passed_tests', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('submissions', 'total_tests', 'INTEGER DEFAULT 0');
   addColumnIfNotExists('submissions', 'execution_time_ms', 'REAL DEFAULT 0');
+  addColumnIfNotExists('submissions', 'manual_score', 'REAL');
+  addColumnIfNotExists('submissions', 'manual_feedback', 'TEXT');
+  addColumnIfNotExists('submissions', 'manual_reviewer_id', 'TEXT');
+  addColumnIfNotExists('submissions', 'manual_reviewed_at', 'TEXT');
+  addColumnIfNotExists('submissions', 'ai_score', 'REAL');
+  addColumnIfNotExists('submissions', 'ai_feedback', 'TEXT');
+  addColumnIfNotExists('submissions', 'ai_reviewed_at', 'TEXT');
+  addColumnIfNotExists('submissions', 'started_at', 'TEXT');
+  addColumnIfNotExists('submissions', 'attempt_count', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('submissions', 'solve_duration_seconds', 'REAL DEFAULT 0');
+  addColumnIfNotExists('submissions', 'test_score', 'REAL DEFAULT 0');
+  addColumnIfNotExists('submissions', 'time_score', 'REAL DEFAULT 0');
+  addColumnIfNotExists('submissions', 'attempt_score', 'REAL DEFAULT 0');
+  addColumnIfNotExists('submissions', 'final_score', 'REAL DEFAULT 0');
   addColumnIfNotExists('submissions', 'created_at', "TEXT DEFAULT (datetime('now'))");
   addColumnIfNotExists('submissions', 'updated_at', "TEXT DEFAULT (datetime('now'))");
 }
