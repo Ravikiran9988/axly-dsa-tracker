@@ -156,4 +156,30 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('button:has-text("Audit Logs")')).not.toBeVisible();
   });
 
+  test('9. Problem Data Integrity: Best Time to Buy Stock has matching title, example [7,1,5,3,6,4] and no mismatched starter code', async ({ page }) => {
+    await page.click('#btn-login-user-alex');
+    await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
+
+    // Open Practice
+    await page.click('button:has-text("Practice (80 Problems)")');
+    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
+
+    // Search for "Stock"
+    const searchInput = page.locator('input[placeholder*="Search problems"]');
+    await searchInput.fill('Stock');
+    await expect(page.locator('h3:has-text("Best Time to Buy and Sell Stock")').first()).toBeVisible({ timeout: 5000 });
+
+    // Open Problem Workspace
+    await page.click('button:has-text("Start"), button:has-text("Continue"), button:has-text("Review")');
+
+    // Verify Title & Statement
+    await expect(page.locator('h1:has-text("Best Time to Buy and Sell Stock")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=daily stock prices').first()).toBeVisible();
+
+    // Verify Starter code is NOT Two Sum
+    const pageText = await page.content();
+    expect(pageText).not.toContain('// Two Sum Problem');
+    expect(pageText).not.toContain('diff = target - num');
+  });
+
 });

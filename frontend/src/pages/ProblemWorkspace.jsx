@@ -3,14 +3,30 @@ import { Play, CheckCircle2, AlertTriangle, RotateCcw, Code, Github, Zap, HelpCi
 import { api } from '../services/api';
 import { practiceApi } from '../services/practiceApi';
 
-const STARTER_CODE_TEMPLATES = {
-  javascript: `// Two Sum Problem (JavaScript / Node.js)\nconst fs = require('fs');\nfunction solve() {\n  const input = fs.readFileSync(0, 'utf-8').trim().split('\\n');\n  if (!input || input.length < 2) return;\n  const target = parseInt(input[0].trim(), 10);\n  const nums = input[1].trim().split(/\\s+/).map(Number);\n  const map = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const complement = target - nums[i];\n    if (map.has(complement)) { console.log(map.get(complement) + " " + i); return; }\n    map.set(nums[i], i);\n  }\n}\nsolve();\n`,
-  python: `# Two Sum Problem (Python 3)\nimport sys\ndef solve():\n    raw = sys.stdin.read().strip().split('\\n')\n    if len(raw) < 2: return\n    target = int(raw[0].strip())\n    nums = list(map(int, raw[1].strip().split()))\n    seen = {}\n    for i, num in enumerate(nums):\n        diff = target - num\n        if diff in seen:\n            print(f"{seen[diff]} {i}"); return\n        seen[num] = i\nif __name__ == '__main__': solve()\n`,
-  typescript: `import * as fs from 'fs';\nfunction solve(): void {\n  const input = fs.readFileSync(0, 'utf-8').trim().split('\\n');\n  if (!input || input.length < 2) return;\n  const target = parseInt(input[0].trim(), 10);\n  const nums = input[1].trim().split(/\\s+/).map(Number);\n  const map = new Map<number, number>();\n  for (let i = 0; i < nums.length; i++) { const comp = target - nums[i]; if (map.has(comp)) { console.log(map.get(comp) + " " + i); return; } map.set(nums[i], i); }\n}\nsolve();\n`,
-  java: `import java.util.*;\npublic class Main { public static void main(String[] args) { Scanner sc=new Scanner(System.in); if(!sc.hasNextInt())return; int target=sc.nextInt(); List<Integer> a=new ArrayList<>(); while(sc.hasNextInt())a.add(sc.nextInt()); Map<Integer,Integer> m=new HashMap<>(); for(int i=0;i<a.size();i++){int c=target-a.get(i);if(m.containsKey(c)){System.out.println(m.get(c)+" "+i);return;}m.put(a.get(i),i);}}}\n`,
-  cpp: `#include <iostream>\n#include <vector>\n#include <unordered_map>\nusing namespace std;\nint main(){ios::sync_with_stdio(false);cin.tie(nullptr);int target;if(!(cin>>target))return 0;vector<int>a;int x;while(cin>>x)a.push_back(x);unordered_map<int,int>m;for(int i=0;i<a.size();i++){int c=target-a[i];if(m.count(c)){cout<<m[c]<<" "<<i<<"\\n";return 0;}m[a[i]]=i;}return 0;}\n`,
-  c: `#include <stdio.h>\nint main(){int target;if(scanf("%d",&target)!=1)return 0;int a[10000],n=0;while(scanf("%d",&a[n])==1)n++;for(int i=0;i<n;i++)for(int j=i+1;j<n;j++)if(a[i]+a[j]==target){printf("%d %d\\n",i,j);return 0;}return 0;}\n`
-};
+export function getStarterCodeForQuestion(question, language) {
+  const lang = String(language || 'javascript').toLowerCase();
+  if (question?.starter_code) {
+    try {
+      const sc = typeof question.starter_code === 'string' ? JSON.parse(question.starter_code) : question.starter_code;
+      if (sc && sc[lang] && typeof sc[lang] === 'string' && sc[lang].trim()) {
+        return sc[lang];
+      }
+    } catch {}
+  }
+
+  const title = question?.title || 'Coding Challenge';
+
+  const templates = {
+    javascript: `// Problem: ${title}\n// Read input from standard input (stdin)\nconst fs = require('fs');\n\nfunction solve(input) {\n  // TODO: Parse input and implement solution\n  return input;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif (raw) {\n  const result = solve(raw);\n  console.log(typeof result === 'object' ? JSON.stringify(result) : result);\n}\n`,
+    python: `# Problem: ${title}\n# Read input from standard input (stdin)\nimport sys\nimport json\n\ndef solve(raw_input: str):\n    # TODO: Parse input and implement solution\n    return raw_input\n\nif __name__ == '__main__':\n    data = sys.stdin.read().strip()\n    if data:\n        res = solve(data)\n        if isinstance(res, (list, dict)):\n            print(json.dumps(res, separators=(',', ':')))\n        elif res is not None:\n            print(res)\n`,
+    typescript: `// Problem: ${title}\nimport * as fs from 'fs';\n\nfunction solve(input: string): any {\n  // TODO: Parse input and implement solution\n  return input;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif (raw) {\n  const result = solve(raw);\n  console.log(typeof result === 'object' ? JSON.stringify(result) : result);\n}\n`,
+    java: `// Problem: ${title}\nimport java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (!sc.hasNextLine()) return;\n        String line = sc.nextLine().trim();\n        \n        // TODO: Parse input and implement solution\n        System.out.println(line);\n    }\n}\n`,
+    cpp: `// Problem: ${title}\n#include <iostream>\n#include <vector>\n#include <string>\n#include <algorithm>\n\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    \n    string input;\n    if (getline(cin, input)) {\n        // TODO: Parse input and implement solution\n        cout << input << "\\n";\n    }\n    return 0;\n}\n`,
+    c: `// Problem: ${title}\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n\nint main() {\n    char input[4096];\n    if (fgets(input, sizeof(input), stdin)) {\n        // TODO: Parse input and implement solution\n        printf("%s\\n", input);\n    }\n    return 0;\n}\n`
+  };
+
+  return templates[lang] || templates.javascript;
+}
 
 export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }) {
   const [question, setQuestion] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState(null);
@@ -29,11 +45,18 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
       const [qRes, subRes] = await Promise.all([api.getQuestionById(questionId), api.getCodeSubmissions(questionId).catch(() => ({ data: [] }))]);
       const q = qRes.data; setQuestion(q); setPastSubmissions(subRes.data || []);
       if (q.is_practice) { try { await practiceApi.start(questionId); } catch (e) { console.warn('Practice start could not be recorded:', e); } }
-      if (q.starter_code) { try { const starterObj = typeof q.starter_code === 'string' ? JSON.parse(q.starter_code) : q.starter_code; setSourceCode(starterObj[language] || STARTER_CODE_TEMPLATES[language]); } catch { setSourceCode(STARTER_CODE_TEMPLATES[language]); } } else setSourceCode(STARTER_CODE_TEMPLATES[language]);
+      setSourceCode(getStarterCodeForQuestion(q, language));
     } catch (err) { setError(err.message || 'Failed to load question'); } finally { setLoading(false); }
   }
-  function handleLanguageChange(newLang) { setLanguage(newLang); if (question?.starter_code) { try { const o=typeof question.starter_code==='string'?JSON.parse(question.starter_code):question.starter_code; if(o[newLang]){setSourceCode(o[newLang]);return;} } catch {} } setSourceCode(STARTER_CODE_TEMPLATES[newLang]); }
-  function handleResetCode(){if(window.confirm('Reset code to default template?'))setSourceCode(question?.starter_code&&typeof question.starter_code==='object'&&question.starter_code[language]?question.starter_code[language]:STARTER_CODE_TEMPLATES[language]);}
+  function handleLanguageChange(newLang) {
+    setLanguage(newLang);
+    setSourceCode(getStarterCodeForQuestion(question, newLang));
+  }
+  function handleResetCode() {
+    if (window.confirm('Reset code to default template?')) {
+      setSourceCode(getStarterCodeForQuestion(question, language));
+    }
+  }
   function handleCopyCode(){navigator.clipboard.writeText(sourceCode);setCopied(true);setTimeout(()=>setCopied(false),2000);}
   async function handleRunCode(){setIsRunning(true);setExecResult(null);setBottomTab('results');try{const res=await api.runCode({question_id:questionId,language,source_code:sourceCode,custom_input:bottomTab==='custom'&&customInput.trim()?customInput:undefined});setExecResult(res.data);}catch(err){setExecResult({status:'Runtime Error',passed_tests:0,total_tests:1,execution_time_ms:0,results:[{test_index:1,status:'Runtime Error',actual_output:'',stderr:err.message||'Execution error'}]});}finally{setIsRunning(false);}}
   async function handleSubmitSolution(){setIsSubmitting(true);setExecResult(null);setBottomTab('results');try{const res=await api.submitCode({question_id:questionId,language,source_code:sourceCode});setExecResult(res.data);if(res.data.status==='Accepted'&&onStatusUpdated)onStatusUpdated();const subRes=await api.getCodeSubmissions(questionId).catch(()=>({data:[]}));setPastSubmissions(subRes.data||[]);}catch(err){setExecResult({status:'Runtime Error',passed_tests:0,total_tests:1,execution_time_ms:0,results:[{test_index:1,status:'Runtime Error',actual_output:'',stderr:err.message||'Execution error'}]});}finally{setIsSubmitting(false);}}
