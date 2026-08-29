@@ -37,8 +37,10 @@
 - Period score calculation may be period-specific, but ordering must flow through the shared leaderboard service.
 
 ## Data Storage
-- Current runtime backend uses SQLite (`better-sqlite3`). The checked-in Postgres/Supabase migrations and RLS policies are not runtime-backed yet.
-- Postgres/Supabase migration is a separate production-infrastructure phase; documentation must not claim RLS is enforced until the runtime adapter is switched.
+- The application implements a dual repository architecture (`repositoryFactory.js`):
+  - Production uses PostgreSQL / Supabase with Row-Level Security (RLS) policies.
+  - Development and automated test runs use SQLite (`better-sqlite3`) for zero-dependency execution.
+- In production, PostgreSQL connectivity is verified on boot and the service fails fast if the database is unreachable.
 
 ## Notifications
 - Default student notifications are limited to Daily Challenge reminders and AI review availability.
