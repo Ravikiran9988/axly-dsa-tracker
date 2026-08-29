@@ -5,28 +5,26 @@ import {
   Code2,
   Plus,
   Search,
-  Filter,
   RefreshCw,
   Edit2,
   Trash2,
-  History,
   CheckCircle2,
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
-  Sparkles,
-  Layers,
-  Send,
   Eye,
+  Archive,
   Check,
   X,
-  RotateCcw
+  Layers,
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 
-export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onOpenAssignModal }) {
+export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
   const [questions, setQuestions] = useState([]);
   const [topics, setTopics] = useState([]);
+  const [patterns, setPatterns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -37,32 +35,30 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const limit = 15;
+  const limit = 20;
 
-  // Modals & Actions
+  // Modals & Editing
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [assignTargetQuestion, setAssignTargetQuestion] = useState(null);
-  const [deleteConfirmQuestion, setDeleteConfirmQuestion] = useState(null);
-  const [versionModalQuestion, setVersionModalQuestion] = useState(null);
-  const [versionsList, setVersionsList] = useState([]);
-  const [selectedVersionDiff, setSelectedVersionDiff] = useState(null);
-  const [validationResult, setValidationResult] = useState(null);
+  const [previewQuestion, setPreviewQuestion] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
 
   useEffect(() => {
-    loadTopics();
+    loadTopicsAndPatterns();
   }, []);
 
   useEffect(() => {
     loadQuestions();
   }, [page, difficulty, topicId, status]);
 
-  async function loadTopics() {
+  async function loadTopicsAndPatterns() {
     try {
-      const res = await api.getTopics();
-      setTopics(res.data || []);
+      const [tRes, pRes] = await Promise.all([
+        api.getTopics().catch(() => ({ data: [] })),
+        api.getPatterns().catch(() => ({ data: [] }))
+      ]);
+      setTopics(tRes.data || []);
+      setPatterns(pRes.data || []);
     } catch {}
   }
 
@@ -73,7 +69,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
       const res = await api.getQuestions({
         page,
         limit,
-        search: search || undefined,
+        search: search.trim() || undefined,
         difficulty: difficulty || undefined,
         topic_id: topicId || undefined,
         status: status || undefined
@@ -93,48 +89,27 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
     loadQuestions();
   };
 
-  const handleDelete = async (questionId) => {
+  const handleTogglePublish = async (q) => {
+    const newStatus = q.status === 'published' ? 'draft' : 'published';
     try {
-      await api.deleteQuestion(questionId);
-      setDeleteConfirmQuestion(null);
-      setActionSuccess('Question deleted successfully');
+      await api.updateQuestion(q.id, { status: newStatus });
+      setActionSuccess(`Question status changed to ${newStatus}`);
       loadQuestions();
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err) {
-      alert(`Delete failed: ${err.message}`);
+      alert(`Status update failed: ${err.message}`);
     }
   };
 
-  const handleValidate = async (questionId) => {
+  const handleArchive = async (questionId) => {
+    if (!window.confirm('Archive this question? Archived questions will not appear in the active Practice bank.')) return;
     try {
-      const res = await api.validateQuestion(questionId);
-      setValidationResult(res.data);
-    } catch (err) {
-      alert(`Validation error: ${err.message}`);
-    }
-  };
-
-  const handleOpenVersions = async (q) => {
-    setVersionModalQuestion(q);
-    setSelectedVersionDiff(null);
-    try {
-      const res = await api.getQuestionVersions(q.id);
-      setVersionsList(res.data || []);
-    } catch (err) {
-      alert(`Failed to load versions: ${err.message}`);
-    }
-  };
-
-  const handleRestoreVersion = async (questionId, version) => {
-    if (!window.confirm(`Restore question to version ${version}? Current changes will be snapshotted as a new version.`)) return;
-    try {
-      await api.restoreQuestionVersion(questionId, version);
-      setActionSuccess(`Restored to version ${version}`);
-      setVersionModalQuestion(null);
+      await api.updateQuestion(questionId, { status: 'archived', is_active: 0 });
+      setActionSuccess('Question archived successfully');
       loadQuestions();
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err) {
-      alert(`Restore failed: ${err.message}`);
+      alert(`Archive failed: ${err.message}`);
     }
   };
 
@@ -159,19 +134,22 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold uppercase tracking-wider">
             <Code2 className="w-4 h-4" />
-            <span>Problem Repository</span>
+            <span>Curriculum & Content Management</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Question Management
+            Question Bank Management
           </h1>
           <p className="text-xs text-slate-400">
-            Create, edit, validate, version, and manage algorithmic coding challenges.
+            Author, edit, organize taxonomy, and publish algorithmic challenges across the Practice Bank and Daily Challenges.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
-            onClick={onOpenCreateModal}
+            onClick={() => {
+              setEditingQuestion(null);
+              setIsEditModalOpen(true);
+            }}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/15 transition-all"
           >
             <Plus className="w-4 h-4" />
@@ -191,7 +169,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
       <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 space-y-3">
         <form onSubmit={handleSearchSubmit} className="flex flex-wrap items-center gap-3">
           {/* Search Input */}
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 min-w-[220px]">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
@@ -247,9 +225,17 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
 
           <button
             type="button"
+            onClick={() => { setSearch(''); setDifficulty(''); setTopicId(''); setStatus(''); setPage(1); loadQuestions(); }}
+            className="px-3 py-2 rounded-xl border border-slate-800 text-slate-400 hover:text-white text-xs font-semibold"
+          >
+            Reset
+          </button>
+
+          <button
+            type="button"
             onClick={loadQuestions}
             disabled={loading}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white"
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white ml-auto"
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -258,11 +244,11 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
       </div>
 
       {/* Questions Table */}
-      <div className="rounded-3xl bg-slate-900/60 border border-slate-800/80 overflow-hidden">
+      <div className="rounded-3xl bg-slate-900/60 border border-slate-800/80 overflow-hidden shadow-xl">
         {loading ? (
           <div className="py-20 text-center text-slate-400 space-y-3">
             <div className="w-8 h-8 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto" />
-            <div className="text-xs font-mono">Loading problem repository...</div>
+            <div className="text-xs font-mono">Loading questions...</div>
           </div>
         ) : error ? (
           <div className="py-16 text-center text-rose-400 text-xs">{error}</div>
@@ -270,7 +256,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
           <div className="py-20 text-center text-slate-500 text-xs space-y-2">
             <div>No questions match the current filter criteria.</div>
             <button
-              onClick={onOpenCreateModal}
+              onClick={() => { setEditingQuestion(null); setIsEditModalOpen(true); }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs font-semibold"
             >
               <Plus className="w-3.5 h-3.5" /> Create First Question
@@ -284,299 +270,206 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal, onO
                   <th className="py-3.5 px-4">Title</th>
                   <th className="py-3.5 px-4">Topic</th>
                   <th className="py-3.5 px-4">Difficulty</th>
+                  <th className="py-3.5 px-4">Pattern</th>
                   <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">Assigned</th>
-                  <th className="py-3.5 px-4">Version</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-300 text-xs">
-                {questions.map((q) => (
-                  <tr key={q.id} className="hover:bg-slate-850/40 transition-colors group">
-                    {/* Title */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-white group-hover:text-cyan-300 transition-colors">
-                        {q.title}
-                      </div>
-                      {q.points && (
-                        <div className="text-[10px] text-slate-500 font-mono">
-                          {q.points} points &bull; {q.estimated_time || '30 mins'}
+                {questions.map((q) => {
+                  const topicName = topics.find(t => t.id === q.topic_id)?.name || q.topic_name || q.topic_id || '—';
+                  const patternName = patterns.find(p => p.id === q.pattern_id)?.name || q.pattern_id || '—';
+
+                  return (
+                    <tr key={q.id} className="hover:bg-slate-800/30 transition-colors group">
+                      {/* Title */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-white group-hover:text-cyan-300 transition-colors">
+                          {q.title}
                         </div>
-                      )}
-                    </td>
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-2">
+                          <span>{q.id}</span>
+                          {q.is_practice ? (
+                            <span className="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-400 text-[9px] uppercase font-bold">Practice V1</span>
+                          ) : null}
+                        </div>
+                      </td>
 
-                    {/* Topic */}
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-[11px]">
-                        {q.topic_name || 'General'}
-                      </span>
-                    </td>
+                      {/* Topic */}
+                      <td className="py-3.5 px-4">
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/50 text-slate-300 font-medium">
+                          {topicName}
+                        </span>
+                      </td>
 
-                    {/* Difficulty */}
-                    <td className="py-3.5 px-4">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-md font-bold uppercase text-[10px] border ${difficultyColors[q.difficulty?.toLowerCase()] || ''}`}>
-                        {q.difficulty}
-                      </span>
-                    </td>
+                      {/* Difficulty */}
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2.5 py-0.5 rounded-md font-bold uppercase text-[10px] border ${difficultyColors[q.difficulty] || difficultyColors.easy}`}>
+                          {q.difficulty}
+                        </span>
+                      </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4">
-                      <span className={`inline-block px-2 py-0.5 rounded-md font-bold uppercase text-[9px] border ${statusColors[q.status?.toLowerCase()] || statusColors.published}`}>
-                        {q.status || 'published'}
-                      </span>
-                    </td>
+                      {/* Pattern */}
+                      <td className="py-3.5 px-4">
+                        <span className="text-slate-400 font-mono text-[11px]">
+                          {patternName}
+                        </span>
+                      </td>
 
-                    {/* Assigned count */}
-                    <td className="py-3.5 px-4 font-mono text-slate-400">
-                      {q.active_assignees_count || 0} learners
-                    </td>
+                      {/* Status */}
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2.5 py-0.5 rounded-md font-bold uppercase text-[10px] border ${statusColors[q.status] || statusColors.draft}`}>
+                          {q.status}
+                        </span>
+                      </td>
 
-                    {/* Version */}
-                    <td className="py-3.5 px-4 font-mono">
-                      <button
-                        onClick={() => handleOpenVersions(q)}
-                        className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyan-400 text-[10px] border border-slate-700"
-                        title="View version history"
-                      >
-                        v{q.current_version || 1}
-                      </button>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1.5">
-                        {/* Preview / Solve */}
-                        {onSelectProblem && (
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          {/* View Preview */}
                           <button
-                            onClick={() => onSelectProblem(q.id)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
-                            title="Preview in code workspace"
+                            onClick={() => setPreviewQuestion(q)}
+                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 transition-colors"
+                            title="Preview question"
                           >
-                            <ExternalLink className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5" />
                           </button>
-                        )}
 
-                        {/* Quick Assign */}
-                        <button
-                          onClick={() => {
-                            if (onOpenAssignModal) onOpenAssignModal(null, q);
-                            else {
-                              setAssignTargetQuestion(q);
-                              setIsAssignModalOpen(true);
-                            }
-                          }}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300"
-                          title="Assign to learner"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
+                          {/* Edit */}
+                          <button
+                            onClick={() => {
+                              setEditingQuestion(q);
+                              setIsEditModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-indigo-500/20 text-slate-300 hover:text-indigo-300 transition-colors"
+                            title="Edit question details"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
 
-                        {/* Validate */}
-                        <button
-                          onClick={() => handleValidate(q.id)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400"
-                          title="Check publish validation"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        </button>
+                          {/* Publish / Unpublish Toggle */}
+                          <button
+                            onClick={() => handleTogglePublish(q)}
+                            className={`p-1.5 rounded-lg border transition-colors ${
+                              q.status === 'published'
+                                ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
+                                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
+                            }`}
+                            title={q.status === 'published' ? 'Unpublish to Draft' : 'Publish Question'}
+                          >
+                            {q.status === 'published' ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                          </button>
 
-                        {/* Edit */}
-                        <button
-                          onClick={() => {
-                            setEditingQuestion(q);
-                            setIsEditModalOpen(true);
-                          }}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400"
-                          title="Edit question"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Delete */}
-                        <button
-                          onClick={() => setDeleteConfirmQuestion(q)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400"
-                          title="Delete question"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {/* Archive */}
+                          {q.status !== 'archived' && (
+                            <button
+                              onClick={() => handleArchive(q.id)}
+                              className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
+                              title="Archive question"
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* Pagination */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-between text-xs">
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" /> Previous
-          </button>
-          <span className="text-slate-400 font-mono">
-            Page {page} of {totalPages} ({total} total questions)
-          </span>
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
-          >
-            Next <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+        {/* Pagination Footer */}
+        <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+          <div>
+            Showing <strong className="text-white">{questions.length}</strong> of <strong className="text-white">{total}</strong> questions
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || loading}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="font-mono px-2">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || loading}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Edit Question Modal */}
+      {/* Edit / Create Modal */}
       {isEditModalOpen && (
         <AdminQuestionModal
           isOpen={isEditModalOpen}
-          initialData={editingQuestion}
           onClose={() => {
             setIsEditModalOpen(false);
             setEditingQuestion(null);
           }}
-          onSuccess={() => {
-            setIsEditModalOpen(false);
-            setEditingQuestion(null);
-            setActionSuccess('Question updated successfully');
+          questionToEdit={editingQuestion}
+          topics={topics}
+          onSaved={() => {
             loadQuestions();
+            setActionSuccess('Question saved successfully');
             setTimeout(() => setActionSuccess(null), 3000);
           }}
         />
       )}
 
-      {/* Version History Modal */}
-      {versionModalQuestion && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0A0F1D] border border-slate-800 rounded-3xl p-6 max-w-xl w-full space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      {/* Preview Modal */}
+      {previewQuestion && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
-                <div className="text-[10px] text-cyan-400 font-mono uppercase font-bold">Version History</div>
-                <h3 className="text-sm font-bold text-white">{versionModalQuestion.title}</h3>
+                <h3 className="text-base font-bold text-white">{previewQuestion.title}</h3>
+                <div className="text-xs text-slate-400 font-mono mt-0.5">{previewQuestion.id} · {previewQuestion.difficulty}</div>
               </div>
               <button
-                onClick={() => setVersionModalQuestion(null)}
+                onClick={() => setPreviewQuestion(null)}
                 className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {versionsList.map((v) => (
-                <div key={v.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-white font-mono">v{v.version}</span>
-                    <span className="text-slate-400 text-[11px] ml-2">
-                      ({v.change_type}) &bull; {new Date(v.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleRestoreVersion(versionModalQuestion.id, v.version)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-semibold hover:bg-amber-500/20"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Restore</span>
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setVersionModalQuestion(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Validation Result Modal */}
-      {validationResult && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0A0F1D] border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                {validationResult.valid ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                ) : (
-                  <AlertTriangle className="w-5 h-5 text-amber-400" />
-                )}
-                <h3 className="text-sm font-bold text-white">Publish Quality Check</h3>
-              </div>
-              <button
-                onClick={() => setValidationResult(null)}
-                className="p-1 rounded-lg bg-slate-800 text-slate-400"
-              >
-                ✕
-              </button>
-            </div>
-
-            {validationResult.valid ? (
-              <p className="text-xs text-emerald-300">
-                All quality checks passed! Question meets all standards for production publishing.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-amber-300 font-semibold">Issues requiring resolution before publishing:</p>
-                <ul className="space-y-1 text-xs text-slate-400 list-disc list-inside">
-                  {validationResult.issues?.map((iss, i) => (
-                    <li key={i}>{iss.message}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setValidationResult(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteConfirmQuestion && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0A0F1D] border border-rose-900/50 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
+            <div className="space-y-3 text-xs text-slate-300">
               <div>
-                <h3 className="text-base font-bold text-white">Delete Question?</h3>
-                <p className="text-xs text-slate-400">This action will deactivate the question from learner view.</p>
+                <div className="font-bold text-slate-400 uppercase text-[10px] mb-1">Description</div>
+                <p className="whitespace-pre-line leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">{previewQuestion.description || 'No description provided.'}</p>
               </div>
+
+              {previewQuestion.constraints && (
+                <div>
+                  <div className="font-bold text-slate-400 uppercase text-[10px] mb-1">Constraints</div>
+                  <pre className="whitespace-pre-line bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-[11px]">{previewQuestion.constraints}</pre>
+                </div>
+              )}
+
+              {previewQuestion.solution_approach && (
+                <div>
+                  <div className="font-bold text-cyan-400 uppercase text-[10px] mb-1">Solution Approach</div>
+                  <p className="whitespace-pre-line bg-cyan-950/20 p-3 rounded-xl border border-cyan-900/30 text-cyan-200">{previewQuestion.solution_approach}</p>
+                </div>
+              )}
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-white">
-              "{deleteConfirmQuestion.title}"
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex justify-end pt-3 border-t border-slate-800">
               <button
-                onClick={() => setDeleteConfirmQuestion(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                onClick={() => setPreviewQuestion(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold"
               >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirmQuestion.id)}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
-              >
-                Confirm Delete
+                Close Preview
               </button>
             </div>
           </div>

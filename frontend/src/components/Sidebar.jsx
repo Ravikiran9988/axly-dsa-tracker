@@ -32,58 +32,52 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
       items: [{ id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard }]
     },
     {
-      title: 'DSA Management',
+      title: 'Content & Challenges',
       items: [
-        { id: 'admin-challenges', label: 'Questions & Versions', icon: Code2 },
+        { id: 'admin-challenges', label: 'Question Bank', icon: Code2 },
         { id: 'admin-daily', label: 'Daily Challenge', icon: Calendar },
-        { id: 'admin-reviews', label: 'Manual & AI Reviews', icon: GitPullRequest }
+        { id: 'admin-reviews', label: 'Submission Reviews', icon: GitPullRequest }
       ]
     },
     {
-      title: 'Learners & Progress',
+      title: 'Students & Progress',
       items: [
         { id: 'admin-users', label: 'Students', icon: Users },
         { id: 'admin-progress', label: 'Student Progress', icon: TrendingUp },
-        { id: 'admin-submissions', label: 'Submissions History', icon: History }
+        { id: 'admin-submissions', label: 'Submissions Log', icon: History }
       ]
     },
     {
-      title: 'System & Security',
+      title: 'System & Account',
       items: [
         { id: 'admin-audit', label: 'Audit Logs', icon: ShieldAlert },
-        { id: 'admin-settings', label: 'Platform Settings', icon: Sliders }
+        { id: 'profile', label: 'Profile', icon: User }
       ]
-    },
-    {
-      title: 'Account',
-      items: [{ id: 'profile', label: 'Profile', icon: User }]
     }
   ];
 
   const learnerSections = [
     {
-      title: 'Core Product',
+      title: 'Practice & Challenges',
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'daily', label: 'Daily Challenge', icon: Calendar },
-        { id: 'available', label: 'Practice Library', icon: Compass },
-        { id: 'submissions', label: 'Submission History', icon: History }
+        { id: 'available', label: 'Practice (80 Problems)', icon: Compass },
+        { id: 'daily', label: 'Daily Challenge', icon: Calendar }
       ]
     },
     {
       title: 'Progress & Rank',
       items: [
-        { id: 'analytics', label: 'My Progress & Analytics', icon: TrendingUp },
+        { id: 'analytics', label: 'Progress & Analytics', icon: TrendingUp },
         { id: 'leaderboard', label: 'Competitive Leaderboard', icon: Trophy },
-        { id: 'learning-path', label: 'Learning Path', icon: Route }
+        { id: 'submissions', label: 'Submission History', icon: History }
       ]
     },
     {
       title: 'Account',
       items: [
         { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount },
-        { id: 'profile', label: 'My Profile', icon: User },
-        { id: 'settings', label: 'Settings', icon: Settings }
+        { id: 'profile', label: 'Profile', icon: User }
       ]
     }
   ];
