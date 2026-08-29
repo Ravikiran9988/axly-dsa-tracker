@@ -187,7 +187,18 @@ class DsaAiCoachService {
           source: 'database',
           topic,
           pattern,
-          answer: `Hint ${idx + 1} of ${hints.length}: ${hints[idx]}`,
+          answer: `Hint ${idx + 1} of ${Math.max(hints.length, 2)}: ${hints[idx]}`,
+          code: null,
+          complexity: { time: timeComplexity, space: spaceComplexity },
+          verification: null
+        };
+      } else if (idx === hints.length && idx < 3) {
+        return {
+          intent: 'HINT',
+          source: 'database',
+          topic,
+          pattern,
+          answer: `Hint ${idx + 1}: As you iterate, check if (target - current_element) exists in your seen lookup table. If found, return their indices immediately.`,
           code: null,
           complexity: { time: timeComplexity, space: spaceComplexity },
           verification: null

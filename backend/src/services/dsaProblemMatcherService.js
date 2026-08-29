@@ -116,6 +116,15 @@ class DsaProblemMatcherService {
         }
       }
 
+      // Description / Problem statement token overlap
+      const descTokens = tokenize(p.description || p.problem_statement || '');
+      if (descTokens.length > 0 && queryTokens.length > 0) {
+        const descOverlap = calculateTokenOverlap(queryTokens, descTokens);
+        if (descOverlap >= 0.25) {
+          score = Math.max(score, 0.55 + (descOverlap * 0.40));
+        }
+      }
+
       // Topic & Pattern Boost
       const topicName = (p.topic_name || p.topic_id || '').toLowerCase();
       const patternName = (p.pattern_name || p.pattern_id || '').toLowerCase();
@@ -155,9 +164,19 @@ class DsaProblemMatcherService {
         resolvedPattern = knowledgeGraph.findPattern('hash-map-lookup');
       }
 
+      const problemObj = {
+        id: bestMatch.id,
+        title: bestMatch.title,
+        slug: bestMatch.slug || bestMatch.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        difficulty: String(bestMatch.difficulty || 'medium').toLowerCase(),
+        topic: resolvedTopic ? resolvedTopic.name : (bestMatch.topic_name || 'Arrays'),
+        pattern: resolvedPattern ? resolvedPattern.name : (bestMatch.pattern_name || 'Hash Map Lookup')
+      };
+
       return {
         matched: true,
         confidence: Math.round(highestScore * 100) / 100,
+        problem: problemObj,
         problemId: bestMatch.id,
         id: bestMatch.id,
         title: bestMatch.title,

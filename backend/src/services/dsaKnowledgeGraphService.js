@@ -142,12 +142,17 @@ class DsaKnowledgeGraphService {
   findTopic(topicIdOrName) {
     if (!topicIdOrName) return null;
     const query = String(topicIdOrName).trim().toLowerCase();
-    return topicsCache.find(t => 
-      t.id.toLowerCase() === query || 
-      t.name.toLowerCase() === query ||
-      query.includes(t.name.toLowerCase()) ||
-      query.includes(t.id.toLowerCase())
-    ) || null;
+    const normalizedQuery = query.replace(/[_-]/g, ' ');
+    return topicsCache.find(t => {
+      const tid = t.id.toLowerCase().replace(/[_-]/g, ' ');
+      const tname = t.name.toLowerCase().replace(/[_-]/g, ' ');
+      return tid === normalizedQuery || 
+             tname === normalizedQuery ||
+             normalizedQuery.includes(tname) ||
+             normalizedQuery.includes(tid) ||
+             tid.includes(normalizedQuery) ||
+             tname.includes(normalizedQuery);
+    }) || null;
   }
 
   /**
@@ -156,12 +161,17 @@ class DsaKnowledgeGraphService {
   findPattern(patternIdOrName) {
     if (!patternIdOrName) return null;
     const query = String(patternIdOrName).trim().toLowerCase();
-    return patternsCache.find(p => 
-      p.id.toLowerCase() === query || 
-      p.name.toLowerCase() === query ||
-      query.includes(p.name.toLowerCase()) ||
-      query.includes(p.id.toLowerCase())
-    ) || null;
+    const normalizedQuery = query.replace(/[_-]/g, ' ');
+    return patternsCache.find(p => {
+      const pid = p.id.toLowerCase().replace(/[_-]/g, ' ');
+      const pname = p.name.toLowerCase().replace(/[_-]/g, ' ');
+      return pid === normalizedQuery || 
+             pname === normalizedQuery ||
+             normalizedQuery.includes(pname) ||
+             normalizedQuery.includes(pid) ||
+             pid.includes(normalizedQuery) ||
+             pname.includes(normalizedQuery);
+    }) || null;
   }
 
   /**
@@ -267,6 +277,21 @@ class DsaKnowledgeGraphService {
       timeComplexity: algoInfo.timeComplexity || 'O(N)',
       spaceComplexity: algoInfo.spaceComplexity || 'O(1)',
       prerequisites
+    };
+  }
+
+  /**
+   * Taxonomy lookup returning structured topic, pattern, algorithm, and prerequisites
+   */
+  findTaxonomy(topicInput, patternInput, matchedProblem = null) {
+    const ctx = this.getGraphContext(topicInput, patternInput, matchedProblem);
+    return {
+      topic: { id: ctx.topicId, name: ctx.topic },
+      pattern: { id: ctx.patternId, name: ctx.pattern },
+      algorithm: { name: ctx.algorithm, timeComplexity: ctx.timeComplexity, spaceComplexity: ctx.spaceComplexity },
+      dataStructure: { name: ctx.dataStructure },
+      prerequisites: ctx.prerequisites,
+      nodes: ctx.nodes
     };
   }
 }

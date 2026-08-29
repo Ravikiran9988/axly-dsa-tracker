@@ -50,7 +50,7 @@ class LLMRouter {
   getConfiguredProviders() {
     const rawOrder = this.customOrder || (process.env.LLM_PROVIDER_ORDER 
       ? process.env.LLM_PROVIDER_ORDER.split(',').map(s => s.trim().toLowerCase()) 
-      : ['gemini', 'groq', 'openrouter', 'openai']);
+      : ['groq', 'gemini', 'openrouter', 'openai']);
 
     const activeList = [];
     for (const name of rawOrder) {
