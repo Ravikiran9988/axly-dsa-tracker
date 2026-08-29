@@ -37,6 +37,8 @@ function initSchema() {
       linkedin_url TEXT,
       skills TEXT DEFAULT '["JavaScript", "Data Structures", "Algorithms"]',
       avatar_url TEXT,
+      password_hash TEXT,
+      email_verified INTEGER DEFAULT 1,
       points INTEGER DEFAULT 100,
       streak INTEGER DEFAULT 1,
       longest_streak INTEGER DEFAULT 1,
@@ -44,6 +46,19 @@ function initSchema() {
       last_active_at TEXT DEFAULT (datetime('now')),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS auth_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      token_type TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_auth_tokens_hash ON auth_tokens(token_hash);
+    CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_type ON auth_tokens(user_id, token_type);
 
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
@@ -370,6 +385,10 @@ function initSchema() {
   addColumnIfNotExists('submissions', 'final_score', 'REAL DEFAULT 0');
   addColumnIfNotExists('submissions', 'created_at', "TEXT DEFAULT (datetime('now'))");
   addColumnIfNotExists('submissions', 'updated_at', "TEXT DEFAULT (datetime('now'))");
+
+  // Users auth migrations
+  addColumnIfNotExists('users', 'password_hash', 'TEXT');
+  addColumnIfNotExists('users', 'email_verified', 'INTEGER DEFAULT 1');
 }
 
 initSchema();

@@ -114,7 +114,7 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = async () => {
     setError(null);
     if (!supabase) {
-      throw new Error('Supabase client is not configured with live credentials. Use quick dev login for local testing.');
+      throw new Error('Google authentication is currently unavailable. Please sign in with email and password.');
     }
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -123,6 +123,40 @@ export function AuthProvider({ children }) {
       }
     });
     if (signInError) throw signInError;
+  };
+
+  // Email + Password Login
+  const loginWithEmail = async (email, password) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await api.login({ email, password });
+      if (res.token) {
+        localStorage.setItem('axly_auth_token', res.token);
+      }
+      setUser(res.user);
+      return res.user;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Email + Password Signup
+  const signupWithEmail = async ({ name, email, password }) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await api.signup({ name, email, password });
+      return res;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Fast Dev / Demo Login for local testing & development
@@ -148,6 +182,9 @@ export function AuthProvider({ children }) {
     if (supabase) {
       await supabase.auth.signOut().catch(() => {});
     }
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/');
+    }
     setUser(null);
   };
 
@@ -157,6 +194,8 @@ export function AuthProvider({ children }) {
       loading,
       error,
       loginWithGoogle,
+      loginWithEmail,
+      signupWithEmail,
       devLogin,
       logout,
       isAdmin: user?.role === 'admin'

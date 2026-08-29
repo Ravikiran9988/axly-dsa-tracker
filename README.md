@@ -178,6 +178,15 @@ Base Endpoint: `/api/v1`
 - `POST /verify` — Validates current session token and returns user profile
 - `POST /logout` — Invalidates session token
 
+### Authentication (`/api/v1/auth`)
+- `POST /signup` — Register with Name, Email, and strong Password (triggers single-use verification email)
+- `POST /login` — Authenticate via Email + Password or Google OAuth (enforces email verification)
+- `POST /verify-email` — Confirm email activation using secure single-use token
+- `POST /resend-verification` — Request a new verification link (rate-limited, anti-enumeration)
+- `POST /forgot-password` — Request password reset email (rate-limited, anti-enumeration)
+- `POST /reset-password` — Set new password using single-use reset token
+- `GET /verify` / `POST /verify` — Validate session token and retrieve current user profile
+
 ### Practice Problems (`/api/v1/practice`)
 - `GET /problems` — List all 80 Practice problems with filters (`topic`, `difficulty`, `pattern`, `status`, `search`)
 - `GET /problems/:id` — Get detailed problem specification and test cases
@@ -268,9 +277,9 @@ npx playwright test
 
 ### Current Test Verification:
 ```text
-Backend Test Suite:      100/100 passed (9 test suites)
-Frontend Production:     Vite build PASS (0 errors, 1,555 modules transformed)
-Playwright E2E Suite:    14/14 passed (100% pass across student & admin journeys)
+Backend Test Suite:      109/109 passed (9 test suites)
+Frontend Production:     Vite build PASS (0 errors, 1,560 modules transformed)
+Playwright E2E Suite:    15/15 passed (100% pass across landing, auth, student & admin journeys)
 Practice Problem Bank:   80/80 problems validated and executable
 ```
 

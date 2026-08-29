@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './context/AuthContext';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import UserDashboard from './pages/UserDashboard';
@@ -27,8 +32,25 @@ import { api } from './services/api';
 import { practiceApi } from './services/practiceApi';
 import { Loader2, Terminal } from 'lucide-react';
 
+function parsePublicRoute() {
+  if (typeof window === 'undefined') return { name: 'landing' };
+  const path = window.location.pathname;
+  if (path === '/login') return { name: 'login' };
+  if (path === '/signup') return { name: 'signup' };
+  if (path === '/forgot-password') return { name: 'forgot-password' };
+  if (path.startsWith('/reset-password')) {
+    const token = path.split('/')[2] || '';
+    return { name: 'reset-password', token };
+  }
+  if (path.startsWith('/verify-email')) {
+    return { name: 'verify-email' };
+  }
+  return { name: 'landing' };
+}
+
 export default function App() {
   const { user, loading, logout, isAdmin } = useAuth();
+  const [publicRoute, setPublicRoute] = useState(parsePublicRoute);
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeQuestionId, setActiveQuestionId] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -36,6 +58,28 @@ export default function App() {
   const [isDailyModalOpen, setIsDailyModalOpen] = useState(false);
   const [isCreateChallengeModalOpen, setIsCreateChallengeModalOpen] = useState(false);
   const [questionsForModal, setQuestionsForModal] = useState([]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPublicRoute(parsePublicRoute());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigatePublic = (route, token = '') => {
+    let path = '/';
+    if (route === 'login') path = '/login';
+    else if (route === 'signup') path = '/signup';
+    else if (route === 'forgot-password') path = '/forgot-password';
+    else if (route === 'reset-password') path = token ? `/reset-password/${token}` : '/reset-password';
+    else if (route === 'verify-email') path = '/verify-email';
+
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', path);
+    }
+    setPublicRoute({ name: route, token });
+  };
 
   useEffect(() => {
     if (user) {
@@ -95,7 +139,52 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login />;
+    const routeName = typeof publicRoute === 'object' ? publicRoute.name : publicRoute;
+    const routeToken = typeof publicRoute === 'object' ? publicRoute.token : '';
+
+    if (routeName === 'login') {
+      return (
+        <Login
+          onNavigate={(target, tok) => navigatePublic(target, tok)}
+          onBackToHome={() => navigatePublic('landing')}
+        />
+      );
+    }
+    if (routeName === 'signup') {
+      return (
+        <Signup
+          onNavigate={(target, tok) => navigatePublic(target, tok)}
+          onBackToHome={() => navigatePublic('landing')}
+        />
+      );
+    }
+    if (routeName === 'forgot-password') {
+      return (
+        <ForgotPassword
+          onNavigate={(target, tok) => navigatePublic(target, tok)}
+          onBackToHome={() => navigatePublic('landing')}
+        />
+      );
+    }
+    if (routeName === 'reset-password') {
+      return (
+        <ResetPassword
+          token={routeToken}
+          onNavigate={(target, tok) => navigatePublic(target, tok)}
+          onBackToHome={() => navigatePublic('landing')}
+        />
+      );
+    }
+    if (routeName === 'verify-email') {
+      return (
+        <VerifyEmail
+          token={routeToken}
+          onNavigate={(target, tok) => navigatePublic(target, tok)}
+          onBackToHome={() => navigatePublic('landing')}
+        />
+      );
+    }
+    return <LandingPage onNavigateToLogin={() => navigatePublic('login')} />;
   }
 
   const renderView = () => {

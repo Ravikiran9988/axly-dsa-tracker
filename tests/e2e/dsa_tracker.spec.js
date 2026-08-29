@@ -1,40 +1,46 @@
 const { test, expect } = require('@playwright/test');
 
 async function loginAsStudent(page) {
-  await page.goto('/');
   const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
     data: { email: 'alex@example.com', role: 'user' }
   });
   const body = await res.json();
+  await page.goto('/');
   await page.evaluate((token) => {
     localStorage.setItem('axly_auth_token', token);
   }, body.token);
-  await page.reload();
+  await page.goto('/');
   await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
 }
 
 async function loginAsAdmin(page) {
-  await page.goto('/');
   const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
     data: { email: 'admin@axly.in', role: 'admin' }
   });
   const body = await res.json();
+  await page.goto('/');
   await page.evaluate((token) => {
     localStorage.setItem('axly_auth_token', token);
   }, body.token);
-  await page.reload();
+  await page.goto('/');
   await expect(page.locator('text=Super Administrator').first()).toBeVisible({ timeout: 10000 });
 }
 
 test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
 
-  test('1. Authentication Flow: Production Landing Page & Secure Google Login Element', async ({ page }) => {
+  test('1. Authentication Flow: Marketing Landing Page & Dedicated Login Page', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/Axly DSA Tracker/);
-    await expect(page.locator('text=Axly DSA Tracker').first()).toBeVisible();
+    await expect(page.locator('text=AXLY DSA TRACKER').first()).toBeVisible();
+
+    // Verify Landing page has NO embedded login card
+    await expect(page.locator('#google-signin-btn')).not.toBeVisible();
+
+    // Navigate to /login
+    await page.click('header button:has-text("Get Started")');
     await expect(page.locator('#google-signin-btn')).toBeVisible();
 
-    // Verify absence of dev login buttons
+    // Verify absence of dev login buttons on /login
     await expect(page.locator('#btn-login-user-alex')).not.toBeVisible();
     await expect(page.locator('#btn-login-admin-axly')).not.toBeVisible();
   });
@@ -67,7 +73,7 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
     // Sign out
     const logoutBtn = page.locator('button[title="Log out"]').first();
     await logoutBtn.click();
-    await expect(page.locator('#google-signin-btn')).toBeVisible();
+    await expect(page.locator('text=AXLY DSA TRACKER').first()).toBeVisible();
   });
 
   test('3. Admin Journey: Admin Portal, Question Bank & Content Management', async ({ page }) => {
@@ -107,7 +113,7 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
 
     // Navigate to Leaderboard
     await page.click('button:has-text("Competitive Leaderboard")');
-    await expect(page.locator('h1:has-text("Leaderboard")').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1:has-text("Leaderboard")')).toBeVisible({ timeout: 10000 });
 
     // Navigate to Progress & Analytics
     await page.click('button:has-text("Progress & Analytics")');

@@ -1,24 +1,24 @@
 const { test, expect } = require('@playwright/test');
 
 async function loginAsStudent(page) {
-  await page.goto('/');
   const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
     data: { email: 'alex@example.com', role: 'user' }
   });
   const body = await res.json();
+  await page.goto('/');
   await page.evaluate((token) => {
     localStorage.setItem('axly_auth_token', token);
   }, body.token);
   await page.reload();
-  await expect(page.locator('text=Welcome back').first()).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('text=Daily Points').first()).toBeVisible({ timeout: 10000 });
 }
 
 async function loginAsAdmin(page) {
-  await page.goto('/');
   const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
     data: { email: 'admin@axly.in', role: 'admin' }
   });
   const body = await res.json();
+  await page.goto('/');
   await page.evaluate((token) => {
     localStorage.setItem('axly_auth_token', token);
   }, body.token);
@@ -28,24 +28,40 @@ async function loginAsAdmin(page) {
 
 test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
 
-  test('1. Production Landing Page & Authentication: No Dev Login UI, Secure Google Flow', async ({ page }) => {
+  test('1. Marketing Landing Page & Dedicated /login Flow Separation', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/Axly DSA Tracker/);
-    await expect(page.locator('text=Axly DSA Tracker').first()).toBeVisible();
-    await expect(page.locator('#google-signin-btn')).toBeVisible();
+    await expect(page.locator('text=AXLY DSA TRACKER').first()).toBeVisible();
 
-    // Verify ZERO dev login buttons or debug shortcuts on public landing page
+    // Verify Marketing Landing Page does NOT contain Google login card or dev login shortcuts
+    await expect(page.locator('#google-signin-btn')).not.toBeVisible();
     await expect(page.locator('#btn-login-user-alex')).not.toBeVisible();
     await expect(page.locator('#btn-login-admin-axly')).not.toBeVisible();
     await expect(page.locator('text=QUICK DEV LOGIN')).not.toBeVisible();
     await expect(page.locator('text=Student Login')).not.toBeVisible();
     await expect(page.locator('text=Admin Login')).not.toBeVisible();
 
-    // Verify public landing page sections
-    await expect(page.locator('text=Master DSA').first()).toBeVisible();
+    // Verify Public Marketing Sections
+    await expect(page.locator('h1:has-text("Master DSA")').first()).toBeVisible();
+    await expect(page.locator('text=Build Problem-Solving Instincts').first()).toBeVisible();
     await expect(page.locator('#features')).toBeVisible();
-    await expect(page.locator('#how-it-works')).toBeVisible();
+    await expect(page.locator('#comparison')).toBeVisible();
     await expect(page.locator('#curriculum')).toBeVisible();
+    await expect(page.locator('#how-it-works')).toBeVisible();
+
+    // Navigate to dedicated /login page via Get Started
+    await page.click('header button:has-text("Get Started")');
+    await expect(page.locator('#google-signin-btn')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator('button:has-text("Sign In")')).toBeVisible();
+
+    // Verify back navigation to Landing Page
+    await page.click('button:has-text("Back to Home")');
+    await expect(page.locator('h1:has-text("Master DSA")').first()).toBeVisible({ timeout: 5000 });
+
+    // Navigate to /login via Sign In
+    await page.click('header button:has-text("Sign In")');
+    await expect(page.locator('#google-signin-btn')).toBeVisible();
 
     // 1. Authenticate as Student
     await loginAsStudent(page);
@@ -55,14 +71,38 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     const logoutBtn = page.locator('button[title="Log out"]').first();
     await expect(logoutBtn).toBeVisible();
     await logoutBtn.click();
-    await expect(page.locator('#google-signin-btn')).toBeVisible();
+    await expect(page.locator('text=AXLY DSA TRACKER').first()).toBeVisible();
 
     // 2. Authenticate as Admin
     await loginAsAdmin(page);
     await expect(page.locator('text=Question Bank').first()).toBeVisible();
   });
 
-  test('2. Student Dashboard: Welcome Banner, Daily Challenge & Practice Quick Launch', async ({ page }) => {
+  test('2. Dedicated Auth Pages: Signup, Forgot Password & Password Requirements', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.locator('#google-signin-btn')).toBeVisible();
+
+    // Navigate to Signup
+    await page.click('button:has-text("Create account")');
+    await expect(page.locator('h1:has-text("Create your Axly account")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Password Requirements:')).toBeVisible();
+    await expect(page.locator('text=8+ characters')).toBeVisible();
+
+    // Navigate to Login then Forgot Password
+    await page.click('button:has-text("Sign In")');
+    await expect(page.locator('h1:has-text("Welcome back")')).toBeVisible({ timeout: 5000 });
+
+    await page.click('button:has-text("Forgot password?")');
+    await expect(page.locator('h1:has-text("Forgot your password?")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('button:has-text("Send Reset Link")')).toBeVisible();
+
+    // Submit forgot password email
+    await page.fill('input[type="email"]', 'learner@example.com');
+    await page.click('button:has-text("Send Reset Link")');
+    await expect(page.locator('h1:has-text("Check your inbox")')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('3. Student Dashboard: Welcome Banner, Daily Challenge & Practice Quick Launch', async ({ page }) => {
     await loginAsStudent(page);
 
     // Verify streak and points metrics
@@ -74,7 +114,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
   });
 
-  test('3. Practice Library: 80-Problem Count, Search & Controlled Taxonomy Filters', async ({ page }) => {
+  test('4. Practice Library: 80-Problem Count, Search & Controlled Taxonomy Filters', async ({ page }) => {
     await loginAsStudent(page);
 
     // Navigate to Practice
@@ -97,7 +137,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('h3').first()).toBeVisible();
   });
 
-  test('4. Practice Workspace: Code Execution, Editable Area & Language Switching', async ({ page }) => {
+  test('5. Practice Workspace: Code Execution, Editable Area & Language Switching', async ({ page }) => {
     await loginAsStudent(page);
 
     // Open Practice
@@ -137,7 +177,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
   });
 
-  test('5. Daily Challenge & Competitive Leaderboard', async ({ page }) => {
+  test('6. Daily Challenge & Competitive Leaderboard', async ({ page }) => {
     await loginAsStudent(page);
 
     // Navigate to Daily Challenge
@@ -146,11 +186,11 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
 
     // Navigate to Leaderboard
     await page.click('button:has-text("Competitive Leaderboard")');
-    await expect(page.locator('h1:has-text("Leaderboard")').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1:has-text("Leaderboard")')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('text=Rankings').first()).toBeVisible();
   });
 
-  test('6. Student Progress & Analytics: 8 Topics & Difficulty Breakdown', async ({ page }) => {
+  test('7. Student Progress & Analytics: 8 Topics & Difficulty Breakdown', async ({ page }) => {
     await loginAsStudent(page);
 
     // Navigate to Progress & Analytics
@@ -163,7 +203,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('text=Dynamic Programming').first()).toBeVisible();
   });
 
-  test('7. Admin Portal: Question Bank, Taxonomy, Publishing & V1 Clutter Absence', async ({ page }) => {
+  test('8. Admin Portal: Question Bank, Taxonomy, Publishing & V1 Clutter Absence', async ({ page }) => {
     await loginAsAdmin(page);
 
     // Open Question Bank
@@ -182,7 +222,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('th:has-text("LEARNERS")')).not.toBeVisible();
   });
 
-  test('8. RBAC & Security: Student cannot access Admin routes', async ({ page }) => {
+  test('9. RBAC & Security: Student cannot access Admin routes', async ({ page }) => {
     await loginAsStudent(page);
 
     // Admin-specific nav buttons should not be visible
@@ -190,7 +230,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('button:has-text("Audit Logs")')).not.toBeVisible();
   });
 
-  test('9. Problem Data Integrity: Best Time to Buy Stock has matching title, example [7,1,5,3,6,4] and no mismatched starter code', async ({ page }) => {
+  test('10. Problem Data Integrity: Best Time to Buy Stock has matching title, example [7,1,5,3,6,4] and no mismatched starter code', async ({ page }) => {
     await loginAsStudent(page);
 
     // Open Practice

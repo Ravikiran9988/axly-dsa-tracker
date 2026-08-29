@@ -21,6 +21,12 @@ async function request(endpoint, options = {}) {
 
 export const api = {
   async verifyAuth() { return request('/auth/verify'); },
+  async signup(data) { return request('/auth/signup', { method: 'POST', body: JSON.stringify(data) }); },
+  async login(data) { return request('/auth/login', { method: 'POST', body: JSON.stringify(data) }); },
+  async verifyEmail(data) { return request('/auth/verify-email', { method: 'POST', body: JSON.stringify(data) }); },
+  async resendVerification(data) { return request('/auth/resend-verification', { method: 'POST', body: JSON.stringify(data) }); },
+  async forgotPassword(data) { return request('/auth/forgot-password', { method: 'POST', body: JSON.stringify(data) }); },
+  async resetPassword(data) { return request('/auth/reset-password', { method: 'POST', body: JSON.stringify(data) }); },
   async devLogin(email, role = 'user') { return request('/auth/dev-login', { method: 'POST', body: JSON.stringify({ email, role }) }); },
 
   // Questions
