@@ -215,6 +215,23 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   const currentFileName = FILE_EXTENSIONS[language] || `solution.${language}`;
   const statusCfg = execResult ? STATUS_CONFIG[execResult.status] : null;
 
+  const hintsList = React.useMemo(() => {
+    if (!question?.hints) return [];
+    if (Array.isArray(question.hints)) return question.hints.filter(Boolean).map(String);
+    if (typeof question.hints === 'string') {
+      const trimmed = question.hints.trim();
+      if (!trimmed || trimmed === '[]') return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
+        if (typeof parsed === 'string' && parsed.trim() && parsed !== '[]') return [parsed.trim()];
+      } catch {
+        return [trimmed];
+      }
+    }
+    return [];
+  }, [question?.hints]);
+
   return (
     <div className="flex flex-col bg-[#070B14]" style={{ height: 'calc(100vh - 56px)' }}>
       {/* Top header */}
@@ -248,34 +265,31 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
         {submissionMethod === 'code' && (
           <>
             <select
-              id="select-language"
               value={language}
               onChange={e => handleLanguageChange(e.target.value)}
-              className="select-field h-8 text-xs shrink-0 hidden sm:block"
+              className="bg-[#0d1525] border border-[#1a2540] text-slate-200 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-axly-500 shrink-0 font-medium"
             >
-              <option value="javascript">JavaScript</option>
-              <option value="python">Python 3</option>
-              <option value="typescript">TypeScript</option>
-              <option value="java">Java</option>
-              <option value="cpp">C++</option>
-              <option value="c">C</option>
+              <option value="javascript">JavaScript (Node 20)</option>
+              <option value="python">Python 3.11</option>
+              <option value="typescript">TypeScript 5</option>
+              <option value="java">Java 21</option>
+              <option value="cpp">C++ 20</option>
+              <option value="c">C (GCC 13)</option>
             </select>
             <button
-              id="btn-run-code"
               onClick={handleRunCode}
               disabled={isRunning || isSubmitting}
               title="Run (Ctrl+Enter)"
               className="btn-secondary btn-sm inline-flex items-center gap-1.5 shrink-0 disabled:opacity-50"
             >
-              <Play className="w-3.5 h-3.5 text-axly-400" />
+              <Play className="w-3.5 h-3.5 text-emerald-400" />
               {isRunning ? 'Running...' : 'Run'}
             </button>
             <button
-              id="btn-submit-code"
               onClick={handleSubmitSolution}
               disabled={isRunning || isSubmitting}
               title="Submit (Ctrl+Shift+Enter)"
-              className="btn-success btn-sm inline-flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+              className="btn-primary btn-sm inline-flex items-center gap-1.5 shrink-0 disabled:opacity-50"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               {isSubmitting ? 'Submitting...' : 'Submit'}
@@ -292,11 +306,10 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
             <button onClick={() => setLeftTab('description')} className={`tab-btn ${leftTab === 'description' ? 'tab-btn-active' : ''}`}>
               <FileCode className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />Description
             </button>
-            {question.hints && (
-              <button onClick={() => setLeftTab('hints')} className={`tab-btn ${leftTab === 'hints' ? 'tab-btn-active' : ''}`}>
-                <HelpCircle className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />Hints
-              </button>
-            )}
+            <button onClick={() => setLeftTab('hints')} className={`tab-btn ${leftTab === 'hints' ? 'tab-btn-active' : ''}`}>
+              <HelpCircle className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+              Hints{hintsList.length > 0 && ` (${hintsList.length})`}
+            </button>
             <button onClick={() => setLeftTab('submissions')} className={`tab-btn ${leftTab === 'submissions' ? 'tab-btn-active' : ''}`}>
               <History className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
               Submissions{pastSubmissions.length > 0 && ` (${pastSubmissions.length})`}
@@ -334,13 +347,38 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
               </>
             )}
             {leftTab === 'hints' && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-axly-400 text-xs font-semibold">
-                  <HelpCircle className="w-4 h-4" /> Hints
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-axly-400 text-xs font-semibold">
+                    <HelpCircle className="w-4 h-4" /> Hints
+                  </div>
+                  {hintsList.length > 0 && (
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {hintsList.length} {hintsList.length === 1 ? 'hint' : 'hints'} available
+                    </span>
+                  )}
                 </div>
-                <div className="problem-prose whitespace-pre-line p-4 rounded-md bg-[#0a1120] border border-[#1a2540]">
-                  {question.hints}
-                </div>
+                {hintsList.length === 0 ? (
+                  <div className="p-6 rounded-lg bg-[#0a1120] border border-[#1a2540] text-center text-slate-400 text-sm">
+                    No hints available for this problem yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {hintsList.map((hint, idx) => (
+                      <div key={idx} className="p-4 rounded-lg bg-[#0a1120] border border-[#1a2540] space-y-2">
+                        <div className="text-xs font-semibold text-axly-300 flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-axly-500/20 text-axly-400 flex items-center justify-center text-[10px] font-bold">
+                            {idx + 1}
+                          </span>
+                          Hint {idx + 1}
+                        </div>
+                        <div className="problem-prose text-xs text-slate-300 whitespace-pre-line pl-7">
+                          {hint}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {leftTab === 'submissions' && (

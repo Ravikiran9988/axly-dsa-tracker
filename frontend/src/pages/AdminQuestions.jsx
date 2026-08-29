@@ -134,13 +134,13 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold uppercase tracking-wider">
             <Code2 className="w-4 h-4" />
-            <span>Curriculum & Content Management</span>
+            <span>Practice Problem Library</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
             Question Bank Management
           </h1>
           <p className="text-xs text-slate-400">
-            Author, edit, organize taxonomy, and publish algorithmic challenges across the Practice Bank and Daily Challenges.
+            Author, edit, organize taxonomy, and manage the curated Practice problem repository.
           </p>
         </div>
 

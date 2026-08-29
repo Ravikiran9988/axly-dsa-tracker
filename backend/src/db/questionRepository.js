@@ -1,5 +1,22 @@
 const { getRepository } = require('./repositoryFactory');
 
+function parseHints(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter(Boolean).map(String);
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '[]') return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
+      if (typeof parsed === 'string' && parsed.trim() && parsed !== '[]') return [parsed.trim()];
+    } catch {
+      return [trimmed];
+    }
+  }
+  return [];
+}
+
 function normalize(row) {
   if (!row) return row;
   const copy = { ...row };
@@ -8,6 +25,7 @@ function normalize(row) {
       try { copy[key] = JSON.parse(copy[key]); } catch (_) {}
     }
   }
+  if (copy.hints !== undefined) copy.hints = parseHints(copy.hints);
   if (copy.is_active !== undefined) copy.is_active = Boolean(copy.is_active);
   if (copy.is_hidden !== undefined) copy.is_hidden = Boolean(copy.is_hidden);
   return copy;

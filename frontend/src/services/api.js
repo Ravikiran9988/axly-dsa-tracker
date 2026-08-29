@@ -58,9 +58,21 @@ export const api = {
   // AI Questions & Reviews
   async generateAIQuestion(data) { return request('/ai-questions/generate', { method: 'POST', body: JSON.stringify(data) }); },
 
-  // Daily Question
+  // Daily Challenge & Daily Question
   async getDailyQuestion() { return request('/daily-question'); },
   async setDailyQuestion(data) { return request('/daily-question', { method: 'POST', body: JSON.stringify(data) }); },
+  async getDailyChallenges(params = {}) {
+    const q = new URLSearchParams();
+    for (const k of ['status', 'difficulty', 'topic_id', 'search', 'page', 'limit']) {
+      if (params[k]) q.append(k, params[k]);
+    }
+    return request(`/daily-challenges?${q}`);
+  },
+  async getDailyChallenge(id) { return request(`/daily-challenges/${id}`); },
+  async createDailyChallenge(data) { return request('/daily-challenges', { method: 'POST', body: JSON.stringify(data) }); },
+  async updateDailyChallenge(id, data) { return request(`/daily-challenges/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
+  async scheduleDailyChallenge(id, data) { return request(`/daily-challenges/${id}/schedule`, { method: 'POST', body: JSON.stringify(data) }); },
+  async archiveDailyChallenge(id) { return request(`/daily-challenges/${id}`, { method: 'DELETE' }); },
 
   // Code Execution & Submissions
   async runCode(data) { return request('/code/run', { method: 'POST', body: JSON.stringify(data) }); },

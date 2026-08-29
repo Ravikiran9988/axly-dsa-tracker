@@ -1113,17 +1113,159 @@ print(find_median(nums1, nums2))`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET is_read = excluded.is_read
   `);
-  notifications.forEach(n => insertNotif.run(n.id, n.user_id, n.title, n.message, n.type, n.link, n.is_read, n.created_at));
-
-  // Today's Daily Question (UTC date)
+  // Dedicated Daily Challenge Problems (Independent from Practice bank)
   const todayUtc = new Date().toISOString().split('T')[0];
-  const insertDailyQuestion = db.prepare(`
-    INSERT OR IGNORE INTO daily_questions (id, question_id, date, created_by)
-    VALUES (?, ?, ?, ?)
-  `);
-  insertDailyQuestion.run('daily-today', 'q-two-sum', todayUtc, 'usr-admin-01');
+  const tomorrowUtc = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
-  console.log('Database seeded successfully with in-platform coding problems, cohorts, notifications & mentor feedback.');
+  const dailyChallenges = [
+    {
+      id: 'dc-001',
+      title: 'Longest Subarray Challenge',
+      slug: 'longest-subarray-challenge',
+      difficulty: 'medium',
+      topic_id: 'arrays',
+      pattern_id: 'two-pointers',
+      points: 100,
+      estimated_time: 30,
+      description: 'Given an array of positive integers and an integer k, find the maximum length of a contiguous subarray whose sum is less than or equal to k.',
+      problem_statement: 'Given an array of integers nums and an integer k, return the maximum length of a subarray whose sum is at most k. If no such subarray exists, return 0.',
+      constraints: '1 <= nums.length <= 10^5\n1 <= nums[i] <= 10^4\n1 <= k <= 10^9',
+      input_format: 'First line contains n and k. Second line contains n integers.',
+      output_format: 'A single integer denoting the maximum subarray length.',
+      example_input: '{"nums": [1, 2, 1, 0, 1, 1, 0], "k": 4}',
+      example_output: '5',
+      hints: JSON.stringify([
+        'All numbers are non-negative, so expanding the window always increases or maintains the sum.',
+        'Use a sliding window with two pointers (left and right).',
+        'When window_sum > k, shrink the window from the left until window_sum <= k, updating max_len at each step.'
+      ]),
+      tags: JSON.stringify(['Arrays', 'Sliding Window', 'Two Pointers']),
+      solution_approach: 'Use a dynamic sliding window. Expand the right boundary while adding nums[right] to current sum. If the sum exceeds k, increment the left boundary and subtract nums[left]. Track the maximum window size (right - left + 1).',
+      status: 'scheduled',
+      scheduled_date: todayUtc,
+      created_by: 'usr-admin-01',
+      test_cases: [
+        { id: 'dc-tc-001-1', input: '{"nums": [1, 2, 1, 0, 1, 1, 0], "k": 4}', expected_output: '5', is_hidden: 0 },
+        { id: 'dc-tc-001-2', input: '{"nums": [3, 1, 2, 7, 4, 2, 1, 1, 5], "k": 8}', expected_output: '4', is_hidden: 0 },
+        { id: 'dc-tc-001-3', input: '{"nums": [10, 20, 30], "k": 5}', expected_output: '0', is_hidden: 1 },
+        { id: 'dc-tc-001-4', input: '{"nums": [1, 1, 1, 1, 1], "k": 3}', expected_output: '3', is_hidden: 1 }
+      ]
+    },
+    {
+      id: 'dc-002',
+      title: 'Maximum Subarray Score with K Flips',
+      slug: 'max-subarray-score-k-flips',
+      difficulty: 'medium',
+      topic_id: 'arrays',
+      pattern_id: 'two-pointers',
+      points: 100,
+      estimated_time: 35,
+      description: 'Given a binary array nums and an integer k, return the maximum number of consecutive 1s in the array if you can flip at most k 0s.',
+      problem_statement: 'Find the maximum consecutive 1s after flipping at most k zeros in the binary array nums.',
+      constraints: '1 <= nums.length <= 10^5\nnums[i] is either 0 or 1\n0 <= k <= nums.length',
+      input_format: 'JSON with nums array and integer k.',
+      output_format: 'Maximum consecutive 1s length.',
+      example_input: '{"nums": [1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0], "k": 2}',
+      example_output: '6',
+      hints: JSON.stringify([
+        'Translate the problem into finding the longest subarray containing at most k zeros.',
+        'Use sliding window where you keep a count of zeros inside the current window.',
+        'When zeros > k, move left pointer forward and decrement zero count if nums[left] == 0.'
+      ]),
+      tags: JSON.stringify(['Arrays', 'Sliding Window']),
+      solution_approach: 'Maintain a window [left, right] and track count of zeros. Expand right pointer. Whenever zero_count > k, increment left and decrement zero_count if nums[left] was zero.',
+      status: 'published',
+      scheduled_date: tomorrowUtc,
+      created_by: 'usr-admin-01',
+      test_cases: [
+        { id: 'dc-tc-002-1', input: '{"nums": [1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0], "k": 2}', expected_output: '6', is_hidden: 0 },
+        { id: 'dc-tc-002-2', input: '{"nums": [0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1], "k": 3}', expected_output: '10', is_hidden: 0 }
+      ]
+    },
+    {
+      id: 'dc-003',
+      title: 'Strictly Increasing Pivot Sequence',
+      slug: 'strictly-increasing-pivot-sequence',
+      difficulty: 'hard',
+      topic_id: 'dynamic-programming',
+      pattern_id: '1d-dp',
+      points: 100,
+      estimated_time: 45,
+      description: 'Find the maximum possible sum of a strictly increasing subsequence with variable leap step costs.',
+      problem_statement: 'Given an array of integers nums, find the maximum sum of an increasing subsequence where adjacent indices satisfy leap conditions.',
+      constraints: '1 <= nums.length <= 2500\n-10^4 <= nums[i] <= 10^4',
+      input_format: 'JSON with nums array.',
+      output_format: 'Single integer for max sum.',
+      example_input: '{"nums": [10, 9, 2, 5, 3, 7, 101, 18]}',
+      example_output: '128',
+      hints: JSON.stringify([
+        'Consider Dynamic Programming where dp[i] represents the maximum increasing subsequence sum ending at index i.',
+        'For each index i, iterate over all j < i such that nums[j] < nums[i].',
+        'dp[i] = max(nums[i], max(dp[j] + nums[i]) for all valid j).'
+      ]),
+      tags: JSON.stringify(['Dynamic Programming', 'Optimization']),
+      solution_approach: 'Let dp[i] be the maximum sum of an increasing subsequence ending at index i. For each i, check all preceding j where nums[j] < nums[i] and update dp[i] = max(dp[i], dp[j] + nums[i]).',
+      status: 'draft',
+      scheduled_date: null,
+      created_by: 'usr-admin-01',
+      test_cases: [
+        { id: 'dc-tc-003-1', input: '{"nums": [1, 101, 2, 3, 100, 4, 5]}', expected_output: '106', is_hidden: 0 }
+      ]
+    }
+  ];
+
+  const insertDailyChallenge = db.prepare(`
+    INSERT INTO daily_challenge_problems (
+      id, title, slug, difficulty, topic_id, pattern_id, points, estimated_time,
+      description, problem_statement, constraints, input_format, output_format,
+      example_input, example_output, hints, tags, solution_approach, status,
+      scheduled_date, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      title = excluded.title,
+      difficulty = excluded.difficulty,
+      topic_id = excluded.topic_id,
+      pattern_id = excluded.pattern_id,
+      points = excluded.points,
+      description = excluded.description,
+      constraints = excluded.constraints,
+      hints = excluded.hints,
+      solution_approach = excluded.solution_approach,
+      status = excluded.status,
+      scheduled_date = excluded.scheduled_date
+  `);
+
+  const insertDailyTestCase = db.prepare(`
+    INSERT INTO daily_challenge_test_cases (id, challenge_id, input, expected_output, is_hidden)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      input = excluded.input,
+      expected_output = excluded.expected_output,
+      is_hidden = excluded.is_hidden
+  `);
+
+  dailyChallenges.forEach(dc => {
+    insertDailyChallenge.run(
+      dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, dc.estimated_time,
+      dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format,
+      dc.example_input, dc.example_output, dc.hints, dc.tags, dc.solution_approach, dc.status,
+      dc.scheduled_date, dc.created_by
+    );
+    if (dc.test_cases && dc.test_cases.length > 0) {
+      dc.test_cases.forEach(tc => {
+        insertDailyTestCase.run(tc.id, dc.id, tc.input, tc.expected_output, tc.is_hidden);
+      });
+    }
+  });
+
+  // Today's Daily Challenge Link (UTC date)
+  db.prepare('DELETE FROM daily_questions WHERE id = ? OR date = ?').run('daily-today', todayUtc);
+  db.prepare(`
+    INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('daily-today', 'dc-001', 'dc-001', todayUtc, 'usr-admin-01');
+
+  console.log('Database seeded successfully with in-platform coding problems, cohorts, notifications, mentor feedback & independent daily challenges.');
 }
 
 if (require.main === module) {

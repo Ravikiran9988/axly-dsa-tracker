@@ -12,6 +12,23 @@ function parseJsonField(val, fallback = []) {
   try { return JSON.parse(val); } catch { return fallback; }
 }
 
+function parseHints(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter(Boolean).map(String);
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '[]') return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
+      if (typeof parsed === 'string' && parsed.trim() && parsed !== '[]') return [parsed.trim()];
+    } catch {
+      return [trimmed];
+    }
+  }
+  return [];
+}
+
 function positiveInt(v, fallback, max) {
   const n = Number(v);
   return Number.isInteger(n) && n > 0 ? Math.min(n, max) : fallback;
@@ -132,6 +149,7 @@ async function getPracticeProblem({ user, questionId }) {
   if (!r) return null;
   return {
     ...r,
+    hints: parseHints(r.hints),
     secondary_topics: parseJsonField(r.secondary_topics, []),
     prerequisites: parseJsonField(r.prerequisites, []),
     practice_status: r.practice_status || 'not_started'

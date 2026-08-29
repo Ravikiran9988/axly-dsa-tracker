@@ -38,7 +38,8 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
       setTitle(currentQuestion.title || ''); setDifficulty(currentQuestion.difficulty || 'easy'); setTopicId(currentQuestion.topic_id || '');
       setPoints(currentQuestion.points || 20); setEstimatedTime(currentQuestion.estimated_time || '30 mins'); setDueDate(currentQuestion.due_date || '');
       setStatus(currentQuestion.status || 'published'); setDescription(currentQuestion.description || ''); setConstraints(currentQuestion.constraints || '');
-      setInputFormat(currentQuestion.input_format || ''); setOutputFormat(currentQuestion.output_format || ''); setHints(currentQuestion.hints || '');
+      setInputFormat(currentQuestion.input_format || ''); setOutputFormat(currentQuestion.output_format || '');
+      setHints(Array.isArray(currentQuestion.hints) ? currentQuestion.hints.join('\n') : (currentQuestion.hints || ''));
       const sc = currentQuestion.starter_code && typeof currentQuestion.starter_code === 'object' ? currentQuestion.starter_code : {};
       setJsStarter(sc.javascript || ''); setPyStarter(sc.python || '');
       api.getQuestionById(currentQuestion.id).then(r => { if (r.data?.test_cases?.length) setTestCases(r.data.test_cases); }).catch(() => {});
@@ -59,7 +60,8 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
       const r = await api.generateAIQuestion({ topic: aiTopic.trim(), difficulty: aiDifficulty, count: Number(aiCount) });
       const d = r.data || {};
       setTitle(d.title || ''); setDifficulty(difficulty || aiDifficulty); setDescription(d.description || ''); setConstraints(d.constraints || '');
-      setInputFormat(d.input_format || ''); setOutputFormat(d.output_format || ''); setHints(d.hints || ''); setStatus('draft');
+      setInputFormat(d.input_format || ''); setOutputFormat(d.output_format || '');
+      setHints(Array.isArray(d.hints) ? d.hints.join('\n') : (d.hints || '')); setStatus('draft');
       if (d.starter_code && typeof d.starter_code === 'object') { setJsStarter(d.starter_code.javascript || ''); setPyStarter(d.starter_code.python || ''); }
       if (Array.isArray(d.test_cases)) setTestCases(d.test_cases.map(tc => ({ input:String(tc.input ?? ''), expected_output:String(tc.expected_output ?? ''), is_hidden:Boolean(tc.is_hidden) })));
       if (d.time_limit_ms) setEstimatedTime(`${Math.max(1, Math.round(Number(d.time_limit_ms)/60000))} mins`);

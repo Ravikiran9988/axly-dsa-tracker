@@ -132,13 +132,36 @@ describe('Practice V1 Complete Test Suite & Seed Verification', () => {
       expect(res.body.limit).toBe(5);
     });
 
-    test('8. GET /api/v1/practice/problems/:id returns single problem with test cases', async () => {
+    test('8. GET /api/v1/practice/problems/:id returns single problem with test cases and parsed hints', async () => {
       const res = await request(app)
         .get(`/api/v1/practice/problems/${testPracticeProblemId}`)
         .set('Authorization', `Bearer ${userAToken}`);
       expect(res.status).toBe(200);
       expect(res.body.data.id).toBe(testPracticeProblemId);
       expect(res.body.data.practice_status).toBeDefined();
+      expect(Array.isArray(res.body.data.hints)).toBe(true);
+      expect(res.body.data.hints.length).toBeGreaterThan(0);
+      res.body.data.hints.forEach(h => expect(typeof h).toBe('string'));
+    });
+
+    test('8b. Two Sum (arr-001) returns array of progressive hints via practice and questions APIs', async () => {
+      const pRes = await request(app)
+        .get('/api/v1/practice/problems/arr-001')
+        .set('Authorization', `Bearer ${userAToken}`);
+      expect(pRes.status).toBe(200);
+      expect(Array.isArray(pRes.body.data.hints)).toBe(true);
+      expect(pRes.body.data.hints.length).toBe(3);
+      expect(pRes.body.data.hints[0]).toContain('Think about what information you need to remember');
+      expect(pRes.body.data.hints[1]).toContain('complement');
+      expect(pRes.body.data.hints[2]).toContain('hash map');
+
+      const qRes = await request(app)
+        .get('/api/v1/questions/arr-001')
+        .set('Authorization', `Bearer ${userAToken}`);
+      expect(qRes.status).toBe(200);
+      expect(Array.isArray(qRes.body.data.hints)).toBe(true);
+      expect(qRes.body.data.hints.length).toBe(3);
+      expect(qRes.body.data.hints[0]).toContain('Think about what information you need to remember');
     });
   });
 

@@ -458,14 +458,14 @@ export default function AdminDashboard({
 
                 <div className="pt-2 flex items-center gap-2 border-t border-slate-800/80">
                   <button
-                    onClick={onOpenDailyModal}
+                    onClick={() => (onNavigate ? onNavigate('admin-daily') : onOpenDailyModal && onOpenDailyModal())}
                     className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
                   >
-                    Change Challenge
+                    Manage Daily Challenge
                   </button>
-                  {onSelectProblem && todayChallenge.question_id && (
+                  {onSelectProblem && (todayChallenge.question_id || todayChallenge.id) && (
                     <button
-                      onClick={() => onSelectProblem(todayChallenge.question_id)}
+                      onClick={() => onSelectProblem(todayChallenge.question_id || todayChallenge.id)}
                       className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400"
                       title="Preview problem"
                     >

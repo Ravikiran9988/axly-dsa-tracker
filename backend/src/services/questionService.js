@@ -10,6 +10,23 @@ function safeParseJson(value, fallback = null) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
+function parseHints(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean).map(String);
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '[]') return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
+      if (typeof parsed === 'string' && parsed.trim() && parsed !== '[]') return [parsed.trim()];
+    } catch {
+      return [trimmed];
+    }
+  }
+  return [];
+}
+
 function normalizeJsonArray(value, fallback = '[]') {
   if (value === undefined || value === null) {
     return typeof fallback === 'string' ? fallback : JSON.stringify(fallback);
@@ -97,6 +114,7 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   return {
     data: rows.map(item => ({
       ...item,
+      hints: parseHints(item.hints),
       starter_code: item.starter_code ? safeParseJson(item.starter_code) : null,
       supported_languages: item.supported_languages ? safeParseJson(item.supported_languages) : ['javascript', 'python'],
       tags: item.tags ? safeParseJson(item.tags) : [],
@@ -113,29 +131,49 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
 }
 
 async function getQuestionById(id, user = null) {
-  const q = await repo.one(
+  let q = await repo.one(
     'SELECT q.*, t.name AS topic_name FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.id = ?',
     [id]
   );
-  if (!q) return null;
+  let isDailyChallenge = false;
+
+  if (!q) {
+    // Check if this ID belongs to a Daily Challenge Problem
+    const dc = await repo.one(
+      'SELECT dc.*, t.name AS topic_name, p.name AS pattern_name FROM daily_challenge_problems dc LEFT JOIN topics t ON dc.topic_id = t.id LEFT JOIN patterns p ON dc.pattern_id = p.id WHERE dc.id = ? OR dc.slug = ?',
+      [id, id]
+    );
+    if (!dc) return null;
+    q = dc;
+    isDailyChallenge = true;
+  }
 
   const isAdmin = user?.role === 'admin' || user?.role === 'mentor';
-  const testCaseSql = isAdmin
-    ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC'
-    : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND (is_hidden = 0 OR is_hidden = FALSE) ORDER BY created_at ASC';
+  let testCaseSql = '';
+  if (isDailyChallenge) {
+    testCaseSql = isAdmin
+      ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC'
+      : 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND (is_hidden = 0 OR is_hidden = FALSE) ORDER BY created_at ASC';
+  } else {
+    testCaseSql = isAdmin
+      ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC'
+      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND (is_hidden = 0 OR is_hidden = FALSE) ORDER BY created_at ASC';
+  }
 
-  const testCases = await repo.many(testCaseSql, [id]);
+  const testCases = await repo.many(testCaseSql, [q.id]);
   const formattedTestCases = testCases.map(tc => ({
     ...tc,
     is_hidden: Boolean(tc.is_hidden)
   }));
 
   const submission = user
-    ? await repo.one('SELECT * FROM submissions WHERE question_id = ? AND user_id = ?', [id, user.id])
+    ? await repo.one('SELECT * FROM submissions WHERE question_id = ? AND user_id = ?', [q.id, user.id])
     : null;
 
   return {
     ...q,
+    is_daily_challenge: isDailyChallenge,
+    hints: parseHints(q.hints),
     is_active: Boolean(q.is_active),
     starter_code: q.starter_code ? safeParseJson(q.starter_code) : null,
     supported_languages: q.supported_languages ? safeParseJson(q.supported_languages) : ['javascript', 'python'],
@@ -198,7 +236,7 @@ async function createQuestion(input) {
       output_format || null,
       example_input || null,
       example_output || null,
-      hints || null,
+      Array.isArray(hints) ? JSON.stringify(hints) : (hints || null),
       normalizeJsonArray(tags, '[]'),
       estimated_time || '30 mins',
       Number(points) || 20,
@@ -252,6 +290,7 @@ async function updateQuestion(id, updates) {
       let val = updates[key];
       if (key === 'difficulty') val = String(val).toLowerCase();
       else if (key === 'is_active') val = val ? 1 : 0;
+      else if (key === 'hints' && Array.isArray(val)) val = JSON.stringify(val);
       params.push(val);
     }
   }
