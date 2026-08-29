@@ -284,8 +284,12 @@ function initSchema() {
       hints TEXT DEFAULT '[]',
       tags TEXT DEFAULT '[]',
       solution_approach TEXT,
+      editorial TEXT,
+      complexity TEXT,
+      examples TEXT DEFAULT '[]',
       starter_code TEXT,
       supported_languages TEXT DEFAULT '["javascript", "python", "typescript", "java", "cpp", "c"]',
+      created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
       status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'scheduled', 'active', 'archived', 'completed')),
       scheduled_date TEXT,
       is_active INTEGER NOT NULL DEFAULT 1,
@@ -392,6 +396,10 @@ function initSchema() {
 
   // Daily Questions & Challenges migrations
   addColumnIfNotExists('daily_questions', 'challenge_id', 'TEXT');
+  addColumnIfNotExists('daily_challenge_problems', 'created_via', "TEXT NOT NULL DEFAULT 'manual'");
+  addColumnIfNotExists('daily_challenge_problems', 'editorial', 'TEXT');
+  addColumnIfNotExists('daily_challenge_problems', 'complexity', 'TEXT');
+  addColumnIfNotExists('daily_challenge_problems', 'examples', "TEXT DEFAULT '[]'");
   addColumnIfNotExists('daily_challenge_problems', 'source_question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
   try {
     const fks = db.prepare('PRAGMA foreign_key_list(daily_questions)').all();

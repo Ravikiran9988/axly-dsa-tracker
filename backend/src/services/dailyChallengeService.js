@@ -1,6 +1,8 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
+const { getCalendarDate, getUserStreaks } = require('./streakService');
+const { checkDuplicateChallenge, validateDailyChallenge } = require('./aiDailyChallengeService');
 
 const repo = getRepository();
 
@@ -41,8 +43,6 @@ function generateSlug(title) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || `dc-${Date.now()}`;
 }
-
-const { getCalendarDate, getUserStreaks } = require('./streakService');
 
 function getTodayDateString() {
   return getCalendarDate();
@@ -99,8 +99,9 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
       dc.source_question_id,
       dc.secondary_topics, dc.prerequisites, dc.estimated_time, dc.points,
       dc.description, dc.problem_statement, dc.constraints, dc.input_format,
-      dc.output_format, dc.example_input, dc.example_output, dc.hints, dc.tags,
-      dc.solution_approach, dc.starter_code, dc.supported_languages, dc.status,
+      dc.output_format, dc.example_input, dc.example_output, dc.examples,
+      dc.hints, dc.tags, dc.solution_approach, dc.editorial, dc.complexity,
+      dc.starter_code, dc.supported_languages, dc.created_via, dc.status,
       dc.scheduled_date, dc.is_active, dc.created_by, dc.created_at, dc.updated_at,
       t.name AS topic_name,
       p.name AS pattern_name,
@@ -169,9 +170,13 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
     ...r,
     hints: parseHints(r.hints),
     tags: safeParseJson(r.tags, []),
+    examples: safeParseJson(r.examples, []),
     secondary_topics: safeParseJson(r.secondary_topics, []),
     prerequisites: safeParseJson(r.prerequisites, []),
     supported_languages: safeParseJson(r.supported_languages, ['javascript', 'python']),
+    created_via: r.created_via || 'manual',
+    editorial: r.editorial || r.solution_approach || '',
+    complexity: r.complexity || '',
     scheduled_date: r.scheduled_date || r.active_daily_date || null
   }));
 
@@ -184,52 +189,62 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
     today_challenge: todayRow ? {
       ...todayRow,
       hints: parseHints(todayRow.hints),
-      scheduled_date: todayRow.scheduled_date || todayStr
+      examples: safeParseJson(todayRow.examples, []),
+      tags: safeParseJson(todayRow.tags, [])
     } : null,
     next_scheduled_challenge: nextScheduledRow ? {
       ...nextScheduledRow,
-      hints: parseHints(nextScheduledRow.hints)
+      hints: parseHints(nextScheduledRow.hints),
+      examples: safeParseJson(nextScheduledRow.examples, []),
+      tags: safeParseJson(nextScheduledRow.tags, [])
     } : null
   };
 }
 
-async function getDailyChallengeById(id, includeHiddenTestCases = false) {
-  const row = await repo.one(`
+async function getDailyChallengeById(id, isPrivileged = false) {
+  const challenge = await repo.one(`
     SELECT 
       dc.*,
       t.name AS topic_name,
       p.name AS pattern_name,
-      (SELECT dq.date FROM daily_questions dq WHERE dq.challenge_id = dc.id OR dq.question_id = dc.id LIMIT 1) AS active_daily_date,
-      sq.title AS source_question_title
+      sq.title AS source_question_title,
+      (SELECT dq.date FROM daily_questions dq WHERE dq.challenge_id = dc.id OR dq.question_id = dc.id LIMIT 1) AS active_daily_date
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
     LEFT JOIN questions sq ON dc.source_question_id = sq.id
-    WHERE dc.id = ? OR dc.slug = ?
-  `, [id, id]);
+    WHERE dc.id = ?
+  `, [id]);
 
-  if (!row) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+  if (!challenge) {
+    throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+  }
 
-  const testCasesQuery = includeHiddenTestCases
-    ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC'
-    : 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND (is_hidden = 0 OR is_hidden = FALSE) ORDER BY created_at ASC';
+  const testCases = await repo.many(`
+    SELECT id, input, expected_output, is_hidden
+    FROM daily_challenge_test_cases
+    WHERE challenge_id = ?
+    ORDER BY is_hidden ASC, id ASC
+  `, [id]);
 
-  const testCases = await repo.many(testCasesQuery, [row.id]);
+  const visibleTestCases = isPrivileged
+    ? testCases
+    : testCases.filter(tc => !tc.is_hidden);
 
   return {
-    ...row,
-    hints: parseHints(row.hints),
-    tags: safeParseJson(row.tags, []),
-    secondary_topics: safeParseJson(row.secondary_topics, []),
-    prerequisites: safeParseJson(row.prerequisites, []),
-    supported_languages: safeParseJson(row.supported_languages, ['javascript', 'python']),
-    scheduled_date: row.scheduled_date || row.active_daily_date || null,
-    test_cases: testCases.map(tc => ({
-      id: tc.id,
-      input: tc.input,
-      expected_output: tc.expected_output,
-      is_hidden: Boolean(tc.is_hidden)
-    }))
+    ...challenge,
+    hints: parseHints(challenge.hints),
+    tags: safeParseJson(challenge.tags, []),
+    examples: safeParseJson(challenge.examples, []),
+    secondary_topics: safeParseJson(challenge.secondary_topics, []),
+    prerequisites: safeParseJson(challenge.prerequisites, []),
+    supported_languages: safeParseJson(challenge.supported_languages, ['javascript', 'python']),
+    created_via: challenge.created_via || 'manual',
+    editorial: challenge.editorial || challenge.solution_approach || '',
+    complexity: challenge.complexity || '',
+    scheduled_date: challenge.scheduled_date || challenge.active_daily_date || null,
+    test_cases: visibleTestCases,
+    total_test_cases: testCases.length
   };
 }
 
@@ -252,11 +267,15 @@ async function createDailyChallenge(data, admin_id) {
     output_format,
     example_input,
     example_output,
+    examples,
     hints,
     tags,
     solution_approach,
+    editorial,
+    complexity,
     starter_code,
     supported_languages,
+    created_via = 'manual',
     status = 'draft',
     scheduled_date = null,
     test_cases = []
@@ -269,6 +288,12 @@ async function createDailyChallenge(data, admin_id) {
   }
   if (Number(points) <= 0) {
     throw new AppError('Points must be greater than 0', 400, 'VALIDATION_ERROR', 'points');
+  }
+
+  // Duplicate title check
+  const dupCheck = await checkDuplicateChallenge(title, description);
+  if (dupCheck.isDuplicate) {
+    throw new AppError(dupCheck.reason, 409, 'DUPLICATE_CHALLENGE', 'title');
   }
 
   if (scheduled_date) {
@@ -289,10 +314,10 @@ async function createDailyChallenge(data, admin_id) {
         id, title, slug, difficulty, topic_id, pattern_id, source_question_id,
         secondary_topics, prerequisites, estimated_time, points,
         description, problem_statement, constraints, input_format,
-        output_format, example_input, example_output, hints, tags,
-        solution_approach, starter_code, supported_languages, status,
-        scheduled_date, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        output_format, example_input, example_output, examples, hints, tags,
+        solution_approach, editorial, complexity, starter_code, supported_languages,
+        created_via, status, scheduled_date, created_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `, [
       id,
       title.trim(),
@@ -310,13 +335,17 @@ async function createDailyChallenge(data, admin_id) {
       constraints || null,
       input_format || null,
       output_format || null,
-      example_input || null,
-      example_output || null,
+      example_input || (examples && examples[0]?.input) || null,
+      example_output || (examples && examples[0]?.output) || null,
+      normalizeJsonArray(examples, '[]'),
       normalizeJsonArray(hints, '[]'),
       normalizeJsonArray(tags, '[]'),
-      solution_approach || null,
+      solution_approach || editorial || null,
+      editorial || solution_approach || null,
+      complexity || null,
       typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null),
       normalizeJsonArray(supported_languages, '["javascript", "python"]'),
+      created_via === 'ai' ? 'ai' : 'manual',
       status,
       scheduled_date || null,
       admin_id || null
@@ -354,108 +383,74 @@ async function createDailyChallenge(data, admin_id) {
   return getDailyChallengeById(id, true);
 }
 
-async function createFromPractice(questionId, customData = {}, adminId) {
-  const practice = await repo.one('SELECT * FROM questions WHERE id = ?', [questionId]);
-  if (!practice) throw new AppError('Practice problem not found', 404, 'NOT_FOUND');
-
-  const practiceTestCases = await repo.many(
-    'SELECT input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC',
-    [questionId]
-  );
-
-  const mergedData = {
-    title: customData.title || `${practice.title} Challenge`,
-    slug: customData.slug || `${practice.slug}-challenge`,
-    difficulty: customData.difficulty || practice.difficulty,
-    topic_id: customData.topic_id || practice.topic_id,
-    pattern_id: customData.pattern_id || practice.pattern_id,
-    source_question_id: practice.id,
-    points: Number(customData.points) || 100,
-    estimated_time: Number(customData.estimated_time) || practice.estimated_time || 30,
-    description: customData.description || practice.description || practice.problem_statement || practice.title,
-    problem_statement: customData.problem_statement || practice.problem_statement,
-    constraints: customData.constraints || practice.constraints,
-    input_format: customData.input_format || practice.input_format,
-    output_format: customData.output_format || practice.output_format,
-    example_input: customData.example_input || practice.example_input,
-    example_output: customData.example_output || practice.example_output,
-    hints: customData.hints !== undefined ? customData.hints : parseHints(practice.hints),
-    solution_approach: customData.solution_approach || practice.solution_approach,
-    starter_code: customData.starter_code || practice.starter_code,
-    supported_languages: practice.supported_languages,
-    status: customData.status || (customData.scheduled_date ? 'scheduled' : 'draft'),
-    scheduled_date: customData.scheduled_date || null,
-    test_cases: Array.isArray(customData.test_cases) && customData.test_cases.length > 0
-      ? customData.test_cases
-      : practiceTestCases
-  };
-
-  return createDailyChallenge(mergedData, adminId);
-}
-
 async function updateDailyChallenge(id, data, admin_id) {
-  const current = await repo.one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  const current = await repo.one('SELECT * FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!current) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
-  if (data.scheduled_date && data.scheduled_date !== current.scheduled_date) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(data.scheduled_date)) {
-      throw new AppError('Invalid scheduled date format (expected YYYY-MM-DD)', 400, 'VALIDATION_ERROR', 'scheduled_date');
-    }
-    const targetStatus = data.status || current.status;
-    if (targetStatus === 'scheduled' || targetStatus === 'published') {
-      await assertDateAvailable(data.scheduled_date, id);
-    }
+  if (data.scheduled_date && (data.status === 'scheduled' || data.status === 'published' || current.status === 'scheduled')) {
+    await assertDateAvailable(data.scheduled_date, id);
   }
 
-  const fields = [];
-  const params = [];
-
-  const stringFields = ['title', 'difficulty', 'topic_id', 'pattern_id', 'description', 'problem_statement', 'constraints', 'input_format', 'output_format', 'example_input', 'example_output', 'solution_approach', 'status', 'scheduled_date'];
-  for (const f of stringFields) {
-    if (data[f] !== undefined) {
-      fields.push(`${f} = ?`);
-      params.push(data[f]);
+  if (data.title && data.title !== current.title) {
+    const dupCheck = await checkDuplicateChallenge(data.title, data.description || current.description, id);
+    if (dupCheck.isDuplicate) {
+      throw new AppError(dupCheck.reason, 409, 'DUPLICATE_CHALLENGE', 'title');
     }
   }
-
-  if (data.slug !== undefined) {
-    fields.push('slug = ?');
-    params.push(generateSlug(data.slug));
-  }
-  if (data.points !== undefined) {
-    fields.push('points = ?');
-    params.push(Number(data.points) || 100);
-  }
-  if (data.estimated_time !== undefined) {
-    fields.push('estimated_time = ?');
-    params.push(Number(data.estimated_time) || 30);
-  }
-  if (data.hints !== undefined) {
-    fields.push('hints = ?');
-    params.push(normalizeJsonArray(data.hints, '[]'));
-  }
-  if (data.tags !== undefined) {
-    fields.push('tags = ?');
-    params.push(normalizeJsonArray(data.tags, '[]'));
-  }
-  if (data.secondary_topics !== undefined) {
-    fields.push('secondary_topics = ?');
-    params.push(normalizeJsonArray(data.secondary_topics, '[]'));
-  }
-  if (data.prerequisites !== undefined) {
-    fields.push('prerequisites = ?');
-    params.push(normalizeJsonArray(data.prerequisites, '[]'));
-  }
-  if (data.starter_code !== undefined) {
-    fields.push('starter_code = ?');
-    params.push(typeof data.starter_code === 'object' ? JSON.stringify(data.starter_code) : (data.starter_code || null));
-  }
-
-  fields.push('updated_at = CURRENT_TIMESTAMP');
 
   await repo.transaction(async tx => {
+    const fields = [];
+    const values = [];
+
+    const allowed = [
+      'title', 'slug', 'difficulty', 'topic_id', 'pattern_id', 'points',
+      'estimated_time', 'description', 'problem_statement', 'constraints',
+      'input_format', 'output_format', 'example_input', 'example_output',
+      'solution_approach', 'editorial', 'complexity', 'starter_code',
+      'status', 'scheduled_date', 'is_active', 'created_via'
+    ];
+
+    for (const key of allowed) {
+      if (data[key] !== undefined) {
+        fields.push(`${key} = ?`);
+        if (key === 'starter_code' && typeof data[key] === 'object') {
+          values.push(JSON.stringify(data[key]));
+        } else {
+          values.push(data[key]);
+        }
+      }
+    }
+
+    if (data.examples !== undefined) {
+      fields.push('examples = ?');
+      values.push(normalizeJsonArray(data.examples, '[]'));
+    }
+    if (data.hints !== undefined) {
+      fields.push('hints = ?');
+      values.push(normalizeJsonArray(data.hints, '[]'));
+    }
+    if (data.tags !== undefined) {
+      fields.push('tags = ?');
+      values.push(normalizeJsonArray(data.tags, '[]'));
+    }
+    if (data.secondary_topics !== undefined) {
+      fields.push('secondary_topics = ?');
+      values.push(normalizeJsonArray(data.secondary_topics, '[]'));
+    }
+    if (data.prerequisites !== undefined) {
+      fields.push('prerequisites = ?');
+      values.push(normalizeJsonArray(data.prerequisites, '[]'));
+    }
+    if (data.supported_languages !== undefined) {
+      fields.push('supported_languages = ?');
+      values.push(normalizeJsonArray(data.supported_languages, '["javascript", "python"]'));
+    }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+
     if (fields.length > 1) {
-      await tx.execute(`UPDATE daily_challenge_problems SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+      values.push(id);
+      await tx.execute(`UPDATE daily_challenge_problems SET ${fields.join(', ')} WHERE id = ?`, values);
     }
 
     if (Array.isArray(data.test_cases)) {
@@ -526,7 +521,9 @@ async function publishDailyChallenge(id, admin_id) {
   const challenge = await repo.one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
-  const nextStatus = challenge.status === 'published' ? 'draft' : (challenge.scheduled_date ? 'scheduled' : 'published');
+  const nextStatus = challenge.status === 'published'
+    ? (challenge.scheduled_date ? 'scheduled' : 'draft')
+    : 'published';
   
   if (nextStatus === 'published' && challenge.scheduled_date) {
     await assertDateAvailable(challenge.scheduled_date, id);
@@ -556,6 +553,21 @@ async function publishDailyChallenge(id, admin_id) {
   return result;
 }
 
+async function unpublishDailyChallenge(id, admin_id) {
+  const challenge = await repo.one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+
+  const nextStatus = challenge.scheduled_date ? 'scheduled' : 'draft';
+
+  await repo.execute(`
+    UPDATE daily_challenge_problems 
+    SET status = ?, updated_at = CURRENT_TIMESTAMP 
+    WHERE id = ?
+  `, [nextStatus, id]);
+
+  return getDailyChallengeById(id, true);
+}
+
 async function archiveDailyChallenge(id) {
   const challenge = await repo.one('SELECT id FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
@@ -567,6 +579,19 @@ async function archiveDailyChallenge(id) {
   `, [id]);
 
   return { success: true, message: 'Daily challenge archived' };
+}
+
+async function deleteDailyChallenge(id) {
+  const challenge = await repo.one('SELECT id, title FROM daily_challenge_problems WHERE id = ?', [id]);
+  if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+
+  await repo.transaction(async tx => {
+    await tx.execute('DELETE FROM daily_challenge_test_cases WHERE challenge_id = ?', [id]);
+    await tx.execute('DELETE FROM daily_questions WHERE challenge_id = ? OR question_id = ?', [id, id]);
+    await tx.execute('DELETE FROM daily_challenge_problems WHERE id = ?', [id]);
+  });
+
+  return { success: true, message: `Daily challenge "${challenge.title}" deleted successfully` };
 }
 
 async function getTodayDailyChallenge(user = null) {
@@ -608,6 +633,13 @@ async function getTodayDailyChallenge(user = null) {
       pattern_id: challenge.pattern_id,
       pattern_name: challenge.pattern_name,
       description: challenge.description,
+      problem_statement: challenge.problem_statement || challenge.description,
+      constraints: challenge.constraints,
+      input_format: challenge.input_format,
+      output_format: challenge.output_format,
+      examples: safeParseJson(challenge.examples, []),
+      example_input: challenge.example_input,
+      example_output: challenge.example_output,
       points: Number(challenge.points) || 100,
       hints: parseHints(challenge.hints),
       submission_status: submission?.status || 'not_started',
@@ -625,10 +657,11 @@ module.exports = {
   listDailyChallenges,
   getDailyChallengeById,
   createDailyChallenge,
-  createFromPractice,
   updateDailyChallenge,
   scheduleDailyChallenge,
   publishDailyChallenge,
+  unpublishDailyChallenge,
   archiveDailyChallenge,
+  deleteDailyChallenge,
   getTodayDailyChallenge
 };

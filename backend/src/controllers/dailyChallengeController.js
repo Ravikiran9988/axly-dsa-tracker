@@ -1,4 +1,5 @@
 const dailyChallengeService = require('../services/dailyChallengeService');
+const { generateDailyChallenge, checkDuplicateChallenge, validateDailyChallenge: validateChallengeData } = require('../services/aiDailyChallengeService');
 
 async function listDailyChallenges(req, res, next) {
   try {
@@ -47,14 +48,28 @@ async function createDailyChallenge(req, res, next) {
   }
 }
 
-async function createFromPractice(req, res, next) {
+async function generateAiChallenge(req, res, next) {
   try {
-    const { question_id, ...overrides } = req.body;
-    if (!question_id) {
-      return res.status(400).json({ error: 'question_id is required', code: 'VALIDATION_ERROR' });
-    }
-    const result = await dailyChallengeService.createFromPractice(question_id, overrides, req.user.id);
-    return res.status(201).json({ data: result, message: 'Daily challenge created from practice problem successfully' });
+    const { topic, difficulty, pattern, points, instructions, scheduled_date } = req.body;
+    const result = await generateDailyChallenge({
+      topic,
+      difficulty,
+      pattern,
+      points,
+      instructions,
+      scheduled_date
+    });
+    return res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function validateDuplicate(req, res, next) {
+  try {
+    const { title, description, exclude_id } = req.body;
+    const result = await checkDuplicateChallenge(title, description, exclude_id);
+    return res.status(200).json(result);
   } catch (err) {
     next(err);
   }
@@ -91,10 +106,30 @@ async function publishDailyChallenge(req, res, next) {
   }
 }
 
+async function unpublishDailyChallenge(req, res, next) {
+  try {
+    const { id } = req.params;
+    const result = await dailyChallengeService.unpublishDailyChallenge(id, req.user.id);
+    return res.status(200).json({ data: result, message: 'Daily challenge unpublished successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function archiveDailyChallenge(req, res, next) {
   try {
     const { id } = req.params;
     const result = await dailyChallengeService.archiveDailyChallenge(id);
+    return res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteDailyChallenge(req, res, next) {
+  try {
+    const { id } = req.params;
+    const result = await dailyChallengeService.deleteDailyChallenge(id);
     return res.status(200).json(result);
   } catch (err) {
     next(err);
@@ -106,9 +141,12 @@ module.exports = {
   getTodayDailyChallenge,
   getDailyChallenge,
   createDailyChallenge,
-  createFromPractice,
+  generateAiChallenge,
+  validateDuplicate,
   updateDailyChallenge,
   scheduleDailyChallenge,
   publishDailyChallenge,
-  archiveDailyChallenge
+  unpublishDailyChallenge,
+  archiveDailyChallenge,
+  deleteDailyChallenge
 };

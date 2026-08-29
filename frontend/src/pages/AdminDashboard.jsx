@@ -142,10 +142,10 @@ export default function AdminDashboard({
             <Users className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {students.total}
+            {loading ? <span className="text-slate-600 font-mono text-xl">Loading...</span> : (stats ? (students.total ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            Registered learners
+            Registered student accounts
           </div>
         </div>
 
@@ -158,12 +158,12 @@ export default function AdminDashboard({
             <span>Active Students</span>
             <Activity className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight text-emerald-400">
-            {students.active || students.total}
+          <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
+            {loading ? <span className="text-slate-600 font-mono text-xl">Loading...</span> : (stats ? (students.active || students.total || 0) : '—')}
           </div>
           <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Active in last 30d</span>
+            <span>Active student accounts</span>
           </div>
         </div>
 

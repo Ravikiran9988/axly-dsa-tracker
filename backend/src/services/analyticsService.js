@@ -141,13 +141,20 @@ async function getUserAnalytics(userId) {
 }
 
 async function getAdminStats() {
-  const totalLearnersRow = await repo.one("SELECT COUNT(*) AS count FROM users WHERE role = 'user'");
+  const totalLearnersRow = await repo.one("SELECT COUNT(*) AS count FROM users WHERE role NOT IN ('admin', 'system')");
   const totalLearners = Number(totalLearnersRow?.count || 0);
 
   const activeLearnersRow = await repo.one(`
     SELECT COUNT(DISTINCT user_id) AS count
-    FROM submissions
-  `);
+    FROM (
+      SELECT user_id FROM submissions
+      UNION
+      SELECT user_id FROM user_daily_activity
+    ) active_src
+    WHERE user_id IN (SELECT id FROM users WHERE role NOT IN ('admin', 'system'))
+  `).catch(async () => {
+    return repo.one("SELECT COUNT(DISTINCT user_id) AS count FROM submissions WHERE user_id IN (SELECT id FROM users WHERE role NOT IN ('admin', 'system'))");
+  });
   const activeLearners = Number(activeLearnersRow?.count || 0);
 
   // Questions stats
@@ -238,8 +245,11 @@ async function getAdminStats() {
   `);
 
   return {
-    learners: { total: totalLearners, active: activeLearners },
-    students: { total: totalLearners, active: activeLearners },
+    students: { total: totalLearners, active: activeLearners || totalLearners },
+    learners: { total: totalLearners, active: activeLearners || totalLearners },
+    total_students: totalLearners,
+    practiceQuestions: publishedQuestions,
+    solved: solvedSubmissions,
     questions: {
       total: totalQuestions,
       published: publishedQuestions,

@@ -71,13 +71,14 @@ export const api = {
   },
   async getDailyChallenge(id) { return request(`/daily-challenges/${id}`); },
   async createDailyChallenge(data) { return request('/daily-challenges', { method: 'POST', body: JSON.stringify(data) }); },
-  async createDailyChallengeFromPractice(questionId, data = {}) {
-    return request('/daily-challenges/from-practice', { method: 'POST', body: JSON.stringify({ question_id: questionId, ...data }) });
-  },
+  async generateDailyChallengeAI(data) { return request('/daily-challenges/generate-ai', { method: 'POST', body: JSON.stringify(data) }); },
+  async validateChallengeDuplicate(data) { return request('/daily-challenges/validate-duplicate', { method: 'POST', body: JSON.stringify(data) }); },
   async updateDailyChallenge(id, data) { return request(`/daily-challenges/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
   async scheduleDailyChallenge(id, data) { return request(`/daily-challenges/${id}/schedule`, { method: 'POST', body: JSON.stringify(data) }); },
   async publishDailyChallenge(id) { return request(`/daily-challenges/${id}/publish`, { method: 'POST' }); },
-  async archiveDailyChallenge(id) { return request(`/daily-challenges/${id}`, { method: 'DELETE' }); },
+  async unpublishDailyChallenge(id) { return request(`/daily-challenges/${id}/unpublish`, { method: 'POST' }); },
+  async archiveDailyChallenge(id) { return request(`/daily-challenges/${id}/archive`, { method: 'POST' }); },
+  async deleteDailyChallenge(id) { return request(`/daily-challenges/${id}`, { method: 'DELETE' }); },
 
   // Code Execution & Submissions
   async runCode(data) { return request('/code/run', { method: 'POST', body: JSON.stringify(data) }); },
@@ -170,7 +171,9 @@ export const api = {
   async getUserById(id) { return request(`/users/${id}`); },
   async updateUserRole(id, role) { return request(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); },
 
-  // Admin Audit Logs
+  // Admin Audit Logs & Stats
+  async getAdminStats() { return request('/analytics/admin/stats'); },
+  async getAdminProgressStats() { return request('/progress/stats'); },
   async getAuditLogs(params = {}) {
     const q = new URLSearchParams();
     for (const k of ['action', 'resource_type', 'actor_id', 'from_date', 'to_date', 'page', 'limit']) {

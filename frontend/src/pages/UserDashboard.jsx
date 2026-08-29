@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Calendar, Flame, Trophy, Compass, CheckCircle2, ArrowRight, Zap,
-  TrendingUp, Clock, BookOpen, Code2, AlertTriangle, Sparkles
+  TrendingUp, Clock, BookOpen, Code2, AlertTriangle, Sparkles, Award
 } from 'lucide-react';
 import { api } from '../services/api';
 import { practiceApi } from '../services/practiceApi';

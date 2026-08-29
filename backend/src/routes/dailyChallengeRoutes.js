@@ -5,11 +5,14 @@ const {
   getTodayDailyChallenge,
   getDailyChallenge,
   createDailyChallenge,
-  createFromPractice,
+  generateAiChallenge,
+  validateDuplicate,
   updateDailyChallenge,
   scheduleDailyChallenge,
   publishDailyChallenge,
-  archiveDailyChallenge
+  unpublishDailyChallenge,
+  archiveDailyChallenge,
+  deleteDailyChallenge
 } = require('../controllers/dailyChallengeController');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
@@ -23,13 +26,17 @@ router.get('/today', getTodayDailyChallenge);
 router.get('/', listDailyChallenges);
 router.get('/:id', getDailyChallenge);
 
-// Admin-only creation, conversion from practice, and lifecycle actions
+// Admin-only creation, AI generation, and lifecycle actions
+router.post('/generate-ai', requireRole('admin'), generateAiChallenge);
+router.post('/validate-duplicate', requireRole('admin'), validateDuplicate);
 router.post('/', requireRole('admin'), createDailyChallenge);
-router.post('/from-practice', requireRole('admin'), createFromPractice);
 router.put('/:id', requireRole('admin'), updateDailyChallenge);
 router.post('/:id/schedule', requireRole('admin'), scheduleDailyChallenge);
 router.post('/:id/publish', requireRole('admin'), publishDailyChallenge);
-router.delete('/:id', requireRole('admin'), archiveDailyChallenge);
+router.post('/:id/unpublish', requireRole('admin'), unpublishDailyChallenge);
+router.patch('/:id/unpublish', requireRole('admin'), unpublishDailyChallenge);
 router.post('/:id/archive', requireRole('admin'), archiveDailyChallenge);
+router.delete('/:id/permanent', requireRole('admin'), deleteDailyChallenge);
+router.delete('/:id', requireRole('admin'), deleteDailyChallenge);
 
 module.exports = router;
