@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const { generateTestToken } = require('../middleware/auth');
+const { generateToken, generateTestToken } = require('../middleware/auth');
 const authUserRepository = require('../db/authUserRepository');
 const { getDatabaseDriver } = require('../db/repository');
 const PostgresRepository = require('../db/postgresRepository');
@@ -179,7 +179,7 @@ async function verifyOtp(req, res, next) {
     await authUserRepository.setEmailVerified(user.id, 1);
 
     const updatedUser = await authUserRepository.findUserById(user.id);
-    const sessionToken = generateTestToken({
+    const sessionToken = generateToken({
       id: updatedUser.id,
       email: updatedUser.email,
       name: updatedUser.name,
@@ -257,7 +257,7 @@ async function login(req, res, next) {
         const name = normalizedEmail.split('@')[0];
         user = await authUserRepository.provisionUser({ id: user_id, name, email: normalizedEmail, email_verified: 1 });
       }
-      const token = generateTestToken({ id: user.id, email: user.email, name: user.name, role: user.role });
+      const token = generateToken({ id: user.id, email: user.email, name: user.name, role: user.role });
       return res.status(200).json({ token, user });
     }
 
@@ -309,7 +309,7 @@ async function login(req, res, next) {
       });
     }
 
-    const token = generateTestToken({ id: user.id, email: user.email, name: user.name, role: user.role });
+    const token = generateToken({ id: user.id, email: user.email, name: user.name, role: user.role });
     const userSafe = {
       id: user.id,
       name: user.name,
@@ -366,7 +366,7 @@ async function verifyEmail(req, res, next) {
     await authUserRepository.setEmailVerified(authToken.user_id, 1);
 
     const user = await authUserRepository.findUserById(authToken.user_id);
-    const sessionToken = generateTestToken({ id: user.id, email: user.email, name: user.name, role: user.role });
+    const sessionToken = generateToken({ id: user.id, email: user.email, name: user.name, role: user.role });
 
     return res.status(200).json({
       message: 'Your email address has been verified successfully.',
@@ -532,7 +532,7 @@ async function devLogin(req, res, next) {
       user = { ...user, role };
     }
 
-    const token = generateTestToken({ id: user.id, email: user.email, name: user.name, role: user.role });
+    const token = generateToken({ id: user.id, email: user.email, name: user.name, role: user.role });
     return res.status(200).json({ token, user });
   } catch (err) {
     next(err);

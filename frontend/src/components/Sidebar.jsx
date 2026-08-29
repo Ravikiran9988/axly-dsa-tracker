@@ -131,13 +131,13 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
       {/* Stats pill */}
       {!isAdmin && !isCollapsed && (
         <div className="mx-2.5 my-2 px-3 py-2 rounded-md bg-[#0d1525] border border-[#1a2540] flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold">
+          <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold" title="Daily Streak">
             <Flame className="w-3.5 h-3.5 fill-amber-400" />
             <span>{user?.streak || 0}d streak</span>
           </div>
-          <div className="flex items-center gap-1 text-axly-400 text-xs font-semibold">
-            <Zap className="w-3.5 h-3.5" />
-            <span>{user?.points || 0} pts</span>
+          <div className="flex items-center gap-1 text-cyan-400 text-xs font-semibold" title="Total Score (Practice + Daily + Streak)">
+            <Trophy className="w-3.5 h-3.5 text-cyan-400" />
+            <span>{user?.points || user?.total_score || 0} pts</span>
           </div>
         </div>
       )}

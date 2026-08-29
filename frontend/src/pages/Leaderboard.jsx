@@ -48,18 +48,26 @@ export default function Leaderboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">Leaderboard</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Rankings by Daily Challenge points</p>
+          <p className="text-sm text-slate-400 mt-0.5">Competitive ranking based on Daily Challenge points</p>
         </div>
         {myEntry && (
           <div className="card px-4 py-2.5 flex items-center gap-3 shrink-0">
-            <div className="text-xs text-slate-500">Your rank</div>
+            <div className="text-xs text-slate-500">Your Rank</div>
             <div className="text-lg font-bold text-axly-400">#{entries.indexOf(myEntry) + 1}</div>
             <div className="h-5 w-px bg-[#1a2540]" />
-            <div className="flex items-center gap-1 text-amber-400 text-sm font-bold">
-              <Zap className="w-4 h-4" /> {myEntry.total_points || myEntry.points || 0}
+            <div className="flex items-center gap-1 text-amber-400 text-sm font-bold" title="Competitive Daily Challenge Points">
+              <Zap className="w-4 h-4" /> {myEntry.competitive_points ?? myEntry.points ?? 0} pts
             </div>
           </div>
         )}
+      </div>
+
+      {/* Info Callout */}
+      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300/90 flex items-center gap-2.5">
+        <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
+        <span>
+          <strong>Competitive Scoring:</strong> Rankings are calculated strictly from Daily Challenge points. Self-paced Practice points and streak bonuses contribute to your personal Total Score.
+        </span>
       </div>
 
       {/* Period tabs */}
@@ -108,11 +116,11 @@ export default function Leaderboard() {
                 <div className={`text-sm font-bold mt-1 ${
                   isFirst ? 'text-amber-400' : rank === 2 ? 'text-slate-300' : 'text-amber-600'
                 }`}>
-                  {entry.total_points || entry.points || 0} pts
+                  {entry.competitive_points ?? entry.points ?? 0} pts
                 </div>
                 {entry.streak > 0 && (
-                  <div className="flex items-center gap-1 text-[10px] text-amber-400 mt-1">
-                    <Flame className="w-3 h-3" /> {entry.streak}d
+                  <div className="flex items-center gap-1 text-[10px] text-amber-400 mt-1 font-mono">
+                    <Flame className="w-3 h-3 fill-amber-400" /> {entry.streak}d streak
                   </div>
                 )}
               </div>
@@ -129,9 +137,9 @@ export default function Leaderboard() {
               <tr>
                 <th className="w-16 text-center">Rank</th>
                 <th>Student</th>
-                <th className="text-right">Points</th>
-                <th className="hidden sm:table-cell text-right">Solved</th>
-                <th className="hidden md:table-cell text-right">Streak</th>
+                <th className="text-right">Competitive Points</th>
+                <th className="hidden sm:table-cell text-right">Daily Challenges Solved</th>
+                <th className="hidden md:table-cell text-right">Current Streak</th>
               </tr>
             </thead>
             <tbody>

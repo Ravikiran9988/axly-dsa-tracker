@@ -10,6 +10,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 const isProduction = process.env.NODE_ENV === 'production';
 const JWT_SECRET = process.env.JWT_SECRET || (isProduction ? null : 'axly-dsa-tracker-dev-secret-key-32-chars-minimum');
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 
 if (isProduction && !JWT_SECRET) {
   throw new Error('JWT_SECRET must be configured in production.');
@@ -118,12 +119,22 @@ async function authenticate(req, res, next) {
   }
 }
 
-// Helper to generate auth token for development / testing
-function generateTestToken(payload) {
-  if (isProduction) {
-    throw new Error('Test tokens are disabled in production.');
+// Generate auth token with configurable JWT_EXPIRES_IN (defaults to 30d)
+function generateToken(payload, options = {}) {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured.');
   }
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN, ...options });
 }
 
-module.exports = { authenticate, generateTestToken };
+function generateTestToken(payload, options = {}) {
+  return generateToken(payload, options);
+}
+
+module.exports = {
+  authenticate,
+  generateToken,
+  generateTestToken,
+  JWT_SECRET,
+  JWT_EXPIRES_IN
+};

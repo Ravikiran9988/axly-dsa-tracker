@@ -3,7 +3,7 @@ import StudentSidebar from '../components/StudentSidebar';
 import StudentNavbar from '../components/StudentNavbar';
 import UserDashboard from '../pages/UserDashboard';
 import AvailableChallenges from '../pages/AvailableChallenges';
-import MyTasks from '../pages/MyTasks';
+import DailyChallenge from '../pages/DailyChallenge';
 import ProblemWorkspace from '../pages/ProblemWorkspace';
 import SubmissionHistory from '../pages/SubmissionHistory';
 import StudentAnalytics from '../pages/StudentAnalytics';
@@ -68,13 +68,13 @@ export default function StudentLayout({ user, onLogout }) {
               onSelectProblem={handleSelectProblem}
               onNavigate={setCurrentView}
             />
-          ) : currentView === 'daily' || currentView === 'tasks' ? (
-            <MyTasks onSelectProblem={handleSelectProblem} />
+          ) : currentView === 'daily' || currentView === 'daily-challenge' || currentView === 'tasks' ? (
+            <DailyChallenge onSelectProblem={handleSelectProblem} />
           ) : currentView === 'available' || currentView === 'practice' ? (
             <AvailableChallenges onSelectProblem={handleSelectProblem} />
           ) : currentView === 'submissions' ? (
             <SubmissionHistory onSelectProblem={handleSelectProblem} />
-          ) : currentView === 'analytics' ? (
+          ) : currentView === 'analytics' || currentView === 'progress' ? (
             <StudentAnalytics onSelectProblem={handleSelectProblem} />
           ) : currentView === 'leaderboard' ? (
             <Leaderboard currentUser={user} />
@@ -90,7 +90,7 @@ export default function StudentLayout({ user, onLogout }) {
           ) : currentView === 'profile' ? (
             <UserProfile onSelectProblem={handleSelectProblem} />
           ) : currentView === 'notifications' ? (
-            <NotificationsPage onNavigate={setCurrentView} />
+            <NotificationsPage onNavigate={setCurrentView} onUnreadChange={setUnreadNotifsCount} />
           ) : currentView === 'settings' ? (
             <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800">
               <h1 className="text-lg font-bold text-white">Account Settings</h1>

@@ -165,6 +165,108 @@ export default function StudentAnalytics({ onSelectProblem }) {
         </button>
       </div>
 
+      {/* YOUR SCORE SECTION */}
+      <div className="p-6 rounded-3xl bg-slate-900/80 border border-cyan-500/20 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+          <div>
+            <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
+              <Award className="w-4 h-4" />
+              <span>YOUR SCORE & LEADERBOARD METRICS</span>
+            </div>
+            <h2 className="text-base font-bold text-white mt-0.5">Score Breakdown & Progression</h2>
+          </div>
+          <div className="text-[11px] text-slate-400 font-mono">
+            Authoritative Server Calculation
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Individual / Total Score Card */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-950/40 to-slate-950 border border-cyan-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono font-bold uppercase text-cyan-400">Total Score</span>
+              <Award className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div className="text-3xl font-black text-white font-mono">
+              {summary.total_score || summary.points || 0} <span className="text-xs font-normal text-slate-400">pts</span>
+            </div>
+            <div className="space-y-1.5 pt-2 border-t border-slate-800/80 text-xs font-mono">
+              <div className="flex justify-between text-slate-300">
+                <span>Practice Points:</span>
+                <span className="text-emerald-400 font-bold">+{summary.practice_points || 0}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Daily Challenge:</span>
+                <span className="text-cyan-400 font-bold">+{summary.daily_challenge_points || 0}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Streak Bonus:</span>
+                <span className="text-amber-400 font-bold">+{summary.streak_bonus || 0}</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 italic pt-1">
+              * Total Score includes Practice, Daily Challenge, and Streak rewards.
+            </p>
+          </div>
+
+          {/* Leaderboard Score Card */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-950/30 to-slate-950 border border-amber-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono font-bold uppercase text-amber-400">Leaderboard Score</span>
+              <Trophy className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="text-3xl font-black text-amber-400 font-mono">
+              {summary.leaderboard_score || summary.daily_challenge_points || 0} <span className="text-xs font-normal text-slate-400">pts</span>
+            </div>
+            <div className="space-y-1.5 pt-2 border-t border-slate-800/80 text-xs font-mono">
+              <div className="flex justify-between text-slate-300">
+                <span>Competitive Points:</span>
+                <span className="text-amber-400 font-bold">{summary.leaderboard_score || 0}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Practice Impact:</span>
+                <span className="text-slate-500 font-bold">0 (Excluded)</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Streak Impact:</span>
+                <span className="text-slate-500 font-bold">0 (Excluded)</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 italic pt-1">
+              * Leaderboard Score includes Daily Challenge points only.
+            </p>
+          </div>
+
+          {/* Streak & Consistency Card */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-orange-950/30 to-slate-950 border border-orange-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono font-bold uppercase text-orange-400">Daily Streak</span>
+              <Flame className="w-4 h-4 text-orange-400 fill-orange-400" />
+            </div>
+            <div className="text-3xl font-black text-orange-400 font-mono">
+              {summary.current_streak || 1} <span className="text-xs font-normal text-slate-400">days</span>
+            </div>
+            <div className="space-y-1.5 pt-2 border-t border-slate-800/80 text-xs font-mono">
+              <div className="flex justify-between text-slate-300">
+                <span>Current Streak:</span>
+                <span className="text-orange-400 font-bold">{summary.current_streak || 1}d</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Best Streak:</span>
+                <span className="text-amber-300 font-bold">{summary.longest_streak || 1}d</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Next Streak Bonus:</span>
+                <span className="text-emerald-400 font-bold">+20 pts</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400 italic pt-1">
+              * Keep solving daily challenges every calendar day to grow your streak.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {activeTab === 'practice' ? (
         <div className="space-y-6">
           {/* Overall Practice KPIs */}

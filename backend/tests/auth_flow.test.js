@@ -246,6 +246,7 @@ describe('Axly DSA Tracker — End-to-End Registration & OTP Verification Suite'
 
       resetRawToken = 'raw-reset-token-xyz987';
       const resetHash = hashToken(resetRawToken);
+      db.prepare('DELETE FROM auth_tokens WHERE user_id = ? OR id = ? OR token_hash = ?').run('usr-reset-1', 'tok-rst-1', resetHash);
       db.prepare(`
         INSERT INTO auth_tokens (id, user_id, token_hash, token_type, expires_at)
         VALUES ('tok-rst-1', 'usr-reset-1', ?, 'password_reset', datetime('now', '+1 hour'))

@@ -99,6 +99,8 @@ async function getUserAnalytics(userId) {
     }
   }
   const activity = Object.values(activityMap).slice(0, 30);
+  const { getUserScoreBreakdown } = require('./gamificationService');
+  const scoreBreakdown = await getUserScoreBreakdown(userId);
 
   return {
     summary: {
@@ -110,8 +112,14 @@ async function getUserAnalytics(userId) {
       success_percentage: successPercentage,
       current_streak: user.streak || 0,
       longest_streak: user.longest_streak || 0,
-      points: user.points || 0
+      points: scoreBreakdown.total_score,
+      total_score: scoreBreakdown.total_score,
+      practice_points: scoreBreakdown.practice_points,
+      daily_challenge_points: scoreBreakdown.daily_challenge_points,
+      streak_bonus: scoreBreakdown.streak_bonus,
+      leaderboard_score: scoreBreakdown.leaderboard_score
     },
+    score_breakdown: scoreBreakdown,
     difficulty_breakdown: difficulty,
     topic_breakdown: topics,
     weak_topics: weakTopics.slice(0, 5),

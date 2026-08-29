@@ -5,23 +5,24 @@ const repo = getRepository();
 /**
  * Single source of truth for competitive leaderboard ordering.
  *
+ * CRITICAL RULE:
+ * Leaderboard Score = Daily Challenge Points ONLY.
+ * Practice points and streak bonuses NEVER affect the leaderboard.
+ *
  * ALL-TIME RULE:
- * 1. Total Points (descending)
+ * 1. Leaderboard Score / Daily Challenge Points (descending)
  * 2. Active Daily Streak (descending)
  * 3. Longest Streak (descending)
  * 4. User Name (ascending alphabetical)
  * 5. User ID (ascending stable tiebreaker)
  *
  * PERIOD (WEEKLY / MONTHLY) RULE:
- * 1. Period Points (descending)
+ * 1. Period Daily Challenge Points (descending)
  * 2. Period Solved Count (descending)
  * 3. User Name (ascending alphabetical)
  * 4. User ID (ascending stable tiebreaker)
- *
- * Note: Period boards intentionally do NOT use all-time streak as a period tiebreaker,
- * ensuring deterministic period-scoped rankings.
  */
-const ALL_TIME_ORDER = 'points DESC, streak DESC, longest_streak DESC, name ASC, id ASC';
+const ALL_TIME_ORDER = 'COALESCE(leaderboard_score, daily_challenge_points, 0) DESC, streak DESC, longest_streak DESC, name ASC, id ASC';
 const PERIOD_ORDER = 'points DESC, completed_count DESC, name ASC, id ASC';
 
 async function refreshCompetitiveRanks() {
@@ -39,10 +40,19 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
     const rows = await repo.many(`
       SELECT 
         id, name, email, avatar_url, institution,
-        COALESCE(points, 0) AS points,
+        COALESCE(leaderboard_score, daily_challenge_points, 0) AS points,
+        COALESCE(leaderboard_score, daily_challenge_points, 0) AS competitive_points,
+        COALESCE(points, 0) AS total_score,
+        COALESCE(practice_points, 0) AS practice_points,
+        COALESCE(streak_bonus, 0) AS streak_bonus,
         COALESCE(streak, 0) AS streak,
         COALESCE(longest_streak, 0) AS longest_streak,
-        (SELECT COUNT(*) FROM submissions s WHERE s.user_id = u.id AND s.status IN ('solved', 'completed', 'approved')) AS completed_count,
+        (
+          SELECT COUNT(DISTINCT s.question_id)
+          FROM submissions s
+          WHERE s.user_id = u.id AND s.status IN ('solved', 'completed', 'approved')
+            AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT id FROM daily_challenge_problems))
+        ) AS completed_count,
         (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count
       FROM users u
       WHERE role = 'user'
@@ -59,15 +69,18 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
       u.id, u.name, u.email, u.avatar_url, u.institution,
       COALESCE(u.streak, 0) AS streak,
       COALESCE(u.longest_streak, 0) AS longest_streak,
+      COALESCE(u.points, 0) AS total_score,
       (
-        SELECT COALESCE(SUM(CASE WHEN l.status IN ('Accepted', 'approved', 'Approved') OR l.passed_tests = l.total_tests THEN 100 ELSE 0 END), 0)
-        FROM code_submissions_log l
-        WHERE l.user_id = u.id AND l.created_at >= (CURRENT_TIMESTAMP - INTERVAL '${days} days')
+        SELECT COALESCE(SUM(pl.points), 0)
+        FROM points_ledger pl
+        WHERE pl.user_id = u.id AND pl.category = 'daily_challenge'
+          AND pl.created_at >= (CURRENT_TIMESTAMP - INTERVAL '${days} days')
       ) AS points,
       (
         SELECT COUNT(DISTINCT s.question_id)
         FROM submissions s
         WHERE s.user_id = u.id AND s.status IN ('solved', 'completed', 'approved')
+          AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT id FROM daily_challenge_problems))
           AND COALESCE(s.solved_at, s.updated_at, s.created_at) >= (CURRENT_TIMESTAMP - INTERVAL '${days} days')
       ) AS completed_count,
       (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count
@@ -82,15 +95,18 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
         u.id, u.name, u.email, u.avatar_url, u.institution,
         COALESCE(u.streak, 0) AS streak,
         COALESCE(u.longest_streak, 0) AS longest_streak,
+        COALESCE(u.points, 0) AS total_score,
         (
-          SELECT COALESCE(SUM(CASE WHEN l.status IN ('Accepted', 'approved', 'Approved') OR l.passed_tests = l.total_tests THEN 100 ELSE 0 END), 0)
-          FROM code_submissions_log l
-          WHERE l.user_id = u.id AND datetime(l.created_at) >= datetime('now', '-${days} days')
+          SELECT COALESCE(SUM(pl.points), 0)
+          FROM points_ledger pl
+          WHERE pl.user_id = u.id AND pl.category = 'daily_challenge'
+            AND datetime(pl.created_at) >= datetime('now', '-${days} days')
         ) AS points,
         (
           SELECT COUNT(DISTINCT s.question_id)
           FROM submissions s
           WHERE s.user_id = u.id AND s.status IN ('solved', 'completed', 'approved')
+            AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT id FROM daily_challenge_problems))
             AND datetime(COALESCE(s.solved_at, s.updated_at, s.created_at)) >= datetime('now', '-${days} days')
         ) AS completed_count,
         (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count
@@ -101,7 +117,12 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
     `, [safeLimit]);
   });
 
-  return rows.map((u, i) => ({ ...u, rank: i + 1, period: normalizedPeriod }));
+  return rows.map((u, i) => ({
+    ...u,
+    competitive_points: u.points,
+    rank: i + 1,
+    period: normalizedPeriod
+  }));
 }
 
 module.exports = {

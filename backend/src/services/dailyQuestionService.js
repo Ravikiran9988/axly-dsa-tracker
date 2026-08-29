@@ -82,7 +82,7 @@ async function getDailyQuestionForDate(date) {
     WHERE dq.date = ? AND (q.is_active = 1 OR q.is_active = TRUE)
   `, [date]);
 
-  return scheduledLegacy || getAutoDailyQuestion();
+  return scheduledLegacy || null;
 }
 
 async function getDailyQuestion(user, targetDate = null) {

@@ -5,6 +5,7 @@ const { updateSubmission } = require('../services/submissionService');
 const { recordAttempt } = require('../services/scoringService');
 const progressService = require('../services/progressService');
 const practiceService = require('../services/practiceService');
+const gamificationService = require('../services/gamificationService');
 const { AppError } = require('../middleware/errorHandler');
 
 const repo = getRepository();
@@ -110,6 +111,7 @@ async function submitSolution(req, res, next) {
 
     const isAllPassed = execResult.status === 'Accepted' && execResult.passed_tests === allTestCases.length;
     const newSubmissionStatus = isAllPassed ? 'solved' : 'attempted';
+    const reviewStatus = isAllPassed ? 'approved' : 'pending';
     const logId = uuidv4();
     const nowIso = new Date().toISOString();
 
@@ -119,8 +121,103 @@ async function submitSolution(req, res, next) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [logId, userId, question_id, language, source_code, execResult.status, execResult.passed_tests, allTestCases.length, execResult.execution_time_ms, nowIso]);
 
+    // Upsert into submissions table so that submissions history has complete record
+    const existingSub = await repo.one(
+      'SELECT id, status, review_status, attempted_at, started_at, solved_at FROM submissions WHERE user_id = ? AND question_id = ?',
+      [userId, question_id]
+    );
+
+    const finalStatus = (['solved', 'approved', 'completed'].includes(existingSub?.status) && !isAllPassed)
+      ? existingSub.status
+      : newSubmissionStatus;
+    const finalReviewStatus = (['approved'].includes(existingSub?.review_status) && !isAllPassed)
+      ? existingSub.review_status
+      : reviewStatus;
+
+    const solvedAt = isAllPassed ? (existingSub?.solved_at || nowIso) : (existingSub?.solved_at || null);
+
+    if (existingSub) {
+      await repo.execute(`
+        UPDATE submissions SET
+          submission_type = 'code',
+          language = ?,
+          source_code = ?,
+          status = ?,
+          review_status = ?,
+          passed_tests = ?,
+          total_tests = ?,
+          execution_time_ms = ?,
+          attempted_at = COALESCE(attempted_at, ?),
+          solved_at = ?,
+          updated_at = ?
+        WHERE id = ?
+      `, [
+        language,
+        source_code,
+        finalStatus,
+        finalReviewStatus,
+        execResult.passed_tests,
+        allTestCases.length,
+        execResult.execution_time_ms,
+        nowIso,
+        solvedAt,
+        nowIso,
+        existingSub.id
+      ]);
+    } else {
+      const subId = uuidv4();
+      await repo.execute(`
+        INSERT INTO submissions (
+          id, user_id, question_id, submission_type, language, source_code,
+          status, review_status, passed_tests, total_tests, execution_time_ms,
+          attempted_at, started_at, solved_at, created_at, updated_at
+        ) VALUES (?, ?, ?, 'code', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        subId,
+        userId,
+        question_id,
+        language,
+        source_code,
+        finalStatus,
+        finalReviewStatus,
+        execResult.passed_tests,
+        allTestCases.length,
+        execResult.execution_time_ms,
+        nowIso,
+        nowIso,
+        isAllPassed ? nowIso : null,
+        nowIso,
+        nowIso
+      ]);
+    }
+
+    // Create submission notification
+    try {
+      const notificationService = require('../services/notificationService');
+      const qTitle = question?.title || 'Coding Challenge';
+      const qLink = question?.is_practice ? '/practice' : '/daily-challenge';
+      if (isAllPassed) {
+        await notificationService.createNotification({
+          userId,
+          title: `Submission Accepted: ${qTitle}`,
+          message: `All ${execResult.passed_tests}/${allTestCases.length} test cases passed (${Math.round(execResult.execution_time_ms)}ms). Solution verified.`,
+          category: 'submission',
+          type: 'submission_accepted',
+          link: qLink
+        });
+      } else {
+        await notificationService.createNotification({
+          userId,
+          title: `Submission Attempted: ${qTitle}`,
+          message: `Passed ${execResult.passed_tests}/${allTestCases.length} test cases. Review your logic and try again!`,
+          category: 'submission',
+          type: 'submission_failed',
+          link: qLink
+        });
+      }
+    } catch (_) {}
+
     if (question.is_practice) {
-      // Practice has no competitive score, streak points, or leaderboard impact.
       await practiceService.recordPracticeSubmission({
         user: req.user,
         questionId: question_id,
@@ -128,6 +225,11 @@ async function submitSolution(req, res, next) {
         passed: isAllPassed
       });
       const practice = await practiceService.getPracticeProblem({ user: req.user, questionId: question_id });
+
+      let awardResult = { pointsAwarded: 0, breakdown: null };
+      if (isAllPassed) {
+        awardResult = await gamificationService.awardPracticeSolve(userId, question_id);
+      }
 
       return res.status(200).json({
         data: {
@@ -140,7 +242,14 @@ async function submitSolution(req, res, next) {
           execution_time_ms: execResult.execution_time_ms,
           submission_status: practice.practice_status,
           results: execResult.results,
-          scoring: null,
+          points_awarded: awardResult.pointsAwarded,
+          score_breakdown: awardResult.breakdown,
+          scoring: awardResult.breakdown ? {
+            practice_points: awardResult.breakdown.practice_points,
+            total_score: awardResult.breakdown.total_score,
+            leaderboard_score: awardResult.breakdown.leaderboard_score,
+            points_awarded: awardResult.pointsAwarded
+          } : null,
           practice_progress: practice
         }
       });
@@ -155,26 +264,12 @@ async function submitSolution(req, res, next) {
       solved: isAllPassed
     });
 
-    const currentSub = await repo.one(
-      'SELECT status FROM submissions WHERE user_id = ? AND question_id = ?',
-      [userId, question_id]
-    );
-    const finalStatus = (['solved', 'approved', 'completed'].includes(currentSub?.status) && !isAllPassed)
-      ? currentSub.status
-      : newSubmissionStatus;
-
     await updateSubmission({ question_id, user_id: userId, status: finalStatus });
 
-    await repo.execute(`
-      UPDATE submissions SET
-        language = ?,
-        source_code = ?,
-        passed_tests = ?,
-        total_tests = ?,
-        execution_time_ms = ?,
-        updated_at = ?
-      WHERE user_id = ? AND question_id = ?
-    `, [language, source_code, execResult.passed_tests, allTestCases.length, execResult.execution_time_ms, nowIso, userId, question_id]);
+    let dcAwardResult = null;
+    if (isAllPassed) {
+      dcAwardResult = await gamificationService.awardDailyChallengeSolve(userId, question_id, existingSub?.started_at);
+    }
 
     const progress = await progressService.getUserProgress(userId);
     const refreshed = await repo.one(
@@ -193,6 +288,9 @@ async function submitSolution(req, res, next) {
         execution_time_ms: execResult.execution_time_ms,
         submission_status: finalStatus,
         results: execResult.results,
+        points_awarded: dcAwardResult?.pointsAwarded || 0,
+        streak_bonus_awarded: dcAwardResult?.streakBonusAwarded || 0,
+        score_breakdown: dcAwardResult?.breakdown || null,
         scoring: {
           test_score: refreshed?.test_score || 0,
           time_score: refreshed?.time_score || 0,
@@ -200,7 +298,11 @@ async function submitSolution(req, res, next) {
           final_score: refreshed?.final_score || 0,
           attempt_count: refreshed?.attempt_count || 1,
           solve_duration_seconds: refreshed?.solve_duration_seconds || 0,
-          score_max: 100
+          score_max: 100,
+          points_awarded: dcAwardResult?.pointsAwarded || 0,
+          streak_bonus_awarded: dcAwardResult?.streakBonusAwarded || 0,
+          total_score: dcAwardResult?.breakdown?.total_score,
+          leaderboard_score: dcAwardResult?.breakdown?.leaderboard_score
         },
         progress
       }

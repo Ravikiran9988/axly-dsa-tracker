@@ -60,18 +60,23 @@ export const api = {
 
   // Daily Challenge & Daily Question
   async getDailyQuestion() { return request('/daily-question'); },
+  async getTodayDailyChallenge() { return request('/daily-challenges/today'); },
   async setDailyQuestion(data) { return request('/daily-question', { method: 'POST', body: JSON.stringify(data) }); },
   async getDailyChallenges(params = {}) {
     const q = new URLSearchParams();
-    for (const k of ['status', 'difficulty', 'topic_id', 'search', 'page', 'limit']) {
+    for (const k of ['status', 'difficulty', 'topic_id', 'search', 'date', 'page', 'limit']) {
       if (params[k]) q.append(k, params[k]);
     }
     return request(`/daily-challenges?${q}`);
   },
   async getDailyChallenge(id) { return request(`/daily-challenges/${id}`); },
   async createDailyChallenge(data) { return request('/daily-challenges', { method: 'POST', body: JSON.stringify(data) }); },
+  async createDailyChallengeFromPractice(questionId, data = {}) {
+    return request('/daily-challenges/from-practice', { method: 'POST', body: JSON.stringify({ question_id: questionId, ...data }) });
+  },
   async updateDailyChallenge(id, data) { return request(`/daily-challenges/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
   async scheduleDailyChallenge(id, data) { return request(`/daily-challenges/${id}/schedule`, { method: 'POST', body: JSON.stringify(data) }); },
+  async publishDailyChallenge(id) { return request(`/daily-challenges/${id}/publish`, { method: 'POST' }); },
   async archiveDailyChallenge(id) { return request(`/daily-challenges/${id}`, { method: 'DELETE' }); },
 
   // Code Execution & Submissions
@@ -115,9 +120,22 @@ export const api = {
   async startLiveSession(cohortId, data) { return request(`/cohorts/${cohortId}/live-session`, { method: 'POST', body: JSON.stringify(data) }); },
 
   // Notifications
-  async getNotifications() { return request('/notifications'); },
+  async getNotifications(params = {}) {
+    const q = new URLSearchParams();
+    if (params.category) q.append('category', params.category);
+    if (params.unreadOnly) q.append('unreadOnly', params.unreadOnly);
+    if (params.page) q.append('page', params.page);
+    if (params.limit) q.append('limit', params.limit);
+    const qs = q.toString();
+    return request(`/notifications${qs ? `?${qs}` : ''}`);
+  },
   async markNotificationAsRead(id) { return request(`/notifications/${id}/read`, { method: 'PATCH' }); },
-  async markAllNotificationsAsRead() { return request('/notifications/read-all', { method: 'POST' }); },
+  async markAllNotificationsAsRead(category = null) {
+    return request('/notifications/read-all', {
+      method: 'POST',
+      body: JSON.stringify(category ? { category } : {})
+    });
+  },
 
   // Analytics & Recommendations
   async getUserAnalytics(userId) { return request(userId ? `/analytics/users/${userId}` : '/analytics/me'); },

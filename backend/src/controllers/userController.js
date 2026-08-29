@@ -114,17 +114,32 @@ async function getMyProfile(req, res, next) {
       `, [userId]);
     } catch (_) {}
 
+    const { getUserScoreBreakdown } = require('../services/gamificationService');
+    const scoreBreakdown = await getUserScoreBreakdown(userId);
+
     return res.status(200).json({
       data: {
         ...user,
         skills: safeParseJson(user.skills),
+        points: scoreBreakdown.total_score,
+        total_score: scoreBreakdown.total_score,
+        practice_points: scoreBreakdown.practice_points,
+        daily_challenge_points: scoreBreakdown.daily_challenge_points,
+        streak_bonus: scoreBreakdown.streak_bonus,
+        leaderboard_score: scoreBreakdown.leaderboard_score,
+        score_breakdown: scoreBreakdown,
         stats: {
           total_challenges: totalAssigned || completed,
           completed,
           ongoing,
           incomplete,
           accuracy_rate: `${accuracy}%`,
-          points: Number(user.points || 0),
+          points: scoreBreakdown.total_score,
+          total_score: scoreBreakdown.total_score,
+          practice_points: scoreBreakdown.practice_points,
+          daily_challenge_points: scoreBreakdown.daily_challenge_points,
+          streak_bonus: scoreBreakdown.streak_bonus,
+          leaderboard_score: scoreBreakdown.leaderboard_score,
           streak: Number(user.streak || 0),
           longest_streak: Number(user.longest_streak || 0),
           rank: Number(user.rank || 1)

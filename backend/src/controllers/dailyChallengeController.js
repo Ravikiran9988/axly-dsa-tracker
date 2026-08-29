@@ -2,15 +2,25 @@ const dailyChallengeService = require('../services/dailyChallengeService');
 
 async function listDailyChallenges(req, res, next) {
   try {
-    const { status, difficulty, topic_id, search, page, limit } = req.query;
+    const { status, difficulty, topic_id, search, date, page, limit } = req.query;
     const result = await dailyChallengeService.listDailyChallenges({
       status,
       difficulty,
       topic_id,
       search,
+      date,
       page,
       limit
     });
+    return res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getTodayDailyChallenge(req, res, next) {
+  try {
+    const result = await dailyChallengeService.getTodayDailyChallenge(req.user);
     return res.status(200).json(result);
   } catch (err) {
     next(err);
@@ -37,6 +47,19 @@ async function createDailyChallenge(req, res, next) {
   }
 }
 
+async function createFromPractice(req, res, next) {
+  try {
+    const { question_id, ...overrides } = req.body;
+    if (!question_id) {
+      return res.status(400).json({ error: 'question_id is required', code: 'VALIDATION_ERROR' });
+    }
+    const result = await dailyChallengeService.createFromPractice(question_id, overrides, req.user.id);
+    return res.status(201).json({ data: result, message: 'Daily challenge created from practice problem successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function updateDailyChallenge(req, res, next) {
   try {
     const { id } = req.params;
@@ -58,6 +81,16 @@ async function scheduleDailyChallenge(req, res, next) {
   }
 }
 
+async function publishDailyChallenge(req, res, next) {
+  try {
+    const { id } = req.params;
+    const result = await dailyChallengeService.publishDailyChallenge(id, req.user.id);
+    return res.status(200).json({ data: result, message: 'Daily challenge status updated' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function archiveDailyChallenge(req, res, next) {
   try {
     const { id } = req.params;
@@ -70,9 +103,12 @@ async function archiveDailyChallenge(req, res, next) {
 
 module.exports = {
   listDailyChallenges,
+  getTodayDailyChallenge,
   getDailyChallenge,
   createDailyChallenge,
+  createFromPractice,
   updateDailyChallenge,
   scheduleDailyChallenge,
+  publishDailyChallenge,
   archiveDailyChallenge
 };

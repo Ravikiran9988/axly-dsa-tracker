@@ -156,14 +156,13 @@ describe('Axly DSA Tracker — Acceptance Criteria & API Contract Tests', () => 
           url: 'https://leetcode.com/problems/daily-candidate/'
         });
       dailyQId = qRes.body.data.id;
-    });    test('When no daily question is set for a date, returns deterministic UTC challenge payload (200 OK)', async () => {
+    });    test('When no daily question is set for a date, returns data: null with safe message (200 OK)', async () => {
       const res = await request(app)
         .get('/api/v1/daily-question?date=2099-01-01')
         .set('Authorization', `Bearer ${userToken}`);
 
       expect(res.statusCode).toBe(200);
-      expect(res.body.data).toBeDefined();
-      expect(res.body.data.id).toBeDefined();
+      expect(res.body.data).toBeNull();
     });
 
     test('Admin can set today\'s daily question', async () => {

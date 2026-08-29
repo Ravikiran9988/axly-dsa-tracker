@@ -42,7 +42,23 @@ function generateSlug(title) {
     .replace(/^-|-$/g, '') || `dc-${Date.now()}`;
 }
 
-async function listDailyChallenges({ status, difficulty, topic_id, search, page = 1, limit = 50 }) {
+function getTodayDateString() {
+  return new Date().toISOString().split('T')[0];
+}
+
+async function assertDateAvailable(date, excludeId = null) {
+  if (!date) return;
+  const existing = await repo.one(
+    `SELECT id, title, scheduled_date FROM daily_challenge_problems 
+     WHERE scheduled_date = ? AND status != 'archived' AND is_active = 1 ${excludeId ? 'AND id != ?' : ''}`,
+    excludeId ? [date, excludeId] : [date]
+  );
+  if (existing) {
+    throw new AppError(`A Daily Challenge ("${existing.title}") is already scheduled for ${date}. Only one challenge can be scheduled per date.`, 409, 'DATE_CONFLICT', 'date');
+  }
+}
+
+async function listDailyChallenges({ status, difficulty, topic_id, search, date, page = 1, limit = 50 }) {
   const conditions = [];
   const params = [];
 
@@ -57,6 +73,10 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, page 
   if (topic_id) {
     conditions.push('dc.topic_id = ?');
     params.push(topic_id);
+  }
+  if (date) {
+    conditions.push('dc.scheduled_date = ?');
+    params.push(date);
   }
   if (search && search.trim()) {
     conditions.push('(LOWER(dc.title) LIKE ? OR LOWER(COALESCE(dc.description, \'\')) LIKE ?)');
@@ -74,6 +94,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, page 
   const rows = await repo.many(`
     SELECT 
       dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id,
+      dc.source_question_id,
       dc.secondary_topics, dc.prerequisites, dc.estimated_time, dc.points,
       dc.description, dc.problem_statement, dc.constraints, dc.input_format,
       dc.output_format, dc.example_input, dc.example_output, dc.hints, dc.tags,
@@ -82,10 +103,12 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, page 
       t.name AS topic_name,
       p.name AS pattern_name,
       (SELECT COUNT(*) FROM daily_challenge_test_cases tc WHERE tc.challenge_id = dc.id) AS total_test_cases_count,
-      (SELECT dq.date FROM daily_questions dq WHERE dq.challenge_id = dc.id OR dq.question_id = dc.id LIMIT 1) AS active_daily_date
+      (SELECT dq.date FROM daily_questions dq WHERE dq.challenge_id = dc.id OR dq.question_id = dc.id LIMIT 1) AS active_daily_date,
+      sq.title AS source_question_title
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
+    LEFT JOIN questions sq ON dc.source_question_id = sq.id
     ${whereSql}
     ORDER BY dc.created_at DESC
     LIMIT ? OFFSET ?
@@ -95,6 +118,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, page 
   const allStatusCounts = await repo.many(`
     SELECT status, COUNT(*) AS count
     FROM daily_challenge_problems
+    WHERE is_active = 1
     GROUP BY status
   `);
 
@@ -116,6 +140,29 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, page 
     }
   });
 
+  const todayStr = getTodayDateString();
+
+  // Find today's challenge
+  const todayRow = await repo.one(`
+    SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
+    FROM daily_challenge_problems dc
+    LEFT JOIN topics t ON dc.topic_id = t.id
+    LEFT JOIN patterns p ON dc.pattern_id = p.id
+    WHERE (dc.scheduled_date = ? OR dc.id IN (SELECT challenge_id FROM daily_questions WHERE date = ?))
+      AND dc.is_active = 1 AND dc.status != 'archived'
+    ORDER BY dc.updated_at DESC LIMIT 1
+  `, [todayStr, todayStr]);
+
+  // Find next scheduled challenge
+  const nextScheduledRow = await repo.one(`
+    SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
+    FROM daily_challenge_problems dc
+    LEFT JOIN topics t ON dc.topic_id = t.id
+    LEFT JOIN patterns p ON dc.pattern_id = p.id
+    WHERE dc.scheduled_date > ? AND dc.status IN ('scheduled', 'published') AND dc.is_active = 1
+    ORDER BY dc.scheduled_date ASC LIMIT 1
+  `, [todayStr]);
+
   const formattedRows = rows.map(r => ({
     ...r,
     hints: parseHints(r.hints),
@@ -131,7 +178,16 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, page 
     total,
     page: p,
     limit: l,
-    stats
+    stats,
+    today_challenge: todayRow ? {
+      ...todayRow,
+      hints: parseHints(todayRow.hints),
+      scheduled_date: todayRow.scheduled_date || todayStr
+    } : null,
+    next_scheduled_challenge: nextScheduledRow ? {
+      ...nextScheduledRow,
+      hints: parseHints(nextScheduledRow.hints)
+    } : null
   };
 }
 
@@ -141,10 +197,12 @@ async function getDailyChallengeById(id, includeHiddenTestCases = false) {
       dc.*,
       t.name AS topic_name,
       p.name AS pattern_name,
-      (SELECT dq.date FROM daily_questions dq WHERE dq.challenge_id = dc.id OR dq.question_id = dc.id LIMIT 1) AS active_daily_date
+      (SELECT dq.date FROM daily_questions dq WHERE dq.challenge_id = dc.id OR dq.question_id = dc.id LIMIT 1) AS active_daily_date,
+      sq.title AS source_question_title
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
+    LEFT JOIN questions sq ON dc.source_question_id = sq.id
     WHERE dc.id = ? OR dc.slug = ?
   `, [id, id]);
 
@@ -180,6 +238,7 @@ async function createDailyChallenge(data, admin_id) {
     difficulty,
     topic_id,
     pattern_id,
+    source_question_id = null,
     secondary_topics,
     prerequisites,
     estimated_time = 30,
@@ -202,8 +261,21 @@ async function createDailyChallenge(data, admin_id) {
   } = data;
 
   if (!title || !title.trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
+  if (!description || !description.trim()) throw new AppError('Description is required', 400, 'VALIDATION_ERROR', 'description');
   if (!['easy', 'medium', 'hard'].includes(String(difficulty || '').toLowerCase())) {
     throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
+  }
+  if (Number(points) <= 0) {
+    throw new AppError('Points must be greater than 0', 400, 'VALIDATION_ERROR', 'points');
+  }
+
+  if (scheduled_date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduled_date)) {
+      throw new AppError('Invalid scheduled date format (expected YYYY-MM-DD)', 400, 'VALIDATION_ERROR', 'scheduled_date');
+    }
+    if (status === 'scheduled' || status === 'published') {
+      await assertDateAvailable(scheduled_date);
+    }
   }
 
   const id = `dc-${uuidv4().slice(0, 8)}`;
@@ -212,13 +284,13 @@ async function createDailyChallenge(data, admin_id) {
   await repo.transaction(async tx => {
     await tx.execute(`
       INSERT INTO daily_challenge_problems (
-        id, title, slug, difficulty, topic_id, pattern_id,
+        id, title, slug, difficulty, topic_id, pattern_id, source_question_id,
         secondary_topics, prerequisites, estimated_time, points,
         description, problem_statement, constraints, input_format,
         output_format, example_input, example_output, hints, tags,
         solution_approach, starter_code, supported_languages, status,
         scheduled_date, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `, [
       id,
       title.trim(),
@@ -226,11 +298,12 @@ async function createDailyChallenge(data, admin_id) {
       difficulty.toLowerCase(),
       topic_id || null,
       pattern_id || null,
+      source_question_id || null,
       normalizeJsonArray(secondary_topics, '[]'),
       normalizeJsonArray(prerequisites, '[]'),
       Number(estimated_time) || 30,
       Number(points) || 100,
-      description || title,
+      description.trim(),
       problem_statement || null,
       constraints || null,
       input_format || null,
@@ -279,9 +352,58 @@ async function createDailyChallenge(data, admin_id) {
   return getDailyChallengeById(id, true);
 }
 
+async function createFromPractice(questionId, customData = {}, adminId) {
+  const practice = await repo.one('SELECT * FROM questions WHERE id = ?', [questionId]);
+  if (!practice) throw new AppError('Practice problem not found', 404, 'NOT_FOUND');
+
+  const practiceTestCases = await repo.many(
+    'SELECT input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC',
+    [questionId]
+  );
+
+  const mergedData = {
+    title: customData.title || `${practice.title} Challenge`,
+    slug: customData.slug || `${practice.slug}-challenge`,
+    difficulty: customData.difficulty || practice.difficulty,
+    topic_id: customData.topic_id || practice.topic_id,
+    pattern_id: customData.pattern_id || practice.pattern_id,
+    source_question_id: practice.id,
+    points: Number(customData.points) || 100,
+    estimated_time: Number(customData.estimated_time) || practice.estimated_time || 30,
+    description: customData.description || practice.description || practice.problem_statement || practice.title,
+    problem_statement: customData.problem_statement || practice.problem_statement,
+    constraints: customData.constraints || practice.constraints,
+    input_format: customData.input_format || practice.input_format,
+    output_format: customData.output_format || practice.output_format,
+    example_input: customData.example_input || practice.example_input,
+    example_output: customData.example_output || practice.example_output,
+    hints: customData.hints !== undefined ? customData.hints : parseHints(practice.hints),
+    solution_approach: customData.solution_approach || practice.solution_approach,
+    starter_code: customData.starter_code || practice.starter_code,
+    supported_languages: practice.supported_languages,
+    status: customData.status || (customData.scheduled_date ? 'scheduled' : 'draft'),
+    scheduled_date: customData.scheduled_date || null,
+    test_cases: Array.isArray(customData.test_cases) && customData.test_cases.length > 0
+      ? customData.test_cases
+      : practiceTestCases
+  };
+
+  return createDailyChallenge(mergedData, adminId);
+}
+
 async function updateDailyChallenge(id, data, admin_id) {
-  const current = await repo.one('SELECT id FROM daily_challenge_problems WHERE id = ?', [id]);
+  const current = await repo.one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!current) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+
+  if (data.scheduled_date && data.scheduled_date !== current.scheduled_date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data.scheduled_date)) {
+      throw new AppError('Invalid scheduled date format (expected YYYY-MM-DD)', 400, 'VALIDATION_ERROR', 'scheduled_date');
+    }
+    const targetStatus = data.status || current.status;
+    if (targetStatus === 'scheduled' || targetStatus === 'published') {
+      await assertDateAvailable(data.scheduled_date, id);
+    }
+  }
 
   const fields = [];
   const params = [];
@@ -352,7 +474,7 @@ async function updateDailyChallenge(id, data, admin_id) {
       }
     }
 
-    if (data.scheduled_date && (data.status === 'scheduled' || data.status === 'published')) {
+    if (data.scheduled_date && (data.status === 'scheduled' || data.status === 'published' || current.status === 'scheduled')) {
       await tx.execute(`
         INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
         VALUES (?, ?, ?, ?, ?)
@@ -375,6 +497,9 @@ async function scheduleDailyChallenge(id, date, admin_id) {
   const challenge = await repo.one('SELECT id, status, is_active FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
+  // Prevent duplicate schedule for the same date
+  await assertDateAvailable(date, id);
+
   await repo.transaction(async tx => {
     await tx.execute(`
       UPDATE daily_challenge_problems 
@@ -395,6 +520,40 @@ async function scheduleDailyChallenge(id, date, admin_id) {
   return getDailyChallengeById(id, true);
 }
 
+async function publishDailyChallenge(id, admin_id) {
+  const challenge = await repo.one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+
+  const nextStatus = challenge.status === 'published' ? 'draft' : (challenge.scheduled_date ? 'scheduled' : 'published');
+  
+  if (nextStatus === 'published' && challenge.scheduled_date) {
+    await assertDateAvailable(challenge.scheduled_date, id);
+  }
+
+  await repo.execute(`
+    UPDATE daily_challenge_problems 
+    SET status = ?, updated_at = CURRENT_TIMESTAMP 
+    WHERE id = ?
+  `, [nextStatus, id]);
+
+  const result = await getDailyChallengeById(id, true);
+
+  if (nextStatus === 'published' || (nextStatus === 'scheduled' && challenge.scheduled_date === getTodayDateString())) {
+    try {
+      const notificationService = require('./notificationService');
+      await notificationService.broadcastNotification({
+        title: `New Daily Challenge: ${result.title}`,
+        message: `Today's competitive challenge is live! Solve it to earn +${result.points || 100} pts and build your streak.`,
+        category: 'daily_challenge',
+        type: 'daily_challenge_published',
+        link: '/daily-challenge'
+      });
+    } catch (_) {}
+  }
+
+  return result;
+}
+
 async function archiveDailyChallenge(id) {
   const challenge = await repo.one('SELECT id FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
@@ -408,11 +567,54 @@ async function archiveDailyChallenge(id) {
   return { success: true, message: 'Daily challenge archived' };
 }
 
+async function getTodayDailyChallenge(user = null) {
+  const todayStr = getTodayDateString();
+  const challenge = await repo.one(`
+    SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
+    FROM daily_challenge_problems dc
+    LEFT JOIN topics t ON dc.topic_id = t.id
+    LEFT JOIN patterns p ON dc.pattern_id = p.id
+    WHERE (dc.scheduled_date = ? OR dc.id IN (SELECT challenge_id FROM daily_questions WHERE date = ?))
+      AND dc.is_active = 1 AND dc.status != 'archived'
+    ORDER BY dc.updated_at DESC LIMIT 1
+  `, [todayStr, todayStr]);
+
+  if (!challenge) {
+    return { data: null, message: 'No Daily Challenge available today.' };
+  }
+
+  const submission = user ? await repo.one(`
+    SELECT id, status, attempted_at, started_at, solved_at, final_score
+    FROM submissions WHERE user_id = ? AND question_id = ?
+  `, [user.id, challenge.id]) : null;
+
+  return {
+    data: {
+      id: challenge.id,
+      date: todayStr,
+      title: challenge.title,
+      difficulty: challenge.difficulty,
+      topic_id: challenge.topic_id,
+      topic_name: challenge.topic_name,
+      pattern_id: challenge.pattern_id,
+      pattern_name: challenge.pattern_name,
+      description: challenge.description,
+      points: Number(challenge.points) || 100,
+      hints: parseHints(challenge.hints),
+      submission_status: submission?.status || 'not_started',
+      is_solved: ['solved', 'completed', 'approved'].includes(submission?.status)
+    }
+  };
+}
+
 module.exports = {
   listDailyChallenges,
   getDailyChallengeById,
   createDailyChallenge,
+  createFromPractice,
   updateDailyChallenge,
   scheduleDailyChallenge,
-  archiveDailyChallenge
+  publishDailyChallenge,
+  archiveDailyChallenge,
+  getTodayDailyChallenge
 };

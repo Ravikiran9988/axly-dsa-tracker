@@ -307,12 +307,16 @@ export default function AdminDailyChallengeModal({
                   </label>
                   <select
                     value={formData.difficulty}
-                    onChange={e => handleChange('difficulty', e.target.value)}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const pts = val === 'easy' ? 50 : val === 'medium' ? 100 : 150;
+                      setFormData(prev => ({ ...prev, difficulty: val, points: pts }));
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-amber-400 capitalize"
                   >
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
+                    <option value="easy">Easy (50 pts)</option>
+                    <option value="medium">Medium (100 pts)</option>
+                    <option value="hard">Hard (150 pts)</option>
                   </select>
                 </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import AdminDailyChallengeModal from '../components/AdminDailyChallengeModal';
 import AdminScheduleDailyModal from '../components/AdminScheduleDailyModal';
+import AdminCreateFromPracticeModal from '../components/AdminCreateFromPracticeModal';
 import {
   Calendar,
   Plus,
@@ -22,27 +23,33 @@ import {
   Check,
   X,
   Layers,
-  HelpCircle
+  HelpCircle,
+  BookOpen,
+  CalendarDays,
+  Clock3
 } from 'lucide-react';
 
 export default function AdminDailyChallenge({ onSelectProblem }) {
   const [challenges, setChallenges] = useState([]);
-  const [stats, setStats] = useState({ total: 0, draft: 0, published: 0, scheduled: 0, archived: 0 });
+  const [stats, setStats] = useState({ total: 0, draft: 0, published: 0, scheduled: 0, active: 0, archived: 0 });
+  const [todayChallenge, setTodayChallenge] = useState(null);
+  const [nextScheduledChallenge, setNextScheduledChallenge] = useState(null);
   const [topics, setTopics] = useState([]);
   const [patterns, setPatterns] = useState([]);
-  const [dailyData, setDailyData] = useState(null);
 
   // Filters
   const [search, setSearch] = useState('');
   const [difficulty, setDifficulty] = useState('');
   const [topicId, setTopicId] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
 
   // Modals & Action States
   const [loading, setLoading] = useState(true);
   const [actionSuccess, setActionSuccess] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isFromPracticeModalOpen, setIsFromPracticeModalOpen] = useState(false);
   const [editingChallenge, setEditingChallenge] = useState(null);
   const [schedulingChallenge, setSchedulingChallenge] = useState(null);
   const [previewChallenge, setPreviewChallenge] = useState(null);
@@ -53,7 +60,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
 
   useEffect(() => {
     loadData();
-  }, [difficulty, topicId, statusFilter]);
+  }, [difficulty, topicId, statusFilter, dateFilter]);
 
   async function loadTaxonomy() {
     try {
@@ -70,21 +77,18 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
     setLoading(true);
     setActionError(null);
     try {
-      const [dailyRes, challengesRes] = await Promise.all([
-        api.getDailyQuestion().catch(() => ({ data: null })),
-        api.getDailyChallenges({
-          difficulty: difficulty || undefined,
-          topic_id: topicId || undefined,
-          status: statusFilter || undefined,
-          search: search.trim() || undefined
-        })
-      ]);
+      const res = await api.getDailyChallenges({
+        difficulty: difficulty || undefined,
+        topic_id: topicId || undefined,
+        status: statusFilter || undefined,
+        date: dateFilter || undefined,
+        search: search.trim() || undefined
+      });
 
-      setDailyData(dailyRes?.data || null);
-      setChallenges(challengesRes?.data || []);
-      if (challengesRes?.stats) {
-        setStats(challengesRes.stats);
-      }
+      setChallenges(res.data || []);
+      if (res.stats) setStats(res.stats);
+      setTodayChallenge(res.today_challenge || null);
+      setNextScheduledChallenge(res.next_scheduled_challenge || null);
     } catch (err) {
       setActionError(err.message || 'Failed to load Daily Challenge data');
     } finally {
@@ -98,10 +102,9 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
   };
 
   const handleTogglePublish = async (challenge) => {
-    const nextStatus = challenge.status === 'published' ? 'draft' : 'published';
     try {
-      await api.updateDailyChallenge(challenge.id, { status: nextStatus });
-      setActionSuccess(`Challenge status updated to "${nextStatus}"`);
+      await api.publishDailyChallenge(challenge.id);
+      setActionSuccess(`Status updated for "${challenge.title}"`);
       await loadData();
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err) {
@@ -132,29 +135,28 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
     scheduled: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
     draft: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     active: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
-    archived: 'text-slate-400 bg-slate-500/10 border-slate-500/20'
+    completed: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+    archived: 'text-slate-500 bg-slate-500/10 border-slate-500/20'
   };
-
-  const todayChallenge = dailyData;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header Banner */}
+      {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
             <Flame className="w-4 h-4 fill-amber-400" />
-            <span>Daily Challenge Management</span>
+            <span>DAILY CHALLENGE MANAGEMENT</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Independent Daily Challenge System
+            Manage and schedule competitive daily problems.
           </h1>
           <p className="text-xs text-slate-400">
-            Author, curate, and schedule competitive daily challenges independent of the practice problem bank.
+            Author independent daily challenges or instantiate challenges from practice problems for competitive leaderboards & streaks.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={loadData}
             disabled={loading}
@@ -164,6 +166,16 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             <span>Refresh</span>
           </button>
 
+          {/* Secondary Action: Create from Practice */}
+          <button
+            onClick={() => setIsFromPracticeModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-bold transition-all shadow-sm"
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Create from Practice Problem</span>
+          </button>
+
+          {/* Primary Action: Create New Daily Challenge */}
           <button
             onClick={() => {
               setEditingChallenge(null);
@@ -191,100 +203,159 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
         </div>
       )}
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
-          <div className="text-[10px] font-mono font-bold uppercase text-slate-400">Total Challenges</div>
-          <div className="text-xl sm:text-2xl font-black text-white mt-1">{stats.total || challenges.length}</div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+        {/* Today's Challenge */}
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-amber-500/20 col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono font-bold uppercase text-amber-400">Today's Challenge</span>
+            <Flame className="w-3.5 h-3.5 text-amber-400" />
+          </div>
+          <div className="text-sm font-bold text-white mt-1.5 truncate">
+            {todayChallenge ? todayChallenge.title : 'None scheduled'}
+          </div>
+          <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+            {todayChallenge ? `${todayChallenge.difficulty?.toUpperCase()} · ${todayChallenge.points || 100} pts` : 'No active problem'}
+          </div>
         </div>
 
+        {/* Next Challenge */}
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-cyan-500/20 col-span-2 sm:col-span-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono font-bold uppercase text-cyan-400">Next Challenge</span>
+            <CalendarDays className="w-3.5 h-3.5 text-cyan-400" />
+          </div>
+          <div className="text-sm font-bold text-white mt-1.5 truncate">
+            {nextScheduledChallenge ? nextScheduledChallenge.title : 'None in queue'}
+          </div>
+          <div className="text-[11px] text-cyan-300 font-mono mt-0.5">
+            {nextScheduledChallenge ? nextScheduledChallenge.scheduled_date : 'Schedule upcoming'}
+          </div>
+        </div>
+
+        {/* Drafts */}
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
           <div className="text-[10px] font-mono font-bold uppercase text-amber-400">Drafts</div>
           <div className="text-xl sm:text-2xl font-black text-amber-400 mt-1">{stats.draft || 0}</div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
-          <div className="text-[10px] font-mono font-bold uppercase text-emerald-400">Published</div>
-          <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">{stats.published || 0}</div>
-        </div>
-
+        {/* Scheduled */}
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
           <div className="text-[10px] font-mono font-bold uppercase text-cyan-400">Scheduled</div>
           <div className="text-xl sm:text-2xl font-black text-cyan-400 mt-1">{stats.scheduled || 0}</div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 col-span-2 sm:col-span-1">
-          <div className="text-[10px] font-mono font-bold uppercase text-slate-500">Archived</div>
-          <div className="text-xl sm:text-2xl font-black text-slate-400 mt-1">{stats.archived || 0}</div>
+        {/* Published */}
+        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <div className="text-[10px] font-mono font-bold uppercase text-emerald-400">Published</div>
+          <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">{stats.published || 0}</div>
         </div>
       </div>
 
-      {/* Today's Featured Problem Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-950/20 via-slate-900 to-slate-950 border border-amber-500/20 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase font-mono">
-            <Flame className="w-4 h-4 fill-amber-400" />
-            <span>Today's Featured Daily Challenge</span>
+      {/* Today's Featured Challenge & Next Challenge Preview Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Today's Challenge Banner */}
+        <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-950/20 via-slate-900 to-slate-950 border border-amber-500/20 space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase font-mono">
+              <Flame className="w-4 h-4 fill-amber-400" />
+              <span>Today's Featured Problem</span>
+            </div>
+            <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+              <span>{todayChallenge?.scheduled_date || new Date().toISOString().split('T')[0]}</span>
+            </span>
           </div>
-          <span className="text-xs text-slate-400 font-mono flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-amber-400" />
-            <span>{todayChallenge?.date || new Date().toISOString().split('T')[0]} (UTC)</span>
-          </span>
+
+          {todayChallenge ? (
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${difficultyColors[todayChallenge.difficulty?.toLowerCase()] || ''}`}>
+                    {todayChallenge.difficulty}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">{todayChallenge.topic_name || 'General DSA'}</span>
+                  {todayChallenge.pattern_name && (
+                    <span className="text-xs text-slate-500 font-mono">&bull; {todayChallenge.pattern_name}</span>
+                  )}
+                </div>
+                <span className="text-xs text-amber-400 font-mono font-bold">{todayChallenge.points || 100} pts</span>
+              </div>
+
+              <h3 className="text-base font-bold text-white truncate">{todayChallenge.title}</h3>
+              {todayChallenge.description && (
+                <p className="text-xs text-slate-400 line-clamp-2">{todayChallenge.description}</p>
+              )}
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-800/80">
+                {onSelectProblem && (
+                  <button
+                    onClick={() => onSelectProblem(todayChallenge.id)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-colors"
+                  >
+                    <span>Solve in IDE</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-500 text-xs bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
+              No daily challenge active today. Schedule a challenge below to activate today's featured problem.
+            </div>
+          )}
         </div>
 
-        {todayChallenge ? (
-          <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-0.5 rounded-md font-bold uppercase text-[10px] border ${difficultyColors[todayChallenge.difficulty?.toLowerCase()] || ''}`}>
-                  {todayChallenge.difficulty}
-                </span>
-                <span className="text-xs text-slate-400 font-mono">
-                  {todayChallenge.topic_name || 'General DSA'}
-                </span>
-                {todayChallenge.pattern_name && (
-                  <span className="text-xs text-slate-500 font-mono">
-                    &bull; {todayChallenge.pattern_name}
+        {/* Next Scheduled Challenge Card */}
+        <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase font-mono">
+              <CalendarDays className="w-4 h-4 text-cyan-400" />
+              <span>Next Scheduled Challenge</span>
+            </div>
+            {nextScheduledChallenge && (
+              <span className="text-xs text-cyan-400 font-mono flex items-center gap-1">
+                <Clock3 className="w-3.5 h-3.5" />
+                <span>{nextScheduledChallenge.scheduled_date}</span>
+              </span>
+            )}
+          </div>
+
+          {nextScheduledChallenge ? (
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${difficultyColors[nextScheduledChallenge.difficulty?.toLowerCase()] || ''}`}>
+                    {nextScheduledChallenge.difficulty}
                   </span>
-                )}
-                <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  {todayChallenge.status || 'Active'}
+                  <span className="text-xs text-slate-400 font-mono">{nextScheduledChallenge.topic_name || 'General DSA'}</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  {nextScheduledChallenge.status}
                 </span>
               </div>
-              <h2 className="text-lg font-bold text-white truncate">
-                {todayChallenge.title}
-              </h2>
-              {todayChallenge.description && (
-                <p className="text-xs text-slate-400 line-clamp-2 max-w-2xl">
-                  {todayChallenge.description}
-                </p>
+
+              <h3 className="text-base font-bold text-white truncate">{nextScheduledChallenge.title}</h3>
+              {nextScheduledChallenge.description && (
+                <p className="text-xs text-slate-400 line-clamp-2">{nextScheduledChallenge.description}</p>
               )}
-            </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="text-right">
-                <div className="text-amber-400 font-bold font-mono text-sm">
-                  {todayChallenge.points || 100} pts
-                </div>
-                <div className="text-[10px] text-slate-500 uppercase font-mono">Streak Reward</div>
-              </div>
-
-              {onSelectProblem && (
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-800/80">
                 <button
-                  onClick={() => onSelectProblem(todayChallenge.id)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-amber-600/30 transition-colors"
+                  onClick={() => setPreviewChallenge(nextScheduledChallenge)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
                 >
-                  <span>Solve in IDE</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <Eye className="w-3 h-3" />
+                  <span>Preview</span>
                 </button>
-              )}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="py-6 text-center text-slate-400 text-xs bg-slate-950/60 rounded-2xl border border-dashed border-slate-800">
-            No daily challenge scheduled for today. Create or schedule a challenge below to activate today's featured problem.
-          </div>
-        )}
+          ) : (
+            <div className="py-8 text-center text-slate-500 text-xs bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
+              No future challenges queued. Use "Schedule" on any challenge in the repository to prepare upcoming daily challenges.
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -334,6 +405,24 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             <option value="scheduled">Scheduled</option>
             <option value="archived">Archived</option>
           </select>
+
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={e => setDateFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-amber-400 font-mono"
+            title="Filter by Scheduled Date"
+          />
+
+          {dateFilter && (
+            <button
+              onClick={() => setDateFilter('')}
+              className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              title="Clear date filter"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -358,16 +447,25 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
         ) : challenges.length === 0 ? (
           <div className="py-20 text-center text-slate-500 text-xs space-y-3">
             <div>No Daily Challenges found matching the current criteria.</div>
-            <button
-              onClick={() => {
-                setEditingChallenge(null);
-                setIsCreateModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create First Daily Challenge</span>
-            </button>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => setIsFromPracticeModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-bold hover:bg-indigo-500/20 transition-colors"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Create from Practice</span>
+              </button>
+              <button
+                onClick={() => {
+                  setEditingChallenge(null);
+                  setIsCreateModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Standalone</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -396,8 +494,13 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
                         <div className="font-bold text-white group-hover:text-amber-300 transition-colors truncate">
                           {c.title}
                         </div>
-                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                          {c.id}
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
+                          <span>{c.id}</span>
+                          {c.source_question_id && (
+                            <span className="px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[9px]">
+                              From Practice
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -485,13 +588,13 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
                           <button
                             onClick={() => handleTogglePublish(c)}
                             className={`p-1.5 rounded-lg border transition-colors ${
-                              c.status === 'published'
+                              c.status === 'published' || c.status === 'scheduled'
                                 ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
                                 : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
                             }`}
-                            title={c.status === 'published' ? 'Unpublish to Draft' : 'Publish Challenge'}
+                            title={c.status === 'published' || c.status === 'scheduled' ? 'Unpublish to Draft' : 'Publish Challenge'}
                           >
-                            {c.status === 'published' ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                            {c.status === 'published' || c.status === 'scheduled' ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
                           </button>
 
                           {/* Archive */}
@@ -515,7 +618,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
         )}
       </div>
 
-      {/* Create / Edit Modal */}
+      {/* Standalone Create / Edit Modal */}
       {isCreateModalOpen && (
         <AdminDailyChallengeModal
           isOpen={isCreateModalOpen}
@@ -530,6 +633,19 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             loadData();
             setActionSuccess('Daily Challenge saved successfully');
             setTimeout(() => setActionSuccess(null), 3000);
+          }}
+        />
+      )}
+
+      {/* Create From Practice Modal */}
+      {isFromPracticeModalOpen && (
+        <AdminCreateFromPracticeModal
+          isOpen={isFromPracticeModalOpen}
+          onClose={() => setIsFromPracticeModalOpen(false)}
+          onCreated={() => {
+            loadData();
+            setActionSuccess('Daily Challenge created from Practice Problem successfully!');
+            setTimeout(() => setActionSuccess(null), 3500);
           }}
         />
       )}
@@ -561,6 +677,12 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
                   <span className="uppercase font-bold text-amber-400">{previewChallenge.difficulty}</span>
                   <span>&bull;</span>
                   <span>{previewChallenge.points || 100} pts</span>
+                  {previewChallenge.source_question_id && (
+                    <>
+                      <span>&bull;</span>
+                      <span className="text-indigo-400">Source: {previewChallenge.source_question_id}</span>
+                    </>
+                  )}
                 </div>
               </div>
               <button

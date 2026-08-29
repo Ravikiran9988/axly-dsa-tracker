@@ -209,7 +209,8 @@ function initSchema() {
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       message TEXT NOT NULL,
-      type TEXT NOT NULL DEFAULT 'general' CHECK (type IN ('assignment', 'submission', 'mentor', 'cohort', 'general')),
+      category TEXT NOT NULL DEFAULT 'system' CHECK (category IN ('daily_challenge', 'practice', 'submission', 'achievement', 'system')),
+      type TEXT NOT NULL DEFAULT 'system_alert',
       link TEXT,
       is_read INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -217,6 +218,8 @@ function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
     CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
+    CREATE INDEX IF NOT EXISTS idx_notifications_category ON notifications(category);
+    CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
 
     CREATE TABLE IF NOT EXISTS badges (
       id TEXT PRIMARY KEY,
@@ -344,6 +347,20 @@ function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_submission_score_audit_submission ON submission_score_audit(submission_id);
+
+    CREATE TABLE IF NOT EXISTS points_ledger (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      source_type TEXT NOT NULL CHECK (source_type IN ('PRACTICE_SOLVE', 'DAILY_CHALLENGE_SOLVE', 'STREAK_REWARD', 'INITIAL_BONUS', 'MANUAL_ADJUSTMENT')),
+      source_id TEXT NOT NULL,
+      points INTEGER NOT NULL,
+      category TEXT NOT NULL CHECK (category IN ('practice', 'daily_challenge', 'streak', 'bonus')),
+      reason TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      CONSTRAINT unique_user_source UNIQUE (user_id, source_type, source_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_points_ledger_user ON points_ledger(user_id);
+    CREATE INDEX IF NOT EXISTS idx_points_ledger_user_cat ON points_ledger(user_id, category);
   `);
 
   // Safe individual column migrations
@@ -360,6 +377,7 @@ function initSchema() {
 
   // Daily Questions & Challenges migrations
   addColumnIfNotExists('daily_questions', 'challenge_id', 'TEXT');
+  addColumnIfNotExists('daily_challenge_problems', 'source_question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
   try {
     const fks = db.prepare('PRAGMA foreign_key_list(daily_questions)').all();
     const hasQuestionFk = fks.some(f => f.table === 'questions');
@@ -382,6 +400,82 @@ function initSchema() {
       `);
       db.pragma('foreign_keys = ON');
     }
+  } catch (e) {}
+
+  try {
+    const fks = db.prepare('PRAGMA foreign_key_list(submissions)').all();
+    const hasQuestionFk = fks.some(f => f.table === 'questions');
+    if (hasQuestionFk) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS submissions_new (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          question_id TEXT NOT NULL,
+          assignment_id TEXT REFERENCES assignments(id) ON DELETE SET NULL,
+          submission_type TEXT DEFAULT 'code' CHECK (submission_type IN ('code', 'github')),
+          language TEXT DEFAULT 'javascript',
+          source_code TEXT,
+          github_url TEXT,
+          status TEXT NOT NULL DEFAULT 'not_started' CHECK (status IN ('not_started', 'attempted', 'solved', 'skipped', 'pending', 'submitted', 'under_review', 'approved', 'changes_requested', 'completed', 'rejected')),
+          review_status TEXT DEFAULT 'pending' CHECK (review_status IN ('pending', 'approved', 'changes_requested', 'rejected')),
+          feedback TEXT,
+          reviewer_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          reviewed_at TEXT,
+          passed_tests INTEGER DEFAULT 0,
+          total_tests INTEGER DEFAULT 0,
+          execution_time_ms REAL DEFAULT 0,
+          manual_score REAL DEFAULT NULL,
+          manual_feedback TEXT,
+          started_at TEXT,
+          attempt_count INTEGER DEFAULT 0,
+          solve_duration_seconds REAL DEFAULT 0,
+          test_score REAL DEFAULT 0,
+          time_score REAL DEFAULT 0,
+          attempt_score REAL DEFAULT 0,
+          final_score REAL DEFAULT 0,
+          ai_score REAL,
+          ai_feedback TEXT,
+          ai_quality_score REAL,
+          ai_efficiency_score REAL,
+          ai_readability_score REAL,
+          ai_reviewed_at TEXT,
+          manual_reviewer_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          manual_reviewed_at TEXT,
+          attempted_at TEXT,
+          solved_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          CONSTRAINT unique_user_question_submission UNIQUE (user_id, question_id)
+        );
+        INSERT OR IGNORE INTO submissions_new SELECT * FROM submissions;
+        DROP TABLE submissions;
+        ALTER TABLE submissions_new RENAME TO submissions;
+        CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON submissions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_submissions_question_id ON submissions(question_id);
+        CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+        CREATE INDEX IF NOT EXISTS idx_submissions_review_status ON submissions(review_status);
+      `);
+      db.pragma('foreign_keys = ON');
+    }
+  } catch (e) {}
+
+  // Sync historical code_submissions_log into submissions table
+  try {
+    db.exec(`
+      INSERT OR IGNORE INTO submissions (
+        id, user_id, question_id, submission_type, language, source_code,
+        status, review_status, passed_tests, total_tests, execution_time_ms,
+        attempted_at, started_at, solved_at, created_at, updated_at
+      )
+      SELECT 
+        id, user_id, question_id, 'code', language, source_code,
+        CASE WHEN status = 'Accepted' THEN 'solved' ELSE 'attempted' END,
+        CASE WHEN status = 'Accepted' THEN 'approved' ELSE 'pending' END,
+        passed_tests, total_tests, execution_time_ms,
+        created_at, created_at, CASE WHEN status = 'Accepted' THEN created_at ELSE NULL END, created_at, created_at
+      FROM code_submissions_log;
+    `);
   } catch (e) {}
 
   // Users migrations
@@ -462,6 +556,139 @@ function initSchema() {
   // Users auth migrations
   addColumnIfNotExists('users', 'password_hash', 'TEXT');
   addColumnIfNotExists('users', 'email_verified', 'INTEGER DEFAULT 1');
+
+  // Users score columns
+  addColumnIfNotExists('users', 'practice_points', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'daily_challenge_points', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'streak_bonus', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'leaderboard_score', 'INTEGER DEFAULT 0');
+
+  // Sync / migrate existing solved challenges into points_ledger
+  try {
+    const solvedPractice = db.prepare(`
+      SELECT pp.user_id, pp.question_id, q.difficulty, pp.solved_at, pp.started_at
+      FROM practice_progress pp
+      JOIN questions q ON pp.question_id = q.id
+      WHERE pp.status = 'solved'
+    `).all();
+
+    for (const sp of solvedPractice) {
+      const diff = String(sp.difficulty || '').toLowerCase();
+      const pts = diff === 'easy' ? 10 : diff === 'medium' ? 20 : 30;
+      const ledgerId = `pl-p-${sp.user_id}-${sp.question_id}`;
+      const createdAt = sp.solved_at || sp.started_at || new Date().toISOString();
+      db.prepare(`
+        INSERT OR IGNORE INTO points_ledger (id, user_id, source_type, source_id, points, category, reason, created_at)
+        VALUES (?, ?, 'PRACTICE_SOLVE', ?, ?, 'practice', 'Practice Problem Solve', ?)
+      `).run(ledgerId, sp.user_id, sp.question_id, pts, createdAt);
+    }
+
+    const solvedDaily = db.prepare(`
+      SELECT s.user_id, s.question_id, dc.difficulty, s.solved_at, s.attempted_at
+      FROM submissions s
+      JOIN daily_challenge_problems dc ON s.question_id = dc.id
+      WHERE s.status IN ('solved', 'completed', 'approved')
+    `).all();
+
+    for (const sd of solvedDaily) {
+      const diff = String(sd.difficulty || '').toLowerCase();
+      const pts = diff === 'easy' ? 50 : diff === 'medium' ? 100 : 150;
+      const ledgerId = `pl-dc-${sd.user_id}-${sd.question_id}`;
+      const createdAt = sd.solved_at || sd.attempted_at || new Date().toISOString();
+      db.prepare(`
+        INSERT OR IGNORE INTO points_ledger (id, user_id, source_type, source_id, points, category, reason, created_at)
+        VALUES (?, ?, 'DAILY_CHALLENGE_SOLVE', ?, ?, 'daily_challenge', 'Daily Challenge Solve', ?)
+      `).run(ledgerId, sd.user_id, sd.question_id, pts, createdAt);
+    }
+
+    // Synchronize users table totals
+    const allUsers = db.prepare('SELECT id, points, streak FROM users').all();
+    for (const u of allUsers) {
+      const sums = db.prepare(`
+        SELECT category, SUM(points) as total_pts
+        FROM points_ledger
+        WHERE user_id = ?
+        GROUP BY category
+      `).all(u.id);
+
+      let pracPts = 0;
+      let dcPts = 0;
+      let streakPts = 0;
+
+      for (const s of sums) {
+        if (s.category === 'practice') pracPts = Number(s.total_pts || 0);
+        if (s.category === 'daily_challenge') dcPts = Number(s.total_pts || 0);
+        if (s.category === 'streak') streakPts = Number(s.total_pts || 0);
+      }
+
+      const totalScore = pracPts + dcPts + streakPts;
+      const lbScore = dcPts;
+
+      db.prepare(`
+        UPDATE users SET
+          practice_points = ?,
+          daily_challenge_points = ?,
+          streak_bonus = ?,
+          leaderboard_score = ?,
+          points = ?
+        WHERE id = ?
+      `).run(pracPts, dcPts, streakPts, lbScore, totalScore, u.id);
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Notifications category migration and obsolete data cleanup
+  addColumnIfNotExists('notifications', 'category', "TEXT NOT NULL DEFAULT 'system'");
+  try {
+    db.prepare(`
+      UPDATE notifications 
+      SET category = 'daily_challenge' 
+      WHERE type IN ('daily_challenge', 'daily_challenge_published', 'daily_challenge_completed', 'daily_challenge_result') 
+         OR title LIKE '%Daily Challenge%' 
+         OR link LIKE '%daily-challenge%'
+    `).run();
+
+    db.prepare(`
+      UPDATE notifications 
+      SET category = 'practice' 
+      WHERE type IN ('practice', 'practice_completed', 'practice_milestone') 
+         OR title LIKE '%Practice%' 
+         OR link LIKE '%practice%'
+    `).run();
+
+    db.prepare(`
+      UPDATE notifications 
+      SET category = 'submission' 
+      WHERE type IN ('submission', 'submission_accepted', 'submission_failed', 'submission_result') 
+         OR title LIKE '%Submission%'
+    `).run();
+
+    db.prepare(`
+      UPDATE notifications 
+      SET category = 'achievement' 
+      WHERE type IN ('achievement', 'streak_milestone', 'badge_unlocked', 'points_milestone') 
+         OR title LIKE '%Streak%' 
+         OR title LIKE '%Badge%' 
+         OR title LIKE '%Milestone%'
+    `).run();
+
+    db.prepare(`
+      UPDATE notifications 
+      SET category = 'system' 
+      WHERE category NOT IN ('daily_challenge', 'practice', 'submission', 'achievement', 'system')
+    `).run();
+
+    // Remove obsolete mentor / cohort notifications
+    db.prepare(`
+      DELETE FROM notifications 
+      WHERE type IN ('mentor', 'cohort', 'assignment') 
+         OR title LIKE '%Mentor%' 
+         OR title LIKE '%Cohort%'
+    `).run();
+  } catch (e) {
+    // ignore
+  }
 }
 
 initSchema();

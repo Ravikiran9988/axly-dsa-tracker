@@ -179,8 +179,59 @@ export default function StudentProfile({ onSelectProblem }) {
         </div>
       </div>
 
+      {/* Comprehensive Score Breakdown Section */}
+      <div className="p-6 rounded-3xl bg-slate-900/80 border border-cyan-500/20 space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
+            <Trophy className="w-4 h-4" />
+            <span>Score Architecture & Performance</span>
+          </div>
+          <span className="text-[11px] text-slate-500 font-mono">Server Authoritative</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Total Score */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-cyan-500/30 text-center">
+            <div className="text-xl font-black text-cyan-400">{stats?.total_score || stats?.points || 0}</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Total Score</div>
+          </div>
+
+          {/* Practice Points */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/20 text-center">
+            <div className="text-xl font-black text-emerald-400">{stats?.practice_points || 0}</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Practice Pts</div>
+          </div>
+
+          {/* Daily Challenge Points */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/20 text-center">
+            <div className="text-xl font-black text-amber-400">{stats?.daily_challenge_points || 0}</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Daily Challenge</div>
+          </div>
+
+          {/* Streak Bonus */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-orange-500/20 text-center">
+            <div className="text-xl font-black text-orange-400">{stats?.streak_bonus || 0}</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Streak Bonus</div>
+          </div>
+
+          {/* Leaderboard Score */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-purple-500/20 text-center">
+            <div className="text-xl font-black text-purple-400">{stats?.leaderboard_score || stats?.daily_challenge_points || 0}</div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Leaderboard Score</div>
+          </div>
+
+          {/* Current & Best Streak */}
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-rose-500/20 text-center">
+            <div className="text-xl font-black text-rose-400 flex items-center justify-center gap-1">
+              <Flame className="w-4 h-4 fill-rose-400" /> {stats?.streak || 1}d
+            </div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Best: {stats?.longest_streak || 1}d</div>
+          </div>
+        </div>
+      </div>
+
       {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
           <div className="text-xl font-bold text-white">{stats?.total_challenges || 0}</div>
           <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Total Assigned</div>
@@ -194,14 +245,8 @@ export default function StudentProfile({ onSelectProblem }) {
           <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Accuracy Rate</div>
         </div>
         <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
-          <div className="text-xl font-bold text-amber-400 flex items-center justify-center gap-1">
-            <Flame className="w-4 h-4 fill-amber-400" /> {stats?.streak || 1}d
-          </div>
-          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Current Streak</div>
-        </div>
-        <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center col-span-2 sm:col-span-4 lg:col-span-1">
-          <div className="text-xl font-bold text-indigo-400">{stats?.points || 100} pts</div>
-          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Total Points</div>
+          <div className="text-xl font-bold text-violet-400">#{stats?.rank || 1}</div>
+          <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Leaderboard Rank</div>
         </div>
       </div>
 

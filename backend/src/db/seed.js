@@ -1069,50 +1069,75 @@ print(find_median(nums1, nums2))`
     {
       id: 'notif-01',
       user_id: 'usr-user-01',
-      title: 'Mentor Feedback Received',
-      message: 'Axly Admin reviewed your solution for "Group Anagrams" and requested changes.',
-      type: 'mentor',
-      link: '/submissions',
+      title: 'New Daily Challenge Published',
+      message: "Today's competitive challenge \"Longest Subarray Challenge\" is live! Solve it to earn +100 pts.",
+      category: 'daily_challenge',
+      type: 'daily_challenge_published',
+      link: '/daily-challenge',
       is_read: 0,
       created_at: new Date(Date.now() - 3600000).toISOString()
     },
     {
       id: 'notif-02',
       user_id: 'usr-user-01',
-      title: 'New Challenge Assigned',
-      message: 'You have been assigned "Top K Frequent Elements" due on Sep 14, 2026.',
-      type: 'assignment',
-      link: '/tasks',
+      title: 'Practice Problem Solved! 🎉',
+      message: 'You solved "Two Sum"! +10 Practice points added to your Total Score.',
+      category: 'practice',
+      type: 'practice_completed',
+      link: '/practice',
       is_read: 0,
       created_at: new Date(Date.now() - 7200000).toISOString()
     },
     {
       id: 'notif-03',
       user_id: 'usr-user-01',
-      title: 'Submission Approved! 🎉',
-      message: 'Your solution for "Two Sum" was approved with a score of 100%. +20 points awarded!',
-      type: 'submission',
-      link: '/submissions',
+      title: 'Submission Accepted: Valid Anagram',
+      message: 'All 10/10 test cases passed in 24ms. Solution verified.',
+      category: 'submission',
+      type: 'submission_accepted',
+      link: '/practice',
       is_read: 1,
       created_at: new Date(Date.now() - 86400000).toISOString()
     },
     {
       id: 'notif-04',
       user_id: 'usr-user-01',
-      title: 'Cohort Live Session Scheduled',
-      message: 'Live Masterclass: "Dynamic Programming Patterns" starts tomorrow at 6:00 PM UTC.',
-      type: 'cohort',
-      link: '/dashboard',
+      title: '🔥 7-Day Streak Milestone!',
+      message: "You've solved Daily Challenges for 7 days in a row! Streak bonus unlocked.",
+      category: 'achievement',
+      type: 'streak_milestone',
+      link: '/daily-challenge',
       is_read: 1,
       created_at: new Date(Date.now() - 172800000).toISOString()
+    },
+    {
+      id: 'notif-05',
+      user_id: 'usr-user-01',
+      title: 'Welcome to Axly DSA Tracker',
+      message: 'Track your algorithms practice across 80 core curated problems and compete on the Daily Challenge leaderboard.',
+      category: 'system',
+      type: 'system_alert',
+      link: '/practice',
+      is_read: 1,
+      created_at: new Date(Date.now() - 259200000).toISOString()
     }
   ];
 
   const insertNotif = db.prepare(`
-    INSERT INTO notifications (id, user_id, title, message, type, link, is_read, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET is_read = excluded.is_read
+    INSERT INTO notifications (id, user_id, title, message, category, type, link, is_read, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET 
+      title = excluded.title,
+      message = excluded.message,
+      category = excluded.category,
+      type = excluded.type,
+      link = excluded.link,
+      is_read = excluded.is_read
   `);
+
+  for (const n of notifications) {
+    insertNotif.run(n.id, n.user_id, n.title, n.message, n.category, n.type, n.link, n.is_read, n.created_at);
+  }
   // Dedicated Daily Challenge Problems (Independent from Practice bank)
   const todayUtc = new Date().toISOString().split('T')[0];
   const tomorrowUtc = new Date(Date.now() + 86400000).toISOString().split('T')[0];
@@ -1265,7 +1290,7 @@ print(find_median(nums1, nums2))`
     VALUES (?, ?, ?, ?, ?)
   `).run('daily-today', 'dc-001', 'dc-001', todayUtc, 'usr-admin-01');
 
-  console.log('Database seeded successfully with in-platform coding problems, cohorts, notifications, mentor feedback & independent daily challenges.');
+  console.log('Database seeded successfully with in-platform coding problems, notifications & independent daily challenges.');
 }
 
 if (require.main === module) {

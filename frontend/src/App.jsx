@@ -206,20 +206,20 @@ export default function App() {
     if (currentView === 'practice' || currentView === 'available') {
       return <AvailableChallenges onSelectProblem={handleSelectProblem} />;
     }
-    if (currentView === 'daily') {
+    if (currentView === 'daily' || currentView === 'daily-challenge') {
       return <DailyChallenge onSelectProblem={handleSelectProblem} />;
     }
     if (currentView === 'submissions') {
       return <SubmissionHistory onSelectProblem={handleSelectProblem} />;
     }
-    if (currentView === 'analytics') {
+    if (currentView === 'analytics' || currentView === 'progress') {
       return <StudentAnalytics onSelectProblem={handleSelectProblem} />;
     }
     if (currentView === 'profile') {
       return <UserProfile onSelectProblem={handleSelectProblem} />;
     }
     if (currentView === 'notifications') {
-      return <NotificationsPage onNavigate={setCurrentView} />;
+      return <NotificationsPage onNavigate={setCurrentView} onUnreadChange={setUnreadNotifsCount} />;
     }
     if (currentView === 'leaderboard') {
       return <Leaderboard currentUser={user} />;

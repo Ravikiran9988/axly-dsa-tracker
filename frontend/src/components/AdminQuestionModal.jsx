@@ -176,12 +176,17 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <select
                   value={difficulty}
-                  onChange={e => setDifficulty(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setDifficulty(val);
+                    const pts = val === 'easy' ? 10 : val === 'medium' ? 20 : 30;
+                    setPoints(pts);
+                  }}
                   className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
                 >
-                  <option value="easy">easy</option>
-                  <option value="medium">medium</option>
-                  <option value="hard">hard</option>
+                  <option value="easy">easy (10 pts)</option>
+                  <option value="medium">medium (20 pts)</option>
+                  <option value="hard">hard (30 pts)</option>
                 </select>
                 <select
                   value={topicId}

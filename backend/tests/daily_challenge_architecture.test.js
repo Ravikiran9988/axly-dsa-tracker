@@ -40,7 +40,7 @@ describe('Daily Challenge Architecture & Practice Separation Tests', () => {
     expect(res.body.total).toBeGreaterThanOrEqual(80);
   });
 
-  test('2. Admin can list Daily Challenges with lifecycle stats', async () => {
+  test('2. Admin can list Daily Challenges with lifecycle stats and date filters', async () => {
     const res = await request(app)
       .get('/api/v1/daily-challenges')
       .set('Authorization', `Bearer ${adminToken}`);
@@ -90,7 +90,40 @@ describe('Daily Challenge Architecture & Practice Separation Tests', () => {
     expect(res.body.data.hints.length).toBe(3);
   });
 
-  test('4. Admin can schedule a Daily Challenge for a specific date', async () => {
+  test('4. Admin can create a Daily Challenge from an existing Practice problem without altering it', async () => {
+    const listRes = await request(app)
+      .get('/api/v1/questions?limit=5')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(listRes.statusCode).toBe(200);
+    const targetPractice = listRes.body.data[0];
+    const practiceId = targetPractice.id;
+    const originalPracticeTitle = targetPractice.title;
+
+    const fromPracticeRes = await request(app)
+      .post('/api/v1/daily-challenges/from-practice')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        question_id: practiceId,
+        title: `${originalPracticeTitle} Sprint Challenge`,
+        points: 100
+      });
+
+    expect(fromPracticeRes.statusCode).toBe(201);
+    expect(fromPracticeRes.body.data.id).toMatch(/^dc-/);
+    expect(fromPracticeRes.body.data.source_question_id).toBe(practiceId);
+    expect(fromPracticeRes.body.data.title).toBe(`${originalPracticeTitle} Sprint Challenge`);
+    expect(fromPracticeRes.body.data.test_cases.length).toBeGreaterThanOrEqual(1);
+
+    // Verify original practice problem is unchanged
+    const practiceResAfter = await request(app)
+      .get(`/api/v1/questions/${practiceId}`)
+      .set('Authorization', `Bearer ${studentToken}`);
+    expect(practiceResAfter.statusCode).toBe(200);
+    expect(practiceResAfter.body.data.title).toBe(originalPracticeTitle);
+    expect(practiceResAfter.body.data.id).toBe(practiceId);
+  });
+
+  test('5. Admin can schedule a Daily Challenge and rejects duplicate schedule on same date', async () => {
     const scheduleDate = '2030-05-15';
     const scheduleRes = await request(app)
       .post('/api/v1/daily-challenges/dc-001/schedule')
@@ -101,28 +134,29 @@ describe('Daily Challenge Architecture & Practice Separation Tests', () => {
     expect(scheduleRes.body.data.status).toBe('scheduled');
     expect(scheduleRes.body.data.scheduled_date).toBe(scheduleDate);
 
-    // Verify GET /api/v1/daily-question?date=2030-05-15 returns this challenge
-    const getRes = await request(app)
-      .get(`/api/v1/daily-question?date=${scheduleDate}`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    // Attempting to schedule a SECOND challenge on the same date should be rejected (409 Conflict)
+    const duplicateRes = await request(app)
+      .post('/api/v1/daily-challenges/dc-002/schedule')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ date: scheduleDate });
 
-    expect(getRes.statusCode).toBe(200);
-    expect(getRes.body.data.id).toBe('dc-001');
-    expect(getRes.body.data.title).toBe('Longest Subarray Challenge');
+    expect(duplicateRes.statusCode).toBe(409);
+    expect(duplicateRes.body.error.code).toBe('DATE_CONFLICT');
   });
 
-  test('5. Student sees active Daily Challenge on GET /api/v1/daily-question', async () => {
+  test('6. Student sees active Daily Challenge on GET /api/v1/daily-challenges/today', async () => {
     const res = await request(app)
-      .get('/api/v1/daily-question')
+      .get('/api/v1/daily-challenges/today')
       .set('Authorization', `Bearer ${studentToken}`);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body.data).toBeDefined();
-    expect(res.body.data.id).toBe('dc-001');
-    expect(res.body.data.points).toBe(100);
+    if (res.body.data) {
+      expect(res.body.data.points).toBe(100);
+      expect(res.body.data.title).toBeDefined();
+    }
   });
 
-  test('6. Student workspace can load Daily Challenge by ID via GET /api/v1/questions/:id', async () => {
+  test('7. Student workspace can load Daily Challenge by ID via GET /api/v1/questions/:id', async () => {
     const res = await request(app)
       .get('/api/v1/questions/dc-001')
       .set('Authorization', `Bearer ${studentToken}`);

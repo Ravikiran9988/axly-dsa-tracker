@@ -185,6 +185,23 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
     }
   }
 
+  const hintsList = React.useMemo(() => {
+    if (!question?.hints) return [];
+    if (Array.isArray(question.hints)) return question.hints.filter(Boolean).map(String);
+    if (typeof question.hints === 'string') {
+      const trimmed = question.hints.trim();
+      if (!trimmed || trimmed === '[]') return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
+        if (typeof parsed === 'string' && parsed.trim() && parsed !== '[]') return [parsed.trim()];
+      } catch {
+        return [trimmed];
+      }
+    }
+    return [];
+  }, [question?.hints]);
+
   if (loading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] space-y-3">
@@ -214,23 +231,6 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   const isPractice = Boolean(question.is_practice);
   const currentFileName = FILE_EXTENSIONS[language] || `solution.${language}`;
   const statusCfg = execResult ? STATUS_CONFIG[execResult.status] : null;
-
-  const hintsList = React.useMemo(() => {
-    if (!question?.hints) return [];
-    if (Array.isArray(question.hints)) return question.hints.filter(Boolean).map(String);
-    if (typeof question.hints === 'string') {
-      const trimmed = question.hints.trim();
-      if (!trimmed || trimmed === '[]') return [];
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) return parsed.filter(Boolean).map(String);
-        if (typeof parsed === 'string' && parsed.trim() && parsed !== '[]') return [parsed.trim()];
-      } catch {
-        return [trimmed];
-      }
-    }
-    return [];
-  }, [question?.hints]);
 
   return (
     <div className="flex flex-col bg-[#070B14]" style={{ height: 'calc(100vh - 56px)' }}>
