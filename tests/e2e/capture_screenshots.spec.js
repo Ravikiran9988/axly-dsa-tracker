@@ -69,13 +69,9 @@ test.describe('Take README Screenshots', () => {
   test('Capture Question Detail (Code Editor)', async ({ page }) => {
     await loginAsStudent(page);
     await page.goto('/');
-    await page.click('text=Practice');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-    
-    const firstProblemRow = page.locator('tbody tr').first();
-    await firstProblemRow.click();
-    
+    // Navigate directly to a practice problem to bypass the SkeletonRows timeout
+    await page.goto('/practice/two-sum');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000); // Let workspace load
     
