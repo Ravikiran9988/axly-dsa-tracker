@@ -314,6 +314,9 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_status ON daily_challenge_problems(status);
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_topic ON daily_challenge_problems(topic_id);
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_date ON daily_challenge_problems(scheduled_date);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_challenge_problems_unique_active_date 
+      ON daily_challenge_problems(scheduled_date) 
+      WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1;
 
     CREATE TABLE IF NOT EXISTS daily_challenge_test_cases (
       id TEXT PRIMARY KEY,
@@ -336,6 +339,35 @@ function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_daily_questions_date ON daily_questions(date);
+
+    CREATE TABLE IF NOT EXISTS daily_challenge_automation_settings (
+      id TEXT PRIMARY KEY,
+      mode TEXT NOT NULL DEFAULT 'ai_assist' CHECK (mode IN ('manual', 'ai_assist', 'auto_fill')),
+      is_enabled INTEGER NOT NULL DEFAULT 1,
+      target_hour_utc INTEGER NOT NULL DEFAULT 0,
+      retry_limit INTEGER NOT NULL DEFAULT 3,
+      last_run_at TEXT,
+      last_run_status TEXT,
+      next_run_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_challenge_automation_logs (
+      id TEXT PRIMARY KEY,
+      target_date TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 1,
+      validation_result TEXT,
+      sandbox_result TEXT,
+      status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'skipped')),
+      failure_category TEXT,
+      challenge_id TEXT REFERENCES daily_challenge_problems(id) ON DELETE SET NULL,
+      details TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_automation_logs_date ON daily_challenge_automation_logs(target_date);
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_automation_logs_created ON daily_challenge_automation_logs(created_at DESC);
 
     CREATE TABLE IF NOT EXISTS admin_audit_logs (
       id TEXT PRIMARY KEY,
@@ -814,6 +846,18 @@ function initSchema() {
           daily_challenge_best_streak = CASE WHEN daily_challenge_best_streak = 0 THEN ? ELSE daily_challenge_best_streak END
         WHERE id = ?
       `).run(s.solve_count, s.solve_count, s.user_id);
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    const defaultAutoSettings = db.prepare('SELECT id FROM daily_challenge_automation_settings WHERE id = ?').get('global-settings');
+    if (!defaultAutoSettings) {
+      db.prepare(`
+        INSERT INTO daily_challenge_automation_settings (id, mode, is_enabled, target_hour_utc, retry_limit)
+        VALUES ('global-settings', 'ai_assist', 1, 0, 3)
+      `).run();
     }
   } catch (e) {
     // ignore

@@ -29,7 +29,14 @@ import {
   Trash2,
   Send,
   SlidersHorizontal,
-  ChevronDown
+  ChevronDown,
+  Bot,
+  Activity,
+  ShieldCheck,
+  CheckCircle,
+  Play,
+  RotateCcw,
+  Sliders
 } from 'lucide-react';
 
 export default function AdminDailyChallenge({ onSelectProblem }) {
@@ -39,6 +46,23 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
   const [nextScheduledChallenge, setNextScheduledChallenge] = useState(null);
   const [topics, setTopics] = useState([]);
   const [patterns, setPatterns] = useState([]);
+
+  // Automation State
+  const [automationSettings, setAutomationSettings] = useState({
+    mode: 'ai_assist',
+    is_enabled: true,
+    retry_limit: 3,
+    last_run_at: null,
+    last_run_status: null
+  });
+  const [automationMeta, setAutomationMeta] = useState({
+    today_utc: new Date().toISOString().slice(0, 10),
+    next_target_date: '',
+    generation_time_utc: '00:00 UTC'
+  });
+  const [automationLogs, setAutomationLogs] = useState([]);
+  const [isRunningAutomation, setIsRunningAutomation] = useState(false);
+  const [showLogsModal, setShowLogsModal] = useState(false);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -60,6 +84,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
 
   useEffect(() => {
     loadTaxonomy();
+    loadAutomationStatus();
   }, []);
 
   useEffect(() => {
@@ -81,6 +106,21 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
         setPatterns(pRes.data || []);
       }
     } catch {}
+  }
+
+  async function loadAutomationStatus() {
+    try {
+      const res = await api.getDailyChallengeAutomationStatus();
+      if (res && res.data) {
+        setAutomationSettings(res.data.settings || {});
+        setAutomationMeta({
+          today_utc: res.data.today_utc || new Date().toISOString().slice(0, 10),
+          next_target_date: res.data.next_target_date || '',
+          generation_time_utc: res.data.generation_time_utc || '00:00 UTC'
+        });
+        setAutomationLogs(res.data.recent_logs || []);
+      }
+    } catch (_) {}
   }
 
   async function loadData() {
@@ -127,8 +167,20 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
     }
   };
 
+  const handlePublishNow = async (challenge) => {
+    if (!window.confirm(`Publish "${challenge.title}" immediately as today's live Daily Challenge?`)) return;
+    try {
+      await api.publishNowDailyChallenge(challenge.id);
+      setActionSuccess(`"${challenge.title}" is now published as Today's Active Challenge!`);
+      await loadData();
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      setActionError(err.message || "Today's Daily Challenge is already published.");
+    }
+  };
+
   const handleArchive = async (challengeId) => {
-    if (!window.confirm('Archive this Daily Challenge?')) return;
+    if (!window.confirm('Archive this Daily Challenge? It will be removed from active scheduling but preserved in history.')) return;
     try {
       await api.archiveDailyChallenge(challengeId);
       setActionSuccess('Daily Challenge archived successfully');
@@ -149,6 +201,49 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err) {
       setActionError(err.message || 'Failed to delete challenge');
+    }
+  };
+
+  const handleUpdateAutomationMode = async (newMode) => {
+    try {
+      await api.updateDailyChallengeAutomationSettings({ mode: newMode });
+      setAutomationSettings(prev => ({ ...prev, mode: newMode }));
+      setActionSuccess(`Automation mode updated to ${newMode.toUpperCase().replace('_', ' ')}`);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      setActionError(err.message || 'Failed to update automation mode');
+    }
+  };
+
+  const handleToggleAutomationEnabled = async () => {
+    try {
+      const nextEnabled = !automationSettings.is_enabled;
+      await api.updateDailyChallengeAutomationSettings({ is_enabled: nextEnabled });
+      setAutomationSettings(prev => ({ ...prev, is_enabled: nextEnabled }));
+      setActionSuccess(`Automation ${nextEnabled ? 'enabled' : 'disabled'}`);
+      setTimeout(() => setActionSuccess(null), 3000);
+    } catch (err) {
+      setActionError(err.message || 'Failed to toggle automation');
+    }
+  };
+
+  const handleRunAutoFillNow = async () => {
+    setIsRunningAutomation(true);
+    setActionError(null);
+    try {
+      const res = await api.runDailyChallengeAutomationNow();
+      if (res.success) {
+        setActionSuccess(res.message || 'Auto-fill pipeline executed successfully!');
+      } else {
+        setActionError(res.error || 'Automatic challenge generation failed. Admin action required.');
+      }
+      await loadData();
+      await loadAutomationStatus();
+      setTimeout(() => setActionSuccess(null), 4000);
+    } catch (err) {
+      setActionError(err.message || 'Automatic challenge generation failed. Admin action required.');
+    } finally {
+      setIsRunningAutomation(false);
     }
   };
 
@@ -174,19 +269,20 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
             <Flame className="w-4 h-4 fill-amber-400" />
-            <span>DAILY CHALLENGE SYSTEM</span>
+            <span>DAILY CHALLENGE SYSTEM V2</span>
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">
             Daily Challenge Portal
           </h1>
           <p className="text-xs text-slate-400 max-w-xl">
-            Author independent competitive problems manually or generate them with AI. Daily Challenges are strictly separated from Practice questions.
+            Automated AI generation, sandbox verification, scheduling & competitive publication. Strictly one challenge per UTC calendar date.
           </p>
         </div>
 
-        {/* Primary Action Button */}
+        {/* Primary Action Buttons */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button
+            id="btn-admin-ai-generate"
             onClick={() => {
               setCreateModalInitialMode('ai');
               setIsCreateModalOpen(true);
@@ -198,6 +294,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
           </button>
 
           <button
+            id="btn-admin-create-challenge"
             onClick={() => {
               setCreateModalInitialMode('manual');
               setIsCreateModalOpen(true);
@@ -205,7 +302,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             className="btn-primary btn-sm inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold shadow-lg shadow-amber-500/20"
           >
             <Plus className="w-4 h-4" />
-            <span>Create Daily Challenge</span>
+            <span>Create Challenge</span>
           </button>
         </div>
       </div>
@@ -234,6 +331,112 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
           </button>
         </div>
       )}
+
+      {/* Automation Control Panel */}
+      <div className="p-5 rounded-3xl bg-slate-900/80 border border-purple-500/30 space-y-4 backdrop-blur-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <Bot className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white">DAILY CHALLENGE AUTOMATION</h3>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase ${
+                  automationSettings.is_enabled ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
+                }`}>
+                  {automationSettings.is_enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare tomorrow's challenge ({automationMeta.next_target_date || 'Next UTC Day'})
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              id="btn-run-autofill-now"
+              onClick={handleRunAutoFillNow}
+              disabled={isRunningAutomation}
+              className="btn-primary btn-sm inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
+            >
+              {isRunningAutomation ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Running Pipeline...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Run Auto-Fill Now</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => setShowLogsModal(true)}
+              className="btn-secondary btn-sm text-xs text-slate-300 hover:text-white"
+            >
+              Logs ({automationLogs.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Automation Settings Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+          {/* Mode Selector */}
+          <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1.5">
+            <div className="text-[10px] font-mono text-slate-400 uppercase">Automation Mode</div>
+            <div className="flex items-center gap-1 pt-1">
+              {[
+                { key: 'manual', label: 'Manual' },
+                { key: 'ai_assist', label: 'AI Assist' },
+                { key: 'auto_fill', label: 'Auto Fill' }
+              ].map(m => (
+                <button
+                  key={m.key}
+                  onClick={() => handleUpdateAutomationMode(m.key)}
+                  className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all ${
+                    automationSettings.mode === m.key
+                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                      : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Timing & Target */}
+          <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1 font-mono">
+            <div className="text-[10px] text-slate-400 uppercase">Timing & Target Date</div>
+            <div className="text-slate-200 font-bold">00:00 UTC &rarr; Next Day</div>
+            <div className="text-[11px] text-cyan-400">Target: {automationMeta.next_target_date || 'Tomorrow (UTC)'}</div>
+          </div>
+
+          {/* Last Run & Status */}
+          <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1 font-mono">
+            <div className="text-[10px] text-slate-400 uppercase">Last Execution Status</div>
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                automationSettings.last_run_status === 'success'
+                  ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                  : automationSettings.last_run_status === 'failed'
+                  ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
+                  : 'text-slate-400 bg-slate-800'
+              }`}>
+                {automationSettings.last_run_status || 'Never Run'}
+              </span>
+              <span className="text-[10px] text-slate-500">
+                {automationSettings.last_run_at ? new Date(automationSettings.last_run_at).toLocaleTimeString() : ''}
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-500">Retry limit: {automationSettings.retry_limit || 3} attempts</div>
+          </div>
+        </div>
+      </div>
 
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
@@ -269,11 +472,13 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
               <span className="text-xs font-bold text-amber-400 font-mono uppercase">TODAY'S ACTIVE CHALLENGE</span>
             </div>
             <span className="text-[11px] text-slate-400 font-mono">
-              {new Date().toISOString().split('T')[0]}
+              {automationMeta.today_utc} (UTC)
             </span>
           </div>
 
-          {todayChallenge ? (
+          {loading ? (
+            <div className="py-4 text-center text-slate-500 animate-pulse text-xs">Loading today's challenge...</div>
+          ) : todayChallenge ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-white hover:text-amber-300 transition-colors cursor-pointer"
@@ -293,9 +498,9 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
               </div>
             </div>
           ) : (
-            <div className="py-2 text-xs text-slate-500 italic flex items-center gap-2">
+            <div className="py-3 text-xs text-slate-500 italic flex items-center gap-2">
               <AlertCircle className="w-3.5 h-3.5 text-amber-500/60" />
-              <span>No challenge scheduled for today yet.</span>
+              <span>No challenge scheduled for today.</span>
             </div>
           )}
         </div>
@@ -314,7 +519,9 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             )}
           </div>
 
-          {nextScheduledChallenge ? (
+          {loading ? (
+            <div className="py-4 text-center text-slate-500 animate-pulse text-xs">Loading upcoming challenges...</div>
+          ) : nextScheduledChallenge ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-white hover:text-cyan-300 transition-colors cursor-pointer"
@@ -332,7 +539,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
               </div>
             </div>
           ) : (
-            <div className="py-2 text-xs text-slate-500 italic flex items-center gap-2">
+            <div className="py-3 text-xs text-slate-500 italic flex items-center gap-2">
               <Calendar className="w-3.5 h-3.5 text-cyan-500/60" />
               <span>No upcoming challenges scheduled.</span>
             </div>
@@ -433,13 +640,13 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
               ) : challenges.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-slate-500 font-sans">
-                    No Daily Challenges found. Click <strong>+ Create Daily Challenge</strong> to author or generate one.
+                    No Daily Challenges found.
                   </td>
                 </tr>
               ) : (
                 challenges.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-900/40 transition-colors">
-                    {/* Title */}
+                    {/* Title & Slug */}
                     <td className="py-3 px-4">
                       <div className="font-sans font-bold text-slate-200 hover:text-amber-400 transition-colors cursor-pointer"
                            onClick={() => setPreviewChallenge(c)}>
@@ -512,34 +719,64 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
                           <Eye className="w-3.5 h-3.5" />
                         </button>
 
-                        <button
-                          onClick={() => setEditingChallenge(c)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
-                          title="Edit Challenge"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                        {c.status !== 'archived' && (
+                          <button
+                            onClick={() => setEditingChallenge(c)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors"
+                            title="Edit Challenge"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
-                        <button
-                          onClick={() => setSchedulingChallenge(c)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
-                          title="Schedule Date"
-                        >
-                          <Calendar className="w-3.5 h-3.5" />
-                        </button>
+                        {c.status !== 'archived' && (
+                          <button
+                            onClick={() => setSchedulingChallenge(c)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition-colors"
+                            title="Schedule Date"
+                          >
+                            <Calendar className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
-                        <button
-                          onClick={() => handleTogglePublish(c)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            c.status === 'published'
-                              ? 'text-emerald-400 hover:text-amber-400 hover:bg-slate-800'
-                              : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-800'
-                          }`}
-                          title={c.status === 'published' ? 'Unpublish to Draft' : 'Publish for Students'}
-                        >
-                          {c.status === 'published' ? <Check className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-                        </button>
+                        {/* Publish / Unpublish */}
+                        {c.status !== 'archived' && (
+                          <button
+                            onClick={() => handleTogglePublish(c)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              c.status === 'published'
+                                ? 'text-emerald-400 hover:text-amber-400 hover:bg-slate-800'
+                                : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-800'
+                            }`}
+                            title={c.status === 'published' ? 'Unpublish' : 'Publish'}
+                          >
+                            {c.status === 'published' ? <Check className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
 
+                        {/* Publish Now */}
+                        {c.status !== 'archived' && c.status !== 'published' && (
+                          <button
+                            onClick={() => handlePublishNow(c)}
+                            className="p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors"
+                            title="Publish Now (Make Today's Active Challenge)"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Archive */}
+                        {c.status !== 'archived' && (
+                          <button
+                            onClick={() => handleArchive(c.id)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors"
+                            title="Archive Challenge"
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Delete */}
                         <button
                           onClick={() => setDeletingChallenge(c)}
                           className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors"
@@ -620,6 +857,60 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
               <button onClick={() => setPreviewChallenge(null)} className="btn-secondary btn-sm text-xs">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Automation Logs Modal */}
+      {showLogsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-3xl max-h-[85vh] overflow-y-auto custom-scrollbar p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-purple-400" />
+                <h3 className="text-base font-bold text-white">Daily Challenge Automation Logs</h3>
+              </div>
+              <button onClick={() => setShowLogsModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {automationLogs.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 text-xs">No automation run logs found.</div>
+              ) : (
+                automationLogs.map((log) => (
+                  <div key={log.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          log.status === 'success'
+                            ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                            : log.status === 'failed'
+                            ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
+                            : 'text-slate-400 bg-slate-800'
+                        }`}>
+                          {log.status}
+                        </span>
+                        <span className="font-mono text-cyan-400 font-bold">Target: {log.target_date}</span>
+                        <span className="text-slate-500">Mode: {log.mode}</span>
+                        {log.attempt_count > 0 && <span className="text-slate-400">Attempts: {log.attempt_count}</span>}
+                      </div>
+                      <p className="text-[11px] text-slate-300">{log.details}</p>
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-mono shrink-0">
+                      {new Date(log.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-800">
+              <button onClick={() => setShowLogsModal(false)} className="btn-secondary btn-sm text-xs">
                 Close
               </button>
             </div>

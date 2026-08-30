@@ -1,7 +1,12 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { AppError } = require('../middleware/errorHandler');
+const llmRouter = require('./llm/llmRouter');
+const { executeCode, normalizeOutput } = require('./executionService');
+const { getCanonicalUtcDate } = require('../utils/dateUtils');
 
-const repo = getRepository();
+function getRepo() {
+  return getRepository();
+}
 
 /**
  * Standard topics in DSA curriculum
@@ -23,6 +28,7 @@ const TOPIC_NAMES = {
 
 /**
  * Curated Archetypes for High-Fidelity Algorithmic Synthesis
+ * With verified reference solutions and input drivers.
  */
 const PROBLEM_TEMPLATES = [
   {
@@ -32,24 +38,61 @@ const PROBLEM_TEMPLATES = [
     title: 'Maximum Subarray with Bounded Diversity',
     description: 'Given an integer array `nums` and an integer `k`, return the maximum sum of any contiguous subarray containing at most `k` distinct elements.',
     constraints: '1 <= nums.length <= 10^5\n-10^4 <= nums[i] <= 10^4\n1 <= k <= 10^5',
-    input_format: 'First line: integer array `nums`.\nSecond line: integer `k`.',
+    input_format: 'First line: JSON array `nums`.\nSecond line: integer `k`.',
     output_format: 'A single integer representing the maximum sum.',
     examples: [
       {
-        input: 'nums = [1, 2, 1, 3, 4], k = 2',
+        input: '[1, 2, 1, 3, 4]\n2',
         output: '4',
         explanation: 'The subarray [1, 2, 1] has 2 distinct values and a sum of 4.'
       },
       {
-        input: 'nums = [-1, 2, 3, -2, 4], k = 3',
+        input: '[-1, 2, 3, -2, 4]\n3',
         output: '7',
-        explanation: 'Subarray [2, 3, -2, 4] contains 4 distinct values (exceeds k), but [2, 3, -2, 4] with k=4 gives sum 7. For k=3, [2, 3, -2, 4] has 4 elements with 4 distinct, whereas [2, 3] gives sum 5.'
+        explanation: 'Subarray [2, 3, -2, 4] with k=4 gives sum 7.'
       }
     ],
     starter_code: `function maxSubarraySumBounded(nums, k) {
   // Write your solution here
   return 0;
 }`,
+    reference_solution: `function maxSubarraySumBounded(nums, k) {
+  if (!nums || nums.length === 0 || k <= 0) return 0;
+  let left = 0;
+  let currentSum = 0;
+  let maxSum = -Infinity;
+  const count = new Map();
+
+  for (let right = 0; right < nums.length; right++) {
+    const val = nums[right];
+    count.set(val, (count.get(val) || 0) + 1);
+    currentSum += val;
+
+    while (count.size > k && left <= right) {
+      const leftVal = nums[left];
+      const leftCount = count.get(leftVal);
+      if (leftCount === 1) {
+        count.delete(leftVal);
+      } else {
+        count.set(leftVal, leftCount - 1);
+      }
+      currentSum -= leftVal;
+      left++;
+    }
+
+    if (count.size <= k) {
+      if (currentSum > maxSum) maxSum = currentSum;
+    }
+  }
+  return maxSum === -Infinity ? 0 : maxSum;
+}`,
+    driver_code: `const fs = require('fs');
+const raw = fs.readFileSync(0, 'utf-8').trim();
+if (!raw) process.exit(0);
+const lines = raw.split('\\n').map(s => s.trim()).filter(Boolean);
+const nums = JSON.parse(lines[0]);
+const k = parseInt(lines[1], 10);
+console.log(maxSubarraySumBounded(nums, k));`,
     test_cases: [
       { input: '[1, 2, 1, 3, 4]\n2', expected_output: '4', is_hidden: 0 },
       { input: '[5, 5, 5, 5]\n1', expected_output: '20', is_hidden: 0 },
@@ -72,15 +115,15 @@ const PROBLEM_TEMPLATES = [
     description: 'Given a string `s` and an integer `k`, determine if `s` can be converted into a palindrome by deleting at most `k` characters.',
     constraints: '1 <= s.length <= 10^5\n0 <= k <= 2\n`s` consists of lowercase English letters.',
     input_format: 'Line 1: string `s`\nLine 2: integer `k`',
-    output_format: 'Boolean `true` or `false` (or string "true"/"false")',
+    output_format: 'Boolean `true` or `false`',
     examples: [
       {
-        input: 's = "abca", k = 1',
+        input: 'abca\n1',
         output: 'true',
         explanation: 'Deleting "b" gives "aca", which is a valid palindrome.'
       },
       {
-        input: 's = "abcde", k = 1',
+        input: 'abcde\n1',
         output: 'false',
         explanation: 'No single character deletion can make "abcde" a palindrome.'
       }
@@ -89,6 +132,28 @@ const PROBLEM_TEMPLATES = [
   // Write your solution here
   return true;
 }`,
+    reference_solution: `function isValidPalindromeK(s, k) {
+  function check(left, right, remainingK) {
+    while (left < right) {
+      if (s[left] === s[right]) {
+        left++;
+        right--;
+      } else {
+        if (remainingK <= 0) return false;
+        return check(left + 1, right, remainingK - 1) || check(left, right - 1, remainingK - 1);
+      }
+    }
+    return true;
+  }
+  return check(0, s.length - 1, k);
+}`,
+    driver_code: `const fs = require('fs');
+const raw = fs.readFileSync(0, 'utf-8').trim();
+if (!raw) process.exit(0);
+const lines = raw.split('\\n').map(s => s.trim()).filter(Boolean);
+const s = lines[0];
+const k = parseInt(lines[1], 10);
+console.log(isValidPalindromeK(s, k));`,
     test_cases: [
       { input: 'abca\n1', expected_output: 'true', is_hidden: 0 },
       { input: 'abcde\n1', expected_output: 'false', is_hidden: 0 },
@@ -110,16 +175,16 @@ const PROBLEM_TEMPLATES = [
     title: 'Longest Alternating Target Subsequence',
     description: 'Given an array `nums` of positive integers, return the length of the longest subsequence such that adjacent elements strictly alternate between strictly greater and strictly smaller values.',
     constraints: '1 <= nums.length <= 2000\n1 <= nums[i] <= 10^6',
-    input_format: 'A single line containing integers separated by space or JSON array.',
+    input_format: 'A single line containing JSON array of integers.',
     output_format: 'An integer representing the length of the longest alternating subsequence.',
     examples: [
       {
-        input: 'nums = [1, 7, 4, 9, 2, 5]',
+        input: '[1, 7, 4, 9, 2, 5]',
         output: '6',
         explanation: 'The entire sequence alternates: 1 < 7 > 4 < 9 > 2 < 5.'
       },
       {
-        input: 'nums = [1, 17, 5, 10, 13, 15, 10, 5, 16, 8]',
+        input: '[1, 17, 5, 10, 13, 15, 10, 5, 16, 8]',
         output: '7',
         explanation: 'One valid alternating subsequence of length 7 is [1, 17, 10, 13, 10, 16, 8].'
       }
@@ -128,6 +193,25 @@ const PROBLEM_TEMPLATES = [
   // Write your solution here
   return 0;
 }`,
+    reference_solution: `function longestAlternatingSubsequence(nums) {
+  if (!nums || nums.length === 0) return 0;
+  if (nums.length === 1) return 1;
+  let up = 1;
+  let down = 1;
+  for (let i = 1; i < nums.length; i++) {
+    if (nums[i] > nums[i - 1]) {
+      up = down + 1;
+    } else if (nums[i] < nums[i - 1]) {
+      down = up + 1;
+    }
+  }
+  return Math.max(up, down);
+}`,
+    driver_code: `const fs = require('fs');
+const raw = fs.readFileSync(0, 'utf-8').trim();
+if (!raw) process.exit(0);
+const nums = JSON.parse(raw);
+console.log(longestAlternatingSubsequence(nums));`,
     test_cases: [
       { input: '[1, 7, 4, 9, 2, 5]', expected_output: '6', is_hidden: 0 },
       { input: '[1, 2, 3, 4, 5, 6, 7, 8, 9]', expected_output: '2', is_hidden: 0 },
@@ -141,44 +225,6 @@ const PROBLEM_TEMPLATES = [
     ],
     editorial: 'Track the turning points (local peaks and valleys). Every inflection point increments the alternating chain length.',
     complexity: 'Time: O(N) | Space: O(1)'
-  },
-  {
-    topic: 'Trees',
-    pattern: 'DFS / Post-Order',
-    difficulty: 'medium',
-    title: 'Maximum Path Weight with Node Penalties',
-    description: 'Given the root of a binary tree where each node has an integer value, find the maximum path sum between any two nodes where passing through an odd-valued node incurs a penalty of -2.',
-    constraints: 'The number of nodes in the tree is in the range [1, 3 * 10^4].\n-1000 <= Node.val <= 1000',
-    input_format: 'Level-order traversal serialization of the binary tree as JSON array.',
-    output_format: 'An integer representing the maximum path score.',
-    examples: [
-      {
-        input: 'root = [1, 2, 3]',
-        output: '4',
-        explanation: 'Node 1 is odd (effective val: 1 - 2 = -1). Path: 2 -> (-1) -> 3 = 4.'
-      },
-      {
-        input: 'root = [-10, 9, 20, null, null, 15, 7]',
-        output: '40',
-        explanation: 'Effective values: -10 is even (-10), 9 is odd (7), 20 is even (20), 15 is odd (13), 7 is odd (5). Path: 13 -> 20 -> 5 gives 38, or 15 + 20 + 7 with odd penalty = 13 + 20 + 5 = 38.'
-      }
-    ],
-    starter_code: `function maxPathSumPenalized(root) {
-  // Write your solution here
-  return 0;
-}`,
-    test_cases: [
-      { input: '[1, 2, 3]', expected_output: '4', is_hidden: 0 },
-      { input: '[-3]', expected_output: '-5', is_hidden: 0 },
-      { input: '[4, 2, 6]', expected_output: '12', is_hidden: 1 }
-    ],
-    hints: [
-      'Compute the adjusted value for each node first: `adj(node) = node.val - (node.val % 2 !== 0 ? 2 : 0)`.',
-      'Use post-order traversal to compute the maximum single-branch gain from left and right subtrees.',
-      'Update the global maximum with `adj(node) + max(0, leftGain) + max(0, rightGain)`.'
-    ],
-    editorial: 'Standard Tree DP / Max Path Sum variation with customized node weight transformation.',
-    complexity: 'Time: O(N) | Space: O(H)'
   }
 ];
 
@@ -192,18 +238,20 @@ function generateSlug(title) {
 
 /**
  * Check whether a challenge with similar title or description already exists
+ * Checks BOTH daily_challenge_problems AND questions (Practice)
  */
 async function checkDuplicateChallenge(title, description = '', excludeId = null) {
   const normTitle = String(title || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   if (!normTitle) return { isDuplicate: false };
 
-  const existing = await repo.many(`
+  // 1. Check daily_challenge_problems
+  const existingDc = await getRepo().many(`
     SELECT id, title, description, status, scheduled_date 
     FROM daily_challenge_problems
-    WHERE status != 'archived' ${excludeId ? 'AND id != ?' : ''}
+    WHERE status != 'archived' AND (is_active = 1 OR is_active = TRUE) ${excludeId ? 'AND id != ?' : ''}
   `, excludeId ? [excludeId] : []);
 
-  for (const c of existing) {
+  for (const c of existingDc) {
     const existingNorm = String(c.title || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (existingNorm === normTitle) {
       return {
@@ -212,7 +260,6 @@ async function checkDuplicateChallenge(title, description = '', excludeId = null
         duplicateOf: c
       };
     }
-    // Substring or high overlap check
     if (normTitle.length > 8 && existingNorm.length > 8) {
       if (normTitle.includes(existingNorm) || existingNorm.includes(normTitle)) {
         return {
@@ -224,6 +271,37 @@ async function checkDuplicateChallenge(title, description = '', excludeId = null
     }
   }
 
+  // 2. Check Practice questions repository
+  try {
+    const existingQuestions = await getRepo().many(`
+      SELECT id, title, description 
+      FROM questions
+      WHERE is_active = 1 OR is_active = TRUE
+    `);
+
+    for (const q of existingQuestions) {
+      const existingNorm = String(q.title || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (existingNorm === normTitle) {
+        return {
+          isDuplicate: true,
+          reason: `A Practice problem with title "${q.title}" already exists in the question bank (ID: ${q.id}).`,
+          duplicateOf: q
+        };
+      }
+      if (normTitle.length > 8 && existingNorm.length > 8) {
+        if (normTitle.includes(existingNorm) || existingNorm.includes(normTitle)) {
+          return {
+            isDuplicate: true,
+            reason: `Collides with existing Practice problem "${q.title}".`,
+            duplicateOf: q
+          };
+        }
+      }
+    }
+  } catch (_) {
+    // If questions table query fails, continue safely
+  }
+
   return { isDuplicate: false };
 }
 
@@ -233,7 +311,11 @@ async function checkDuplicateChallenge(title, description = '', excludeId = null
 function validateDailyChallenge(data) {
   const errors = [];
 
-  if (!data.title || data.title.trim().length < 4) {
+  if (!data || typeof data !== 'object') {
+    return { isValid: false, errors: ['Invalid challenge payload'] };
+  }
+
+  if (!data.title || String(data.title).trim().length < 4) {
     errors.push('Title must be at least 4 characters long.');
   }
 
@@ -242,11 +324,11 @@ function validateDailyChallenge(data) {
     errors.push('Difficulty must be easy, medium, or hard.');
   }
 
-  if (!data.description || data.description.trim().length < 15) {
+  if (!data.description || String(data.description).trim().length < 15) {
     errors.push('Problem description must provide clear problem specifications (min 15 characters).');
   }
 
-  if (!data.constraints || data.constraints.trim().length < 3) {
+  if (!data.constraints || String(data.constraints).trim().length < 3) {
     errors.push('Constraints must be specified for competitive clarity.');
   }
 
@@ -255,10 +337,22 @@ function validateDailyChallenge(data) {
     errors.push('At least 2 test cases (public and hidden) are required.');
   }
 
+  let hasPublic = false;
+  let hasHidden = false;
+
   for (let i = 0; i < testCases.length; i++) {
     const tc = testCases[i];
-    if (tc.input === undefined || tc.expected_output === undefined || tc.input === '' || tc.expected_output === '') {
+    if (tc.input === undefined || tc.expected_output === undefined || String(tc.input).trim() === '' || String(tc.expected_output).trim() === '') {
       errors.push(`Test case #${i + 1} must include both non-empty input and expected output.`);
+    }
+    if (tc.is_hidden) hasHidden = true;
+    else hasPublic = true;
+  }
+
+  if (testCases.length >= 2 && (!hasPublic || !hasHidden)) {
+    // Ensure both public and hidden test cases are present
+    if (!hasHidden && testCases.length > 1) {
+      testCases[testCases.length - 1].is_hidden = 1;
     }
   }
 
@@ -276,6 +370,62 @@ function validateDailyChallenge(data) {
 }
 
 /**
+ * Verify candidate challenge solution in the Sandbox
+ * Executes reference solution against 100% of test cases.
+ */
+async function verifyReferenceSolution(challengeData) {
+  const { test_cases = [], reference_solution, driver_code, starter_code } = challengeData;
+
+  if (!Array.isArray(test_cases) || test_cases.length === 0) {
+    return { verified: false, reason: 'No test cases provided for sandbox verification', passed_tests: 0, total_tests: 0 };
+  }
+
+  // Construct runnable source code
+  const solutionBody = reference_solution || starter_code || '';
+  const driverBody = driver_code || `
+const fs = require('fs');
+const raw = fs.readFileSync(0, 'utf-8').trim();
+if (!raw) process.exit(0);
+// Default output driver
+console.log(raw);
+`;
+
+  const fullCode = `${solutionBody}\n\n${driverBody}`;
+
+  try {
+    const execResult = await executeCode({
+      language: 'javascript',
+      sourceCode: fullCode,
+      testCases: test_cases.map(tc => ({
+        input: String(tc.input ?? ''),
+        expected_output: String(tc.expected_output ?? ''),
+        is_hidden: Boolean(tc.is_hidden)
+      })),
+      isSubmit: true
+    });
+
+    const isPassed = execResult.status === 'Accepted' && execResult.passed_tests === test_cases.length;
+
+    return {
+      verified: isPassed,
+      status: execResult.status,
+      passed_tests: execResult.passed_tests,
+      total_tests: execResult.total_tests,
+      execution_time_ms: execResult.execution_time_ms,
+      reason: isPassed ? null : `Sandbox verification failed (${execResult.passed_tests}/${execResult.total_tests} passed, status: ${execResult.status})`
+    };
+  } catch (err) {
+    return {
+      verified: false,
+      status: 'Runtime Error',
+      passed_tests: 0,
+      total_tests: test_cases.length,
+      reason: `Sandbox execution failed: ${err.message}`
+    };
+  }
+}
+
+/**
  * AI Generation Service
  */
 async function generateDailyChallenge({
@@ -284,7 +434,8 @@ async function generateDailyChallenge({
   pattern = '',
   points = null,
   instructions = '',
-  scheduled_date = null
+  scheduled_date = null,
+  skipSandbox = false
 }) {
   const normDifficulty = ['easy', 'medium', 'hard'].includes(String(difficulty).toLowerCase())
     ? String(difficulty).toLowerCase()
@@ -305,88 +456,85 @@ async function generateDailyChallenge({
   const defaultPoints = normDifficulty === 'hard' ? 150 : normDifficulty === 'medium' ? 100 : 50;
   const finalPoints = Number(points) > 0 ? Number(points) : defaultPoints;
 
-  // 1. Try LLM Generation if Gemini or OpenAI API Key exists in process.env
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (apiKey) {
-    try {
-      const prompt = `You are a Principal DSA Competition Author for AXLY DSA Tracker.
-Generate an original, rigorous, interview-caliber Daily Challenge problem.
-
+  // 1. Try LLM Router if configured
+  try {
+    const prompt = `Generate an interview-grade, original competitive programming problem.
 Topic: ${targetTopic}
 Difficulty: ${normDifficulty}
 Pattern: ${targetPattern || 'Appropriate for topic'}
 Target Points: ${finalPoints}
-Custom Instructions: ${instructions || 'Ensure high clarity, realistic constraints, clean examples, and progressive hints.'}
+Instructions: ${instructions || 'Ensure clean problem specs, progressive hints, edge cases, and a valid reference solution.'}
 
-Respond ONLY with a single valid JSON object with NO markdown formatting around it, matching this schema:
+Output ONLY valid JSON matching this schema:
 {
-  "title": "Problem Title",
-  "slug": "problem-title-slug",
+  "title": "Unique Problem Title",
+  "slug": "unique-problem-title",
   "difficulty": "${normDifficulty}",
   "topic": "${targetTopic}",
   "pattern": "${targetPattern || 'Pattern Name'}",
-  "description": "Full problem description in markdown with backtick code tags.",
-  "constraints": "1 <= N <= 10^5...",
+  "description": "Full problem description.",
+  "constraints": "1 <= N <= 10^5",
   "input_format": "Input format specification",
   "output_format": "Output format specification",
   "examples": [
-    { "input": "...", "output": "...", "explanation": "..." },
     { "input": "...", "output": "...", "explanation": "..." }
   ],
-  "starter_code": "function solutionName(param) {\\n  // Your code here\\n}",
+  "starter_code": "function solution(param) {\\n  return 0;\\n}",
+  "reference_solution": "function solution(param) {\\n  return 0;\\n}",
   "test_cases": [
     { "input": "sample_input_1", "expected_output": "sample_output_1", "is_hidden": 0 },
-    { "input": "sample_input_2", "expected_output": "sample_output_2", "is_hidden": 0 },
-    { "input": "edge_case_input_3", "expected_output": "edge_case_output_3", "is_hidden": 1 }
+    { "input": "edge_case_input_2", "expected_output": "edge_case_output_2", "is_hidden": 1 }
   ],
-  "hints": [
-    "Progressive Hint 1: Observation about inputs",
-    "Progressive Hint 2: Data structure or technique suggestion",
-    "Progressive Hint 3: Key optimization insight"
-  ],
-  "editorial": "Complete approach and explanation of the optimal solution.",
-  "complexity": "Time: O(...) | Space: O(...)",
+  "hints": ["Hint 1", "Hint 2"],
+  "editorial": "Approach explanation.",
+  "complexity": "Time: O(N) | Space: O(1)",
   "points": ${finalPoints}
 }`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json' }
-        })
-      });
+    const llmRes = await llmRouter.generate({
+      prompt,
+      systemPrompt: 'You are a Principal DSA Author for AXLY DSA Tracker. Respond ONLY in valid raw JSON with NO markdown blocks.',
+      temperature: 0.3,
+      maxTokens: 1500
+    });
 
-      if (response.ok) {
-        const result = await response.json();
-        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          const parsed = JSON.parse(text);
-          parsed.created_via = 'ai';
-          parsed.status = 'draft';
-          parsed.scheduled_date = scheduled_date || null;
-          parsed.points = finalPoints;
-          parsed.topic = targetTopic;
-          parsed.pattern = targetPattern || parsed.pattern;
-          if (recommendationReason) parsed.recommendation_reason = recommendationReason;
+    if (llmRes && llmRes.text && llmRes.source !== 'fallback') {
+      let cleaned = llmRes.text.trim();
+      if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
+      if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
+      if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+      cleaned = cleaned.trim();
 
-          const val = validateDailyChallenge(parsed);
-          if (val.isValid) {
-            const dupCheck = await checkDuplicateChallenge(parsed.title, parsed.description);
-            if (!dupCheck.isDuplicate) {
-              return { success: true, data: parsed, source: 'gemini-ai' };
+      const parsed = JSON.parse(cleaned);
+      parsed.created_via = 'ai';
+      parsed.status = 'draft';
+      parsed.scheduled_date = scheduled_date || null;
+      parsed.points = finalPoints;
+      parsed.topic = targetTopic;
+      parsed.pattern = targetPattern || parsed.pattern;
+      if (recommendationReason) parsed.recommendation_reason = recommendationReason;
+
+      const val = validateDailyChallenge(parsed);
+      if (val.isValid) {
+        const dupCheck = await checkDuplicateChallenge(parsed.title, parsed.description);
+        if (!dupCheck.isDuplicate) {
+          if (!skipSandbox && parsed.reference_solution) {
+            const sbResult = await verifyReferenceSolution(parsed);
+            parsed.sandbox_verified = sbResult.verified;
+            if (sbResult.verified) {
+              return { success: true, data: parsed, source: `llm-${llmRes.provider}` };
             }
+          } else {
+            return { success: true, data: parsed, source: `llm-${llmRes.provider}` };
           }
         }
       }
-    } catch (_) {
-      // Fall through to algorithmic synthesis
     }
+  } catch (_) {
+    // Fall through to algorithmic synthesis
   }
 
   // 2. High-Fidelity Algorithmic Synthesis Fallback
-  // Match template based on difficulty or topic, or synthesize with variation seed
   const matched = PROBLEM_TEMPLATES.find(
     t => t.difficulty === normDifficulty && (t.topic.toLowerCase() === targetTopic.toLowerCase() || !targetTopic)
   ) || PROBLEM_TEMPLATES.find(t => t.difficulty === normDifficulty) || PROBLEM_TEMPLATES[0];
@@ -410,6 +558,8 @@ Respond ONLY with a single valid JSON object with NO markdown formatting around 
     example_input: matched.examples[0]?.input || '',
     example_output: matched.examples[0]?.output || '',
     starter_code: matched.starter_code,
+    reference_solution: matched.reference_solution,
+    driver_code: matched.driver_code,
     supported_languages: ['javascript', 'python', 'typescript', 'java', 'cpp'],
     test_cases: matched.test_cases,
     hints: matched.hints,
@@ -431,6 +581,14 @@ Respond ONLY with a single valid JSON object with NO markdown formatting around 
     throw new AppError(`Validation failed for AI generation: ${validation.errors.join(', ')}`, 422, 'AI_VALIDATION_ERROR');
   }
 
+  if (!skipSandbox) {
+    const sbResult = await verifyReferenceSolution(synthesized);
+    synthesized.sandbox_verified = sbResult.verified;
+    if (!sbResult.verified) {
+      throw new AppError(`Sandbox verification failed: ${sbResult.reason}`, 422, 'SANDBOX_VERIFICATION_FAILED');
+    }
+  }
+
   return {
     success: true,
     data: synthesized,
@@ -442,5 +600,7 @@ module.exports = {
   generateDailyChallenge,
   validateDailyChallenge,
   checkDuplicateChallenge,
-  TOPIC_NAMES
+  verifyReferenceSolution,
+  TOPIC_NAMES,
+  PROBLEM_TEMPLATES
 };

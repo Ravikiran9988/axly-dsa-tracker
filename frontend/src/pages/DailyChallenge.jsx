@@ -54,7 +54,7 @@ export default function DailyChallenge({ onSelectProblem }) {
         </div>
         <div className="card p-12 flex flex-col items-center text-center space-y-3">
           <Calendar className="w-10 h-10 text-slate-600" strokeWidth={1.5} />
-          <h2 className="text-base font-semibold text-slate-300">No Daily Challenge available today.</h2>
+          <h2 className="text-base font-semibold text-slate-300">No challenge scheduled for today yet.</h2>
           <p className="text-sm text-slate-500 max-w-xs">A new competitive problem will appear here once scheduled by your admin.</p>
           <button onClick={load} className="btn-secondary btn-sm inline-flex items-center gap-1.5 mt-2">
             <RefreshCw className="w-3.5 h-3.5" /> Check again

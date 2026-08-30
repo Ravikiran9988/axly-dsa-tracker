@@ -10,12 +10,17 @@ const {
   updateDailyChallenge,
   scheduleDailyChallenge,
   publishDailyChallenge,
+  publishNowDailyChallenge,
   unpublishDailyChallenge,
   archiveDailyChallenge,
   deleteDailyChallenge,
   getDailyChallengeTopics,
   recommendTopic,
-  createDailyChallengeFromPractice
+  createDailyChallengeFromPractice,
+  getAutomationStatus,
+  updateAutomationSettings,
+  runAutomationNow,
+  getAutomationLogs
 } = require('../controllers/dailyChallengeController');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
@@ -29,18 +34,27 @@ router.post('/recommend-topic', requireRole('admin'), recommendTopic);
 // Public / Student active challenge endpoint
 router.get('/today', getTodayDailyChallenge);
 
-// Repository listing and details
-router.get('/', listDailyChallenges);
-router.get('/:id', getDailyChallenge);
+// Automation endpoints (Admin Only) - Mounted before /:id
+router.get('/automation/status', requireRole('admin'), getAutomationStatus);
+router.patch('/automation/settings', requireRole('admin'), updateAutomationSettings);
+router.post('/automation/run-now', requireRole('admin'), runAutomationNow);
+router.get('/automation/logs', requireRole('admin'), getAutomationLogs);
 
-// Admin-only creation, AI generation, and lifecycle actions
+// Repository listing
+router.get('/', listDailyChallenges);
+
+// Admin-only creation, AI generation, duplicate validation
 router.post('/from-practice', requireRole('admin'), createDailyChallengeFromPractice);
 router.post('/generate-ai', requireRole('admin'), generateAiChallenge);
 router.post('/validate-duplicate', requireRole('admin'), validateDuplicate);
 router.post('/', requireRole('admin'), createDailyChallenge);
+
+// Specific challenge operations
+router.get('/:id', getDailyChallenge);
 router.put('/:id', requireRole('admin'), updateDailyChallenge);
 router.post('/:id/schedule', requireRole('admin'), scheduleDailyChallenge);
 router.post('/:id/publish', requireRole('admin'), publishDailyChallenge);
+router.post('/:id/publish-now', requireRole('admin'), publishNowDailyChallenge);
 router.post('/:id/unpublish', requireRole('admin'), unpublishDailyChallenge);
 router.patch('/:id/unpublish', requireRole('admin'), unpublishDailyChallenge);
 router.post('/:id/archive', requireRole('admin'), archiveDailyChallenge);

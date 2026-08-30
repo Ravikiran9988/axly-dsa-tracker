@@ -1,10 +1,18 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
-const { getCalendarDate, getUserStreaks } = require('./streakService');
+const { getUserStreaks } = require('./streakService');
 const { checkDuplicateChallenge, validateDailyChallenge } = require('./aiDailyChallengeService');
+const {
+  getCanonicalUtcDate,
+  getNextCanonicalUtcDate,
+  isValidDateString,
+  isFutureUtcDate
+} = require('../utils/dateUtils');
 
-function getRepo() { return getRepository(); }
+function getRepo() {
+  return getRepository();
+}
 
 function safeParseJson(value, fallback = null) {
   if (!value) return fallback;
@@ -45,21 +53,38 @@ function generateSlug(title) {
 }
 
 function getTodayDateString() {
-  return getCalendarDate();
+  return getCanonicalUtcDate();
 }
 
+/**
+ * Asserts that a target calendar date is available for assignment.
+ * Throws 409 Conflict if another active, non-archived challenge is assigned to it.
+ */
 async function assertDateAvailable(date, excludeId = null) {
   if (!date) return;
+  if (!isValidDateString(date)) {
+    throw new AppError('Invalid date format (expected YYYY-MM-DD)', 400, 'VALIDATION_ERROR', 'date');
+  }
+
   const existing = await getRepo().one(
     `SELECT id, title, scheduled_date FROM daily_challenge_problems 
-     WHERE scheduled_date = ? AND status != 'archived' AND is_active = 1 ${excludeId ? 'AND id != ?' : ''}`,
+     WHERE scheduled_date = ? AND status != 'archived' AND (is_active = 1 OR is_active = TRUE) ${excludeId ? 'AND id != ?' : ''}`,
     excludeId ? [date, excludeId] : [date]
   );
+
   if (existing) {
-    throw new AppError(`A Daily Challenge ("${existing.title}") is already scheduled for ${date}. Only one challenge can be scheduled per date.`, 409, 'DATE_CONFLICT', 'date');
+    throw new AppError(
+      `Another Daily Challenge ("${existing.title}") is already scheduled for ${date}.`,
+      409,
+      'DATE_CONFLICT',
+      'scheduled_date'
+    );
   }
 }
 
+/**
+ * List Daily Challenges with filtering, pagination, and KPI counters
+ */
 async function listDailyChallenges({ status, difficulty, topic_id, search, date, page = 1, limit = 50 }) {
   const conditions = [];
   const params = [];
@@ -121,7 +146,6 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   const allStatusCounts = await getRepo().many(`
     SELECT status, COUNT(*) AS count
     FROM daily_challenge_problems
-    WHERE is_active = 1
     GROUP BY status
   `);
 
@@ -152,17 +176,20 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
     WHERE (dc.scheduled_date = ? OR dc.id IN (SELECT challenge_id FROM daily_questions WHERE date = ?))
-      AND dc.is_active = 1 AND dc.status != 'archived'
+      AND (dc.is_active = 1 OR dc.is_active = TRUE) 
+      AND dc.status IN ('published', 'scheduled')
     ORDER BY dc.updated_at DESC LIMIT 1
   `, [todayStr, todayStr]);
 
-  // Find next scheduled challenge
+  // Find next scheduled challenge (strictly future)
   const nextScheduledRow = await getRepo().one(`
     SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
-    WHERE dc.scheduled_date > ? AND dc.status IN ('scheduled', 'published') AND dc.is_active = 1
+    WHERE dc.scheduled_date > ? 
+      AND dc.status IN ('scheduled', 'published') 
+      AND (dc.is_active = 1 OR dc.is_active = TRUE)
     ORDER BY dc.scheduled_date ASC LIMIT 1
   `, [todayStr]);
 
@@ -203,6 +230,9 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   };
 }
 
+/**
+ * Get Daily Challenge by ID
+ */
 async function getDailyChallengeById(id, isPrivileged = false) {
   const challenge = await getRepo().one(`
     SELECT 
@@ -252,6 +282,9 @@ async function getDailyChallengeById(id, isPrivileged = false) {
   };
 }
 
+/**
+ * Create a new Daily Challenge (Manual or AI draft)
+ */
 async function createDailyChallenge(data, admin_id) {
   const {
     title,
@@ -286,8 +319,8 @@ async function createDailyChallenge(data, admin_id) {
     test_cases = []
   } = data;
 
-  if (!title || !title.trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
-  if (!description || !description.trim()) throw new AppError('Description is required', 400, 'VALIDATION_ERROR', 'description');
+  if (!title || !String(title).trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
+  if (!description || !String(description).trim()) throw new AppError('Description is required', 400, 'VALIDATION_ERROR', 'description');
   if (!['easy', 'medium', 'hard'].includes(String(difficulty || '').toLowerCase())) {
     throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
   }
@@ -295,14 +328,14 @@ async function createDailyChallenge(data, admin_id) {
     throw new AppError('Points must be greater than 0', 400, 'VALIDATION_ERROR', 'points');
   }
 
-  // Duplicate title check
+  // Duplicate check across Daily Challenges and Practice
   const dupCheck = await checkDuplicateChallenge(title, description);
   if (dupCheck.isDuplicate) {
     throw new AppError(dupCheck.reason, 409, 'DUPLICATE_CHALLENGE', 'title');
   }
 
   if (scheduled_date) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduled_date)) {
+    if (!isValidDateString(scheduled_date)) {
       throw new AppError('Invalid scheduled date format (expected YYYY-MM-DD)', 400, 'VALIDATION_ERROR', 'scheduled_date');
     }
     if (status === 'scheduled' || status === 'published') {
@@ -400,11 +433,33 @@ async function createDailyChallenge(data, admin_id) {
   return getDailyChallengeById(id, true);
 }
 
+/**
+ * Update an existing Daily Challenge with Controlled Editing for Published Problems
+ */
 async function updateDailyChallenge(id, data, admin_id) {
   const current = await getRepo().one('SELECT * FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!current) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
-  if (data.scheduled_date && (data.status === 'scheduled' || data.status === 'published' || current.status === 'scheduled')) {
+  const isPublished = current.status === 'published';
+
+  // Check if live submissions exist
+  const submissionRow = await getRepo().one(
+    'SELECT COUNT(*) AS sub_count FROM submissions WHERE question_id = ?',
+    [id]
+  );
+  const hasSubmissions = Number(submissionRow?.sub_count || 0) > 0;
+
+  // Controlled Editing Protection for Published Challenges
+  if (isPublished) {
+    if (data.scheduled_date && data.scheduled_date !== current.scheduled_date) {
+      throw new AppError('Cannot change scheduled date of an already published challenge.', 400, 'PROTECTED_FIELD_ERROR', 'scheduled_date');
+    }
+    if (data.points !== undefined && Number(data.points) !== Number(current.points) && hasSubmissions) {
+      throw new AppError('Cannot modify points of a published challenge with existing student submissions.', 400, 'PROTECTED_FIELD_ERROR', 'points');
+    }
+  }
+
+  if (data.scheduled_date && data.scheduled_date !== current.scheduled_date && (data.status === 'scheduled' || data.status === 'published' || current.status === 'scheduled')) {
     await assertDateAvailable(data.scheduled_date, id);
   }
 
@@ -471,6 +526,11 @@ async function updateDailyChallenge(id, data, admin_id) {
     }
 
     if (Array.isArray(data.test_cases)) {
+      if (isPublished && hasSubmissions) {
+        // Reject test case replacement if submissions exist
+        throw new AppError('Cannot replace test cases of a live published challenge with active student submissions.', 400, 'PROTECTED_FIELD_ERROR', 'test_cases');
+      }
+
       await tx.execute('DELETE FROM daily_challenge_test_cases WHERE challenge_id = ?', [id]);
       for (const tc of data.test_cases) {
         if (tc && tc.input !== undefined && tc.expected_output !== undefined) {
@@ -488,7 +548,9 @@ async function updateDailyChallenge(id, data, admin_id) {
       }
     }
 
-    if (data.scheduled_date && (data.status === 'scheduled' || data.status === 'published' || current.status === 'scheduled')) {
+    const effectiveDate = data.scheduled_date || current.scheduled_date;
+    const effectiveStatus = data.status || current.status;
+    if (effectiveDate && (effectiveStatus === 'scheduled' || effectiveStatus === 'published')) {
       await tx.execute(`
         INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
         VALUES (?, ?, ?, ?, ?)
@@ -496,16 +558,24 @@ async function updateDailyChallenge(id, data, admin_id) {
           question_id = excluded.question_id,
           challenge_id = excluded.challenge_id,
           created_by = excluded.created_by
-      `, [uuidv4(), id, id, data.scheduled_date, admin_id || 'usr-admin-01']);
+      `, [uuidv4(), id, id, effectiveDate, admin_id || 'usr-admin-01']);
     }
   });
 
   return getDailyChallengeById(id, true);
 }
 
+/**
+ * Schedule a Daily Challenge for a strictly future calendar date (UTC)
+ */
 async function scheduleDailyChallenge(id, date, admin_id) {
-  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  if (!date || !isValidDateString(date)) {
     throw new AppError('Valid date in YYYY-MM-DD format is required', 400, 'VALIDATION_ERROR', 'date');
+  }
+
+  const todayUtc = getCanonicalUtcDate();
+  if (!isFutureUtcDate(date, todayUtc)) {
+    throw new AppError('Scheduled date must be in the future relative to UTC today.', 400, 'VALIDATION_ERROR', 'date');
   }
 
   const challenge = await getRepo().one('SELECT id, status, is_active FROM daily_challenge_problems WHERE id = ?', [id]);
@@ -534,27 +604,44 @@ async function scheduleDailyChallenge(id, date, admin_id) {
   return getDailyChallengeById(id, true);
 }
 
+/**
+ * Normal Publish / Approve:
+ * - If draft with no date -> assigns today's canonical UTC date & status = 'published'.
+ * - If draft or scheduled with future date -> retains future date & status = 'published'.
+ */
 async function publishDailyChallenge(id, admin_id) {
-  const challenge = await getRepo().one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT id, title, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
-  const nextStatus = challenge.status === 'published'
-    ? (challenge.scheduled_date ? 'scheduled' : 'draft')
-    : 'published';
-  
-  if (nextStatus === 'published' && challenge.scheduled_date) {
-    await assertDateAvailable(challenge.scheduled_date, id);
+  let targetDate = challenge.scheduled_date;
+  const todayUtc = getCanonicalUtcDate();
+
+  if (!targetDate) {
+    targetDate = todayUtc;
   }
 
-  await getRepo().execute(`
-    UPDATE daily_challenge_problems 
-    SET status = ?, updated_at = CURRENT_TIMESTAMP 
-    WHERE id = ?
-  `, [nextStatus, id]);
+  await assertDateAvailable(targetDate, id);
+
+  await getRepo().transaction(async tx => {
+    await tx.execute(`
+      UPDATE daily_challenge_problems 
+      SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `, [targetDate, id]);
+
+    await tx.execute(`
+      INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(date) DO UPDATE SET
+        question_id = excluded.question_id,
+        challenge_id = excluded.challenge_id,
+        created_by = excluded.created_by
+    `, [uuidv4(), id, id, targetDate, admin_id || 'usr-admin-01']);
+  });
 
   const result = await getDailyChallengeById(id, true);
 
-  if (nextStatus === 'published' || (nextStatus === 'scheduled' && challenge.scheduled_date === getTodayDateString())) {
+  if (targetDate === todayUtc) {
     try {
       const notificationService = require('./notificationService');
       await notificationService.broadcastNotification({
@@ -570,11 +657,60 @@ async function publishDailyChallenge(id, admin_id) {
   return result;
 }
 
+/**
+ * Explicit Publish Now:
+ * Assigns today's canonical UTC date regardless of previous date,
+ * validates availability, and publishes immediately.
+ */
+async function publishNowDailyChallenge(id, admin_id) {
+  const challenge = await getRepo().one('SELECT id, title, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+
+  const todayUtc = getCanonicalUtcDate();
+  await assertDateAvailable(todayUtc, id);
+
+  await getRepo().transaction(async tx => {
+    await tx.execute(`
+      UPDATE daily_challenge_problems 
+      SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `, [todayUtc, id]);
+
+    await tx.execute(`
+      INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(date) DO UPDATE SET
+        question_id = excluded.question_id,
+        challenge_id = excluded.challenge_id,
+        created_by = excluded.created_by
+    `, [uuidv4(), id, id, todayUtc, admin_id || 'usr-admin-01']);
+  });
+
+  const result = await getDailyChallengeById(id, true);
+
+  try {
+    const notificationService = require('./notificationService');
+    await notificationService.broadcastNotification({
+      title: `New Daily Challenge: ${result.title}`,
+      message: `Today's competitive challenge is live! Solve it to earn +${result.points || 100} pts and build your streak.`,
+      category: 'daily_challenge',
+      type: 'daily_challenge_published',
+      link: '/daily-challenge'
+    });
+  } catch (_) {}
+
+  return result;
+}
+
+/**
+ * Unpublish Daily Challenge (revert to scheduled if future date, or draft)
+ */
 async function unpublishDailyChallenge(id, admin_id) {
   const challenge = await getRepo().one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
-  const nextStatus = challenge.scheduled_date ? 'scheduled' : 'draft';
+  const todayUtc = getCanonicalUtcDate();
+  const nextStatus = (challenge.scheduled_date && challenge.scheduled_date > todayUtc) ? 'scheduled' : 'draft';
 
   await getRepo().execute(`
     UPDATE daily_challenge_problems 
@@ -585,6 +721,9 @@ async function unpublishDailyChallenge(id, admin_id) {
   return getDailyChallengeById(id, true);
 }
 
+/**
+ * Archive Daily Challenge (soft-archive, retains historical submissions)
+ */
 async function archiveDailyChallenge(id) {
   const challenge = await getRepo().one('SELECT id FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
@@ -598,6 +737,9 @@ async function archiveDailyChallenge(id) {
   return { success: true, message: 'Daily challenge archived' };
 }
 
+/**
+ * Permanently Delete Daily Challenge
+ */
 async function deleteDailyChallenge(id) {
   const challenge = await getRepo().one('SELECT id, title FROM daily_challenge_problems WHERE id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
@@ -611,6 +753,12 @@ async function deleteDailyChallenge(id) {
   return { success: true, message: `Daily challenge "${challenge.title}" deleted successfully` };
 }
 
+/**
+ * Student Daily Challenge query:
+ * Returns strictly today's valid published/scheduled challenge.
+ * Hides drafts, future, and archived challenges.
+ * Masks hidden test cases for students.
+ */
 async function getTodayDailyChallenge(user = null, targetDate = null) {
   const dateStr = targetDate || getTodayDateString();
 
@@ -630,7 +778,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     LIMIT 1
   `, [dateStr]);
 
-  // 2. Fallback query if no record found by exact scheduled_date: Check daily_questions mapping
+  // 2. Fallback query: Check daily_questions mapping for dateStr
   if (!challenge) {
     challenge = await getRepo().one(`
       SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
@@ -644,7 +792,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     `, [dateStr, dateStr]);
   }
 
-  // 3. If no published/scheduled challenge exists for today, return null (do NOT fall back to arbitrary old/future challenges)
+  // 3. If no published/scheduled challenge exists for today, return null (do NOT fall back to old/future challenges)
   if (!challenge) {
     return { data: null, message: 'No Daily Challenge available today.' };
   }
@@ -693,6 +841,9 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
   };
 }
 
+/**
+ * Create Daily Challenge from Practice problem
+ */
 async function createDailyChallengeFromPractice(data, admin_id) {
   const { question_id, title, points, difficulty, scheduled_date } = data;
   const question = await getRepo().one('SELECT * FROM questions WHERE id = ?', [question_id]);
@@ -734,9 +885,10 @@ module.exports = {
   updateDailyChallenge,
   scheduleDailyChallenge,
   publishDailyChallenge,
+  publishNowDailyChallenge,
   unpublishDailyChallenge,
   archiveDailyChallenge,
   deleteDailyChallenge,
-  getTodayDailyChallenge
+  getTodayDailyChallenge,
+  assertDateAvailable
 };
-

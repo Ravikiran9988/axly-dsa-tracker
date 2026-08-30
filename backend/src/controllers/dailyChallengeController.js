@@ -1,5 +1,12 @@
 const dailyChallengeService = require('../services/dailyChallengeService');
 const { generateDailyChallenge, checkDuplicateChallenge, validateDailyChallenge: validateChallengeData } = require('../services/aiDailyChallengeService');
+const {
+  getAutomationSettings,
+  updateAutomationSettings: updateAutoSettings,
+  getAutomationLogs: fetchAutoLogs,
+  runAutomationPipeline
+} = require('../services/dailyChallengeAutomationService');
+const { getNextCanonicalUtcDate, getCanonicalUtcDate } = require('../utils/dateUtils');
 
 async function listDailyChallenges(req, res, next) {
   try {
@@ -50,14 +57,15 @@ async function createDailyChallenge(req, res, next) {
 
 async function generateAiChallenge(req, res, next) {
   try {
-    const { topic, difficulty, pattern, points, instructions, scheduled_date } = req.body;
+    const { topic, difficulty, pattern, points, instructions, scheduled_date, skipSandbox } = req.body;
     const result = await generateDailyChallenge({
       topic,
       difficulty,
       pattern,
       points,
       instructions,
-      scheduled_date
+      scheduled_date,
+      skipSandbox: Boolean(skipSandbox)
     });
     return res.status(200).json(result);
   } catch (err) {
@@ -100,7 +108,17 @@ async function publishDailyChallenge(req, res, next) {
   try {
     const { id } = req.params;
     const result = await dailyChallengeService.publishDailyChallenge(id, req.user.id);
-    return res.status(200).json({ data: result, message: 'Daily challenge status updated' });
+    return res.status(200).json({ data: result, message: 'Daily challenge published successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function publishNowDailyChallenge(req, res, next) {
+  try {
+    const { id } = req.params;
+    const result = await dailyChallengeService.publishNowDailyChallenge(id, req.user.id);
+    return res.status(200).json({ data: result, message: "Daily challenge published for today's active challenge" });
   } catch (err) {
     next(err);
   }
@@ -166,6 +184,63 @@ async function createDailyChallengeFromPractice(req, res, next) {
   }
 }
 
+// Automation Controller Handlers
+async function getAutomationStatus(req, res, next) {
+  try {
+    const settings = await getAutomationSettings();
+    const logs = await fetchAutoLogs(10);
+    const nextTargetDate = getNextCanonicalUtcDate();
+    const todayUtc = getCanonicalUtcDate();
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        settings,
+        today_utc: todayUtc,
+        next_target_date: nextTargetDate,
+        generation_time_utc: '00:00 UTC',
+        recent_logs: logs
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateAutomationSettings(req, res, next) {
+  try {
+    const { mode, is_enabled, retry_limit } = req.body;
+    const updated = await updateAutoSettings({ mode, is_enabled, retry_limit });
+    return res.status(200).json({ success: true, data: updated, message: 'Automation settings updated successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function runAutomationNow(req, res, next) {
+  try {
+    const { target_date } = req.body;
+    const result = await runAutomationPipeline({
+      targetDate: target_date,
+      force: true,
+      adminId: req.user.id
+    });
+    return res.status(result.success ? 200 : 422).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getAutomationLogs(req, res, next) {
+  try {
+    const { limit } = req.query;
+    const logs = await fetchAutoLogs(limit || 50);
+    return res.status(200).json({ success: true, data: logs });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listDailyChallenges,
   getTodayDailyChallenge,
@@ -177,9 +252,14 @@ module.exports = {
   updateDailyChallenge,
   scheduleDailyChallenge,
   publishDailyChallenge,
+  publishNowDailyChallenge,
   unpublishDailyChallenge,
   archiveDailyChallenge,
   deleteDailyChallenge,
   getDailyChallengeTopics,
-  recommendTopic
+  recommendTopic,
+  getAutomationStatus,
+  updateAutomationSettings,
+  runAutomationNow,
+  getAutomationLogs
 };

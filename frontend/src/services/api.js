@@ -76,10 +76,18 @@ export const api = {
   async updateDailyChallenge(id, data) { return request(`/daily-challenges/${id}`, { method: 'PUT', body: JSON.stringify(data) }); },
   async scheduleDailyChallenge(id, data) { return request(`/daily-challenges/${id}/schedule`, { method: 'POST', body: JSON.stringify(data) }); },
   async publishDailyChallenge(id) { return request(`/daily-challenges/${id}/publish`, { method: 'POST' }); },
+  async publishNowDailyChallenge(id) { return request(`/daily-challenges/${id}/publish-now`, { method: 'POST' }); },
   async unpublishDailyChallenge(id) { return request(`/daily-challenges/${id}/unpublish`, { method: 'POST' }); },
+  async archiveDailyChallenge(id) { return request(`/daily-challenges/${id}/archive`, { method: 'POST' }); },
   async getDailyChallengeTopics() { return request('/daily-challenges/topics'); },
   async recommendDailyChallengeTopic(params = {}) { return request('/daily-challenges/recommend-topic', { method: 'POST', body: JSON.stringify(params) }); },
   async deleteDailyChallenge(id) { return request(`/daily-challenges/${id}`, { method: 'DELETE' }); },
+
+  // Daily Challenge Automation
+  async getDailyChallengeAutomationStatus() { return request('/daily-challenges/automation/status'); },
+  async updateDailyChallengeAutomationSettings(data) { return request('/daily-challenges/automation/settings', { method: 'PATCH', body: JSON.stringify(data) }); },
+  async runDailyChallengeAutomationNow(data = {}) { return request('/daily-challenges/automation/run-now', { method: 'POST', body: JSON.stringify(data) }); },
+  async getDailyChallengeAutomationLogs(limit = 20) { return request(`/daily-challenges/automation/logs?limit=${limit}`); },
 
   // Code Execution & Submissions
   async runCode(data) { return request('/code/run', { method: 'POST', body: JSON.stringify(data) }); },
