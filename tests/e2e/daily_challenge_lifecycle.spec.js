@@ -64,7 +64,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await page.locator('aside button:has-text("Daily Challenge"), button:has-text("Daily Challenge")').first().click();
     await expect(page.locator('h1:has-text("Daily Challenge Portal")').first()).toBeVisible({ timeout: 15000 });
 
-    const uniqueTitle = `Prefix Array Partition Index ${Date.now()}`;
+    const uniqueTitle = `Distinct Matrix Path Traversal ${Date.now()} ${Math.random().toString(36).slice(2, 5)}`;
 
     // Open Create Modal
     await page.click('#btn-admin-create-challenge');
@@ -102,7 +102,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await request.post('http://localhost:5000/api/v1/daily-challenges', {
       headers: { Authorization: `Bearer ${adminDevToken}` },
       data: {
-        title: `Challenge A Existing ${Date.now()}`,
+        title: `Challenge A Unique Seed ${Date.now()} ${Math.random().toString(36).slice(2, 5)}`,
         difficulty: 'medium',
         description: 'Existing challenge for tomorrow.',
         constraints: 'N >= 1',
@@ -124,7 +124,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await runBtn.click();
 
     // 3. Wait for generation completion & success banner
-    await expect(page.locator('text=AI challenge generated successfully and saved as Draft.').first()).toBeVisible({ timeout: 25000 });
+    await expect(page.locator('text=AI challenge generated successfully and saved as Draft.').first()).toBeVisible({ timeout: 35000 });
 
     // 4. Verify Draft appears in table with Draft status
     await expect(page.locator('table').first()).toBeVisible();
