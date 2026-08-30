@@ -40,10 +40,6 @@ export function AuthProvider({ children }) {
           setUser(response.user);
           setError(null);
         }
-        // Clean URL if currently on /auth/callback or containing hash tokens
-        if (window.location.pathname.includes('/auth/callback') || window.location.hash.includes('access_token')) {
-          window.history.replaceState({}, document.title, '/');
-        }
         return response.user;
       } catch (err) {
         console.warn('Session verification failed, resetting token:', err.message);
@@ -60,24 +56,57 @@ export function AuthProvider({ children }) {
     }
 
     async function initAuth() {
-      // Clean URL if OAuth error params or invalid state are present
-      if (typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        const errDesc = urlParams.get('error_description') || urlParams.get('error');
-        if (errDesc) {
-          console.warn('OAuth redirect notice:', errDesc);
-          window.history.replaceState({}, document.title, window.location.pathname || '/');
+      // Supabase OAuth returns to the frontend with a PKCE `code`.
+      // Exchange it explicitly before checking the session so Google OAuth
+      // works reliably in production as well as localhost.
+      if (supabase && typeof window !== 'undefined') {
+        try {
+          const url = new URL(window.location.href);
+          const code = url.searchParams.get('code');
+
+          if (code) {
+            const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeError) throw exchangeError;
+
+            if (data.session?.access_token) {
+              await syncBackendSession(data.session.access_token);
+              window.history.replaceState({}, document.title, '/');
+              return;
+            }
+          }
+
+          // Clean OAuth error parameters after Supabase has had a chance to
+          // process them. Do not treat them as an authenticated session.
+          const oauthError = url.searchParams.get('error');
+          const oauthErrorDescription = url.searchParams.get('error_description');
+          if (oauthError) {
+            console.warn('OAuth redirect error:', oauthErrorDescription || oauthError);
+            if (isMounted) {
+              setError(oauthErrorDescription || oauthError);
+              setLoading(false);
+            }
+            window.history.replaceState({}, document.title, '/login');
+            return;
+          }
+        } catch (oauthErr) {
+          console.warn('OAuth code exchange failed:', oauthErr.message);
+          if (isMounted) {
+            setError(oauthErr.message || 'Google authentication failed. Please try again.');
+            setLoading(false);
+          }
+          window.history.replaceState({}, document.title, '/login');
+          return;
         }
       }
 
-      // 1. Check local session token first for instantaneous session resolution
+      // 1. Check local backend session token first.
       const token = localStorage.getItem('axly_auth_token');
       if (token) {
         await syncBackendSession(token);
         return;
       }
 
-      // 2. If Supabase is active, check active session from URL hash / local session
+      // 2. Check any existing Supabase session.
       if (supabase) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -95,7 +124,7 @@ export function AuthProvider({ children }) {
 
     initAuth();
 
-    // 3. Subscribe to Supabase OAuth auth state transitions
+    // 3. Subscribe to Supabase auth state transitions.
     if (supabase) {
       const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.access_token) {
@@ -129,7 +158,9 @@ export function AuthProvider({ children }) {
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        // Return to the SPA root. This avoids a Vercel 404 for /auth/callback;
+        // initAuth() above exchanges the returned PKCE code for a session.
+        redirectTo: window.location.origin
       }
     });
     if (signInError) throw signInError;
