@@ -32,7 +32,10 @@ async function verifyTables(activePool) {
       'audit_logs',
       'dsa_ai_logs',
       'daily_challenge_automation_settings',
-      'daily_challenge_automation_logs'
+      'daily_challenge_automation_logs',
+      'assignments',
+      'cohorts',
+      'cohort_members'
     ];
 
     const result = await client.query(`
