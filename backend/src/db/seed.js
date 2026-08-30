@@ -905,7 +905,7 @@ print(find_median(nums1, nums2))`
       for (let idx = 0; idx < q.test_cases.length; idx++) {
         const tc = q.test_cases[idx];
         insertTestCase.run(`tc-${q.id}-${idx + 1}`, q.id, tc.input, tc.expected_output, Boolean(tc.is_hidden));
-      });
+      }
     }
   });
 
