@@ -4,6 +4,7 @@
   "description": "Axly DSA Tracker - Production Full-Stack Application",
   "private": true,
   "scripts": {
+    "start": "npm --prefix backend start",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
