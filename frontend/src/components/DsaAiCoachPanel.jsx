@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import {
   Sparkles, HelpCircle, BookOpen, Compass, Code2, Clock, CheckCircle2,
-  Bug, Copy, Check, AlertCircle, RefreshCw, ChevronRight, Layers,
+  Bug, Copy, Check, AlertCircle, Layers,
   Terminal, ShieldCheck, XCircle, Send, User, RotateCcw, Trash2,
   BookMarked, ChevronDown, MessageSquare
 } from 'lucide-react';
@@ -19,6 +19,18 @@ const HELP_ACTIONS = [
   { id: 'DEBUG',       label: 'Debug',       icon: Bug,         emoji: '🐛', group: 'code',      color: 'text-rose-400   border-rose-500/30   bg-rose-500/10   hover:bg-rose-500/20'   },
   { id: 'CODE_REVIEW', label: 'Review Code', icon: ShieldCheck, emoji: '🔍', group: 'code',      color: 'text-blue-400   border-blue-500/30   bg-blue-500/10   hover:bg-blue-500/20'   }
 ];
+
+const NEXT_ACTIONS_MAP = {
+  EXPLAIN:     ['HINT', 'APPROACH', 'SOLUTION', 'COMPLEXITY'],
+  HINT:        ['HINT', 'APPROACH', 'EXPLAIN', 'SOLUTION'],
+  APPROACH:    ['HINT', 'EXPLAIN', 'SOLUTION', 'COMPLEXITY'],
+  SOLUTION:    ['COMPLEXITY', 'CODE_REVIEW', 'DEBUG', 'EXPLAIN'],
+  COMPLEXITY:  ['APPROACH', 'SOLUTION', 'EXPLAIN'],
+  DEBUG:       ['CODE_REVIEW', 'APPROACH', 'SOLUTION', 'COMPLEXITY'],
+  CODE_REVIEW: ['DEBUG', 'APPROACH', 'COMPLEXITY', 'SOLUTION']
+};
+
+const CODE_ATTACHED_NEXT_ACTIONS = ['DEBUG', 'CODE_REVIEW', 'APPROACH', 'SOLUTION'];
 
 const STARTER_SUGGESTIONS = [
   {
@@ -67,10 +79,6 @@ const DIFFICULTY_COLORS = {
   hard:   'text-rose-400    bg-rose-500/10    border-rose-500/20'
 };
 
-/**
- * Renders AI markdown response with syntax-highlighted code blocks.
- * Uses react-markdown + remark-gfm + rehype-highlight.
- */
 function MarkdownMessage({ content }) {
   return (
     <div className="prose prose-invert prose-sm max-w-none dsa-ai-markdown">
@@ -136,7 +144,6 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
   const [messages, setMessages] = useState([]);
   const [hintLevel, setHintLevel] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [loadingTurnId, setLoadingTurnId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [userCode, setUserCode] = useState(currentCode || '');
@@ -147,7 +154,6 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Smart auto-scroll: only scroll to bottom when user is near bottom
   const scrollToBottom = useCallback((force = false) => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -161,14 +167,12 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
     scrollToBottom();
   }, [messages, loading, scrollToBottom]);
 
-  // Update starter code when currentCode prop changes
   useEffect(() => {
     if (currentCode && !userCode) {
       setUserCode(currentCode);
     }
   }, [currentCode]);
 
-  // Detect problem context change and inject a system note
   useEffect(() => {
     const newId = problem?.id || null;
     if (newId !== prevProblemId) {
@@ -188,7 +192,6 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
     }
   }, [problem?.id]);
 
-  // Build conversation history for backend LLM (last 6 turns = 12 messages)
   const buildConversationHistory = useCallback(() => {
     return messages
       .filter(m => m.role === 'user' || m.role === 'assistant')
@@ -200,7 +203,6 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
       .filter(m => m.content && m.content.trim().length > 0);
   }, [messages]);
 
-  // Clear chat
   const handleClearChat = () => {
     setMessages([]);
     setHintLevel(0);
@@ -211,17 +213,14 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
   const handleCustomSubmit = (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
-    // 1. Capture the current input value
     const submittedMessage = query.trim();
     if (!submittedMessage || loading) return;
 
-    // 2. IMMEDIATELY clear the input field
+    // Immediately clear input field
     setQuery('');
 
-    // 3. Capture code if attached
     const attachedCode = (showCodeEditor && userCode.trim()) ? userCode.trim() : (currentCode || '');
 
-    // 4. Add User Message to conversation with pendingActionSelection = true
     const userMsgId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const userMessageObj = {
       id: userMsgId,
@@ -238,36 +237,20 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
     setTimeout(() => scrollToBottom(true), 50);
   };
 
-  // Triggered when user chooses an action for a specific user message turn
-  const handleSelectActionForTurn = async (turnId, actionId) => {
-    if (loading) return;
-
-    const targetTurn = messages.find(m => m.id === turnId);
-    if (!targetTurn) return;
-
-    const questionText = targetTurn.text;
-    const attachedCode = targetTurn.code || (showCodeEditor ? userCode : currentCode);
-
-    // 1. Visually mark the selected action and clear pending prompt
-    setMessages(prev => prev.map(m => {
-      if (m.id === turnId) {
-        return { ...m, pendingAction: false, selectedAction: actionId };
-      }
-      return m;
-    }));
-
+  // Execute coach request for a turn
+  const executeActionRequest = async (turnId, actionId, questionText, codeOverride) => {
     setLoading(true);
-    setLoadingTurnId(turnId);
 
     try {
       const conversationHistory = buildConversationHistory();
+      const attachedCode = codeOverride || (showCodeEditor ? userCode : currentCode);
 
       const res = await api.getDsaAiCoach({
-        question: questionText,
+        question: questionText || (problem ? `Help with ${problem.title}` : 'Help with this problem'),
         problemId: problem?.id,
         action: actionId,
-        language: targetTurn.codeLang || codeLang,
-        code: (actionId === 'CODE_REVIEW' || actionId === 'DEBUG' || targetTurn.code) ? (attachedCode || undefined) : undefined,
+        language: codeLang,
+        code: (actionId === 'CODE_REVIEW' || actionId === 'DEBUG' || attachedCode) ? (attachedCode || undefined) : undefined,
         hintIndex: actionId === 'HINT' ? hintLevel : 0,
         verify: actionId === 'SOLUTION',
         conversationHistory
@@ -281,7 +264,6 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
 
       const sourceLabel = aiResponseData.displaySource || aiResponseData.source || '';
 
-      // Append AI response message to conversation stream
       const aiMessageObj = {
         id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         turnId,
@@ -319,68 +301,69 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
         errorText: errMsg,
         retryAction: actionId,
         retryTurnId: turnId,
+        retryQuestionText: questionText,
+        retryCode: codeOverride,
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, errorMsgObj]);
     } finally {
       setLoading(false);
-      setLoadingTurnId(null);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   };
 
-  // Progressive Next Hint handler directly from AI response bubble
-  const handleNextHint = async (turnId) => {
+  // User selects an action from the initial "What do you need help with?" selector
+  const handleSelectActionForTurn = async (turnId, actionId) => {
     if (loading) return;
+
     const targetTurn = messages.find(m => m.id === turnId);
-    const questionText = targetTurn?.text || (problem ? `Hint for ${problem.title}` : 'Hint for this problem');
+    if (!targetTurn) return;
 
-    setLoading(true);
-    setLoadingTurnId(turnId);
+    const questionText = targetTurn.text;
+    const attachedCode = targetTurn.code || (showCodeEditor ? userCode : currentCode);
 
-    try {
-      const conversationHistory = buildConversationHistory();
-      const currentHintIdx = hintLevel;
+    setMessages(prev => prev.map(m => {
+      if (m.id === turnId) {
+        return { ...m, pendingAction: false, selectedAction: actionId };
+      }
+      return m;
+    }));
 
-      const res = await api.getDsaAiCoach({
-        question: questionText,
-        problemId: problem?.id,
-        action: 'HINT',
-        hintIndex: currentHintIdx,
-        conversationHistory
-      });
-
-      const aiResponseData = res.data || {};
-      setHintLevel(currentHintIdx + 1);
-
-      const aiMessageObj = {
-        id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        turnId,
-        role: 'assistant',
-        text: aiResponseData.answer || 'Here is the next hint.',
-        data: aiResponseData,
-        topic: aiResponseData.topic,
-        pattern: aiResponseData.pattern,
-        complexity: aiResponseData.complexity,
-        source: aiResponseData.source,
-        displaySource: aiResponseData.displaySource || aiResponseData.source,
-        intent: 'HINT',
-        hintLevel: currentHintIdx + 1,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, aiMessageObj]);
-    } catch (err) {
-      // Handled silently or with inline notification
-    } finally {
-      setLoading(false);
-      setLoadingTurnId(null);
-    }
+    await executeActionRequest(turnId, actionId, questionText, attachedCode);
   };
 
-  const handleResetHints = () => {
-    setHintLevel(0);
+  // User clicks a contextual "What would you like to do next?" action after AI response
+  const handleWhatNextAction = async (fromAiMsg, nextActionId) => {
+    if (loading) return;
+
+    const actCfg = HELP_ACTIONS.find(a => a.id === nextActionId);
+    const parentUserTurn = messages.find(m => m.id === fromAiMsg.turnId);
+    const originalQuestion = parentUserTurn?.text || (problem ? problem.title : 'this concept');
+    const attachedCode = parentUserTurn?.code || (showCodeEditor ? userCode : currentCode);
+
+    const isNextHint = nextActionId === 'HINT' && (fromAiMsg.intent === 'HINT' || fromAiMsg.hintLevel);
+    const actionDisplayLabel = isNextHint ? 'Next Hint' : (actCfg?.label || nextActionId);
+
+    // Create a new user turn in the chat for this follow-up action
+    const newUserMsgId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const newUserTurn = {
+      id: newUserMsgId,
+      role: 'user',
+      text: originalQuestion,
+      isFollowUpAction: true,
+      actionLabel: actionDisplayLabel,
+      selectedAction: nextActionId,
+      pendingAction: false,
+      code: attachedCode || undefined,
+      codeLang,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, newUserTurn]);
+    setTimeout(() => scrollToBottom(true), 50);
+
+    await executeActionRequest(newUserMsgId, nextActionId, originalQuestion, attachedCode);
   };
 
   // Starter suggestion click handler
@@ -393,7 +376,6 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  // Handle Enter vs Shift+Enter
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -401,13 +383,23 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
     }
   };
 
-  // Copy code helper
   const handleCopyCode = (code, msgId) => {
     if (code) {
       navigator.clipboard.writeText(code);
       setCopiedId(msgId);
       setTimeout(() => setCopiedId(null), 2000);
     }
+  };
+
+  // Compute what next actions for an AI response
+  const getNextActionsForAiMsg = (aiMsg) => {
+    if (aiMsg.isError) return [];
+    const hasCode = Boolean(showCodeEditor || userCode || currentCode || aiMsg.code);
+    if (hasCode && (aiMsg.intent === 'DEBUG' || aiMsg.intent === 'CODE_REVIEW')) {
+      return CODE_ATTACHED_NEXT_ACTIONS;
+    }
+    const intentKey = (aiMsg.intent || 'EXPLAIN').toUpperCase();
+    return NEXT_ACTIONS_MAP[intentKey] || ['HINT', 'APPROACH', 'SOLUTION', 'COMPLEXITY'];
   };
 
   const inputPlaceholder = problem
@@ -599,29 +591,30 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
           // ─ User Message & Contextual Help Selection ─
           if (msg.role === 'user') {
             const selectedActCfg = HELP_ACTIONS.find(a => a.id === msg.selectedAction);
-            const SelectedIcon = selectedActCfg?.icon || MessageSquare;
 
             return (
               <div key={msg.id} className="space-y-2 animate-in fade-in duration-200">
-                <div className="flex justify-end">
-                  <div className="max-w-[85%] bg-cyan-500/10 border border-cyan-500/30 text-cyan-100 rounded-2xl rounded-tr-sm p-3.5 shadow-sm space-y-1.5">
-                    <div className="flex items-center justify-end gap-1.5 text-[10px] text-cyan-400 font-bold uppercase tracking-wider">
-                      <span>You</span>
-                      <User className="w-3 h-3 text-cyan-400" />
-                    </div>
-                    <div className="text-xs text-white font-medium break-words leading-relaxed">
-                      {msg.text}
-                    </div>
-                    {msg.code && (
-                      <div className="mt-1 pt-1 border-t border-cyan-500/20 text-[10px] font-mono text-cyan-300/80 flex items-center gap-1">
-                        <Terminal className="w-2.5 h-2.5" />
-                        <span>Code attached ({msg.codeLang || 'javascript'})</span>
+                {!msg.isFollowUpAction ? (
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] bg-cyan-500/10 border border-cyan-500/30 text-cyan-100 rounded-2xl rounded-tr-sm p-3.5 shadow-sm space-y-1.5">
+                      <div className="flex items-center justify-end gap-1.5 text-[10px] text-cyan-400 font-bold uppercase tracking-wider">
+                        <span>You</span>
+                        <User className="w-3 h-3 text-cyan-400" />
                       </div>
-                    )}
+                      <div className="text-xs text-white font-medium break-words leading-relaxed">
+                        {msg.text}
+                      </div>
+                      {msg.code && (
+                        <div className="mt-1 pt-1 border-t border-cyan-500/20 text-[10px] font-mono text-cyan-300/80 flex items-center gap-1">
+                          <Terminal className="w-2.5 h-2.5" />
+                          <span>Code attached ({msg.codeLang || 'javascript'})</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
-                {/* ─── Contextual Help Selector (Appears After Question) ─── */}
+                {/* ─── Initial Contextual Help Selector (Appears After Question) ─── */}
                 {msg.pendingAction && !loading && (
                   <div className="space-y-2.5 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 shadow-md animate-in fade-in duration-200">
                     <div className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
@@ -630,44 +623,36 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                     </div>
 
                     <div className="space-y-2 pt-1">
-                      {/* Primary Actions */}
                       <div className="flex flex-wrap gap-1.5">
-                        {HELP_ACTIONS.filter(a => a.group === 'primary').map((act) => {
-                          const Icon = act.icon;
-                          return (
-                            <button
-                              id={`btn-action-${act.id.toLowerCase()}`}
-                              key={act.id}
-                              type="button"
-                              onClick={() => handleSelectActionForTurn(msg.id, act.id)}
-                              disabled={loading}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${act.color} disabled:opacity-50 shadow-sm`}
-                            >
-                              <span>{act.emoji}</span>
-                              <span>{act.label}</span>
-                            </button>
-                          );
-                        })}
+                        {HELP_ACTIONS.filter(a => a.group === 'primary').map((act) => (
+                          <button
+                            id={`btn-action-${act.id.toLowerCase()}`}
+                            key={act.id}
+                            type="button"
+                            onClick={() => handleSelectActionForTurn(msg.id, act.id)}
+                            disabled={loading}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${act.color} disabled:opacity-50 shadow-sm`}
+                          >
+                            <span>{act.emoji}</span>
+                            <span>{act.label}</span>
+                          </button>
+                        ))}
                       </div>
 
-                      {/* Secondary & Code Actions */}
                       <div className="flex flex-wrap gap-1.5 pt-0.5 border-t border-slate-800/60">
-                        {HELP_ACTIONS.filter(a => a.group !== 'primary').map((act) => {
-                          const Icon = act.icon;
-                          return (
-                            <button
-                              id={`btn-action-${act.id.toLowerCase()}`}
-                              key={act.id}
-                              type="button"
-                              onClick={() => handleSelectActionForTurn(msg.id, act.id)}
-                              disabled={loading}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${act.color} disabled:opacity-50`}
-                            >
-                              <span>{act.emoji}</span>
-                              <span>{act.label}</span>
-                            </button>
-                          );
-                        })}
+                        {HELP_ACTIONS.filter(a => a.group !== 'primary').map((act) => (
+                          <button
+                            id={`btn-action-${act.id.toLowerCase()}`}
+                            key={act.id}
+                            type="button"
+                            onClick={() => handleSelectActionForTurn(msg.id, act.id)}
+                            disabled={loading}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all ${act.color} disabled:opacity-50`}
+                          >
+                            <span>{act.emoji}</span>
+                            <span>{act.label}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -680,7 +665,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                       <span>Selected:</span>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${selectedActCfg.color}`}>
                         <span>{selectedActCfg.emoji}</span>
-                        <span>{selectedActCfg.label}</span>
+                        <span>{msg.actionLabel || selectedActCfg.label}</span>
                       </span>
                     </div>
                   </div>
@@ -699,10 +684,10 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                     <div className="font-semibold">Unable to generate a response right now.</div>
                   </div>
                   <p className="text-slate-300 text-xs">{msg.errorText}</p>
-                  {msg.retryTurnId && msg.retryAction && (
+                  {msg.retryAction && (
                     <button
                       type="button"
-                      onClick={() => handleSelectActionForTurn(msg.retryTurnId, msg.retryAction)}
+                      onClick={() => executeActionRequest(msg.retryTurnId, msg.retryAction, msg.retryQuestionText, msg.retryCode)}
                       disabled={loading}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 rounded-lg text-xs font-semibold transition-colors"
                     >
@@ -718,6 +703,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
           // ─ Assistant Response ─
           const sourceLabel = msg.displaySource || msg.source || '';
           const sourceCls = SOURCE_CONFIG[sourceLabel]?.cls || 'text-slate-400 bg-slate-800 border-slate-700';
+          const nextActions = getNextActionsForAiMsg(msg);
 
           return (
             <div key={msg.id} className="flex justify-start animate-in fade-in duration-200">
@@ -775,7 +761,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                   </div>
                 )}
 
-                {/* Standalone Code Snippet Box (for Solution / Code responses) */}
+                {/* Standalone Code Snippet Box */}
                 {msg.code && (
                   <div className="rounded-xl border border-slate-800 bg-[#050811] overflow-hidden">
                     <div className="px-3 py-1.5 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between text-xs">
@@ -824,25 +810,35 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                   </div>
                 )}
 
-                {/* Progressive Next Hint Buttons */}
-                {msg.intent === 'HINT' && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => handleNextHint(msg.turnId)}
-                      disabled={loading}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors disabled:opacity-50"
-                    >
-                      Next Hint <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleResetHints}
-                      disabled={loading}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw className="w-3 h-3" /> Reset Hints
-                    </button>
+                {/* ─── Contextual "What would you like to do next?" Section ─── */}
+                {nextActions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-800/80 space-y-2">
+                    <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-cyan-400" />
+                      <span>What would you like to do next?</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nextActions.map((actionId) => {
+                        const actCfg = HELP_ACTIONS.find(a => a.id === actionId);
+                        if (!actCfg) return null;
+                        const isNextHint = actionId === 'HINT' && (msg.intent === 'HINT' || msg.hintLevel);
+                        const labelText = isNextHint ? 'Next Hint' : actCfg.label;
+
+                        return (
+                          <button
+                            id={`btn-next-action-${actionId.toLowerCase()}`}
+                            key={actionId}
+                            type="button"
+                            onClick={() => handleWhatNextAction(msg, actionId)}
+                            disabled={loading}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${actCfg.color} disabled:opacity-50 shadow-sm`}
+                          >
+                            <span>{actCfg.emoji}</span>
+                            <span>{labelText}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
