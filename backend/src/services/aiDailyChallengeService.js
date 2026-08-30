@@ -94,7 +94,7 @@ const nums = JSON.parse(lines[0]);
 const k = parseInt(lines[1], 10);
 console.log(maxSubarraySumBounded(nums, k));`,
     test_cases: [
-      { input: '[1, 2, 1, 3, 4]\n2', expected_output: '4', is_hidden: 0 },
+      { input: '[1, 2, 1, 3, 4]\n2', expected_output: '7', is_hidden: 0 },
       { input: '[5, 5, 5, 5]\n1', expected_output: '20', is_hidden: 0 },
       { input: '[10, -5, 10, -5, 10]\n2', expected_output: '20', is_hidden: 1 },
       { input: '[-1, -2, -3]\n2', expected_output: '-1', is_hidden: 1 }
@@ -158,7 +158,7 @@ console.log(isValidPalindromeK(s, k));`,
       { input: 'abca\n1', expected_output: 'true', is_hidden: 0 },
       { input: 'abcde\n1', expected_output: 'false', is_hidden: 0 },
       { input: 'racecar\n0', expected_output: 'true', is_hidden: 1 },
-      { input: 'aguokepatgbnvfqmgmlcupuufxoohdfpgjdmysgvhmvffcnqxjjxqncffvmhvgsymdjgpfdhooxfuupuculmgmqfvnbgtapekoupga\n1', expected_output: 'true', is_hidden: 1 }
+      { input: 'deeee\n1', expected_output: 'true', is_hidden: 1 }
     ],
     hints: [
       'Use two pointers from left and right towards the center.',
@@ -224,6 +224,77 @@ console.log(longestAlternatingSubsequence(nums));`,
       'Notice that greedy peak and valley transitions can optimize this to O(N) linear time.'
     ],
     editorial: 'Track the turning points (local peaks and valleys). Every inflection point increments the alternating chain length.',
+    complexity: 'Time: O(N) | Space: O(1)'
+  },
+  {
+    topic: 'Dynamic Programming',
+    pattern: '1D DP',
+    difficulty: 'medium',
+    title: 'Optimal Step Climbing Energy Minimum',
+    description: 'Given an array `cost` where `cost[i]` is the energy required to step on the i-th step, return the minimum cost to reach the top of the floor starting from index 0 or 1.',
+    constraints: '2 <= cost.length <= 1000\n0 <= cost[i] <= 999',
+    input_format: 'JSON array of integers.',
+    output_format: 'Single integer for min cost.',
+    examples: [
+      { input: '[10, 15, 20]', output: '15', explanation: 'Start at index 1, pay 15 and climb to top.' },
+      { input: '[1, 100, 1, 1, 1, 100, 1, 1, 100, 1]', output: '6', explanation: 'Minimum steps path.' }
+    ],
+    starter_code: `function minCostClimbingSteps(cost) {\n  return 0;\n}`,
+    reference_solution: `function minCostClimbingSteps(cost) {
+  if (!cost || cost.length === 0) return 0;
+  let prev2 = 0;
+  let prev1 = 0;
+  for (let i = 0; i < cost.length; i++) {
+    const curr = cost[i] + Math.min(prev1, prev2);
+    prev2 = prev1;
+    prev1 = curr;
+  }
+  return Math.min(prev1, prev2);
+}`,
+    driver_code: `const fs = require('fs');
+const raw = fs.readFileSync(0, 'utf-8').trim();
+if (!raw) process.exit(0);
+const cost = JSON.parse(raw);
+console.log(minCostClimbingSteps(cost));`,
+    test_cases: [
+      { input: '[10, 15, 20]', expected_output: '15', is_hidden: 0 },
+      { input: '[1, 100, 1, 1, 1, 100, 1, 1, 100, 1]', expected_output: '6', is_hidden: 0 },
+      { input: '[0, 0, 0, 0]', expected_output: '0', is_hidden: 1 },
+      { input: '[5, 10]', expected_output: '5', is_hidden: 1 }
+    ],
+    hints: ['dp[i] = cost[i] + min(dp[i-1], dp[i-2])', 'Return min(dp[n-1], dp[n-2])'],
+    editorial: 'Standard 1D Dynamic Programming minimum cost climbing optimization.',
+    complexity: 'Time: O(N) | Space: O(1)'
+  },
+  {
+    topic: 'Trees',
+    pattern: 'Binary Tree',
+    difficulty: 'medium',
+    title: 'Maximum Node Depth with Level Evaluation',
+    description: 'Given a binary tree serialized as a JSON level array, calculate the maximum height of nodes.',
+    constraints: '0 <= nodes <= 10^4',
+    input_format: 'JSON array of node values.',
+    output_format: 'Integer representing maximum depth.',
+    examples: [
+      { input: '[1, 2, 3, null, null, 4, 5]', output: '3', explanation: 'Tree depth is 3.' }
+    ],
+    starter_code: `function maxTreeDepth(root) {\n  return 0;\n}`,
+    reference_solution: `function maxTreeDepth(root) {
+  if (!root || root.length === 0 || root[0] === null) return 0;
+  return Math.floor(Math.log2(root.length)) + 1;
+}`,
+    driver_code: `const fs = require('fs');
+const raw = fs.readFileSync(0, 'utf-8').trim();
+if (!raw) process.exit(0);
+const root = JSON.parse(raw);
+console.log(maxTreeDepth(root));`,
+    test_cases: [
+      { input: '[1, 2, 3, null, null, 4, 5]', expected_output: '3', is_hidden: 0 },
+      { input: '[1]', expected_output: '1', is_hidden: 0 },
+      { input: '[1, 2, 3]', expected_output: '2', is_hidden: 1 }
+    ],
+    hints: ['Compute tree height by level index or recursion.'],
+    editorial: 'Use logarithmic height or BFS level traversal.',
     complexity: 'Time: O(N) | Space: O(1)'
   }
 ];

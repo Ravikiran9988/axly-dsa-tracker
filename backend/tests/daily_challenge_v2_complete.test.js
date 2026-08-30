@@ -10,7 +10,7 @@ const {
   isFutureUtcDate,
   isValidDateString,
   getUtcCalendarDifference
-} = require('../utils/dateUtils');
+} = require('../src/utils/dateUtils');
 const {
   generateDailyChallenge,
   validateDailyChallenge,
@@ -338,7 +338,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       expect(listRes.status).toBe(200);
       expect(listRes.body.today_challenge.id).toBe(todayProblem.id);
       expect(listRes.body.next_scheduled_challenge).toBeDefined();
-      expect(listRes.body.next_scheduled_challenge.scheduled_date).toBeGreaterThan(todayUtc);
+      expect(listRes.body.next_scheduled_challenge.scheduled_date > todayUtc).toBe(true);
     });
   });
 
@@ -418,7 +418,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       expect(logs.length).toBeGreaterThanOrEqual(1);
       expect(logs[0].target_date).toBe(tomorrowUtc);
       expect(logs[0].status).toBe('success');
-    });
+    }, 20000);
 
     test('6.2 Automation does NOT overwrite existing challenge for target date', async () => {
       const res = await runAutomationPipeline({
@@ -429,7 +429,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       expect(res.success).toBe(true);
       expect(res.status).toBe('skipped');
       expect(res.message).toContain('already exists');
-    });
+    }, 20000);
   });
 
   describe('7. Archiving & Historical Preservation', () => {

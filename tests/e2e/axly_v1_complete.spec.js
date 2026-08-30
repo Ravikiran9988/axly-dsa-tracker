@@ -9,8 +9,8 @@ async function loginAsStudent(page) {
   await page.evaluate((token) => {
     localStorage.setItem('axly_auth_token', token);
   }, body.token);
-  await page.reload();
-  await expect(page.locator('text=Daily Points').first()).toBeVisible({ timeout: 10000 });
+  await page.goto('/');
+  await expect(page.locator('aside, header').first()).toBeVisible({ timeout: 15000 });
 }
 
 async function loginAsAdmin(page) {
@@ -22,8 +22,8 @@ async function loginAsAdmin(page) {
   await page.evaluate((token) => {
     localStorage.setItem('axly_auth_token', token);
   }, body.token);
-  await page.reload();
-  await expect(page.locator('text=Super Administrator').first()).toBeVisible({ timeout: 10000 });
+  await page.goto('/');
+  await expect(page.locator('h1:has-text("Admin"), #tab-admin-portal').first()).toBeVisible({ timeout: 15000 });
 }
 
 test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {

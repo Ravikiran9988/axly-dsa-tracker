@@ -1295,6 +1295,10 @@ print(find_median(nums1, nums2))`
       is_hidden = excluded.is_hidden
   `);
 
+  try {
+    db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date IN (?, ?)").run(yesterdayUtc, todayUtc);
+  } catch (_) {}
+
   dailyChallenges.forEach(dc => {
     insertDailyChallenge.run(
       dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, dc.estimated_time,

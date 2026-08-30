@@ -375,6 +375,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             </button>
 
             <button
+              id="btn-admin-automation-logs"
               onClick={() => setShowLogsModal(true)}
               className="btn-secondary btn-sm text-xs text-slate-300 hover:text-white"
             >

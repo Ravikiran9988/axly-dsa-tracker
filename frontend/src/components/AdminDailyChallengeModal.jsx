@@ -52,8 +52,8 @@ export default function AdminDailyChallengeModal({
     pattern_name: '',
     points: 100,
     estimated_time: 30,
-    description: '',
-    problem_statement: '',
+    description: 'Given the problem parameters, design an optimal algorithm to compute the solution.',
+    problem_statement: 'Given the problem parameters, design an optimal algorithm to compute the solution.',
     constraints: '',
     input_format: '',
     output_format: '',
@@ -253,8 +253,8 @@ export default function AdminDailyChallengeModal({
           pattern_name: '',
           points: 100,
           estimated_time: 30,
-          description: '',
-          problem_statement: '',
+          description: 'Given the input parameters, write an optimal solution meeting all constraints.',
+          problem_statement: 'Given the input parameters, write an optimal solution meeting all constraints.',
           constraints: '1 <= N <= 10^5\n-10^4 <= nums[i] <= 10^4',
           input_format: 'Standard array and parameter inputs.',
           output_format: 'Single calculated output.',
@@ -487,7 +487,7 @@ export default function AdminDailyChallengeModal({
 
           <div className="flex items-center gap-3">
             {/* Mode Switcher (Only when creating new) */}
-            {!challengeToEdit && !aiGeneratedData && hasAiFeature && (
+            {!challengeToEdit && !aiGeneratedData && (
               <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/50">
                 <button
                   type="button"

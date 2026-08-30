@@ -314,9 +314,6 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_status ON daily_challenge_problems(status);
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_topic ON daily_challenge_problems(topic_id);
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_date ON daily_challenge_problems(scheduled_date);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_challenge_problems_unique_active_date 
-      ON daily_challenge_problems(scheduled_date) 
-      WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1;
 
     CREATE TABLE IF NOT EXISTS daily_challenge_test_cases (
       id TEXT PRIMARY KEY,
@@ -859,6 +856,27 @@ function initSchema() {
         VALUES ('global-settings', 'ai_assist', 1, 0, 3)
       `).run();
     }
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    db.prepare(`
+      UPDATE daily_challenge_problems 
+      SET scheduled_date = NULL 
+      WHERE id NOT IN (
+        SELECT MIN(id) 
+        FROM daily_challenge_problems 
+        WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1 
+        GROUP BY scheduled_date
+      ) AND scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1
+    `).run();
+
+    db.prepare(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_challenge_problems_unique_active_date 
+      ON daily_challenge_problems(scheduled_date) 
+      WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1
+    `).run();
   } catch (e) {
     // ignore
   }
