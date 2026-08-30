@@ -18,24 +18,26 @@ async function verifyTables(activePool) {
       'patterns',
       'questions',
       'question_versions',
-      'question_test_cases',
+      'test_cases',
       'daily_challenge_problems',
       'daily_challenge_test_cases',
       'daily_questions',
       'submissions',
-      'practice_user_progress',
+      'practice_progress',
       'code_submissions_log',
       'points_ledger',
       'notifications',
       'badges',
       'user_badges',
-      'audit_logs',
+      'admin_audit_logs',
       'dsa_ai_logs',
       'daily_challenge_automation_settings',
       'daily_challenge_automation_logs',
       'assignments',
       'cohorts',
-      'cohort_members'
+      'cohort_members',
+      'live_sessions',
+      'submission_score_audit'
     ];
 
     const result = await client.query(`
