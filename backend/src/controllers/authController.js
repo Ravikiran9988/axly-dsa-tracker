@@ -119,7 +119,7 @@ async function signup(req, res, next) {
         name: trimmedName,
         email: normalizedEmail,
         password_hash: passwordHash,
-        email_verified: 0
+        email_verified: false
       });
     }
 
@@ -207,7 +207,7 @@ async function verifyOtp(req, res, next) {
 
     // Mark token as used and set email_verified = 1
     await authUserRepository.markAuthTokenUsed(authToken.id);
-    await authUserRepository.setEmailVerified(user.id, 1);
+    await authUserRepository.setEmailVerified(user.id, true);
 
     const updatedUser = await authUserRepository.findUserById(user.id);
     await recordDailyLogin(updatedUser.id);
@@ -288,7 +288,7 @@ async function login(req, res, next) {
       if (!user) {
         const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : `${user_id}@example.com`;
         const name = normalizedEmail.split('@')[0];
-        user = await authUserRepository.provisionUser({ id: user_id, name, email: normalizedEmail, email_verified: 1 });
+        user = await authUserRepository.provisionUser({ id: user_id, name, email: normalizedEmail, email_verified: true });
       }
       const token = generateToken({ id: user.id, email: user.email, name: user.name, role: user.role });
       return res.status(200).json({ token, user });
@@ -386,7 +386,7 @@ async function verifyEmail(req, res, next) {
     }
 
     await authUserRepository.markAuthTokenUsed(authToken.id);
-    await authUserRepository.setEmailVerified(authToken.user_id, 1);
+    await authUserRepository.setEmailVerified(authToken.user_id, true);
 
     const user = await authUserRepository.findUserById(authToken.user_id);
     await recordDailyLogin(user.id);
@@ -534,7 +534,7 @@ async function devLogin(req, res, next) {
     if (!user) {
       const id = `usr-${Date.now()}`;
       const name = normalizedEmail.split('@')[0];
-      user = await authUserRepository.provisionUser({ id, name, email: normalizedEmail, email_verified: 1 });
+      user = await authUserRepository.provisionUser({ id, name, email: normalizedEmail, email_verified: true });
       if (role !== 'user') {
         const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : new SqliteRepository();
         await repo.execute('UPDATE users SET role = ? WHERE id = ?', [role, id]);

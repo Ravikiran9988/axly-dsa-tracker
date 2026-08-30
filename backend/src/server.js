@@ -13,6 +13,11 @@ async function startServer() {
       throw new Error(`PostgreSQL health check failed: ${health.reason || 'database unavailable'}`);
     }
     console.log('✅ Production PostgreSQL connection verified.');
+
+    // Run idempotent schema migrations on every startup (IF NOT EXISTS everywhere)
+    const { initPostgresSchema } = require('./db/postgresSchema');
+    await initPostgresSchema();
+    console.log('✅ PostgreSQL schema migrations applied.');
   } else {
     // Local / Test SQLite initialization
     const { initSchema } = require('./db/db');
