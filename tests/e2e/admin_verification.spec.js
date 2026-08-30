@@ -150,7 +150,7 @@ test.describe('Admin E2E Verification & Feature Testing', () => {
     await expect(page.locator('text="Submission Review Console"').first()).toBeVisible();
 
     // 4. Students
-    await page.locator('nav').locator('text="Students"').first().click();
+    await page.locator('nav').locator('button:has-text("Students")').first().click();
     await expect(page.locator('h1:has-text("User Management")').first()).toBeVisible();
     await expect(page.locator('table').first()).toBeVisible();
 

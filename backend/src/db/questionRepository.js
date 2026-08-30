@@ -63,7 +63,7 @@ function questionRepository() {
       for (const tc of cases || []) {
         if (!tc) continue;
         const id = tc.id || require('uuid').v4();
-        const isHidden = tc.is_hidden ? 1 : 0;
+        const isHidden = Boolean(tc.is_hidden);
         await repo.execute(
           'INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden) VALUES (?, ?, ?, ?, ?)',
           [id, questionId, String(tc.input || ''), String(tc.expected_output || ''), isHidden]

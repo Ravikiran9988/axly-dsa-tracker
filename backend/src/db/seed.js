@@ -902,8 +902,9 @@ print(find_median(nums1, nums2))`
 
     if (q.test_cases && q.test_cases.length > 0) {
       db.prepare('DELETE FROM test_cases WHERE question_id = ?').run(q.id);
-      q.test_cases.forEach((tc, idx) => {
-        insertTestCase.run(`tc-${q.id}-${idx + 1}`, q.id, tc.input, tc.expected_output, tc.is_hidden ? 1 : 0);
+      for (let idx = 0; idx < q.test_cases.length; idx++) {
+        const tc = q.test_cases[idx];
+        insertTestCase.run(`tc-${q.id}-${idx + 1}`, q.id, tc.input, tc.expected_output, Boolean(tc.is_hidden));
       });
     }
   });

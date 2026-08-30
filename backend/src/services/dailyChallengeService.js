@@ -425,7 +425,7 @@ async function createDailyChallenge(data, admin_id) {
             id,
             String(tc.input),
             String(tc.expected_output),
-            tc.is_hidden ? 1 : 0
+            Boolean(tc.is_hidden)
           ]);
         }
       }
@@ -501,7 +501,7 @@ async function updateDailyChallenge(id, data, admin_id) {
         if (key === 'starter_code' && typeof data[key] === 'object') {
           values.push(JSON.stringify(data[key]));
         } else if (key === 'is_active') {
-          values.push(data[key] ? 1 : 0);
+          values.push(Boolean(data[key]));
         } else {
           values.push(data[key]);
         }
@@ -557,7 +557,7 @@ async function updateDailyChallenge(id, data, admin_id) {
             id,
             String(tc.input),
             String(tc.expected_output),
-            tc.is_hidden ? 1 : 0
+            Boolean(tc.is_hidden)
           ]);
         }
       }

@@ -47,7 +47,7 @@ async function getAutomationSettings() {
 async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
   const current = await getAutomationSettings();
   const nextMode = mode && ['manual', 'ai_assist', 'auto_fill'].includes(mode) ? mode : current.mode;
-  const nextEnabled = is_enabled !== undefined ? (is_enabled ? 1 : 0) : (current.is_enabled ? 1 : 0);
+  const nextEnabled = is_enabled !== undefined ? Boolean(is_enabled) : Boolean(current.is_enabled);
   const nextRetryLimit = Number(retry_limit) > 0 ? Number(retry_limit) : current.retry_limit;
 
   await getRepo().execute(`

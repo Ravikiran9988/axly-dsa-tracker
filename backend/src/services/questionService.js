@@ -187,7 +187,7 @@ async function insertTestCases(questionId, testCases = [], currentRepo = repo) {
   for (const tc of testCases || []) {
     if (!tc) continue;
     const tcId = tc.id || uuidv4();
-    const isHidden = tc.is_hidden ? 1 : 0;
+    const isHidden = Boolean(tc.is_hidden);
     await currentRepo.execute(
       'INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden) VALUES (?, ?, ?, ?, ?)',
       [tcId, questionId, String(tc.input || ''), String(tc.expected_output || ''), isHidden]
@@ -289,7 +289,7 @@ async function updateQuestion(id, updates) {
       fields.push(`${column} = ?`);
       let val = updates[key];
       if (key === 'difficulty') val = String(val).toLowerCase();
-      else if (key === 'is_active') val = val ? 1 : 0;
+      else if (key === 'is_active') val = Boolean(val);
       else if (key === 'hints' && Array.isArray(val)) val = JSON.stringify(val);
       params.push(val);
     }
