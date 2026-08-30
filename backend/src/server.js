@@ -23,6 +23,10 @@ async function startServer() {
     seedPracticeProblems();
   }
 
+  // Initialize Background 00:00 UTC Daily Challenge Automation Scheduler
+  const { startAutomationScheduler } = require('./services/dailyChallengeAutomationService');
+  startAutomationScheduler();
+
   const server = app.listen(PORT, () => {
     console.log(`🚀 Axly DSA Tracker API running on port ${PORT}`);
     console.log(`📡 API Version 1 mounted at /api/v1`);

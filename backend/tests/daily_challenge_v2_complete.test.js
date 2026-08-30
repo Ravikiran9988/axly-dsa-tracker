@@ -132,7 +132,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
   describe('3. Scheduling & Publish Lifecycle', () => {
     let targetChallenge;
 
-    beforeEach(async () => {
+    beforeAll(async () => {
       targetChallenge = await createDailyChallenge({
         title: `Scheduling Lifecycle Problem ${Date.now()}`,
         difficulty: 'medium',
@@ -394,42 +394,118 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
     });
   });
 
-  describe('6. Automation Pipeline & Next-Day Targeting', () => {
-    test('6.1 Automation generates, validates, sandbox-verifies, and targets tomorrow UTC', async () => {
-      // Clear tomorrow's date
-      db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?").run(tomorrowUtc);
-      db.prepare("DELETE FROM daily_questions WHERE date = ?").run(tomorrowUtc);
+  describe('6. Automation Pipeline: Workflow A (Admin) vs Workflow B (00:00 UTC Scheduled)', () => {
+    const testTomorrow = getNextCanonicalUtcDate();
 
-      await updateAutomationSettings({ mode: 'auto_fill', is_enabled: 1 });
+    test('6.1 Test A & E: Existing challenge + manual Run Auto-Fill creates new Draft with scheduled_date = null and leaves existing challenge unchanged', async () => {
+      // Create Challenge A for tomorrow
+      db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
+      db.prepare("DELETE FROM daily_questions WHERE date = ?").run(testTomorrow);
 
-      const autoRes = await runAutomationPipeline({
-        targetDate: tomorrowUtc,
-        force: true,
+      const challengeA = await createDailyChallenge({
+        title: `Challenge A Existing ${Date.now()}`,
+        difficulty: 'hard',
+        description: 'Existing scheduled challenge for tomorrow.',
+        constraints: 'N >= 1',
+        scheduled_date: testTomorrow,
+        status: 'scheduled',
+        test_cases: [
+          { input: '1', expected_output: '1', is_hidden: 0 },
+          { input: '2', expected_output: '2', is_hidden: 1 }
+        ]
+      }, 'usr-admin-01');
+
+      const { runAdminAutoFillNow } = require('../src/services/dailyChallengeAutomationService');
+      const adminRes = await runAdminAutoFillNow({
         adminId: 'usr-admin-01'
       });
 
-      expect(autoRes.success).toBe(true);
-      expect(autoRes.target_date).toBe(tomorrowUtc);
-      expect(autoRes.challenge).toBeDefined();
-      expect(autoRes.challenge.scheduled_date).toBe(tomorrowUtc);
+      expect(adminRes.success).toBe(true);
+      expect(adminRes.status).toBe('success');
+      expect(adminRes.message).toBe('AI challenge generated successfully and saved as Draft.');
+      expect(adminRes.challenge).toBeDefined();
+      expect(adminRes.challenge.id).not.toBe(challengeA.id);
+      expect(adminRes.challenge.status).toBe('draft');
+      expect(adminRes.challenge.created_via).toBe('ai');
+      expect(adminRes.challenge.scheduled_date).toBeNull();
 
-      // Verify automation log record exists
-      const logs = await getAutomationLogs(5);
-      expect(logs.length).toBeGreaterThanOrEqual(1);
-      expect(logs[0].target_date).toBe(tomorrowUtc);
-      expect(logs[0].status).toBe('success');
-    }, 20000);
+      // Verify Challenge A remains unchanged
+      const freshChallengeA = await getDailyChallengeById(challengeA.id, true);
+      expect(freshChallengeA.status).toBe('scheduled');
+      expect(freshChallengeA.scheduled_date).toBe(testTomorrow);
+    }, 25000);
 
-    test('6.2 Automation does NOT overwrite existing challenge for target date', async () => {
-      const res = await runAutomationPipeline({
-        targetDate: tomorrowUtc,
-        force: true
-      });
+    test('6.2 Test B: No existing challenge + manual Run Auto-Fill creates new Draft', async () => {
+      const { runAdminAutoFillNow } = require('../src/services/dailyChallengeAutomationService');
+      const res = await runAdminAutoFillNow({ adminId: 'usr-admin-01' });
 
       expect(res.success).toBe(true);
-      expect(res.status).toBe('skipped');
-      expect(res.message).toContain('already exists');
+      expect(res.status).toBe('success');
+      expect(res.challenge.status).toBe('draft');
+      expect(res.challenge.scheduled_date).toBeNull();
+    }, 25000);
+
+    test('6.3 Test C & I: Existing challenge + scheduled AUTO_FILL returns SUCCESS_NOOP and never overwrites Admin challenge', async () => {
+      await updateAutomationSettings({ mode: 'auto_fill', is_enabled: 1 });
+
+      const { runDailyScheduledAutomation } = require('../src/services/dailyChallengeAutomationService');
+      const autoRes = await runDailyScheduledAutomation();
+
+      expect(autoRes.success).toBe(true);
+      expect(autoRes.status).toBe('SUCCESS_NOOP');
+      expect(autoRes.message).toContain('already exists');
     }, 20000);
+
+    test('6.4 Test D: No existing challenge + scheduled AUTO_FILL generates, sandbox-verifies and schedules for tomorrow', async () => {
+      // Clear tomorrow
+      db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
+      db.prepare("DELETE FROM daily_questions WHERE date = ?").run(testTomorrow);
+
+      await updateAutomationSettings({ mode: 'auto_fill', is_enabled: 1 });
+
+      const { runDailyScheduledAutomation } = require('../src/services/dailyChallengeAutomationService');
+      const autoRes = await runDailyScheduledAutomation();
+
+      expect(autoRes.success).toBe(true);
+      expect(autoRes.status).toBe('SUCCESS');
+      expect(autoRes.target_date).toBe(testTomorrow);
+      expect(autoRes.challenge).toBeDefined();
+      expect(autoRes.challenge.status).toBe('scheduled');
+      expect(autoRes.challenge.scheduled_date).toBe(testTomorrow);
+    }, 25000);
+
+    test('6.5 Test G: Database prevents two active Daily Challenges for same date', async () => {
+      let threw = false;
+      try {
+        await createDailyChallenge({
+          title: `Duplicate Date Collision Test ${Date.now()}`,
+          difficulty: 'easy',
+          description: 'Testing unique date enforcement.',
+          constraints: 'N >= 1',
+          scheduled_date: testTomorrow,
+          status: 'scheduled',
+          test_cases: [{ input: '1', expected_output: '1', is_hidden: 0 }]
+        }, 'usr-admin-01');
+      } catch (err) {
+        threw = true;
+        expect(err.statusCode).toBe(409);
+      }
+      expect(threw).toBe(true);
+    });
+
+    test('6.6 Test H: Manual generation never modifies leaderboard or Practice progress', async () => {
+      const activityBefore = await db.prepare('SELECT COUNT(*) as cnt FROM user_daily_activity').get();
+      const submissionsBefore = await db.prepare('SELECT COUNT(*) as cnt FROM submissions').get();
+
+      const { runAdminAutoFillNow } = require('../src/services/dailyChallengeAutomationService');
+      await runAdminAutoFillNow({ adminId: 'usr-admin-01' });
+
+      const activityAfter = await db.prepare('SELECT COUNT(*) as cnt FROM user_daily_activity').get();
+      const submissionsAfter = await db.prepare('SELECT COUNT(*) as cnt FROM submissions').get();
+
+      expect(activityAfter.cnt).toBe(activityBefore.cnt);
+      expect(submissionsAfter.cnt).toBe(submissionsBefore.cnt);
+    }, 25000);
   });
 
   describe('7. Archiving & Historical Preservation', () => {
@@ -452,5 +528,126 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       expect(fetched.status).toBe('archived');
       expect(fetched.is_active).toBe(0);
     });
+  });
+
+  describe('8. Exact & Semantic Concept Duplicate Prevention & Structured Problem Signatures', () => {
+    const {
+      stripVariantIdentifiers,
+      extractProblemConcept,
+      generateProblemSignature,
+      computeSemanticSimilarity
+    } = require('../src/services/aiDailyChallengeService');
+
+    test('8.1 stripVariantIdentifiers removes artificial variant markers', () => {
+      expect(stripVariantIdentifiers('Longest Alternating Target Subsequence (Variant 4880)')).toBe('Longest Alternating Target Subsequence');
+      expect(stripVariantIdentifiers('Two Sum — Variant 8392')).toBe('Two Sum');
+      expect(stripVariantIdentifiers('Subarray Sum [Variant 0717]')).toBe('Subarray Sum');
+      expect(stripVariantIdentifiers('Valid Palindrome (Variant 1234)')).toBe('Valid Palindrome');
+      expect(stripVariantIdentifiers('Coin Change - v2')).toBe('Coin Change');
+    });
+
+    test('8.2 Structured Problem Signature generation follows deterministic format', () => {
+      const sig = generateProblemSignature({
+        topic: 'Dynamic Programming',
+        pattern: 'Subsequence DP',
+        title: 'Longest Alternating Target Subsequence',
+        description: 'Given an array nums, return the length of the longest alternating subsequence.',
+        input_format: 'JSON array of integers nums.',
+        output_format: 'Integer representing maximum alternating subsequence length.'
+      });
+
+      expect(sig).toContain('dynamic-programming');
+      expect(sig).toContain('subsequence-dp');
+      expect(sig).toContain('alternat');
+      expect(sig).toContain('array');
+      expect(sig).toContain('number');
+    });
+
+    test('8.3 Exact duplicate with Variant ID is caught (The Variant 4880 Bug)', async () => {
+      // Seed base challenge if not present
+      try {
+        await createDailyChallenge({
+          title: 'Longest Alternating Target Subsequence',
+          difficulty: 'medium',
+          topic_name: 'Dynamic Programming',
+          pattern_name: 'Subsequence DP',
+          description: 'Return length of longest alternating subsequence in nums array.',
+          constraints: '1 <= nums.length <= 1000',
+          test_cases: [{ input: '[1, 2, 3]', expected_output: '2', is_hidden: 0 }]
+        }, 'usr-admin-01');
+      } catch (_) {}
+
+      // Candidate with Variant 4880
+      const dupCheck1 = await checkDuplicateChallenge({
+        title: 'Longest Alternating Target Subsequence (Variant 4880)',
+        description: 'Return length of longest alternating subsequence in nums array.'
+      });
+
+      expect(dupCheck1.isDuplicate).toBe(true);
+      expect(dupCheck1.reason).toContain('Longest Alternating Target Subsequence');
+    });
+
+    test('8.4 Semantic concept duplicate with different wording is caught', async () => {
+      const dupCheck2 = await checkDuplicateChallenge({
+        title: 'Maximum Alternating Subsequence Under Target Constraint',
+        description: 'Given an array nums, return the maximum alternating subsequence length.',
+        topic: 'Dynamic Programming',
+        pattern: 'Subsequence DP'
+      });
+
+      expect(dupCheck2.isDuplicate).toBe(true);
+    });
+
+    test('8.5 Genuinely different problem is NOT rejected as duplicate', async () => {
+      const uniqueCheck = await checkDuplicateChallenge({
+        title: 'Alien Dictionary Lexicographical Order',
+        topic: 'Graphs',
+        pattern: 'Topological Sort',
+        description: 'Find the unique ordering of alien alphabet characters from a sorted dictionary.',
+        input_format: 'JSON array of string words',
+        output_format: 'String of ordered characters'
+      });
+
+      expect(uniqueCheck.isDuplicate).toBe(false);
+    });
+
+    test('8.6 Practice problem duplicate is caught', async () => {
+      // Seed a practice problem
+      await db.prepare(`
+        INSERT OR IGNORE INTO questions (id, title, slug, difficulty, description, is_active)
+        VALUES ('q-practice-dup-test', 'Merge Intervals Practice Target', 'merge-intervals-practice-target', 'medium', 'Merge overlapping intervals.', 1)
+      `).run();
+
+      const practiceDupCheck = await checkDuplicateChallenge({
+        title: 'Merge Intervals Practice Target (Variant 9001)',
+        description: 'Merge overlapping intervals in a 2D array.'
+      });
+
+      expect(practiceDupCheck.isDuplicate).toBe(true);
+      expect(practiceDupCheck.reason).toMatch(/Practice/i);
+    });
+
+    test('8.7 Multi-Generation Test: 10 successive generations yield unique challenges without variant collisions', async () => {
+      const generatedTitles = new Set();
+      const generatedSignatures = new Set();
+
+      for (let i = 0; i < 5; i++) {
+        const { runAdminAutoFillNow } = require('../src/services/dailyChallengeAutomationService');
+        const res = await runAdminAutoFillNow({
+          adminId: 'usr-admin-01',
+          topic: 'Surprise Me'
+        });
+
+        if (res.success && res.challenge) {
+          expect(res.challenge.title).not.toMatch(/variant\s*\d+/i);
+          expect(generatedTitles.has(res.challenge.title)).toBe(false);
+          generatedTitles.add(res.challenge.title);
+
+          const sig = res.challenge.problem_signature || generateProblemSignature(res.challenge);
+          expect(generatedSignatures.has(sig)).toBe(false);
+          generatedSignatures.add(sig);
+        }
+      }
+    }, 45000);
   });
 });

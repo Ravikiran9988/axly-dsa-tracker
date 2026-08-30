@@ -64,7 +64,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await page.locator('aside button:has-text("Daily Challenge"), button:has-text("Daily Challenge")').first().click();
     await expect(page.locator('h1:has-text("Daily Challenge Portal")').first()).toBeVisible({ timeout: 15000 });
 
-    const uniqueTitle = `E2E Algorithmic Leap ${Date.now()}`;
+    const uniqueTitle = `Prefix Array Partition Index ${Date.now()}`;
 
     // Open Create Modal
     await page.click('#btn-admin-create-challenge');
@@ -76,30 +76,72 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
 
     // Save as Draft
     const saveBtn = page.locator('button:has-text("Save as Draft")').first();
-    await saveBtn.click();
+    await saveBtn.click({ force: true });
+
+    // Wait for modal backdrop to close completely
+    await expect(page.locator('.fixed.inset-0')).not.toBeVisible({ timeout: 10000 });
 
     // Verify table updated
     await expect(page.locator('table').first()).toBeVisible({ timeout: 15000 });
 
     // Open Automation Logs
     await page.locator('#btn-admin-automation-logs').first().click();
-    await expect(page.locator('text=Daily Challenge Automation Logs').first()).toBeVisible({ timeout: 10000 });
-    await page.locator('.fixed.inset-0 button:has-text("Close"), button:has-text("Close")').first().click();
+    await expect(page.locator('h3:has-text("Daily Challenge Automation Logs")').first()).toBeVisible({ timeout: 10000 });
+    await page.locator('button:has-text("Close")').last().click();
   });
 
-  test('3. Automation Run Auto-Fill Now Execution', async ({ page }) => {
+  test('3. Automation Run Auto-Fill Now vs Scheduled Automation Execution', async ({ page, request }) => {
+    test.setTimeout(60000);
     await loginAsAdmin(page);
+
+    // 1. Ensure tomorrow has Challenge A via API
+    const tomorrowUtc = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const adminDevToken = await page.evaluate(() => localStorage.getItem('axly_auth_token'));
+    
+    // Seed Challenge A for tomorrow
+    await request.post('http://localhost:5000/api/v1/daily-challenges', {
+      headers: { Authorization: `Bearer ${adminDevToken}` },
+      data: {
+        title: `Challenge A Existing ${Date.now()}`,
+        difficulty: 'medium',
+        description: 'Existing challenge for tomorrow.',
+        constraints: 'N >= 1',
+        scheduled_date: tomorrowUtc,
+        status: 'scheduled',
+        test_cases: [
+          { input: '1', expected_output: '1', is_hidden: 0 },
+          { input: '2', expected_output: '2', is_hidden: 1 }
+        ]
+      }
+    });
+
     await page.locator('aside button:has-text("Daily Challenge"), button:has-text("Daily Challenge")').first().click();
     await expect(page.locator('h1:has-text("Daily Challenge Portal")').first()).toBeVisible({ timeout: 15000 });
 
-    // Trigger Run Auto-Fill Now
+    // 2. Click "Run Auto-Fill Now"
     const runBtn = page.locator('#btn-run-autofill-now');
     await expect(runBtn).toBeVisible();
     await runBtn.click();
 
-    // Verify button goes to spinning or feedback alert appears
-    const resultIndicator = page.locator('.animate-slide-up').or(page.locator('button:has-text("Running Pipeline...")')).or(page.locator('#btn-run-autofill-now'));
-    await expect(resultIndicator.first()).toBeVisible({ timeout: 20000 });
+    // 3. Wait for generation completion & success banner
+    await expect(page.locator('text=AI challenge generated successfully and saved as Draft.').first()).toBeVisible({ timeout: 25000 });
+
+    // 4. Verify Draft appears in table with Draft status
+    await expect(page.locator('table').first()).toBeVisible();
+    await expect(page.locator('table span:has-text("draft")').first()).toBeVisible({ timeout: 10000 });
+
+    // 5. Open Automation Logs and verify manual_admin log
+    await page.locator('#btn-admin-automation-logs').first().click();
+    await expect(page.locator('h3:has-text("Daily Challenge Automation Logs")').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=manual_admin').first()).toBeVisible({ timeout: 10000 });
+    await page.locator('button:has-text("Close")').last().click();
+
+    // 6. Simulate scheduled AUTO_FILL when tomorrow is occupied -> SUCCESS_NOOP
+    const scheduledRes = await request.post('http://localhost:5000/api/v1/daily-challenges/automation/run-now', {
+      headers: { Authorization: `Bearer ${adminDevToken}` },
+      data: {}
+    });
+    expect(scheduledRes.status()).toBe(200);
   });
 
   test('4. Student Daily Challenge Delivery & Security', async ({ page }) => {

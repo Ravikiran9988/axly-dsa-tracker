@@ -329,7 +329,7 @@ async function createDailyChallenge(data, admin_id) {
   }
 
   // Duplicate check across Daily Challenges and Practice
-  const dupCheck = await checkDuplicateChallenge(title, description);
+  const dupCheck = await checkDuplicateChallenge(data);
   if (dupCheck.isDuplicate) {
     throw new AppError(dupCheck.reason, 409, 'DUPLICATE_CHALLENGE', 'title');
   }
@@ -357,6 +357,17 @@ async function createDailyChallenge(data, admin_id) {
     }
   }
 
+  const { generateProblemSignature, extractProblemConcept } = require('./aiDailyChallengeService');
+  const signature = data.problem_signature || generateProblemSignature({
+    title,
+    description,
+    topic: data.topic_name || custom_topic || data.topic,
+    pattern: data.pattern_name || resolvedPatternId,
+    input_format,
+    output_format
+  });
+  const concept = data.problem_concept || extractProblemConcept(title, description);
+
   await getRepo().transaction(async tx => {
     await tx.execute(`
       INSERT INTO daily_challenge_problems (
@@ -365,8 +376,8 @@ async function createDailyChallenge(data, admin_id) {
         description, problem_statement, constraints, input_format,
         output_format, example_input, example_output, examples, hints, tags,
         solution_approach, editorial, complexity, starter_code, supported_languages,
-        created_via, status, scheduled_date, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        created_via, status, scheduled_date, problem_signature, problem_concept, created_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `, [
       id,
       title.trim(),
@@ -398,6 +409,8 @@ async function createDailyChallenge(data, admin_id) {
       created_via === 'ai' ? 'ai' : 'manual',
       status,
       scheduled_date || null,
+      signature,
+      concept,
       admin_id || null
     ]);
 
@@ -408,7 +421,7 @@ async function createDailyChallenge(data, admin_id) {
             INSERT INTO daily_challenge_test_cases (id, challenge_id, input, expected_output, is_hidden)
             VALUES (?, ?, ?, ?, ?)
           `, [
-            tc.id || `dc-tc-${uuidv4().slice(0, 8)}`,
+            `dc-tc-${uuidv4().slice(0, 8)}`,
             id,
             String(tc.input),
             String(tc.expected_output),
@@ -487,6 +500,8 @@ async function updateDailyChallenge(id, data, admin_id) {
         fields.push(`${key} = ?`);
         if (key === 'starter_code' && typeof data[key] === 'object') {
           values.push(JSON.stringify(data[key]));
+        } else if (key === 'is_active') {
+          values.push(data[key] ? 1 : 0);
         } else {
           values.push(data[key]);
         }
@@ -538,7 +553,7 @@ async function updateDailyChallenge(id, data, admin_id) {
             INSERT INTO daily_challenge_test_cases (id, challenge_id, input, expected_output, is_hidden)
             VALUES (?, ?, ?, ?, ?)
           `, [
-            tc.id || `dc-tc-${uuidv4().slice(0, 8)}`,
+            `dc-tc-${uuidv4().slice(0, 8)}`,
             id,
             String(tc.input),
             String(tc.expected_output),

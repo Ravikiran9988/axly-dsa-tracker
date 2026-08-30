@@ -1258,13 +1258,15 @@ print(find_median(nums1, nums2))`
     }
   ];
 
+  const { generateProblemSignature, extractProblemConcept } = require('../services/aiDailyChallengeService');
+
   const insertDailyChallenge = db.prepare(`
     INSERT INTO daily_challenge_problems (
       id, title, slug, difficulty, topic_id, pattern_id, points, estimated_time,
       description, problem_statement, constraints, input_format, output_format,
       example_input, example_output, hints, tags, solution_approach, status,
-      scheduled_date, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      scheduled_date, problem_signature, problem_concept, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
       difficulty = excluded.difficulty,
@@ -1283,7 +1285,9 @@ print(find_median(nums1, nums2))`
       tags = excluded.tags,
       solution_approach = excluded.solution_approach,
       status = excluded.status,
-      scheduled_date = excluded.scheduled_date
+      scheduled_date = excluded.scheduled_date,
+      problem_signature = excluded.problem_signature,
+      problem_concept = excluded.problem_concept
   `);
 
   const insertDailyTestCase = db.prepare(`
@@ -1300,11 +1304,13 @@ print(find_median(nums1, nums2))`
   } catch (_) {}
 
   dailyChallenges.forEach(dc => {
+    const signature = generateProblemSignature(dc);
+    const concept = extractProblemConcept(dc.title, dc.description);
     insertDailyChallenge.run(
       dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, dc.estimated_time,
       dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format,
       dc.example_input, dc.example_output, dc.hints, dc.tags, dc.solution_approach, dc.status,
-      dc.scheduled_date, dc.created_by
+      dc.scheduled_date, signature, concept, dc.created_by
     );
     if (dc.test_cases && dc.test_cases.length > 0) {
       dc.test_cases.forEach(tc => {

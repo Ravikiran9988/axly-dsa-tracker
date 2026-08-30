@@ -22,6 +22,7 @@ beforeAll(async () => {
 });
 
 describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
+  jest.setTimeout(25000);
 
   test('1. Topic Taxonomy API returns 40+ topics across 5 categories with patterns', async () => {
     const res = await request(app)

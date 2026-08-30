@@ -880,6 +880,23 @@ function initSchema() {
   } catch (e) {
     // ignore
   }
+
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(daily_challenge_problems)").all();
+    const colNames = tableInfo.map(c => c.name);
+    if (!colNames.includes('problem_signature')) {
+      db.prepare("ALTER TABLE daily_challenge_problems ADD COLUMN problem_signature TEXT").run();
+    }
+    if (!colNames.includes('problem_concept')) {
+      db.prepare("ALTER TABLE daily_challenge_problems ADD COLUMN problem_concept TEXT").run();
+    }
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_daily_challenge_problem_signature 
+      ON daily_challenge_problems(problem_signature)
+    `).run();
+  } catch (e) {
+    // ignore
+  }
 }
 
 initSchema();

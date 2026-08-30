@@ -70,8 +70,8 @@ export default function AdminDailyChallengeModal({
     scheduled_date: '',
     created_via: 'manual',
     test_cases: [
-      { id: 'tc-1', input: '', expected_output: '', is_hidden: false },
-      { id: 'tc-2', input: '', expected_output: '', is_hidden: true }
+      { id: 'tc-1', input: '[1, 2, 3]', expected_output: '6', is_hidden: false },
+      { id: 'tc-2', input: '[4, 5, 6]', expected_output: '15', is_hidden: true }
     ]
   });
 
@@ -439,6 +439,8 @@ export default function AdminDailyChallengeModal({
         status: targetStatus,
         hints: cleanHints,
         test_cases: cleanTestCases,
+        topic_id: formData.topic_id && String(formData.topic_id).trim() ? formData.topic_id : undefined,
+        pattern_id: formData.pattern_id && String(formData.pattern_id).trim() ? formData.pattern_id : undefined,
         points: Number(formData.points) || 100,
         estimated_time: Number(formData.estimated_time) || 30,
         created_via: challengeToEdit ? (formData.created_via || 'manual') : (creationMode === 'ai' ? 'ai' : 'manual'),

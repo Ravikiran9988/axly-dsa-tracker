@@ -40,3 +40,8 @@ CREATE TABLE IF NOT EXISTS daily_challenge_automation_logs (
 
 CREATE INDEX IF NOT EXISTS idx_daily_challenge_automation_logs_date ON daily_challenge_automation_logs(target_date);
 CREATE INDEX IF NOT EXISTS idx_daily_challenge_automation_logs_created ON daily_challenge_automation_logs(created_at DESC);
+
+-- 4. Structured Problem Signature Columns
+ALTER TABLE daily_challenge_problems ADD COLUMN IF NOT EXISTS problem_signature TEXT;
+ALTER TABLE daily_challenge_problems ADD COLUMN IF NOT EXISTS problem_concept TEXT;
+CREATE INDEX IF NOT EXISTS idx_daily_challenge_problem_signature ON daily_challenge_problems(problem_signature);

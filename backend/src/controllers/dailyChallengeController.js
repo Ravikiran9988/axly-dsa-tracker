@@ -4,6 +4,8 @@ const {
   getAutomationSettings,
   updateAutomationSettings: updateAutoSettings,
   getAutomationLogs: fetchAutoLogs,
+  runAdminAutoFillNow,
+  runDailyScheduledAutomation,
   runAutomationPipeline
 } = require('../services/dailyChallengeAutomationService');
 const { getNextCanonicalUtcDate, getCanonicalUtcDate } = require('../utils/dateUtils');
@@ -219,11 +221,11 @@ async function updateAutomationSettings(req, res, next) {
 
 async function runAutomationNow(req, res, next) {
   try {
-    const { target_date } = req.body;
-    const result = await runAutomationPipeline({
-      targetDate: target_date,
-      force: true,
-      adminId: req.user.id
+    const { topic, difficulty } = req.body || {};
+    const result = await runAdminAutoFillNow({
+      topic,
+      difficulty,
+      adminId: req.user?.id || 'usr-admin-01'
     });
     return res.status(result.success ? 200 : 422).json(result);
   } catch (err) {

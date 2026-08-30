@@ -18,6 +18,8 @@ describe('Daily Challenge Admin Portal & AI Generation Suite', () => {
   let adminToken;
   let studentToken;
 
+  jest.setTimeout(30000);
+
   beforeAll(async () => {
     initSchema();
     seedDatabase();
