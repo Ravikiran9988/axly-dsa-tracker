@@ -22,89 +22,91 @@ test.describe('Take README Screenshots', () => {
     }, body.token);
   }
 
-  test('Capture Dashboard', async ({ page }) => {
+  async function loginAsAdmin(page) {
+    const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
+      data: { email: 'admin@axly.in', role: 'admin' }
+    });
+    const body = await res.json();
+    await page.goto('/');
+    await page.evaluate((token) => {
+      localStorage.setItem('axly_auth_token', token);
+    }, body.token);
+  }
+
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('Capture Landing/Login Page', async ({ page }) => {
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(screenshotsDir, 'landing.png') });
+  });
+
+  test('Capture Learner Dashboard', async ({ page }) => {
     await loginAsStudent(page);
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000); 
+    await page.waitForTimeout(1000);
     await page.screenshot({ path: path.join(screenshotsDir, 'dashboard.png') });
   });
 
-  test('Capture Practice Library', async ({ page }) => {
-    await loginAsStudent(page);
-    await page.goto('/');
-    await page.click('text=Practice');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-    await page.screenshot({ path: path.join(screenshotsDir, 'practice.png') });
-  });
-
-  test('Capture Problem Workspace + AI', async ({ page }) => {
+  test('Capture Question Bank (Practice List)', async ({ page }) => {
     await loginAsStudent(page);
     await page.goto('/');
     await page.click('text=Practice');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
     
-    // Click the first problem card button
-    const firstProblemBtn = page.locator('.practice-card button').first();
-    await firstProblemBtn.click();
-    
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000); 
-    
-    // Open AI Coach Panel if not already visible/active
-    try {
-      await page.click('text=DSA AI Coach');
-      await page.waitForTimeout(1000);
-    } catch (e) {}
-
-    await page.screenshot({ path: path.join(screenshotsDir, 'dsa-ai.png') });
+    // Select a filter to make it visible
+    const difficultySelect = page.locator('.practice-filters select').nth(0);
+    if (await difficultySelect.count() > 0) {
+       await difficultySelect.selectOption('Medium');
+       await page.waitForTimeout(500);
+    }
+    await page.screenshot({ path: path.join(screenshotsDir, 'question-bank.png') });
   });
 
-  test('Capture Problem Workspace', async ({ page }) => {
+  test('Capture Question Detail (Code Editor)', async ({ page }) => {
     await loginAsStudent(page);
     await page.goto('/');
     await page.click('text=Practice');
     await page.waitForLoadState('networkidle');
-    
-    const firstProblemBtn = page.locator('.practice-card button').first();
-    await firstProblemBtn.click();
-    
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000); 
-
-    await page.screenshot({ path: path.join(screenshotsDir, 'problem-workspace.png') });
-  });
-
-  test('Capture Daily Challenge', async ({ page }) => {
-    await loginAsStudent(page);
-    await page.goto('/');
-    await page.click('text=Daily Challenge');
-    await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
     
-    await page.screenshot({ path: path.join(screenshotsDir, 'daily-challenge.png') });
+    const firstProblemRow = page.locator('tbody tr').first();
+    await firstProblemRow.click();
+    
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000); // Let workspace load
+    
+    await page.screenshot({ path: path.join(screenshotsDir, 'code-editor.png') });
   });
 
-  test('Capture Progress', async ({ page }) => {
+  test('Capture Submission History', async ({ page }) => {
     await loginAsStudent(page);
     await page.goto('/');
-    await page.click('text=Progress');
+    // Check if there is a nav item or direct URL to history
+    await page.click('text=History').catch(() => page.goto('/submissions'));
+    // Wait for network requests to settle
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
-    
-    await page.screenshot({ path: path.join(screenshotsDir, 'progress.png') });
+    await page.screenshot({ path: path.join(screenshotsDir, 'submission-history.png') });
   });
 
-  test('Capture Mobile Dashboard', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await loginAsStudent(page);
+  test('Capture Admin Dashboard', async ({ page }) => {
+    await loginAsAdmin(page);
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
-    
-    await page.screenshot({ path: path.join(screenshotsDir, 'mobile.png') });
+    await page.screenshot({ path: path.join(screenshotsDir, 'admin-dashboard.png') });
   });
 
+  test('Capture Admin Question Management', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/');
+    await page.click('text=Questions').catch(() => page.goto('/admin/questions'));
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(screenshotsDir, 'admin-questions.png') });
+  });
 });
