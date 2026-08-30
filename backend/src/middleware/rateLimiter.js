@@ -4,7 +4,7 @@ const isTest = process.env.NODE_ENV === 'test';
 
 const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isTest ? 10000 : 100,
+  max: isTest ? 10000 : 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
