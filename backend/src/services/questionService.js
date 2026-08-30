@@ -222,7 +222,7 @@ async function createQuestion(input) {
         constraints, input_format, output_format, example_input, example_output,
         hints, tags, estimated_time, points, assigned_date, due_date, status,
         supported_languages, starter_code, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
     `, [
       id,
       (title || '').trim(),
