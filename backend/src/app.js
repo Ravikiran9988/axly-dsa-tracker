@@ -30,7 +30,7 @@ const dsaAiRoutes = require('./routes/dsaAiRoutes');
 const app = express();
 
 app.disable('x-powered-by');
-app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
+app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
 
 // Request ID Correlation Middleware
 app.use((req, res, next) => {
