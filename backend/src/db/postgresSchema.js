@@ -7,13 +7,20 @@ async function initPostgresSchema(pgPool = pool) {
     throw new Error('PostgreSQL pool is not configured');
   }
 
-  const sqlPath = path.join(__dirname, 'migrations/001_supabase_postgres_init.sql');
-  const ddlSql = fs.readFileSync(sqlPath, 'utf8');
+  const migrationsDir = path.join(__dirname, 'migrations');
+  const migrationFiles = fs.readdirSync(migrationsDir)
+    .filter(file => file.endsWith('.sql'))
+    .sort();
 
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(ddlSql);
+    for (const file of migrationFiles) {
+      const sqlPath = path.join(migrationsDir, file);
+      const ddlSql = fs.readFileSync(sqlPath, 'utf8');
+      console.log(`  Applying migration: ${file}...`);
+      await client.query(ddlSql);
+    }
     await client.query('COMMIT');
     console.log('✅ Supabase PostgreSQL schema initialized successfully.');
   } catch (err) {

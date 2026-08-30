@@ -26,10 +26,12 @@ CREATE INDEX IF NOT EXISTS idx_dsa_ai_logs_created_at ON dsa_ai_logs(created_at 
 ALTER TABLE dsa_ai_logs ENABLE ROW LEVEL SECURITY;
 
 -- Students can read their own logs; Admins can read all logs
+DROP POLICY IF EXISTS "Users can view own dsa_ai_logs" ON dsa_ai_logs;
 CREATE POLICY "Users can view own dsa_ai_logs"
   ON dsa_ai_logs FOR SELECT
   USING (auth.uid()::text = user_id);
 
+DROP POLICY IF EXISTS "Admins can view all dsa_ai_logs" ON dsa_ai_logs;
 CREATE POLICY "Admins can view all dsa_ai_logs"
   ON dsa_ai_logs FOR SELECT
   USING (

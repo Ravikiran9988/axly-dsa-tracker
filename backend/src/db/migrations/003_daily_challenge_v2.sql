@@ -3,7 +3,7 @@
 -- 1. Partial Unique Index on Daily Challenge Problems
 CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_challenge_problems_unique_active_date 
   ON daily_challenge_problems(scheduled_date) 
-  WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1;
+  WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = TRUE;
 
 -- 2. Daily Challenge Automation Settings Table
 CREATE TABLE IF NOT EXISTS daily_challenge_automation_settings (
