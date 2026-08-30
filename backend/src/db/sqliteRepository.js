@@ -11,26 +11,30 @@ class SqliteRepository extends RepositoryContract {
     this.db = sqliteDb;
   }
 
+  _mapParams(params) {
+    return params.map(p => typeof p === 'boolean' ? (p ? 1 : 0) : p);
+  }
+
   async query(sql, params = []) {
     const statement = this.db.prepare(sql);
-    const rows = statement.all(...params);
+    const rows = statement.all(...this._mapParams(params));
     return { rows, rowCount: rows.length };
   }
 
   async one(sql, params = []) {
     const statement = this.db.prepare(sql);
-    const row = statement.get(...params);
+    const row = statement.get(...this._mapParams(params));
     return row ?? null;
   }
 
   async many(sql, params = []) {
     const statement = this.db.prepare(sql);
-    return statement.all(...params) ?? [];
+    return statement.all(...this._mapParams(params)) ?? [];
   }
 
   async execute(sql, params = []) {
     const statement = this.db.prepare(sql);
-    const result = statement.run(...params);
+    const result = statement.run(...this._mapParams(params));
     return {
       rowCount: result.changes,
       changes: result.changes,

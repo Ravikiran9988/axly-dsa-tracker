@@ -148,7 +148,7 @@ function seedPracticeProblems() {
 
       dt.run(p.id);
       p.testCases.forEach((tc, i) => {
-        it.run(`${p.id}-tc-${i + 1}`, p.id, String(tc.input), String(tc.expectedOutput), Boolean(tc.hidden))
+        it.run(`${p.id}-tc-${i + 1}`, p.id, String(tc.input), String(tc.expectedOutput), tc.hidden ? 1 : 0)
       });
     }
   });
