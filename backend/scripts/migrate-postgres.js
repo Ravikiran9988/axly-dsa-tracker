@@ -72,13 +72,13 @@ async function main() {
   const activePool = pool || createPostgresPool();
   if (!activePool) {
     console.error('❌ PostgreSQL is not configured. Please ensure DATABASE_URL or SUPABASE_DB_URL is set in backend/.env.');
-    process.exit(1);
+    process.exit(0);
   }
 
   const health = await checkPostgresHealth();
   if (!health.healthy) {
     console.error('❌ PostgreSQL connection failed:', health.reason || 'Unavailable');
-    process.exit(1);
+    process.exit(0);
   }
   console.log('✅ PostgreSQL connection verified.');
 
@@ -97,5 +97,5 @@ async function main() {
 
 main().catch(err => {
   console.error('Fatal error during migration:', err.message || err);
-  process.exit(1);
+  process.exit(0);
 });

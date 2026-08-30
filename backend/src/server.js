@@ -7,12 +7,15 @@ const PORT = process.env.PORT || 5000;
 async function startServer() {
   assertProductionDatabase();
 
+  let startupError = null;
   if (process.env.NODE_ENV === 'production') {
     const health = await checkPostgresHealth();
     if (!health.healthy) {
-      throw new Error(`PostgreSQL health check failed: ${health.reason || 'database unavailable'}`);
+      startupError = `PostgreSQL health check failed: ${health.reason || 'database unavailable'}`;
+      console.error('❌', startupError);
+    } else {
+      console.log('✅ Production PostgreSQL connection verified.');
     }
-    console.log('✅ Production PostgreSQL connection verified.');
   } else {
     // Local / Test SQLite initialization
     const { initSchema } = require('./db/db');
@@ -24,13 +27,21 @@ async function startServer() {
   }
 
   // Initialize Background 00:00 UTC Daily Challenge Automation Scheduler
-  const { startAutomationScheduler } = require('./services/dailyChallengeAutomationService');
-  startAutomationScheduler();
+  try {
+    const { startAutomationScheduler } = require('./services/dailyChallengeAutomationService');
+    startAutomationScheduler().catch(err => console.error('Scheduler error:', err));
+  } catch (err) {
+    console.error('Failed to start scheduler:', err);
+  }
 
   const server = app.listen(PORT, () => {
     console.log(`🚀 Axly DSA Tracker API running on port ${PORT}`);
     console.log(`📡 API Version 1 mounted at /api/v1`);
   });
+  
+  // Attach startup error to app for health check to read
+  app.locals.startupError = startupError;
+
   return server;
 }
 

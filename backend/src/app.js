@@ -100,6 +100,13 @@ app.get(['/health', '/health/live'], (req, res) => {
 });
 
 app.get('/health/ready', async (req, res) => {
+  if (req.app.locals.startupError) {
+    return res.status(503).json({
+      status: 'unhealthy',
+      error: req.app.locals.startupError,
+      timestamp: new Date().toISOString()
+    });
+  }
   try {
     const repo = getRepository();
     await repo.one('SELECT 1 AS ready');
