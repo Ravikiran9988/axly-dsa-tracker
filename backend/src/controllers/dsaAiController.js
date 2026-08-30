@@ -48,8 +48,26 @@ async function coach(req, res, next) {
       language,
       code,
       hintIndex,
-      verify
+      verify,
+      conversationHistory
     } = req.body || {};
+
+    // Validate conversationHistory: must be an array if provided, max 24 items
+    let safeHistory = [];
+    if (conversationHistory !== undefined) {
+      if (!Array.isArray(conversationHistory)) {
+        return res.status(400).json({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'conversationHistory must be an array of message objects'
+          }
+        });
+      }
+      // Accept up to 24 items (12 full turns), filter malformed entries
+      safeHistory = conversationHistory
+        .filter(m => m && typeof m === 'object' && typeof m.content === 'string' && ['user', 'assistant'].includes(m.role))
+        .slice(0, 24);
+    }
 
     const result = await dsaAiCoachService.coach({
       question,
@@ -59,6 +77,7 @@ async function coach(req, res, next) {
       code,
       hintIndex,
       verify,
+      conversationHistory: safeHistory,
       user: req.user
     });
 

@@ -6,6 +6,8 @@ const { getRepository } = require('../db/repositoryFactory');
 const { AppError } = require('../middleware/errorHandler');
 
 const MAX_CORRECTION_ATTEMPTS = 2;
+const MAX_HISTORY_TURNS = 6;        // max prior turns forwarded to LLM
+const MAX_HISTORY_MSG_CHARS = 500;  // max chars per message in history
 
 function getRepo() {
   return getRepository();
@@ -23,6 +25,89 @@ function extractCodeBlock(text, language = 'javascript') {
   return text.trim();
 }
 
+/**
+ * Translate internal source identifiers to human-readable display labels
+ * @param {string} source
+ * @returns {string}
+ */
+function formatSourceLabel(source) {
+  switch ((source || '').toLowerCase()) {
+    case 'database': return 'Knowledge Base';
+    case 'graph':    return 'Knowledge Graph';
+    case 'llm':      return 'AI Generated';
+    case 'cache':    return 'Cached Response';
+    case 'fallback': return 'AI Unavailable';
+    default:         return source || 'AI Generated';
+  }
+}
+
+/**
+ * Build context-aware system prompt for the LLM
+ * Includes problem metadata, algorithm info, and pedagogical stance.
+ */
+function buildSystemPrompt(intent, { topic, pattern, algorithm, matchedProblem, context }) {
+  const parts = [
+    `You are an expert DSA (Data Structures & Algorithms) learning coach for the Axly platform.`,
+    `Intent: ${intent}. Primary Topic: ${topic}. Pattern: ${pattern}. Algorithm: ${algorithm || pattern}.`,
+    ``,
+    `Teaching principles:`,
+    `- Guide students to think, do NOT give away solutions when they ask for hints.`,
+    `- Use correct DSA terminology.`,
+    `- Keep responses structured and concise. Use Markdown: headings (##), bold, bullet lists, and fenced code blocks.`,
+    `- Never fabricate time/space complexities — state them only when confident.`,
+    `- Distinguish clearly between hints (nudges) and solutions (full code).`
+  ];
+
+  if (matchedProblem) {
+    parts.push(`\n[Problem Context]`);
+    parts.push(`Title: ${matchedProblem.title}`);
+    parts.push(`Difficulty: ${matchedProblem.difficulty || 'medium'}`);
+    parts.push(`Topic: ${topic} | Pattern: ${pattern}`);
+    if (context?.algorithm) {
+      parts.push(`Algorithm: ${context.algorithm}`);
+    }
+    if (context?.timeComplexity && context?.spaceComplexity) {
+      parts.push(`Expected Complexity: Time ${context.timeComplexity}, Space ${context.spaceComplexity}`);
+    }
+    if (context?.storedHints?.length) {
+      parts.push(`Structured Hints Available: ${context.storedHints.slice(0, 3).join(' | ')}`);
+    }
+    if (matchedProblem.description) {
+      // Include only first 600 chars of description to bound tokens
+      const descSnippet = String(matchedProblem.description).slice(0, 600);
+      parts.push(`Problem Description (excerpt): ${descSnippet}${matchedProblem.description.length > 600 ? '...' : ''}`);
+    }
+  }
+
+  return parts.join('\n');
+}
+
+/**
+ * Serialize conversation history into messages for LLM context window.
+ * Limits to MAX_HISTORY_TURNS turns, truncates each message to MAX_HISTORY_MSG_CHARS chars.
+ * @param {Array} conversationHistory - Array of { role: 'user'|'assistant', content: string }
+ * @returns {string} Formatted prior conversation block
+ */
+function buildConversationContext(conversationHistory) {
+  if (!Array.isArray(conversationHistory) || conversationHistory.length === 0) {
+    return '';
+  }
+
+  const turns = conversationHistory
+    .slice(-MAX_HISTORY_TURNS * 2)  // Keep last N turns (each turn = user + assistant)
+    .filter(m => m && typeof m.content === 'string' && m.content.trim().length > 0)
+    .map(m => {
+      const role = m.role === 'user' ? 'Student' : 'Coach';
+      const content = m.content.trim().slice(0, MAX_HISTORY_MSG_CHARS);
+      const truncated = m.content.trim().length > MAX_HISTORY_MSG_CHARS ? '...' : '';
+      return `${role}: ${content}${truncated}`;
+    });
+
+  if (turns.length === 0) return '';
+
+  return `\n[Prior Conversation Context]\n${turns.join('\n')}\n`;
+}
+
 class DsaAiCoachService {
   /**
    * Main DSA AI Coach dispatch method
@@ -34,10 +119,11 @@ class DsaAiCoachService {
    * @param {string} [params.code] - Student code snippet
    * @param {number} [params.hintIndex] - Progressive hint level (0, 1, 2, ...)
    * @param {boolean} [params.verify] - Whether to verify code in sandbox
+   * @param {Array}  [params.conversationHistory] - Prior turns [{role, content}]
    * @param {object} [params.user] - Authenticated user context
    * @returns {Promise<object>} Standardized DSA AI Coach Response
    */
-  async coach({ question, problemId, action, language = 'javascript', code = '', hintIndex = 0, verify = false, user = null }) {
+  async coach({ question, problemId, action, language = 'javascript', code = '', hintIndex = 0, verify = false, conversationHistory = [], user = null }) {
     if (!question || typeof question !== 'string') {
       throw new AppError('Question text is required and must be a string', 400, 'VALIDATION_ERROR', 'question');
     }
@@ -47,6 +133,13 @@ class DsaAiCoachService {
     if (!trimmedQuestion) {
       throw new AppError('Question cannot be empty', 400, 'VALIDATION_ERROR', 'question');
     }
+
+    // Sanitize and bound conversation history
+    const safeHistory = Array.isArray(conversationHistory)
+      ? conversationHistory
+          .filter(m => m && typeof m.content === 'string' && ['user', 'assistant'].includes(m.role))
+          .slice(-MAX_HISTORY_TURNS * 2)
+      : [];
 
     // 1. Run Phase 1 analysis to resolve intent, problem, topic, pattern, and complexities
     const analysis = await dsaAiService.analyzeQuestion({
@@ -58,8 +151,12 @@ class DsaAiCoachService {
     const targetIntent = (action ? String(action).toUpperCase() : analysis.intent) || 'GENERAL_DSA';
     const { matchedProblem, topic, pattern, context } = analysis;
 
-    const timeComplexity = context?.timeComplexity || 'O(N)';
-    const spaceComplexity = context?.spaceComplexity || 'O(1)';
+    const timeComplexity = context?.timeComplexity || null;
+    const spaceComplexity = context?.spaceComplexity || null;
+    const algorithm = context?.algorithm || pattern;
+
+    // Build LLM system prompt context
+    const promptContext = { topic, pattern, algorithm, matchedProblem, context };
 
     let result;
     // 2. Progressive Hint Action
@@ -72,7 +169,9 @@ class DsaAiCoachService {
         pattern,
         hintIndex,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     } else if (targetIntent === 'EXPLANATION' || targetIntent === 'EXPLAIN') {
       result = await this.handleExplanation({
@@ -82,7 +181,9 @@ class DsaAiCoachService {
         topic,
         pattern,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     } else if (targetIntent === 'APPROACH') {
       result = await this.handleApproach({
@@ -92,7 +193,9 @@ class DsaAiCoachService {
         topic,
         pattern,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     } else if (targetIntent === 'COMPLEXITY') {
       result = await this.handleComplexity({
@@ -102,7 +205,9 @@ class DsaAiCoachService {
         topic,
         pattern,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     } else if (targetIntent === 'CODE_REVIEW') {
       result = await this.handleCodeReview({
@@ -114,7 +219,9 @@ class DsaAiCoachService {
         language,
         code,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     } else if (targetIntent === 'DEBUG') {
       result = await this.handleDebug({
@@ -126,7 +233,9 @@ class DsaAiCoachService {
         language,
         code,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     } else if (targetIntent === 'CONCEPT') {
       result = await this.handleConcept({
@@ -136,7 +245,9 @@ class DsaAiCoachService {
         topic,
         pattern,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     } else if (targetIntent === 'SOLUTION') {
       result = await this.handleSolution({
@@ -148,7 +259,9 @@ class DsaAiCoachService {
         language,
         verify,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     } else {
       result = await this.handleGeneralDsa({
@@ -158,9 +271,14 @@ class DsaAiCoachService {
         topic,
         pattern,
         timeComplexity,
-        spaceComplexity
+        spaceComplexity,
+        promptContext,
+        conversationHistory: safeHistory
       });
     }
+
+    // Add human-readable source label to all results
+    result.displaySource = formatSourceLabel(result.source);
 
     observability.recordEvent({
       intent: result.intent,
@@ -176,7 +294,7 @@ class DsaAiCoachService {
   /**
    * Handle Progressive Hints (Hint 1 -> Hint 2 -> Approach)
    */
-  async handleProgressiveHint({ question, matchedProblem, context, topic, pattern, hintIndex, timeComplexity, spaceComplexity }) {
+  async handleProgressiveHint({ question, matchedProblem, context, topic, pattern, hintIndex, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
     const hints = context?.storedHints || [];
     const idx = Math.max(0, parseInt(hintIndex, 10) || 0);
 
@@ -185,9 +303,10 @@ class DsaAiCoachService {
         return {
           intent: 'HINT',
           source: 'database',
+          displaySource: 'Knowledge Base',
           topic,
           pattern,
-          answer: `Hint ${idx + 1} of ${Math.max(hints.length, 2)}: ${hints[idx]}`,
+          answer: `**Hint ${idx + 1} of ${Math.max(hints.length, 2)}**\n\n${hints[idx]}`,
           code: null,
           complexity: { time: timeComplexity, space: spaceComplexity },
           verification: null
@@ -196,9 +315,10 @@ class DsaAiCoachService {
         return {
           intent: 'HINT',
           source: 'database',
+          displaySource: 'Knowledge Base',
           topic,
           pattern,
-          answer: `Hint ${idx + 1}: Think about what information you need to track while applying the ${pattern || 'optimal'} technique.`,
+          answer: `**Hint ${idx + 1}:** Think about what information you need to track while applying the **${pattern || 'optimal'}** technique.`,
           code: null,
           complexity: { time: timeComplexity, space: spaceComplexity },
           verification: null
@@ -209,9 +329,10 @@ class DsaAiCoachService {
       return {
         intent: 'HINT',
         source: 'database',
+        displaySource: 'Knowledge Base',
         topic,
         pattern,
-        answer: `All stored hints viewed. Key algorithmic approach: Use the "${pattern}" technique with expected time complexity ${timeComplexity}.`,
+        answer: `All stored hints viewed.\n\n**Key algorithmic approach:** Use the **${pattern}** technique${timeComplexity ? ` with expected time complexity **${timeComplexity}**` : ''}.`,
         code: null,
         complexity: { time: timeComplexity, space: spaceComplexity },
         verification: null
@@ -219,14 +340,23 @@ class DsaAiCoachService {
     }
 
     // Novel / Custom problem hint generation via LLM router
-    const systemPrompt = `You are a DSA AI mentor. Provide ONLY a progressive hint at level ${idx + 1}. Do NOT provide full code. Guide the student to think through the algorithm.`;
-    const prompt = `Question: "${question}"\nTopic: ${topic} | Pattern: ${pattern}\nGive progressive Hint #${idx + 1}.`;
+    const systemPrompt = buildSystemPrompt('HINT', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
 
-    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 400 });
+    const prompt = `${historyContext}Student Question: "${question}"
+Topic: ${topic} | Pattern: ${pattern}
+
+Provide ONLY a progressive Hint #${idx + 1}. 
+- Do NOT reveal the complete algorithm or code.
+- Guide the student to think through the approach.
+- Be concise (2-4 sentences max for early hints).`;
+
+    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 300 });
 
     return {
       intent: 'HINT',
       source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
       answer: llmRes.text,
@@ -239,32 +369,48 @@ class DsaAiCoachService {
   /**
    * Handle Explanation (Idea, Why it works, Pattern, Complexity)
    */
-  async handleExplanation({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity }) {
-    const explanationText = context?.storedSolution ||
-      (matchedProblem ? `Use ${pattern} (${context?.algorithm || 'One-Pass Hash Map Lookup'}) to solve ${matchedProblem.title}. Store seen elements in a hash table to check complements in constant time.` : null);
+  async handleExplanation({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
+    const systemPrompt = buildSystemPrompt('EXPLANATION', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
 
-    if (explanationText && (context?.confidence >= 0.8 || matchedProblem)) {
-      const formatted = `### Core Idea & Mechanism\n${explanationText}\n\n**Pattern Applied**: ${pattern}\n**Expected Time Complexity**: ${timeComplexity}\n**Expected Space Complexity**: ${spaceComplexity}`;
+    // For known problems with high confidence, still use LLM but provide DB context
+    if (context?.storedSolution && context?.confidence >= 0.8) {
+      const prompt = `${historyContext}Student Question: "${question}"
+
+[Problem Knowledge]
+Stored Approach: ${context.storedSolution}
+Pattern: ${pattern}
+Time: ${timeComplexity || 'unknown'} | Space: ${spaceComplexity || 'unknown'}
+
+Provide a structured explanation: core idea, why this pattern works, key intuition, and complexity breakdown. Use Markdown headings (##) and bullet lists.`;
+
+      const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 700 });
+
       return {
         intent: 'EXPLANATION',
-        source: 'database',
+        source: llmRes.source || 'llm',
+        displaySource: formatSourceLabel(llmRes.source || 'llm'),
         topic,
         pattern,
-        answer: formatted,
+        answer: llmRes.text,
         code: null,
         complexity: { time: timeComplexity, space: spaceComplexity },
         verification: null
       };
     }
 
-    const systemPrompt = `You are a DSA AI mentor. Explain the concept, why it works, the underlying pattern, and the complexity breakdown.`;
-    const prompt = `Explain: "${question}"\nTopic: ${topic} | Pattern: ${pattern}`;
+    const problemDesc = matchedProblem?.description ? `\nProblem: ${String(matchedProblem.description).slice(0, 400)}` : '';
+    const prompt = `${historyContext}Student Question: "${question}"
+Topic: ${topic} | Pattern: ${pattern}${problemDesc}
+
+Explain: core idea, why the pattern applies, key intuition, and complexity. Use ## headings.`;
 
     const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 700 });
 
     return {
       intent: 'EXPLANATION',
       source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
       answer: llmRes.text,
@@ -277,28 +423,41 @@ class DsaAiCoachService {
   /**
    * Handle Approach (High-level algorithm steps & invariants)
    */
-  async handleApproach({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity }) {
-    if (context?.storedSolution) {
-      return {
-        intent: 'APPROACH',
-        source: 'database',
-        topic,
-        pattern,
-        answer: `### Recommended Strategy\n${context.storedSolution}`,
-        code: null,
-        complexity: { time: timeComplexity, space: spaceComplexity },
-        verification: null
-      };
-    }
+  async handleApproach({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
+    const systemPrompt = buildSystemPrompt('APPROACH', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
 
-    const systemPrompt = `You are a DSA AI mentor. Provide a structured, step-by-step algorithmic approach and state the algorithm invariants.`;
-    const prompt = `How to approach: "${question}"\nTopic: ${topic} | Pattern: ${pattern}`;
+    const problemDesc = matchedProblem?.description
+      ? `\n\nProblem Description (excerpt):\n${String(matchedProblem.description).slice(0, 500)}`
+      : '';
+
+    const storedApproach = context?.storedSolution
+      ? `\n\nReference Approach from Knowledge Base:\n${context.storedSolution}`
+      : '';
+
+    const prompt = `${historyContext}Student Question: "${question}"
+Topic: ${topic} | Pattern: ${pattern}${problemDesc}${storedApproach}
+
+Provide a structured step-by-step algorithmic approach:
+## Steps
+1. ...
+2. ...
+
+## Key Invariants
+- ...
+
+## Complexity
+- Time: ...
+- Space: ...
+
+Do NOT provide full implementation code.`;
 
     const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 600 });
 
     return {
       intent: 'APPROACH',
       source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
       answer: llmRes.text,
@@ -310,15 +469,58 @@ class DsaAiCoachService {
 
   /**
    * Handle Complexity breakdown
+   * - For known problems with confirmed complexities, use Knowledge Graph (deterministic)
+   * - For unknown problems or when confidence is low, use LLM
    */
-  async handleComplexity({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity }) {
-    const text = `**Time Complexity**: ${timeComplexity}\n**Space Complexity**: ${spaceComplexity}\n\n**Justification**: Pattern ${pattern} processes the input in ${timeComplexity} time while maintaining auxiliary data structures in ${spaceComplexity} memory.`;
+  async handleComplexity({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
+    // Only use deterministic graph data if we have a matched problem with real complexities
+    const hasRealComplexity = matchedProblem && timeComplexity && timeComplexity !== 'O(N)' || 
+                               (context?.confidence >= 0.8 && timeComplexity);
+
+    if (hasRealComplexity) {
+      const text = `## Complexity Analysis\n\n**Time Complexity:** \`${timeComplexity}\`\n\n**Space Complexity:** \`${spaceComplexity}\`\n\n**Justification:** The **${pattern}** pattern processes each element at most once${timeComplexity === 'O(log N)' ? ', halving the search space at each step' : ''}, resulting in ${timeComplexity} time. Auxiliary data structures (${topic === 'Hashing' ? 'hash map' : topic === 'Stack' ? 'stack' : 'array/buffer'}) contribute ${spaceComplexity} space.`;
+      return {
+        intent: 'COMPLEXITY',
+        source: 'graph',
+        displaySource: 'Knowledge Graph',
+        topic,
+        pattern,
+        answer: text,
+        code: null,
+        complexity: { time: timeComplexity, space: spaceComplexity },
+        verification: null
+      };
+    }
+
+    // Unknown problem or generic question — use LLM
+    const systemPrompt = buildSystemPrompt('COMPLEXITY', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
+
+    const problemDesc = matchedProblem?.description
+      ? `\nProblem: ${String(matchedProblem.description).slice(0, 400)}`
+      : '';
+
+    const prompt = `${historyContext}Student Question: "${question}"
+Topic: ${topic} | Pattern: ${pattern}${problemDesc}
+
+Provide a precise complexity analysis with justification:
+## Time Complexity
+[state complexity and why]
+
+## Space Complexity
+[state complexity and why]
+
+Use Big-O notation. Only state complexities you are confident about.`;
+
+    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 400 });
+
     return {
       intent: 'COMPLEXITY',
-      source: 'graph',
+      source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
-      answer: text,
+      answer: llmRes.text,
       code: null,
       complexity: { time: timeComplexity, space: spaceComplexity },
       verification: null
@@ -328,15 +530,41 @@ class DsaAiCoachService {
   /**
    * Handle Code Review
    */
-  async handleCodeReview({ question, matchedProblem, context, topic, pattern, language, code, timeComplexity, spaceComplexity }) {
-    const systemPrompt = `You are an expert DSA code reviewer. Analyze the student's solution for correctness, edge cases, time/space complexity, and clean code improvements.`;
-    const prompt = `Problem: ${matchedProblem?.title || question}\nLanguage: ${language}\n\nUser Code:\n\`\`\`${language}\n${code || '// No code provided'}\n\`\`\`\n\nProvide structured review: 1) Correctness, 2) Complexity Analysis, 3) Edge Cases & Bugs, 4) Improvement Suggestions.`;
+  async handleCodeReview({ question, matchedProblem, context, topic, pattern, language, code, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
+    const systemPrompt = buildSystemPrompt('CODE_REVIEW', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
 
-    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 800 });
+    const prompt = `${historyContext}Problem: ${matchedProblem?.title || question}
+Language: ${language}
+
+Student Code:
+\`\`\`${language}
+${code || '// No code provided'}
+\`\`\`
+
+Provide a structured code review:
+
+## 1. Correctness
+[Is the logic correct? Any wrong outputs?]
+
+## 2. Time & Space Complexity
+[Actual complexity of this code]
+
+## 3. Edge Cases & Bugs
+[Any missing edge cases, off-by-one errors, null checks?]
+
+## 4. Readability & Clean Code
+[Variable naming, code clarity]
+
+## 5. Suggested Improvements
+[Concrete optimizations, if any]`;
+
+    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 900 });
 
     return {
       intent: 'CODE_REVIEW',
       source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
       answer: llmRes.text,
@@ -349,15 +577,41 @@ class DsaAiCoachService {
   /**
    * Handle Debugging
    */
-  async handleDebug({ question, matchedProblem, context, topic, pattern, language, code, timeComplexity, spaceComplexity }) {
-    const systemPrompt = `You are a DSA debugging assistant. Pinpoint where the student's code fails, explain the exact logic error, and show how to fix it.`;
-    const prompt = `Problem: ${matchedProblem?.title || question}\nUser Issue: ${question}\nLanguage: ${language}\n\nCode:\n\`\`\`${language}\n${code || ''}\n\`\`\``;
+  async handleDebug({ question, matchedProblem, context, topic, pattern, language, code, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
+    const systemPrompt = buildSystemPrompt('DEBUG', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
 
-    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 800 });
+    const prompt = `${historyContext}Problem: ${matchedProblem?.title || 'DSA Problem'}
+Student Issue: "${question}"
+Language: ${language}
+
+Student Code:
+\`\`\`${language}
+${code || '// No code provided'}
+\`\`\`
+
+Debug the code:
+
+## Issue Identified
+[Pinpoint the exact logic error or failure cause]
+
+## Why It Fails
+[Explain the root cause clearly]
+
+## Suggested Fix
+\`\`\`${language}
+[corrected code snippet or the specific changed lines]
+\`\`\`
+
+## Verification
+[How to verify the fix works]`;
+
+    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 900 });
 
     return {
       intent: 'DEBUG',
       source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
       answer: llmRes.text,
@@ -370,15 +624,36 @@ class DsaAiCoachService {
   /**
    * Handle Concept tutorial
    */
-  async handleConcept({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity }) {
-    const systemPrompt = `You are a DSA instructor. Explain the foundational concept, standard variations, and common pitfalls.`;
-    const prompt = `Explain concept: "${question}"\nTopic: ${topic} | Pattern: ${pattern}`;
+  async handleConcept({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
+    const systemPrompt = buildSystemPrompt('CONCEPT', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
+
+    const prompt = `${historyContext}Student Question: "${question}"
+Topic: ${topic} | Pattern: ${pattern}
+
+Explain the foundational concept:
+
+## Core Idea
+[What is it? When do you use it?]
+
+## How It Works
+[Step-by-step mechanics]
+
+## Standard Variations
+[Common variants or related patterns]
+
+## Common Pitfalls
+[Mistakes students make]
+
+## Example Use Case
+[A concrete DSA problem example]`;
 
     const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 700 });
 
     return {
       intent: 'CONCEPT',
       source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
       answer: llmRes.text,
@@ -391,11 +666,39 @@ class DsaAiCoachService {
   /**
    * Handle Solution Generation with Sandbox Code Verification
    */
-  async handleSolution({ question, matchedProblem, context, topic, pattern, language, verify, timeComplexity, spaceComplexity }) {
-    const systemPrompt = `You are a DSA AI mentor. Generate the clean, optimal solution code in ${language} with brief algorithmic explanation.`;
-    const prompt = `Problem: ${matchedProblem?.title || question}\nTopic: ${topic} | Pattern: ${pattern}\nLanguage: ${language}\n\nProvide the complete optimal solution.`;
+  async handleSolution({ question, matchedProblem, context, topic, pattern, language, verify, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
+    const systemPrompt = buildSystemPrompt('SOLUTION', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
 
-    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 900 });
+    const problemDesc = matchedProblem?.description
+      ? `\nProblem Description:\n${String(matchedProblem.description).slice(0, 500)}`
+      : '';
+
+    const prompt = `${historyContext}Problem: ${matchedProblem?.title || question}
+Topic: ${topic} | Pattern: ${pattern}${problemDesc}
+Language: ${language}
+
+Provide the complete optimal solution:
+
+## Idea
+[Brief algorithm summary]
+
+## Algorithm
+[Key steps]
+
+## Code
+\`\`\`${language}
+[complete, runnable solution]
+\`\`\`
+
+## Complexity
+- Time: 
+- Space: 
+
+## Edge Cases
+[Any special inputs to handle]`;
+
+    const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 1000 });
     const generatedCode = extractCodeBlock(llmRes.text, language);
 
     let verificationResult = null;
@@ -412,6 +715,7 @@ class DsaAiCoachService {
     return {
       intent: 'SOLUTION',
       source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
       answer: llmRes.text,
@@ -424,15 +728,21 @@ class DsaAiCoachService {
   /**
    * Handle General DSA
    */
-  async handleGeneralDsa({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity }) {
-    const systemPrompt = `You are a helpful DSA mentor. Answer the student's question accurately using standard algorithmic principles.`;
-    const prompt = `Question: "${question}"\nTopic: ${topic} | Pattern: ${pattern}`;
+  async handleGeneralDsa({ question, matchedProblem, context, topic, pattern, timeComplexity, spaceComplexity, promptContext, conversationHistory }) {
+    const systemPrompt = buildSystemPrompt('GENERAL_DSA', promptContext);
+    const historyContext = buildConversationContext(conversationHistory);
+
+    const prompt = `${historyContext}Student Question: "${question}"
+Topic: ${topic} | Pattern: ${pattern}
+
+Answer accurately using standard algorithmic principles. Use Markdown for structure where helpful.`;
 
     const llmRes = await llmRouter.generate({ prompt, systemPrompt, maxTokens: 600 });
 
     return {
       intent: 'GENERAL_DSA',
       source: llmRes.source || 'llm',
+      displaySource: formatSourceLabel(llmRes.source || 'llm'),
       topic,
       pattern,
       answer: llmRes.text,

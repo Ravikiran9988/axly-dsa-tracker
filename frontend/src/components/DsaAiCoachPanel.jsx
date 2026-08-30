@@ -1,20 +1,124 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 import {
   Sparkles, HelpCircle, BookOpen, Compass, Code2, Clock, CheckCircle2,
-  Bug, Play, Copy, Check, AlertCircle, RefreshCw, ChevronRight, Layers,
-  Terminal, ShieldCheck, XCircle, Send, User, RotateCcw
+  Bug, Copy, Check, AlertCircle, RefreshCw, ChevronRight, Layers,
+  Terminal, ShieldCheck, XCircle, Send, User, RotateCcw, Trash2,
+  BookMarked, ChevronDown
 } from 'lucide-react';
 import { api } from '../services/api';
 
 const QUICK_ACTIONS = [
-  { id: 'HINT', label: 'Hint', icon: HelpCircle, color: 'text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20' },
-  { id: 'EXPLAIN', label: 'Explain', icon: BookOpen, color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20' },
-  { id: 'APPROACH', label: 'Approach', icon: Compass, color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20' },
-  { id: 'SOLUTION', label: 'Solution', icon: Code2, color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20' },
-  { id: 'COMPLEXITY', label: 'Complexity', icon: Clock, color: 'text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20' },
-  { id: 'CODE_REVIEW', label: 'Review Code', icon: ShieldCheck, color: 'text-blue-400 border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20' },
-  { id: 'DEBUG', label: 'Debug', icon: Bug, color: 'text-rose-400 border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20' }
+  { id: 'HINT',       label: 'Hint',        icon: HelpCircle,   color: 'text-amber-400  border-amber-500/30  bg-amber-500/10  hover:bg-amber-500/20'  },
+  { id: 'EXPLAIN',    label: 'Explain',     icon: BookOpen,     color: 'text-cyan-400   border-cyan-500/30   bg-cyan-500/10   hover:bg-cyan-500/20'   },
+  { id: 'APPROACH',   label: 'Approach',    icon: Compass,      color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20' },
+  { id: 'SOLUTION',   label: 'Solution',    icon: Code2,        color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20' },
+  { id: 'COMPLEXITY', label: 'Complexity',  icon: Clock,        color: 'text-purple-400 border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20' },
+  { id: 'CODE_REVIEW',label: 'Review Code', icon: ShieldCheck,  color: 'text-blue-400   border-blue-500/30   bg-blue-500/10   hover:bg-blue-500/20'   },
+  { id: 'DEBUG',      label: 'Debug',       icon: Bug,          color: 'text-rose-400   border-rose-500/30   bg-rose-500/10   hover:bg-rose-500/20'   }
 ];
+
+const ACTION_PLACEHOLDERS = {
+  HINT:       'Ask for a hint about this problem...',
+  EXPLAIN:    'Ask me to explain a concept or problem...',
+  APPROACH:   'Ask about the optimal approach or strategy...',
+  SOLUTION:   'Ask for the complete solution...',
+  COMPLEXITY: 'Ask about time/space complexity...',
+  CODE_REVIEW:'Ask me to review your code...',
+  DEBUG:      'Describe the bug or paste failing code...',
+  default:    'Ask about this problem, approach, code, or complexity...'
+};
+
+const SOURCE_CONFIG = {
+  'Knowledge Base':     { cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+  'Knowledge Graph':    { cls: 'text-cyan-400    bg-cyan-500/10    border-cyan-500/20'    },
+  'AI Generated':       { cls: 'text-indigo-400  bg-indigo-500/10  border-indigo-500/20'  },
+  'Cached Response':    { cls: 'text-slate-400   bg-slate-800      border-slate-700'      },
+  'AI Unavailable':     { cls: 'text-rose-400    bg-rose-500/10    border-rose-500/20'    },
+  'Verified by Sandbox':{ cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' }
+};
+
+const DIFFICULTY_COLORS = {
+  easy:   'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+  medium: 'text-amber-400   bg-amber-500/10   border-amber-500/20',
+  hard:   'text-rose-400    bg-rose-500/10    border-rose-500/20'
+};
+
+/**
+ * Renders AI markdown response with syntax-highlighted code blocks.
+ * Uses react-markdown + remark-gfm + rehype-highlight.
+ */
+function MarkdownMessage({ content }) {
+  return (
+    <div className="prose prose-invert prose-sm max-w-none dsa-ai-markdown">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
+        components={{
+          // Headings
+          h1: ({ children }) => <h1 className="text-sm font-bold text-white mt-3 mb-1 border-b border-slate-700 pb-1">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-[13px] font-bold text-cyan-300 mt-3 mb-1">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-xs font-bold text-slate-200 mt-2 mb-1">{children}</h3>,
+          // Paragraphs
+          p:  ({ children }) => <p  className="text-xs text-slate-200 leading-relaxed mb-2">{children}</p>,
+          // Lists
+          ul: ({ children }) => <ul className="text-xs text-slate-200 list-disc list-inside space-y-0.5 mb-2 pl-2">{children}</ul>,
+          ol: ({ children }) => <ol className="text-xs text-slate-200 list-decimal list-inside space-y-0.5 mb-2 pl-2">{children}</ol>,
+          li: ({ children }) => <li className="text-xs text-slate-200 leading-relaxed">{children}</li>,
+          // Inline code
+          code: ({ inline, className, children, ...props }) => {
+            if (inline) {
+              return (
+                <code className="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-[11px]" {...props}>
+                  {children}
+                </code>
+              );
+            }
+            // Block code — rehype-highlight adds hljs classes
+            return (
+              <code className={`${className || ''} text-[11px] leading-relaxed`} {...props}>
+                {children}
+              </code>
+            );
+          },
+          // Code blocks with copy button
+          pre: ({ children }) => (
+            <div className="relative my-2 rounded-xl border border-slate-800 bg-[#050811] overflow-hidden">
+              <div className="px-3 py-1.5 bg-slate-900/80 border-b border-slate-800 flex items-center gap-1.5">
+                <Terminal className="w-3 h-3 text-cyan-500" />
+                <span className="text-[10px] font-mono text-slate-400">code</span>
+              </div>
+              <pre className="p-3 overflow-x-auto">{children}</pre>
+            </div>
+          ),
+          // Bold & italic
+          strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+          em:     ({ children }) => <em     className="italic text-slate-300">{children}</em>,
+          // Blockquote
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-2 border-cyan-500/40 pl-3 my-2 text-slate-400 italic text-xs">
+              {children}
+            </blockquote>
+          ),
+          // Table
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-2">
+              <table className="w-full text-[11px] border-collapse">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => <th className="px-2 py-1 bg-slate-800 text-slate-300 font-bold text-left border border-slate-700">{children}</th>,
+          td: ({ children }) => <td className="px-2 py-1 text-slate-300 border border-slate-800">{children}</td>,
+          // Horizontal rule
+          hr: () => <hr className="border-slate-700 my-3" />,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 export default function DsaAiCoachPanel({ problem, currentCode = '', language = 'javascript' }) {
   const [query, setQuery] = useState('');
@@ -26,14 +130,65 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [userCode, setUserCode] = useState(currentCode || '');
   const [codeLang, setCodeLang] = useState(language || 'javascript');
+  const [prevProblemId, setPrevProblemId] = useState(problem?.id || null);
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto-scroll to bottom of conversation
+  // Smart auto-scroll: only scroll to bottom when user is near the bottom
+  const scrollToBottom = useCallback((force = false) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (force || distanceFromBottom < 200) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    scrollToBottom();
+  }, [messages, loading, scrollToBottom]);
+
+  // Detect problem context change and inject a system note into the conversation
+  useEffect(() => {
+    const newId = problem?.id || null;
+    if (newId !== prevProblemId) {
+      setPrevProblemId(newId);
+      if (messages.length > 0) {
+        const systemNote = {
+          id: `sys-${Date.now()}`,
+          role: 'system',
+          text: problem
+            ? `Context switched to: **${problem.title}**`
+            : 'No problem selected — now in General DSA mode.',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, systemNote]);
+      }
+      // Reset hint level when problem changes
+      setHintLevel(0);
+    }
+  }, [problem?.id]);
+
+  // Build conversation history for backend (last 6 turns = 12 messages)
+  const buildConversationHistory = useCallback(() => {
+    return messages
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .slice(-12)
+      .map(m => ({
+        role: m.role,
+        content: m.role === 'user' ? (m.text || '') : (m.text || m.errorText || '')
+      }))
+      .filter(m => m.content.trim().length > 0);
+  }, [messages]);
+
+  // Clear the entire conversation
+  const handleClearChat = () => {
+    setMessages([]);
+    setHintLevel(0);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
 
   // Execute coach request
   const executeCoachAction = async (actionId, options = {}) => {
@@ -75,7 +230,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
 
     if (!questionText) return;
 
-    // 1. Add User Message to stream (if not a direct retry)
+    // 1. Add User Message to stream (if not a retry)
     if (!options.isRetry) {
       const userMessageObj = {
         id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -91,6 +246,8 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
     setSelectedAction(actionId);
 
     try {
+      const conversationHistory = buildConversationHistory();
+
       const res = await api.getDsaAiCoach({
         question: questionText,
         problemId: problem?.id,
@@ -98,7 +255,8 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
         language: codeLang,
         code: (actionId === 'CODE_REVIEW' || actionId === 'DEBUG' || showCodeEditor) ? (userCode || currentCode) : undefined,
         hintIndex: level,
-        verify: actionId === 'SOLUTION'
+        verify: actionId === 'SOLUTION',
+        conversationHistory
       });
 
       const aiResponseData = res.data || {};
@@ -106,6 +264,9 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
       if (actionId === 'HINT') {
         setHintLevel(level + 1);
       }
+
+      // Determine display source label (backend provides displaySource, fallback to source)
+      const sourceLabel = aiResponseData.displaySource || aiResponseData.source || '';
 
       // Append AI response message to conversation stream
       const aiMessageObj = {
@@ -119,6 +280,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
         code: aiResponseData.code,
         verification: aiResponseData.verification,
         source: aiResponseData.source,
+        displaySource: sourceLabel,
         intent: aiResponseData.intent || actionId,
         hintLevel: actionId === 'HINT' ? (level + 1) : null,
         timestamp: new Date()
@@ -126,14 +288,15 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
 
       setMessages(prev => [...prev, aiMessageObj]);
     } catch (err) {
-      let errMsg = 'AI coach service is temporarily unavailable. Please try again.';
+      let errMsg = 'Unable to generate a response right now. Please try again.';
       if (err.status === 429 || err.code === 'RATE_LIMITED') {
-        errMsg = 'You have reached the AI request rate limit. Please wait a moment before trying again.';
-      } else if (err.message) {
+        errMsg = 'You have reached the AI request limit. Please wait a moment before trying again.';
+      } else if (err.status === 401) {
+        errMsg = 'Session expired. Please refresh the page and log in again.';
+      } else if (err.message && !err.message.includes('stack') && !err.message.includes('SQL')) {
         errMsg = err.message;
       }
 
-      // Add error message to conversation stream with retry capability
       const errorMsgObj = {
         id: `err-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         role: 'assistant',
@@ -147,7 +310,6 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
       setMessages(prev => [...prev, errorMsgObj]);
     } finally {
       setLoading(false);
-      // Keep input focused and empty
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   };
@@ -188,41 +350,91 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
     executeCoachAction('HINT', { hintIndex: 0 });
   };
 
+  const currentPlaceholder = ACTION_PLACEHOLDERS[selectedAction] || ACTION_PLACEHOLDERS.default;
+  const difficultyKey = (problem?.difficulty || '').toLowerCase();
+  const difficultyColor = DIFFICULTY_COLORS[difficultyKey] || DIFFICULTY_COLORS.medium;
+
   return (
     <div className="flex flex-col h-full bg-[#080d1a] rounded-2xl border border-slate-800/80 overflow-hidden shadow-2xl">
-      {/* Header */}
+      {/* ─── Header ─── */}
       <div className="p-4 border-b border-slate-800/80 bg-slate-900/50 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20 shrink-0">
             <Sparkles className="w-4 h-4 text-white animate-pulse" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-white tracking-wide">DSA AI Coach</h3>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                v1.0
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 shrink-0">
+                v2.0
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">
-              {problem?.title ? `Grounding on: ${problem.title}` : 'No problem selected — ask any DSA question.'}
+            <p className="text-[11px] text-slate-400 truncate">
+              {problem?.title
+                ? <span className="text-cyan-300/80">{problem.title}</span>
+                : 'General DSA Question'}
             </p>
           </div>
         </div>
-        <button
-          id="btn-dsa-ai-attach-code"
-          type="button"
-          onClick={() => setShowCodeEditor(!showCodeEditor)}
-          className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-            showCodeEditor
-              ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
-              : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white'
-          }`}
-        >
-          {showCodeEditor ? 'Hide Code Input' : 'Attach Code'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {messages.length > 0 && (
+            <button
+              id="btn-dsa-ai-clear"
+              type="button"
+              onClick={handleClearChat}
+              title="Clear conversation"
+              className="text-xs px-2.5 py-1.5 rounded-lg border bg-slate-800/60 border-slate-700 text-slate-400 hover:text-rose-300 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3 h-3" />
+              Clear
+            </button>
+          )}
+          <button
+            id="btn-dsa-ai-attach-code"
+            type="button"
+            onClick={() => setShowCodeEditor(!showCodeEditor)}
+            className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-all flex items-center gap-1.5 ${
+              showCodeEditor
+                ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
+                : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white'
+            }`}
+          >
+            <Terminal className="w-3 h-3" />
+            {showCodeEditor ? 'Hide Code' : 'Attach Code'}
+          </button>
+        </div>
       </div>
 
-      {/* Quick Action Pills */}
+      {/* ─── Problem Context Card ─── */}
+      {problem && (
+        <div className="px-4 py-2.5 bg-slate-900/30 border-b border-slate-800/60 flex items-center gap-2.5 flex-wrap shrink-0">
+          <div className="flex items-center gap-1.5">
+            <BookMarked className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-[11px] font-semibold text-white truncate max-w-[160px]">
+              {problem.title}
+            </span>
+          </div>
+          {problem.difficulty && (
+            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${difficultyColor}`}>
+              {problem.difficulty}
+            </span>
+          )}
+          {problem.topic_name && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+              <Layers className="w-2.5 h-2.5" />
+              {problem.topic_name}
+            </span>
+          )}
+          {problem.pattern_name && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              <Compass className="w-2.5 h-2.5" />
+              {problem.pattern_name}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ─── Quick Action Pills ─── */}
       <div className="p-3 bg-slate-900/30 border-b border-slate-800/60 flex flex-wrap gap-1.5 shrink-0">
         {QUICK_ACTIONS.map((act) => {
           const Icon = act.icon;
@@ -233,11 +445,8 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
               key={act.id}
               type="button"
               onClick={() => {
-                if (act.id === 'HINT') {
-                  executeCoachAction('HINT');
-                } else {
-                  executeCoachAction(act.id);
-                }
+                setSelectedAction(act.id);
+                executeCoachAction(act.id);
               }}
               disabled={loading}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${
@@ -258,7 +467,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
         })}
       </div>
 
-      {/* Optional Attached Code Editor */}
+      {/* ─── Optional Attached Code Editor ─── */}
       {showCodeEditor && (
         <div className="p-3 bg-slate-950/80 border-b border-slate-800/80 space-y-2 shrink-0">
           <div className="flex items-center justify-between text-xs">
@@ -281,21 +490,21 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
             value={userCode}
             onChange={(e) => setUserCode(e.target.value)}
             placeholder="Paste or write your solution code here for review or debugging..."
-            rows={3}
+            rows={4}
             className="w-full bg-slate-900/90 border border-slate-700/80 rounded-lg p-2.5 font-mono text-xs text-slate-200 focus:outline-none focus:border-cyan-500 resize-y"
           />
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => executeCoachAction('CODE_REVIEW')}
+              onClick={() => { setSelectedAction('CODE_REVIEW'); executeCoachAction('CODE_REVIEW'); }}
               disabled={loading || !userCode.trim()}
               className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded text-xs font-semibold"
             >
-              Run Code Review
+              Review Code
             </button>
             <button
               type="button"
-              onClick={() => executeCoachAction('DEBUG')}
+              onClick={() => { setSelectedAction('DEBUG'); executeCoachAction('DEBUG'); }}
               disabled={loading || !userCode.trim()}
               className="px-3 py-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white rounded text-xs font-semibold"
             >
@@ -305,21 +514,38 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
         </div>
       )}
 
-      {/* Main Conversation Stream */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar">
+      {/* ─── Main Conversation Stream ─── */}
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar"
+      >
         {messages.length === 0 && !loading && (
           <div className="text-center py-12 text-slate-500 space-y-2">
             <div className="w-12 h-12 rounded-2xl bg-slate-900/80 border border-slate-800 mx-auto flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-cyan-400" />
             </div>
-            <div className="text-xs font-semibold text-slate-400">Ask DSA AI for Guidance</div>
+            <div className="text-xs font-semibold text-slate-400">Ask DSA AI Coach for Guidance</div>
             <p className="text-[11px] text-slate-600 max-w-xs mx-auto">
-              Click any quick action above or type a specific question about data structures, patterns, or edge cases.
+              {problem
+                ? `Click a quick action or type a question about ${problem.title}.`
+                : 'No problem selected — ask any DSA concept question.'}
             </p>
           </div>
         )}
 
         {messages.map((msg) => {
+          // ─ System Note ─
+          if (msg.role === 'system') {
+            return (
+              <div key={msg.id} className="flex justify-center animate-in fade-in duration-200">
+                <div className="text-[10px] text-slate-500 px-3 py-1 rounded-full bg-slate-900/60 border border-slate-800">
+                  <MarkdownMessage content={msg.text} />
+                </div>
+              </div>
+            );
+          }
+
+          // ─ User Message ─
           if (msg.role === 'user') {
             return (
               <div key={msg.id} className="flex justify-end animate-in fade-in duration-200">
@@ -336,6 +562,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
             );
           }
 
+          // ─ Error Message ─
           if (msg.isError) {
             return (
               <div key={msg.id} className="flex justify-start animate-in fade-in duration-200">
@@ -361,10 +588,14 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
             );
           }
 
-          // Assistant Response Message
+          // ─ Assistant Response ─
+          const sourceLabel = msg.displaySource || msg.source || '';
+          const sourceCls = SOURCE_CONFIG[sourceLabel]?.cls || 'text-slate-400 bg-slate-800 border-slate-700';
+
           return (
             <div key={msg.id} className="flex justify-start animate-in fade-in duration-200">
               <div className="max-w-[95%] w-full bg-slate-900/80 border border-slate-800 rounded-2xl rounded-tl-sm p-4 space-y-3 shadow-lg">
+                {/* Response header */}
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center">
@@ -377,9 +608,9 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                       </span>
                     )}
                   </div>
-                  {msg.source && (
-                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
-                      via {msg.source}
+                  {sourceLabel && (
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${sourceCls}`}>
+                      {sourceLabel}
                     </span>
                   )}
                 </div>
@@ -402,23 +633,28 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                         <Clock className="w-3 h-3" /> {msg.complexity.time}
                       </span>
                     )}
+                    {msg.complexity?.space && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-mono bg-violet-500/10 text-violet-300 border border-violet-500/20">
+                        <ChevronDown className="w-3 h-3" /> {msg.complexity.space}
+                      </span>
+                    )}
                   </div>
                 )}
 
-                {/* Text Content */}
+                {/* ─ Markdown-rendered AI text ─ */}
                 {msg.text && (
-                  <div className="text-slate-200 text-xs leading-relaxed whitespace-pre-line space-y-2">
-                    {msg.text}
+                  <div className="text-xs">
+                    <MarkdownMessage content={msg.text} />
                   </div>
                 )}
 
-                {/* Code Snippet Box */}
+                {/* Standalone Code Snippet Box (for Solution responses) */}
                 {msg.code && (
                   <div className="rounded-xl border border-slate-800 bg-[#050811] overflow-hidden">
                     <div className="px-3 py-1.5 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between text-xs">
                       <span className="text-slate-400 font-mono flex items-center gap-1.5">
                         <Code2 className="w-3.5 h-3.5 text-emerald-400" />
-                        Optimal Solution ({codeLang})
+                        Extracted Code ({codeLang})
                       </span>
                       <button
                         type="button"
@@ -426,7 +662,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
                       >
                         {copiedId === msg.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        {copiedId === msg.id ? 'Copied' : 'Copy Code'}
+                        {copiedId === msg.id ? 'Copied' : 'Copy'}
                       </button>
                     </div>
                     <pre className="p-3 text-[11px] font-mono text-emerald-300/90 overflow-x-auto">
@@ -443,15 +679,13 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                       : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                   }`}>
                     <div className="flex items-center gap-2">
-                      {msg.verification.verified ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-rose-400" />
-                      )}
+                      {msg.verification.verified
+                        ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        : <XCircle     className="w-4 h-4 text-rose-400"    />}
                       <div>
-                        <span className="font-bold">Sandbox Verification: {msg.verification.status}</span>
+                        <span className="font-bold">Sandbox: {msg.verification.status}</span>
                         <span className="ml-2 text-slate-400 font-mono">
-                          ({msg.verification.passed_tests}/{msg.verification.total_tests} tests passed)
+                          ({msg.verification.passed_tests}/{msg.verification.total_tests} tests)
                         </span>
                       </div>
                     </div>
@@ -463,7 +697,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
                   </div>
                 )}
 
-                {/* Progressive Next Hint Buttons for Hint responses */}
+                {/* Progressive Next Hint Buttons */}
                 {msg.intent === 'HINT' && (
                   <div className="flex items-center gap-2 pt-1">
                     <button
@@ -489,7 +723,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
           );
         })}
 
-        {/* Loading Indicator */}
+        {/* ─ Loading Indicator ─ */}
         {loading && (
           <div className="flex justify-start animate-in fade-in duration-200">
             <div className="p-4 rounded-2xl rounded-tl-sm bg-slate-900/80 border border-slate-800 space-y-2.5 max-w-[80%]">
@@ -508,7 +742,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Form */}
+      {/* ─── Input Form ─── */}
       <form onSubmit={handleCustomSubmit} className="p-3 bg-slate-900/70 border-t border-slate-800/80 flex gap-2 shrink-0">
         <input
           id="input-dsa-ai-query"
@@ -517,7 +751,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about this problem, approach, code, or complexity..."
+          placeholder={currentPlaceholder}
           disabled={loading}
           autoComplete="off"
           className="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
