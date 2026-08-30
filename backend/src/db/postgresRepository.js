@@ -14,7 +14,20 @@ class PostgresRepository extends RepositoryContract {
 
   formatSql(sql) {
     let index = 0;
-    return sql.replace(/\?/g, () => `$${++index}`);
+    let formatted = sql
+      .replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP')
+      .replace(/\(q\.is_active\s*=\s*1\s*OR\s*q\.is_active\s*=\s*TRUE\)/gi, 'q.is_active = TRUE')
+      .replace(/\(q\.is_practice\s*=\s*1\s*OR\s*q\.is_practice\s*=\s*TRUE\)/gi, 'q.is_practice = TRUE')
+      .replace(/\(is_active\s*=\s*1\s*OR\s*is_active\s*=\s*TRUE\)/gi, 'is_active = TRUE')
+      .replace(/\(is_practice\s*=\s*1\s*OR\s*is_practice\s*=\s*TRUE\)/gi, 'is_practice = TRUE')
+      .replace(/\(dc\.is_active\s*=\s*1\s*OR\s*dc\.is_active\s*=\s*TRUE\)/gi, 'dc.is_active = TRUE')
+      .replace(/\b(is_active|is_practice|email_verified|is_read|is_hidden)\s*=\s*1\b/gi, '$1 = TRUE')
+      .replace(/\b(is_active|is_practice|email_verified|is_read|is_hidden)\s*=\s*0\b/gi, '$1 = FALSE')
+      .replace(/\b(dc|q|u|s)\.(is_active|is_practice|email_verified|is_read|is_hidden)\s*=\s*1\b/gi, '$1.$2 = TRUE')
+      .replace(/\b(dc|q|u|s)\.(is_active|is_practice|email_verified|is_read|is_hidden)\s*=\s*0\b/gi, '$1.$2 = FALSE')
+      .replace(/EXCLUDED\.email_verified\s*=\s*1/gi, 'EXCLUDED.email_verified = TRUE');
+
+    return formatted.replace(/\?/g, () => `$${++index}`);
   }
 
   async query(sql, params = []) {

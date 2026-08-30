@@ -28,8 +28,9 @@ async function findUserByEmail(email) {
   );
 }
 
-async function provisionUser({ id, name, email, password_hash = null, email_verified = 1 }) {
+async function provisionUser({ id, name, email, password_hash = null, email_verified = true }) {
   const repo = getRepo();
+  const isVerified = Boolean(email_verified);
   await repo.execute(`
     INSERT INTO users (id, name, email, role, password_hash, email_verified)
     VALUES (?, ?, ?, 'user', ?, ?)
@@ -37,8 +38,8 @@ async function provisionUser({ id, name, email, password_hash = null, email_veri
       email = EXCLUDED.email,
       name = COALESCE(users.name, EXCLUDED.name),
       password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
-      email_verified = CASE WHEN EXCLUDED.email_verified = 1 THEN 1 ELSE users.email_verified END
-  `, [id, name, email, password_hash, email_verified]);
+      email_verified = CASE WHEN EXCLUDED.email_verified IS TRUE THEN TRUE ELSE users.email_verified END
+  `, [id, name, email, password_hash, isVerified]);
   return findUserById(id);
 }
 
@@ -48,9 +49,9 @@ async function updatePassword(id, passwordHash) {
   return findUserById(id);
 }
 
-async function setEmailVerified(id, isVerified = 1) {
+async function setEmailVerified(id, isVerified = true) {
   const repo = getRepo();
-  await repo.execute('UPDATE users SET email_verified = ? WHERE id = ?', [isVerified ? 1 : 0, id]);
+  await repo.execute('UPDATE users SET email_verified = ? WHERE id = ?', [Boolean(isVerified), id]);
   return findUserById(id);
 }
 
