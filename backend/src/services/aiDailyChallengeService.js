@@ -1020,7 +1020,7 @@ async function checkDuplicateChallenge(candidate, description = '', excludeId = 
   const existingDc = await getRepo().many(`
     SELECT id, title, description, status, scheduled_date, problem_signature, problem_concept
     FROM daily_challenge_problems
-    WHERE status != 'archived' AND (is_active = 1 OR is_active = TRUE) ${excludeId ? 'AND id != ?' : ''}
+    WHERE status != 'archived' AND is_active = TRUE ${excludeId ? 'AND id != ?' : ''}
   `, excludeId ? [excludeId] : []);
 
   for (const c of existingDc) {
@@ -1092,7 +1092,7 @@ async function checkDuplicateChallenge(candidate, description = '', excludeId = 
     const existingQuestions = await getRepo().many(`
       SELECT id, title, description 
       FROM questions
-      WHERE is_active = 1 OR is_active = TRUE
+      WHERE is_active = TRUE OR is_active = TRUE
     `);
 
     for (const q of existingQuestions) {
@@ -1186,7 +1186,7 @@ function validateDailyChallenge(data) {
 
   if (testCases.length >= 2 && (!hasPublic || !hasHidden)) {
     if (!hasHidden && testCases.length > 1) {
-      testCases[testCases.length - 1].is_hidden = 1;
+      testCases[testCases.length - 1].is_hidden = TRUE;
     }
   }
 
@@ -1256,7 +1256,7 @@ async function getRecentTaxonomyHistory(limit = 15) {
     const recent = await getRepo().many(`
       SELECT title, topic_id, custom_topic, pattern_id, problem_concept
       FROM daily_challenge_problems
-      WHERE status != 'archived' AND (is_active = 1 OR is_active = TRUE)
+      WHERE status != 'archived' AND is_active = TRUE
       ORDER BY created_at DESC
       LIMIT ?
     `, [limit]);

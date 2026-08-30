@@ -8,7 +8,7 @@ async function getUserProgress(userId) {
     SELECT COUNT(*) AS total
     FROM assignments a
     JOIN questions q ON a.question_id = q.id
-    WHERE a.user_id = ? AND a.status = 'assigned' AND (q.is_active = 1 OR q.is_active = TRUE)
+    WHERE a.user_id = ? AND a.status = 'assigned' AND q.is_active = TRUE
   `, [userId]);
   const assignedCount = Number(assignedActiveRow?.total || 0);
 
@@ -18,7 +18,7 @@ async function getUserProgress(userId) {
     FROM assignments a
     JOIN questions q ON a.question_id = q.id
     JOIN submissions s ON s.question_id = q.id AND s.user_id = a.user_id
-    WHERE a.user_id = ? AND a.status = 'assigned' AND (q.is_active = 1 OR q.is_active = TRUE) AND s.status IN ('solved', 'completed', 'approved')
+    WHERE a.user_id = ? AND a.status = 'assigned' AND q.is_active = TRUE AND s.status IN ('solved', 'completed', 'approved')
   `, [userId]);
   const solvedCount = Number(solvedActiveRow?.total || 0);
 
@@ -28,7 +28,7 @@ async function getUserProgress(userId) {
     FROM assignments a
     JOIN questions q ON a.question_id = q.id
     JOIN submissions s ON s.question_id = q.id AND s.user_id = a.user_id
-    WHERE a.user_id = ? AND a.status = 'assigned' AND (q.is_active = 1 OR q.is_active = TRUE) AND s.status IN ('attempted', 'solved', 'completed', 'approved')
+    WHERE a.user_id = ? AND a.status = 'assigned' AND q.is_active = TRUE AND s.status IN ('attempted', 'solved', 'completed', 'approved')
   `, [userId]);
   const attemptedCount = Number(attemptedActiveRow?.total || 0);
 
@@ -49,7 +49,7 @@ async function getUserProgress(userId) {
       SELECT COUNT(*) AS total
       FROM assignments a
       JOIN questions q ON a.question_id = q.id
-      WHERE a.user_id = ? AND a.status = 'assigned' AND (q.is_active = 1 OR q.is_active = TRUE) AND LOWER(q.difficulty) = ?
+      WHERE a.user_id = ? AND a.status = 'assigned' AND q.is_active = TRUE AND LOWER(q.difficulty) = ?
     `, [userId, diff]);
     const diffAssigned = Number(diffAssignedRow?.total || 0);
 
@@ -58,7 +58,7 @@ async function getUserProgress(userId) {
       FROM assignments a
       JOIN questions q ON a.question_id = q.id
       JOIN submissions s ON s.question_id = q.id AND s.user_id = a.user_id
-      WHERE a.user_id = ? AND a.status = 'assigned' AND (q.is_active = 1 OR q.is_active = TRUE) AND LOWER(q.difficulty) = ? AND s.status IN ('solved', 'completed', 'approved')
+      WHERE a.user_id = ? AND a.status = 'assigned' AND q.is_active = TRUE AND LOWER(q.difficulty) = ? AND s.status IN ('solved', 'completed', 'approved')
     `, [userId, diff]);
     const diffSolved = Number(diffSolvedRow?.total || 0);
 
@@ -153,7 +153,7 @@ async function getAdminAggregateProgress({ page = 1, limit = 20, search }) {
 
 async function getAdminSystemStats() {
   const totalUsersRow = await repo.one("SELECT COUNT(*) AS count FROM users WHERE role != 'admin'");
-  const totalActiveQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE (is_active = 1 OR is_active = TRUE)");
+  const totalActiveQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE is_active = TRUE");
   const totalAssignmentsRow = await repo.one("SELECT COUNT(*) AS count FROM assignments WHERE status = 'assigned'");
   const totalSolvedRow = await repo.one("SELECT COUNT(*) AS count FROM submissions WHERE status IN ('solved', 'completed', 'approved')");
   const totalAttemptedRow = await repo.one("SELECT COUNT(*) AS count FROM submissions WHERE status IN ('attempted', 'solved', 'completed', 'approved')");

@@ -91,7 +91,7 @@ async function recommendTopicForDailyChallenge({ difficulty = 'medium' } = {}) {
     SELECT dc.topic_id, dc.custom_topic, t.name AS topic_name, dc.created_at
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
-    WHERE dc.status != 'archived' AND dc.is_active = 1
+    WHERE dc.status != 'archived' AND dc.is_active = TRUE
     ORDER BY dc.created_at DESC
     LIMIT 15
   `);

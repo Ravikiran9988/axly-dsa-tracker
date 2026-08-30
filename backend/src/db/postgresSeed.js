@@ -82,12 +82,12 @@ async function seedPostgresDatabase(pgPool = pool) {
         exampleInput, exampleOutput, hintsJson, tagsJson, p.solutionApproach || ''
       ]);
 
-      await client.query('DELETE FROM question_test_cases WHERE question_id = $1', [p.id]);
+      await client.query('DELETE FROM test_cases WHERE question_id = $1', [p.id]);
       if (Array.isArray(p.testCases)) {
         for (let i = 0; i < p.testCases.length; i++) {
           const tc = p.testCases[i];
           await client.query(`
-            INSERT INTO question_test_cases (id, question_id, input, expected_output, is_hidden)
+            INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden)
             VALUES ($1, $2, $3, $4, $5)
           `, [
             `${p.id}-tc-${i + 1}`,

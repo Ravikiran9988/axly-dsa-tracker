@@ -27,7 +27,7 @@ async function getRecommendations(userId, limit = 8) {
       SELECT q.id, q.title, q.difficulty, q.topic_id, q.points, q.estimated_time, t.name AS topic_name
       FROM questions q
       LEFT JOIN topics t ON q.topic_id = t.id
-      WHERE (q.is_active = 1 OR q.is_active = TRUE)
+      WHERE q.is_active = TRUE
         AND q.topic_id IN (${placeholders})
         AND NOT EXISTS (
           SELECT 1 FROM submissions s 
@@ -43,7 +43,7 @@ async function getRecommendations(userId, limit = 8) {
     SELECT q.id, q.title, q.difficulty, q.topic_id, q.points, q.estimated_time, t.name AS topic_name
     FROM questions q
     LEFT JOIN topics t ON q.topic_id = t.id
-    WHERE (q.is_active = 1 OR q.is_active = TRUE)
+    WHERE q.is_active = TRUE
       AND NOT EXISTS (
         SELECT 1 FROM submissions s 
         WHERE s.question_id = q.id AND s.user_id = ? AND s.status IN ('solved', 'approved', 'completed')

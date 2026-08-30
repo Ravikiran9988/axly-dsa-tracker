@@ -215,7 +215,7 @@ class DsaProblemMatcherService {
         FROM questions q
         LEFT JOIN topics t ON q.topic_id = t.id
         LEFT JOIN patterns p ON q.pattern_id = p.id
-        WHERE (q.is_active = 1 OR q.is_active = TRUE)
+        WHERE q.is_active = TRUE
       `);
       return rows || [];
     } catch (_) {

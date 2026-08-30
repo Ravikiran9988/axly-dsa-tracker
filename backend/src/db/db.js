@@ -867,15 +867,15 @@ function initSchema() {
       WHERE id NOT IN (
         SELECT MIN(id) 
         FROM daily_challenge_problems 
-        WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1 
+        WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = TRUE 
         GROUP BY scheduled_date
-      ) AND scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1
+      ) AND scheduled_date IS NOT NULL AND status != 'archived' AND is_active = TRUE
     `).run();
 
     db.prepare(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_challenge_problems_unique_active_date 
       ON daily_challenge_problems(scheduled_date) 
-      WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = 1
+      WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = TRUE
     `).run();
   } catch (e) {
     // ignore

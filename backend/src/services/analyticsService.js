@@ -158,13 +158,13 @@ async function getAdminStats() {
   const activeLearners = Number(activeLearnersRow?.count || 0);
 
   // Questions stats
-  const totalQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE (is_active = 1 OR is_active = TRUE)");
+  const totalQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE is_active = TRUE");
   const totalQuestions = Number(totalQuestionsRow?.count || 0);
 
-  const publishedQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE status = 'published' AND (is_active = 1 OR is_active = TRUE)");
+  const publishedQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE status = 'published' AND is_active = TRUE");
   const publishedQuestions = Number(publishedQuestionsRow?.count || totalQuestions);
 
-  const draftQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE status = 'draft' AND (is_active = 1 OR is_active = TRUE)");
+  const draftQuestionsRow = await repo.one("SELECT COUNT(*) AS count FROM questions WHERE status = 'draft' AND is_active = TRUE");
   const draftQuestions = Number(draftQuestionsRow?.count || 0);
 
   // Submissions & Solved stats (strictly practice questions solved by students)
@@ -179,7 +179,7 @@ async function getAdminStats() {
     FROM submissions
     WHERE status IN ('solved', 'approved', 'completed')
       AND user_id IN (SELECT id FROM users WHERE role NOT IN ('admin', 'system'))
-      AND question_id IN (SELECT id FROM questions WHERE (is_active = 1 OR is_active = TRUE))
+      AND question_id IN (SELECT id FROM questions WHERE is_active = TRUE)
   `).catch(async () => {
     return repo.one("SELECT COUNT(DISTINCT question_id) AS count FROM submissions WHERE status IN ('solved', 'approved', 'completed')");
   });
@@ -216,7 +216,7 @@ async function getAdminStats() {
   const diffRows = await repo.many(`
     SELECT difficulty, COUNT(*) AS count
     FROM questions
-    WHERE (is_active = 1 OR is_active = TRUE)
+    WHERE is_active = TRUE
     GROUP BY difficulty
   `);
   const difficultyDistribution = {
@@ -230,7 +230,7 @@ async function getAdminStats() {
     SELECT COALESCE(t.name, 'General') AS topic_name, COUNT(q.id) AS count
     FROM questions q
     LEFT JOIN topics t ON q.topic_id = t.id
-    WHERE (q.is_active = 1 OR q.is_active = TRUE)
+    WHERE q.is_active = TRUE
     GROUP BY q.topic_id, t.name
     ORDER BY count DESC
     LIMIT 8

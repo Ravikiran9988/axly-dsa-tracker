@@ -44,15 +44,15 @@ function questionRepository() {
     },
     async findDuplicateTitle(title, excludeId = null) {
       const sql = excludeId
-        ? 'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND id != ? AND (is_active = 1 OR is_active = TRUE)'
-        : 'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND (is_active = 1 OR is_active = TRUE)';
+        ? 'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND id != ? AND is_active = TRUE'
+        : 'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND is_active = TRUE';
       const params = excludeId ? [title, excludeId] : [title];
       return repo.one(sql, params);
     },
     async listTestCases(questionId, includeHidden) {
       const sql = includeHidden
         ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC'
-        : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND (is_hidden = 0 OR is_hidden = FALSE) ORDER BY created_at ASC';
+        : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC';
       const rows = await repo.many(sql, [questionId]);
       return rows.map(normalize);
     },

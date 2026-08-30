@@ -264,7 +264,7 @@ async function runDailyScheduledAutomation() {
   const existingChallenge = await getRepo().one(`
     SELECT id, title, status, scheduled_date
     FROM daily_challenge_problems
-    WHERE scheduled_date = ? AND status != 'archived' AND (is_active = 1 OR is_active = TRUE)
+    WHERE scheduled_date = ? AND status != 'archived' AND is_active = TRUE
   `, [tomorrowUtc]);
 
   if (existingChallenge) {

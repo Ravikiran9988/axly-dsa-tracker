@@ -61,7 +61,7 @@ async function listSubmissions({ user, question_id, status, review_status, page 
 async function submitViaGithub({ user_id, question_id, github_url, assignment_id }) {
   const snapshot = await githubSubmissionService.getRepositorySnapshot(github_url);
   const question = await repo.one(
-    'SELECT * FROM questions WHERE id = ? AND (is_active = 1 OR is_active = TRUE)',
+    'SELECT * FROM questions WHERE id = ? AND is_active = TRUE',
     [question_id]
   );
   if (!question) throw new AppError('Question not found', 404, 'NOT_FOUND');

@@ -108,13 +108,13 @@ function seedPracticeProblems() {
         estimated_time = excluded.estimated_time,
         points = 0,
         status = 'published',
-        is_active = 1,
+        is_active = TRUE,
         slug = excluded.slug,
         pattern_id = excluded.pattern_id,
         secondary_topics = excluded.secondary_topics,
         prerequisites = excluded.prerequisites,
         solution_approach = excluded.solution_approach,
-        is_practice = 1
+        is_practice = TRUE
     `);
 
     const dt = db.prepare('DELETE FROM test_cases WHERE question_id = ?');

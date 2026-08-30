@@ -25,7 +25,7 @@ async function listNotifications(userId, query = {}) {
   const params = [userId];
 
   if (category === 'unread' || String(unreadOnly) === 'true') {
-    whereClauses.push('(is_read = 0 OR is_read = FALSE)');
+    whereClauses.push('is_read = FALSE');
   } else if (category && category !== 'all') {
     whereClauses.push('category = ?');
     params.push(normalizeCategory(category));
@@ -44,7 +44,7 @@ async function listNotifications(userId, query = {}) {
   // Overall unread count for user
   const unreadCountRow = await repo.one(`
     SELECT COUNT(*) AS count FROM notifications 
-    WHERE user_id = ? AND (is_read = 0 OR is_read = FALSE)
+    WHERE user_id = ? AND is_read = FALSE
   `, [userId]);
 
   // Total count for current filter
@@ -56,7 +56,7 @@ async function listNotifications(userId, query = {}) {
   // Category counts breakdown
   const catRows = await repo.many(`
     SELECT category, COUNT(*) AS count,
-           SUM(CASE WHEN (is_read = 0 OR is_read = FALSE) THEN 1 ELSE 0 END) AS unread
+           SUM(CASE WHEN is_read = FALSE THEN 1 ELSE 0 END) AS unread
     FROM notifications
     WHERE user_id = ?
     GROUP BY category
@@ -97,7 +97,7 @@ async function listNotifications(userId, query = {}) {
 async function markAsRead(id, userId) {
   await repo.execute(`
     UPDATE notifications 
-    SET is_read = 1 
+    SET is_read = TRUE 
     WHERE id = ? AND user_id = ?
   `, [id, userId]);
 
@@ -108,13 +108,13 @@ async function markAllAsRead(userId, category = null) {
   if (category && category !== 'all' && category !== 'unread') {
     await repo.execute(`
       UPDATE notifications 
-      SET is_read = 1 
+      SET is_read = TRUE 
       WHERE user_id = ? AND category = ?
     `, [userId, normalizeCategory(category)]);
   } else {
     await repo.execute(`
       UPDATE notifications 
-      SET is_read = 1 
+      SET is_read = TRUE 
       WHERE user_id = ?
     `, [userId]);
   }
@@ -148,7 +148,7 @@ async function createNotification({ userId, title, message, category = 'system',
 
 async function broadcastNotification({ title, message, category = 'system', type = 'system_alert', link = null }) {
   if (!title || !message) return [];
-  const users = await repo.many("SELECT id FROM users WHERE role = 'user' AND is_active = 1");
+  const users = await repo.many("SELECT id FROM users WHERE role = 'user' AND is_active = TRUE");
   const cat = normalizeCategory(category);
   const nowIso = new Date().toISOString();
 

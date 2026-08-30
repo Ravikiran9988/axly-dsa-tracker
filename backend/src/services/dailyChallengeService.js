@@ -68,7 +68,7 @@ async function assertDateAvailable(date, excludeId = null) {
 
   const existing = await getRepo().one(
     `SELECT id, title, scheduled_date FROM daily_challenge_problems 
-     WHERE scheduled_date = ? AND status != 'archived' AND (is_active = 1 OR is_active = TRUE) ${excludeId ? 'AND id != ?' : ''}`,
+     WHERE scheduled_date = ? AND status != 'archived' AND is_active = TRUE ${excludeId ? 'AND id != ?' : ''}`,
     excludeId ? [date, excludeId] : [date]
   );
 
@@ -176,7 +176,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
     WHERE (dc.scheduled_date = ? OR dc.id IN (SELECT challenge_id FROM daily_questions WHERE date = ?))
-      AND (dc.is_active = 1 OR dc.is_active = TRUE) 
+      AND dc.is_active = TRUE 
       AND dc.status IN ('published', 'scheduled')
     ORDER BY dc.updated_at DESC LIMIT 1
   `, [todayStr, todayStr]);
@@ -189,7 +189,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
     LEFT JOIN patterns p ON dc.pattern_id = p.id
     WHERE dc.scheduled_date > ? 
       AND dc.status IN ('scheduled', 'published') 
-      AND (dc.is_active = 1 OR dc.is_active = TRUE)
+      AND dc.is_active = TRUE
     ORDER BY dc.scheduled_date ASC LIMIT 1
   `, [todayStr]);
 
@@ -745,7 +745,7 @@ async function archiveDailyChallenge(id) {
 
   await getRepo().execute(`
     UPDATE daily_challenge_problems 
-    SET status = 'archived', is_active = 0, updated_at = CURRENT_TIMESTAMP 
+    SET status = 'archived', is_active = FALSE, updated_at = CURRENT_TIMESTAMP 
     WHERE id = ?
   `, [id]);
 
@@ -784,7 +784,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
     WHERE dc.scheduled_date = ?
-      AND (dc.is_active = 1 OR dc.is_active = TRUE)
+      AND dc.is_active = TRUE
       AND dc.status IN ('published', 'scheduled')
     ORDER BY 
       CASE WHEN dc.status = 'published' THEN 1 ELSE 2 END,
@@ -801,7 +801,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
       LEFT JOIN topics t ON dc.topic_id = t.id
       LEFT JOIN patterns p ON dc.pattern_id = p.id
       WHERE (dc.id IN (SELECT challenge_id FROM daily_questions WHERE date = ?) OR dc.source_question_id IN (SELECT question_id FROM daily_questions WHERE date = ?))
-        AND (dc.is_active = 1 OR dc.is_active = TRUE)
+        AND dc.is_active = TRUE
         AND dc.status IN ('published', 'scheduled')
       ORDER BY dc.updated_at DESC LIMIT 1
     `, [dateStr, dateStr]);
@@ -864,7 +864,7 @@ async function createDailyChallengeFromPractice(data, admin_id) {
   const question = await getRepo().one('SELECT * FROM questions WHERE id = ?', [question_id]);
   if (!question) throw new AppError('Source practice question not found', 404, 'NOT_FOUND');
 
-  const testCaseTable = getRepo().isPostgres ? 'question_test_cases' : 'test_cases';
+  const testCaseTable = 'test_cases';
   const testCases = await getRepo().many(`SELECT input, expected_output, is_hidden FROM ${testCaseTable} WHERE question_id = ?`, [question_id]);
 
   return createDailyChallenge({

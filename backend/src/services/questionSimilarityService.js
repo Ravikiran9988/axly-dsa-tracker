@@ -75,8 +75,8 @@ async function findSimilarQuestions({ title, description, excludeId = null, prov
   }
 
   const query = excludeId
-    ? "SELECT id, title, description, problem_statement FROM questions WHERE status = 'published' AND (is_active = 1 OR is_active = TRUE) AND id <> ?"
-    : "SELECT id, title, description, problem_statement FROM questions WHERE status = 'published' AND (is_active = 1 OR is_active = TRUE)";
+    ? "SELECT id, title, description, problem_statement FROM questions WHERE status = 'published' AND is_active = TRUE AND id <> ?"
+    : "SELECT id, title, description, problem_statement FROM questions WHERE status = 'published' AND is_active = TRUE";
   const params = excludeId ? [excludeId] : [];
   const rows = await repo.many(query, params);
 

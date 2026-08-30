@@ -63,7 +63,7 @@ async function listPracticeProblems({ user, difficulty, topic_id, pattern_id, st
   ensurePracticeSchema();
   await validateFilters({ difficulty, topic_id, pattern_id, status });
 
-  const conditions = ['(q.is_practice = 1 OR q.is_practice = TRUE)', '(q.is_active = 1 OR q.is_active = TRUE)'];
+  const conditions = ['q.is_practice = TRUE', 'q.is_active = TRUE'];
   const params = [];
 
   if (difficulty) {
@@ -143,7 +143,7 @@ async function getPracticeProblem({ user, questionId }) {
     FROM questions q
     LEFT JOIN topics t ON t.id = q.topic_id
     LEFT JOIN practice_progress pp ON pp.question_id = q.id AND pp.user_id = ?
-    WHERE q.id = ? AND (q.is_practice = 1 OR q.is_practice = TRUE) AND (q.is_active = 1 OR q.is_active = TRUE)
+    WHERE q.id = ? AND q.is_practice = TRUE AND q.is_active = TRUE
   `, [user?.id || null, questionId]);
 
   if (!r) return null;
@@ -159,7 +159,7 @@ async function getPracticeProblem({ user, questionId }) {
 async function startPractice({ user, questionId }) {
   ensurePracticeSchema();
   const q = await repo.one(
-    'SELECT id FROM questions WHERE id = ? AND (is_practice = 1 OR is_practice = TRUE) AND (is_active = 1 OR is_active = TRUE)',
+    'SELECT id FROM questions WHERE id = ? AND is_practice = TRUE AND is_active = TRUE',
     [questionId]
   );
   if (!q) throw new AppError('Practice problem not found', 404, 'NOT_FOUND');
@@ -195,7 +195,7 @@ async function abandonPractice({ user, questionId }) {
 async function recordPracticeSubmission({ user, questionId, submissionId, passed }) {
   ensurePracticeSchema();
   const q = await repo.one(
-    'SELECT id FROM questions WHERE id = ? AND (is_practice = 1 OR is_practice = TRUE) AND (is_active = 1 OR is_active = TRUE)',
+    'SELECT id FROM questions WHERE id = ? AND is_practice = TRUE AND is_active = TRUE',
     [questionId]
   );
   if (!q) throw new AppError('Practice problem not found', 404, 'NOT_FOUND');
@@ -221,7 +221,7 @@ async function recordPracticeSubmission({ user, questionId, submissionId, passed
 async function getPracticeProgress({ user }) {
   ensurePracticeSchema();
   const totalRow = await repo.one(
-    'SELECT COUNT(*) AS total FROM questions WHERE (is_practice = 1 OR is_practice = TRUE) AND (is_active = 1 OR is_active = TRUE)'
+    'SELECT COUNT(*) AS total FROM questions WHERE is_practice = TRUE AND is_active = TRUE'
   );
   const total = Number(totalRow?.total || 0);
 
@@ -229,7 +229,7 @@ async function getPracticeProgress({ user }) {
     SELECT COALESCE(pp.status, 'not_started') AS status, COUNT(*) AS count
     FROM questions q
     LEFT JOIN practice_progress pp ON pp.question_id = q.id AND pp.user_id = ?
-    WHERE (q.is_practice = 1 OR q.is_practice = TRUE) AND (q.is_active = 1 OR q.is_active = TRUE)
+    WHERE q.is_practice = TRUE AND q.is_active = TRUE
     GROUP BY pp.status
   `, [user.id]);
 
@@ -245,7 +245,7 @@ async function getPracticeProgress({ user }) {
       SUM(CASE WHEN pp.status = 'solved' THEN 1 ELSE 0 END) AS solved,
       SUM(CASE WHEN pp.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress
     FROM topics t
-    JOIN questions q ON q.topic_id = t.id AND (q.is_practice = 1 OR q.is_practice = TRUE) AND (q.is_active = 1 OR q.is_active = TRUE)
+    JOIN questions q ON q.topic_id = t.id AND q.is_practice = TRUE AND q.is_active = TRUE
     LEFT JOIN practice_progress pp ON pp.question_id = q.id AND pp.user_id = ?
     GROUP BY t.id, t.name
     ORDER BY t.name ASC
@@ -258,7 +258,7 @@ async function getPracticeProgress({ user }) {
       SUM(CASE WHEN pp.status = 'solved' THEN 1 ELSE 0 END) AS solved
     FROM questions q
     LEFT JOIN practice_progress pp ON pp.question_id = q.id AND pp.user_id = ?
-    WHERE (q.is_practice = 1 OR q.is_practice = TRUE) AND (q.is_active = 1 OR q.is_active = TRUE)
+    WHERE q.is_practice = TRUE AND q.is_active = TRUE
     GROUP BY q.difficulty
     ORDER BY CASE q.difficulty WHEN 'easy' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END
   `, [user.id]);
@@ -280,7 +280,7 @@ async function listPracticeTopics() {
   return repo.many(`
     SELECT t.id, t.name, COUNT(q.id) AS problem_count
     FROM topics t
-    JOIN questions q ON q.topic_id = t.id AND (q.is_practice = 1 OR q.is_practice = TRUE) AND (q.is_active = 1 OR q.is_active = TRUE)
+    JOIN questions q ON q.topic_id = t.id AND q.is_practice = TRUE AND q.is_active = TRUE
     GROUP BY t.id, t.name
     ORDER BY t.name ASC
   `);

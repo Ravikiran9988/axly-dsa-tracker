@@ -54,7 +54,7 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   const params = [];
 
   if (user?.role !== 'admin') {
-    conditions.push('(q.is_active = 1 OR q.is_active = TRUE)');
+    conditions.push('q.is_active = TRUE');
   }
   if (difficulty) {
     conditions.push('LOWER(q.difficulty) = ?');
@@ -153,11 +153,11 @@ async function getQuestionById(id, user = null) {
   if (isDailyChallenge) {
     testCaseSql = isAdmin
       ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC'
-      : 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND (is_hidden = 0 OR is_hidden = FALSE) ORDER BY created_at ASC';
+      : 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND is_hidden = FALSE ORDER BY created_at ASC';
   } else {
     testCaseSql = isAdmin
       ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC'
-      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND (is_hidden = 0 OR is_hidden = FALSE) ORDER BY created_at ASC';
+      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC';
   }
 
   const testCases = await repo.many(testCaseSql, [q.id]);
@@ -205,7 +205,7 @@ async function createQuestion(input) {
 
   await validateQuestionInput({ title, difficulty, topic_id });
   const duplicate = await repo.one(
-    'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND (is_active = 1 OR is_active = TRUE)',
+    'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND is_active = TRUE',
     [(title || '').trim()]
   );
   if (duplicate) {
@@ -259,7 +259,7 @@ async function updateQuestion(id, updates) {
 
   if (updates.title && updates.title.trim().toLowerCase() !== existing.title.toLowerCase()) {
     const duplicate = await repo.one(
-      'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND id != ? AND (is_active = 1 OR is_active = TRUE)',
+      'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND id != ? AND is_active = TRUE',
       [updates.title.trim(), id]
     );
     if (duplicate) {
@@ -331,7 +331,7 @@ async function deleteQuestion(id) {
     throw new AppError('Cannot delete the current daily question — change it first', 409, 'CONFLICT');
   }
 
-  await repo.execute("UPDATE questions SET is_active = 0, status = 'archived' WHERE id = ?", [id]);
+  await repo.execute("UPDATE questions SET is_active = FALSE, status = 'archived' WHERE id = ?", [id]);
   return { message: 'Question successfully deactivated (soft-deleted)', id, is_active: false };
 }
 
