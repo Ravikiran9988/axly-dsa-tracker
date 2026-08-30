@@ -784,7 +784,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
     WHERE dc.scheduled_date = ?
-      AND dc.is_active = TRUE
+      AND (dc.is_active = TRUE OR dc.is_active = 1)
       AND dc.status IN ('published', 'scheduled')
     ORDER BY 
       CASE WHEN dc.status = 'published' THEN 1 ELSE 2 END,
@@ -801,7 +801,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
       LEFT JOIN topics t ON dc.topic_id = t.id
       LEFT JOIN patterns p ON dc.pattern_id = p.id
       WHERE (dc.id IN (SELECT challenge_id FROM daily_questions WHERE date = ?) OR dc.source_question_id IN (SELECT question_id FROM daily_questions WHERE date = ?))
-        AND dc.is_active = TRUE
+        AND (dc.is_active = TRUE OR dc.is_active = 1)
         AND dc.status IN ('published', 'scheduled')
       ORDER BY dc.updated_at DESC LIMIT 1
     `, [dateStr, dateStr]);

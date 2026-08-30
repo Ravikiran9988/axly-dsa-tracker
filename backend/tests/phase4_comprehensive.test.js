@@ -150,31 +150,46 @@ describe('Phase 4: Comprehensive PostgreSQL/Runtime Parity & Production Verifica
   });
 
   describe('3. Daily Challenge & Midnight Rule Verification', () => {
-    let dailyQId;
-    const testDate = getCalendarDate();
+    let dailyQId, dailyQPoints;
+    const { getCanonicalUtcDate } = require('../src/utils/dateUtils');
+    const testDate = getCanonicalUtcDate();
 
     beforeAll(async () => {
       await repo.execute('DELETE FROM daily_challenge_problems WHERE scheduled_date = ?', [testDate]);
 
       const q = await repo.one('SELECT id FROM questions WHERE (is_active = 1 OR is_active = TRUE) LIMIT 1');
+      // Clean up existing challenges for today to avoid conflict with seed data (e.g. dc-002)
+      await repo.execute("DELETE FROM daily_questions WHERE challenge_id = 'dc-002' OR date = ?", [testDate]);
+      await repo.execute("DELETE FROM daily_challenge_problems WHERE id = 'dc-002' OR title = 'Test DC'");
+      await repo.execute("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?", [testDate]);
+
       const res = await request(app)
         .post('/api/v1/daily-challenges/from-practice')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ question_id: q.id, title: 'Test DC', points: 100 });
       
+      expect(res.status).toBe(201);
       dailyQId = res.body.data.id;
       
-      await request(app)
+      const scheduleRes = await request(app)
         .post(`/api/v1/daily-challenges/${dailyQId}/schedule`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ date: testDate });
-        
-      await request(app)
+      console.log('Schedule Res Status:', scheduleRes.status, scheduleRes.body);
+
+      const pubRes = await request(app)
         .post(`/api/v1/daily-challenges/${dailyQId}/publish`)
         .set('Authorization', `Bearer ${adminToken}`);
+      console.log('Publish Res Status:', pubRes.status, pubRes.body);
     });
 
     it('Returns same Daily Challenge for all students on a given UTC date', async () => {
+      const checkDcp = await repo.query('SELECT * FROM daily_challenge_problems WHERE id = ?', [dailyQId]);
+      const checkDq = await repo.query('SELECT * FROM daily_questions WHERE date = ?', [testDate]);
+      console.log("Check DCP:", checkDcp);
+      console.log("Check DQ:", checkDq);
+      console.log("Test Date:", testDate);
+
       const resAdmin = await request(app)
         .get(`/api/v1/daily-challenges/today`)
         .set('Authorization', `Bearer ${adminToken}`);

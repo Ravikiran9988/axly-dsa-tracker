@@ -328,7 +328,7 @@ function initSchema() {
 
     CREATE TABLE IF NOT EXISTS daily_questions (
       id TEXT PRIMARY KEY,
-      question_id TEXT NOT NULL,
+      question_id TEXT,
       challenge_id TEXT,
       date TEXT NOT NULL UNIQUE,
       created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
@@ -462,7 +462,7 @@ function initSchema() {
       db.exec(`
         CREATE TABLE IF NOT EXISTS daily_questions_new (
           id TEXT PRIMARY KEY,
-          question_id TEXT NOT NULL,
+          question_id TEXT,
           challenge_id TEXT,
           date TEXT NOT NULL UNIQUE,
           created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,

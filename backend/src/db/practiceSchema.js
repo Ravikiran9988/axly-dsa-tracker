@@ -40,14 +40,14 @@ function ensurePracticeSchema() {
       ON questions(slug) WHERE slug IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_questions_is_practice ON questions(is_practice);
     CREATE TABLE IF NOT EXISTS practice_progress (
-      user_id INTEGER NOT NULL,
-      question_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      question_id TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'in_progress',
       started_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       solved_at TEXT,
       attempts INTEGER NOT NULL DEFAULT 0,
-      last_submission_id INTEGER,
+      last_submission_id TEXT,
       PRIMARY KEY(user_id, question_id)
     );
     CREATE INDEX IF NOT EXISTS idx_practice_progress_user_status
