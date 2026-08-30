@@ -6,24 +6,44 @@
 
 DO $$ 
 BEGIN
-  -- 1. Rename question_test_cases to test_cases
-  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'question_test_cases') THEN
-    ALTER TABLE question_test_cases RENAME TO test_cases;
-    ALTER INDEX IF EXISTS idx_question_test_cases_question_id RENAME TO idx_test_cases_question_id;
+  -- 1. Handle question_test_cases -> test_cases
+  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'test_cases') THEN
+    -- test_cases already exists. Any question_test_cases present is an empty dummy from 001.
+    IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'question_test_cases') THEN
+      DROP TABLE question_test_cases CASCADE;
+    END IF;
+  ELSE
+    -- test_cases does not exist. This is the first run, so rename the real table.
+    IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'question_test_cases') THEN
+      ALTER TABLE question_test_cases RENAME TO test_cases;
+      ALTER INDEX IF EXISTS idx_question_test_cases_question_id RENAME TO idx_test_cases_question_id;
+    END IF;
   END IF;
 
-  -- 2. Rename practice_user_progress to practice_progress
-  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'practice_user_progress') THEN
-    ALTER TABLE practice_user_progress RENAME TO practice_progress;
-    ALTER INDEX IF EXISTS idx_practice_progress_user RENAME TO idx_practice_progress_user_status;
+  -- 2. Handle practice_user_progress -> practice_progress
+  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'practice_progress') THEN
+    IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'practice_user_progress') THEN
+      DROP TABLE practice_user_progress CASCADE;
+    END IF;
+  ELSE
+    IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'practice_user_progress') THEN
+      ALTER TABLE practice_user_progress RENAME TO practice_progress;
+      ALTER INDEX IF EXISTS idx_practice_progress_user RENAME TO idx_practice_progress_user_status;
+    END IF;
   END IF;
 
-  -- 3. Rename audit_logs to admin_audit_logs
-  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'audit_logs') THEN
-    ALTER TABLE audit_logs RENAME TO admin_audit_logs;
-    ALTER INDEX IF EXISTS idx_audit_logs_actor RENAME TO idx_admin_audit_logs_actor;
-    ALTER INDEX IF EXISTS idx_audit_logs_resource RENAME TO idx_admin_audit_logs_resource;
-    ALTER INDEX IF EXISTS idx_audit_logs_created RENAME TO idx_admin_audit_logs_created;
+  -- 3. Handle audit_logs -> admin_audit_logs
+  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'admin_audit_logs') THEN
+    IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'audit_logs') THEN
+      DROP TABLE audit_logs CASCADE;
+    END IF;
+  ELSE
+    IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'audit_logs') THEN
+      ALTER TABLE audit_logs RENAME TO admin_audit_logs;
+      ALTER INDEX IF EXISTS idx_audit_logs_actor RENAME TO idx_admin_audit_logs_actor;
+      ALTER INDEX IF EXISTS idx_audit_logs_resource RENAME TO idx_admin_audit_logs_resource;
+      ALTER INDEX IF EXISTS idx_audit_logs_created RENAME TO idx_admin_audit_logs_created;
+    END IF;
   END IF;
 END $$;
 
