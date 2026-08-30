@@ -13,7 +13,7 @@ async function loginAsStudent(page) {
   await expect(page.locator('aside, header').first()).toBeVisible({ timeout: 15000 });
 }
 
-test.describe('DSA AI Coach — Input Clearing, Chat Stream & State Management E2E', () => {
+test.describe('DSA AI Coach — Ask First → Choose Help Type UX Flow & E2E Suite', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -24,70 +24,97 @@ test.describe('DSA AI Coach — Input Clearing, Chat Stream & State Management E
     await page.goto('/');
   });
 
-  test('1. Submitting a question immediately clears input, displays user message, and appends AI response', async ({ page }) => {
+  test('1. Ask First → Contextual Help Selection Flow with Immediate Input Clearing', async ({ page }) => {
     test.setTimeout(45000);
     await loginAsStudent(page);
 
-    // 1. Navigate to DSA AI Coach from sidebar
+    // 1. Open DSA AI Coach
     await page.locator('aside button:has-text("DSA AI Coach"), button:has-text("DSA AI Coach")').first().click();
     await expect(page.locator('h3:has-text("DSA AI Coach")').first()).toBeVisible({ timeout: 15000 });
 
-    // 2. Locate the Ask input & button
-    const input = page.locator('#input-dsa-ai-query, input[placeholder*="Ask about this problem"]');
+    // 2. Verify clean empty state with Starter Suggestions
+    await expect(page.locator('text=Ask a question, paste code, or describe your DSA problem.').first()).toBeVisible();
+    await expect(page.locator('text=Starter Suggestions').first()).toBeVisible();
+
+    // 3. Locate input and submit button
+    const input = page.locator('#input-dsa-ai-query, input[placeholder*="Ask a DSA question"]');
     const askBtn = page.locator('#btn-dsa-ai-ask, button:has-text("Ask")').first();
 
     await expect(input).toBeVisible();
     await expect(askBtn).toBeVisible();
 
-    // 3. Type "bfs"
-    await input.fill('bfs');
-    await expect(input).toHaveValue('bfs');
+    // 4. Type question: "How can I solve Two Sum?"
+    await input.fill('How can I solve Two Sum?');
+    await expect(input).toHaveValue('How can I solve Two Sum?');
 
-    // 4. Click Ask
+    // 5. Click Ask
     await askBtn.click();
 
-    // 5. CRITICAL REQUIREMENT: Verify input is IMMEDIATELY cleared
+    // 6. CRITICAL: Verify input is IMMEDIATELY cleared
     await expect(input).toHaveValue('');
 
-    // 6. Verify "bfs" appears as a USER message in the conversation
-    await expect(page.locator('.text-xs:has-text("bfs")').first()).toBeVisible({ timeout: 10000 });
+    // 7. Verify user message appears in chat
+    await expect(page.locator('.text-xs:has-text("How can I solve Two Sum?")').first()).toBeVisible({ timeout: 10000 });
 
-    // 7. Verify AI response appears
+    // 8. Verify contextual help picker appears: "What do you need help with?"
+    await expect(page.locator('text=What do you need help with?').first()).toBeVisible({ timeout: 10000 });
+
+    // 9. Verify action buttons appear (Hint, Approach, Explain, etc.)
+    const hintBtn = page.locator('#btn-action-hint, button:has-text("Hint")').first();
+    const approachBtn = page.locator('#btn-action-approach, button:has-text("Approach")').first();
+    const explainBtn = page.locator('#btn-action-explain, button:has-text("Explain")').first();
+
+    await expect(hintBtn).toBeVisible();
+    await expect(approachBtn).toBeVisible();
+    await expect(explainBtn).toBeVisible();
+
+    // 10. Click Hint action
+    await hintBtn.click();
+
+    // 11. Verify selected action is marked
+    await expect(page.locator('text=Selected:').first()).toBeVisible({ timeout: 10000 });
+
+    // 12. Verify AI Coach responds
     await expect(page.locator('.bg-slate-900\\/80, .border-slate-800').filter({ hasText: 'DSA AI Coach' }).first()).toBeVisible({ timeout: 25000 });
 
-    // 8. CRITICAL REQUIREMENT: Verify input REMAINS empty after response
+    // 13. Verify input REMAINS empty
     await expect(input).toHaveValue('');
 
-    // 9. Type second question: "explain bfs"
-    await input.fill('explain bfs');
-    await expect(input).toHaveValue('explain bfs');
+    // 14. Ask follow-up question: "Why is hash map lookup O(1)?"
+    await input.fill('Why is hash map lookup O(1)?');
+    await expect(input).toHaveValue('Why is hash map lookup O(1)?');
 
-    // 10. Click Ask
     await askBtn.click();
 
-    // 11. Verify input is again IMMEDIATELY empty
+    // 15. Verify input cleared immediately again
     await expect(input).toHaveValue('');
 
-    // 12. Verify both user messages remain visible in conversation history
-    await expect(page.locator('.text-xs:has-text("bfs")').first()).toBeVisible();
-    await expect(page.locator('.text-xs:has-text("explain bfs")').first()).toBeVisible();
+    // 16. Verify second user message appears
+    await expect(page.locator('.text-xs:has-text("Why is hash map lookup O(1)?")').first()).toBeVisible({ timeout: 10000 });
 
-    // 13. Verify second AI response also appears
+    // 17. Verify new contextual help picker for the second question
+    const secondExplainBtn = page.locator('#btn-action-explain, button:has-text("Explain")').last();
+    await secondExplainBtn.click();
+
+    // 18. Verify both user messages and both AI responses remain in conversation
+    await expect(page.locator('.text-xs:has-text("How can I solve Two Sum?")').first()).toBeVisible();
+    await expect(page.locator('.text-xs:has-text("Why is hash map lookup O(1)?")').first()).toBeVisible();
+
     const aiResponses = page.locator('.bg-slate-900\\/80, .border-slate-800').filter({ hasText: 'DSA AI Coach' });
     await expect(aiResponses).toHaveCount(2, { timeout: 25000 });
 
-    // 14. Verify input STILL has value ''
+    // 19. Verify input is STILL empty
     await expect(input).toHaveValue('');
   });
 
-  test('2. Submitting via Enter key immediately clears input', async ({ page }) => {
+  test('2. Submitting via Enter key triggers Ask First flow and immediately clears input', async ({ page }) => {
     test.setTimeout(45000);
     await loginAsStudent(page);
 
     await page.locator('aside button:has-text("DSA AI Coach"), button:has-text("DSA AI Coach")').first().click();
     await expect(page.locator('h3:has-text("DSA AI Coach")').first()).toBeVisible({ timeout: 15000 });
 
-    const input = page.locator('#input-dsa-ai-query, input[placeholder*="Ask about this problem"]');
+    const input = page.locator('#input-dsa-ai-query, input[placeholder*="Ask a DSA question"]');
     await input.fill('two pointers technique');
     await expect(input).toHaveValue('two pointers technique');
 
@@ -97,30 +124,69 @@ test.describe('DSA AI Coach — Input Clearing, Chat Stream & State Management E
     // Verify input immediately cleared
     await expect(input).toHaveValue('');
 
-    // Verify message in chat
+    // Verify user message in chat
     await expect(page.locator('.text-xs:has-text("two pointers technique")').first()).toBeVisible({ timeout: 10000 });
+
+    // Verify contextual help picker
+    await expect(page.locator('text=What do you need help with?').first()).toBeVisible({ timeout: 10000 });
+
+    // Click Approach
+    const approachBtn = page.locator('#btn-action-approach, button:has-text("Approach")').first();
+    await approachBtn.click();
+
+    // Verify AI response arrives
+    await expect(page.locator('.bg-slate-900\\/80, .border-slate-800').filter({ hasText: 'DSA AI Coach' }).first()).toBeVisible({ timeout: 25000 });
+    await expect(input).toHaveValue('');
   });
 
-  test('3. Quick Actions work seamlessly without corrupting input field', async ({ page }) => {
+  test('3. Starter Suggestions populate input and allow prompt submission', async ({ page }) => {
     test.setTimeout(45000);
     await loginAsStudent(page);
 
     await page.locator('aside button:has-text("DSA AI Coach"), button:has-text("DSA AI Coach")').first().click();
     await expect(page.locator('h3:has-text("DSA AI Coach")').first()).toBeVisible({ timeout: 15000 });
 
-    const input = page.locator('#input-dsa-ai-query, input[placeholder*="Ask about this problem"]');
+    // Click "Explain a concept" starter suggestion
+    const suggBtn = page.locator('button:has-text("Explain a concept")').first();
+    await expect(suggBtn).toBeVisible();
+    await suggBtn.click();
+
+    const input = page.locator('#input-dsa-ai-query');
+    await expect(input).not.toHaveValue('');
+
+    // Click Ask
+    const askBtn = page.locator('#btn-dsa-ai-ask');
+    await askBtn.click();
+
+    // Input clears immediately
     await expect(input).toHaveValue('');
 
-    // Click Hint quick action
-    const hintBtn = page.locator('#btn-action-hint, button:has-text("Hint")').first();
-    await hintBtn.click();
+    // Contextual help appears
+    await expect(page.locator('text=What do you need help with?').first()).toBeVisible({ timeout: 10000 });
+  });
 
-    // Verify input remains completely empty
-    await expect(input).toHaveValue('');
+  test('4. Clear button resets conversation back to clean empty state', async ({ page }) => {
+    test.setTimeout(45000);
+    await loginAsStudent(page);
 
-    // Verify AI response arrives
-    await expect(page.locator('text=Hint #1').first()).toBeVisible({ timeout: 25000 });
+    await page.locator('aside button:has-text("DSA AI Coach"), button:has-text("DSA AI Coach")').first().click();
+    await expect(page.locator('h3:has-text("DSA AI Coach")').first()).toBeVisible({ timeout: 15000 });
+
+    const input = page.locator('#input-dsa-ai-query');
+    await input.fill('What is a binary tree?');
+    await input.press('Enter');
+
     await expect(input).toHaveValue('');
+    await expect(page.locator('.text-xs:has-text("What is a binary tree?")').first()).toBeVisible({ timeout: 10000 });
+
+    // Click Clear button in header
+    const clearBtn = page.locator('#btn-dsa-ai-clear, button:has-text("Clear")').first();
+    await expect(clearBtn).toBeVisible();
+    await clearBtn.click();
+
+    // Verify empty state is restored
+    await expect(page.locator('text=Starter Suggestions').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.text-xs:has-text("What is a binary tree?")')).not.toBeVisible();
   });
 
 });
