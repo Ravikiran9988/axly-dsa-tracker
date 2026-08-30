@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "test": "jest --runInBand --forceExit",
     "seed:admin": "node scripts/seed-admin.js",
-    "migrate:postgres": "node scripts/migrate-postgres.js"
+    "migrate:postgres": "node scripts/migrate-postgres.js",
+    "migrate:postgres:schema": "node scripts/ensure-postgres-schema.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.8",
