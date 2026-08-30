@@ -439,7 +439,7 @@ async function createDailyChallenge(data, admin_id) {
           question_id = excluded.question_id,
           challenge_id = excluded.challenge_id,
           created_by = excluded.created_by
-      `, [uuidv4(), id, id, scheduled_date, admin_id || 'usr-admin-01']);
+      `, [uuidv4(), null, id, scheduled_date, admin_id || 'usr-admin-01']);
     }
   });
 
@@ -573,7 +573,7 @@ async function updateDailyChallenge(id, data, admin_id) {
           question_id = excluded.question_id,
           challenge_id = excluded.challenge_id,
           created_by = excluded.created_by
-      `, [uuidv4(), id, id, effectiveDate, admin_id || 'usr-admin-01']);
+      `, [uuidv4(), null, id, effectiveDate, admin_id || 'usr-admin-01']);
     }
   });
 
@@ -613,7 +613,7 @@ async function scheduleDailyChallenge(id, date, admin_id) {
         question_id = excluded.question_id,
         challenge_id = excluded.challenge_id,
         created_by = excluded.created_by
-    `, [uuidv4(), id, id, date, admin_id || 'usr-admin-01']);
+    `, [uuidv4(), null, id, date, admin_id || 'usr-admin-01']);
   });
 
   return getDailyChallengeById(id, true);
@@ -651,7 +651,7 @@ async function publishDailyChallenge(id, admin_id) {
         question_id = excluded.question_id,
         challenge_id = excluded.challenge_id,
         created_by = excluded.created_by
-    `, [uuidv4(), id, id, targetDate, admin_id || 'usr-admin-01']);
+    `, [uuidv4(), null, id, targetDate, admin_id || 'usr-admin-01']);
   });
 
   const result = await getDailyChallengeById(id, true);
@@ -698,7 +698,7 @@ async function publishNowDailyChallenge(id, admin_id) {
         question_id = excluded.question_id,
         challenge_id = excluded.challenge_id,
         created_by = excluded.created_by
-    `, [uuidv4(), id, id, todayUtc, admin_id || 'usr-admin-01']);
+    `, [uuidv4(), null, id, todayUtc, admin_id || 'usr-admin-01']);
   });
 
   const result = await getDailyChallengeById(id, true);
