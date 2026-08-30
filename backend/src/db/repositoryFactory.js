@@ -1,13 +1,14 @@
-const { getDatabaseDriver, getSqlite, getPostgres } = require('./repository');
+const { getDatabaseDriver, getPostgres } = require('./repository');
 const PostgresRepository = require('./postgresRepository');
 
 function getRepository() {
   const driver = getDatabaseDriver();
   if (driver === 'postgres') return new PostgresRepository(getPostgres());
 
-  // SQLite is local/test-only. Load the adapter lazily so better-sqlite3 is
-  // never initialized by a production PostgreSQL process.
+  // SQLite is intentionally lazy-loaded so production never loads
+  // better-sqlite3/native SQLite code when PostgreSQL is configured.
   const SqliteRepository = require('./sqliteRepository');
+  const { getSqlite } = require('./repository');
   return new SqliteRepository(getSqlite());
 }
 
