@@ -1,6 +1,7 @@
 const app = require('./app');
 const { assertProductionDatabase } = require('./config/runtimeDatabase');
 const { checkPostgresHealth } = require('./db/postgres');
+const { initPostgresSchema } = require('./db/postgresSchema');
 
 const PORT = process.env.PORT || 5000;
 
@@ -15,6 +16,9 @@ async function startServer() {
       console.error('❌', startupError);
     } else {
       console.log('✅ Production PostgreSQL connection verified.');
+      console.log('🔄 Applying PostgreSQL migrations...');
+      await initPostgresSchema();
+      console.log('✅ PostgreSQL migrations applied.');
     }
   } else {
     // Local / Test SQLite initialization
