@@ -4,19 +4,28 @@
 -- Renames mismatched tables and adds missing ones from SQLite db.js
 -- =============================================================================
 
--- 1. Rename question_test_cases to test_cases
-ALTER TABLE IF EXISTS question_test_cases RENAME TO test_cases;
-ALTER INDEX IF EXISTS idx_question_test_cases_question_id RENAME TO idx_test_cases_question_id;
+DO $$ 
+BEGIN
+  -- 1. Rename question_test_cases to test_cases
+  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'question_test_cases') THEN
+    ALTER TABLE question_test_cases RENAME TO test_cases;
+    ALTER INDEX IF EXISTS idx_question_test_cases_question_id RENAME TO idx_test_cases_question_id;
+  END IF;
 
--- 2. Rename practice_user_progress to practice_progress
-ALTER TABLE IF EXISTS practice_user_progress RENAME TO practice_progress;
-ALTER INDEX IF EXISTS idx_practice_progress_user RENAME TO idx_practice_progress_user_status;
+  -- 2. Rename practice_user_progress to practice_progress
+  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'practice_user_progress') THEN
+    ALTER TABLE practice_user_progress RENAME TO practice_progress;
+    ALTER INDEX IF EXISTS idx_practice_progress_user RENAME TO idx_practice_progress_user_status;
+  END IF;
 
--- 3. Rename audit_logs to admin_audit_logs
-ALTER TABLE IF EXISTS audit_logs RENAME TO admin_audit_logs;
-ALTER INDEX IF EXISTS idx_audit_logs_actor RENAME TO idx_admin_audit_logs_actor;
-ALTER INDEX IF EXISTS idx_audit_logs_resource RENAME TO idx_admin_audit_logs_resource;
-ALTER INDEX IF EXISTS idx_audit_logs_created RENAME TO idx_admin_audit_logs_created;
+  -- 3. Rename audit_logs to admin_audit_logs
+  IF EXISTS(SELECT 1 FROM pg_class WHERE relname = 'audit_logs') THEN
+    ALTER TABLE audit_logs RENAME TO admin_audit_logs;
+    ALTER INDEX IF EXISTS idx_audit_logs_actor RENAME TO idx_admin_audit_logs_actor;
+    ALTER INDEX IF EXISTS idx_audit_logs_resource RENAME TO idx_admin_audit_logs_resource;
+    ALTER INDEX IF EXISTS idx_audit_logs_created RENAME TO idx_admin_audit_logs_created;
+  END IF;
+END $$;
 
 -- 4. Create live_sessions table
 CREATE TABLE IF NOT EXISTS live_sessions (
