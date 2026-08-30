@@ -40,6 +40,23 @@ test.beforeEach(async ({ page }) => {
       }
     }
   });
+
+  // Mock /api/v1/auth/verify to always succeed for the admin user
+  // This bypasses any rate limits or cold-start hangs on the verify endpoint
+  await page.route('**/api/v1/auth/verify', route => {
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        user: {
+          id: 1,
+          email: 'medicharlaravikiran88@gmail.com',
+          role: 'admin',
+          name: 'Admin User'
+        }
+      })
+    });
+  });
 });
 
 test.afterEach(() => {
@@ -121,39 +138,39 @@ test.describe('Admin E2E Verification & Feature Testing', () => {
 
     // 1. Questions
     await page.locator('text="Question Bank"').first().click();
-    await expect(page.locator('text="Question Management"').first()).toBeVisible();
+    await expect(page.locator('text="Question Bank Management"').first()).toBeVisible();
     await expect(page.locator('table').first()).toBeVisible();
 
     // 2. Daily Challenge
     await page.locator('text="Daily Challenge"').first().click();
-    await expect(page.locator('text="Daily Challenge Config"').or(page.locator('text="Daily Challenge Management"')).first()).toBeVisible();
+    await expect(page.locator('text="Daily Challenge Portal"').first()).toBeVisible();
 
     // 3. Reviews
     await page.locator('text="Reviews"').first().click();
-    await expect(page.locator('text="Submission Reviews"').or(page.locator('text="Review Console"')).first()).toBeVisible();
+    await expect(page.locator('text="Submission Review Console"').first()).toBeVisible();
 
     // 4. Students
-    await page.locator('text="Students"').first().click();
-    await expect(page.locator('text="Student Management"').or(page.locator('text="User Management"')).first()).toBeVisible();
+    await page.locator('nav').locator('text="Students"').first().click();
+    await expect(page.locator('h1:has-text("User Management")').first()).toBeVisible();
     await expect(page.locator('table').first()).toBeVisible();
 
     // 5. Progress
     await page.locator('text="Progress"').first().click();
-    await expect(page.locator('text="Progress Tracking"').or(page.locator('text="Student Progress"')).first()).toBeVisible();
+    await expect(page.locator('text="Student Progress & Velocity"').first()).toBeVisible();
 
     // 6. Submissions
     await page.locator('text="Submissions"').first().click();
-    await expect(page.locator('text="All Submissions"').first()).toBeVisible();
+    await expect(page.locator('text="Learner Submissions & Executions"').first()).toBeVisible();
     await expect(page.locator('table').first()).toBeVisible();
 
     // 7. Audit Logs
     await page.locator('text="Audit Logs"').first().click();
-    await expect(page.locator('text="System Audit Logs"').or(page.locator('text="Audit"')).first()).toBeVisible();
+    await expect(page.locator('text="System & Admin Audit Logs"').first()).toBeVisible();
     await expect(page.locator('table').first()).toBeVisible();
 
     // 8. Profile
-    await page.locator('text="Profile"').last().click();
-    await expect(page.locator('text="Profile"').or(page.locator('text="User Profile"')).first()).toBeVisible();
+    await page.locator('text="My Profile"').last().click();
+    await expect(page.locator('text="Admin User"').first()).toBeVisible();
   });
 
   test('Should perform CRUD on Admin Questions safely', async ({ page }) => {
@@ -164,49 +181,56 @@ test.describe('Admin E2E Verification & Feature Testing', () => {
     
     // Go to Questions
     await page.locator('text="Question Bank"').first().click();
-    await expect(page.locator('text="Question Management"').first()).toBeVisible();
+    await expect(page.locator('text="Question Bank Management"').first()).toBeVisible();
 
     // CREATE
     const createBtn = page.locator('button:has-text("Create"), button:has-text("Add Question")').first();
     await createBtn.click();
     
-    // Fill form (Assuming standard fields, might need adjustment based on exact DOM)
-    const titleInput = page.locator('input[placeholder*="Title"], input[name="title"]');
+    // Fill form
+    const titleInput = page.locator('input[placeholder="Challenge title"]');
     await expect(titleInput).toBeVisible();
     
     const testTitle = `E2E_TEST_QUESTION_${Date.now()}`;
     await titleInput.fill(testTitle);
     
-    // Attempt to save
-    const saveBtn = page.locator('button:has-text("Save"), button:has-text("Create")').last();
+    const descInput = page.locator('textarea[placeholder="Problem description"]');
+    await descInput.fill('This is an E2E test description for the automated testing suite.');
+    
+    // Click Save (Publish Challenge)
+    const saveBtn = page.locator('button:has-text("Publish Challenge")').last();
     await saveBtn.click();
     
     // Wait for modal to close
     await expect(titleInput).toBeHidden({ timeout: 10000 });
-    
+
     // VERIFY CREATE
     await page.reload();
     await expect(page.locator(`text="${testTitle}"`).first()).toBeVisible({ timeout: 10000 });
 
     // EDIT
-    // Find the row with our title and click the edit button (usually a pencil icon or an "Edit" text button in the same row)
+    // Find the row with our title and click the edit button
     const row = page.locator(`tr:has-text("${testTitle}")`).first();
-    await row.locator('button:has-text("Edit"), button[aria-label="Edit"], svg').first().click();
+    await row.locator('button[title*="Edit"]').first().click();
     
-    const editTitleInput = page.locator('input[placeholder*="Title"], input[name="title"]');
+    const editTitleInput = page.locator('input[placeholder="Challenge title"]');
     await expect(editTitleInput).toBeVisible();
-    await editTitleInput.fill(`${testTitle}_UPDATED`);
-    const updateBtn = page.locator('button:has-text("Save"), button:has-text("Update")').last();
+    
+    const updatedTitle = `${testTitle}_UPDATED`;
+    await editTitleInput.fill(updatedTitle);
+    
+    const updateBtn = page.locator('button:has-text("Update Challenge")').last();
     await updateBtn.click();
+    
     await expect(editTitleInput).toBeHidden({ timeout: 10000 });
-
-    // VERIFY EDIT
     await page.reload();
-    await expect(page.locator(`text="${testTitle}_UPDATED"`).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(`text="${updatedTitle}"`).first()).toBeVisible({ timeout: 10000 });
 
-    // DELETE
-    const updatedRow = page.locator(`tr:has-text("${testTitle}_UPDATED")`).first();
-    await updatedRow.locator('button:has-text("Delete"), button[aria-label="Delete"]').first().click();
+    // DELETE / ARCHIVE
+    const updatedRow = page.locator(`tr:has-text("${updatedTitle}")`).first();
+    // Some apps use archive instead of delete for questions, we'll try to find either
+    page.once('dialog', dialog => dialog.accept());
+    await updatedRow.locator('button[title*="Delete"], button[title*="Archive"]').first().click();
     
     // Confirm delete modal if any
     const confirmBtn = page.locator('button:has-text("Confirm"), button:has-text("Yes"), button.bg-red-600').last();

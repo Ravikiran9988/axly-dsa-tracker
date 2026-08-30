@@ -1,0 +1,235 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: admin_verification.spec.js >> Admin E2E Verification & Feature Testing >> Should authenticate via existing Brave profile and verify Admin access
+- Location: tests\e2e\admin_verification.spec.js:61:3
+
+# Error details
+
+```
+Error: expect(locator).toBeVisible() failed
+
+Locator: locator('text="Admin Dashboard"').first()
+Expected: visible
+Timeout: 15000ms
+Error: element(s) not found
+
+Call log:
+  - Expect "toBeVisible" with timeout 15000ms
+  - waiting for locator('text="Admin Dashboard"').first()
+
+```
+
+```yaml
+- img
+- img
+- text: Loading Axly...
+```
+
+# Test source
+
+```ts
+  1   | const { test, expect } = require('./braveFixture');
+  2   | 
+  3   | let networkErrors = [];
+  4   | 
+  5   | test.beforeEach(async ({ page }) => {
+  6   |   networkErrors = [];
+  7   |   page.on('response', async (response) => {
+  8   |     const url = response.url();
+  9   |     // Only monitor our backend production API
+  10  |     if (url.includes('dsa-tracker-ee58e15ab674.herokuapp.com/api/v1')) {
+  11  |       const status = response.status();
+  12  |       if (status >= 400) {
+  13  |         let body = '';
+  14  |         try {
+  15  |           body = await response.text();
+  16  |         } catch (e) {}
+  17  |         
+  18  |         // Exclude 401s that are standard auth checks (like the initial page load check)
+  19  |         // Wait, the prompt says fail on unexpected 401. Let's record them.
+  20  |         networkErrors.push({ url, status, body });
+  21  |       } else {
+  22  |         // Even if status is 200, check if body has postgres errors just in case
+  23  |         try {
+  24  |           const body = await response.text();
+  25  |           const psqlErrors = [
+  26  |             'relation does not exist',
+  27  |             'column does not exist',
+  28  |             'operator does not exist',
+  29  |             'boolean = integer',
+  30  |             'invalid input syntax',
+  31  |             'Authentication failed',
+  32  |             'deadlock detected'
+  33  |           ];
+  34  |           for (const err of psqlErrors) {
+  35  |             if (body.includes(err)) {
+  36  |               networkErrors.push({ url, status, body: `PSQL ERROR DETECTED: ${err} in ${body.substring(0, 200)}` });
+  37  |             }
+  38  |           }
+  39  |         } catch (e) {}
+  40  |       }
+  41  |     }
+  42  |   });
+  43  | });
+  44  | 
+  45  | test.afterEach(() => {
+  46  |   // We throw after the test so we don't abort immediately on the first network error without seeing what caused it.
+  47  |   if (networkErrors.length > 0) {
+  48  |     const criticalErrors = networkErrors.filter(e => 
+  49  |       // Filter out expected 404s for avatars etc. if any, but since it's an API, 404 is bad.
+  50  |       true
+  51  |     );
+  52  |     if (criticalErrors.length > 0) {
+  53  |       console.error('NETWORK ERRORS DETECTED:', criticalErrors);
+  54  |       throw new Error(`Test failed due to network/API errors: ${JSON.stringify(criticalErrors, null, 2)}`);
+  55  |     }
+  56  |   }
+  57  | });
+  58  | 
+  59  | test.describe('Admin E2E Verification & Feature Testing', () => {
+  60  | 
+  61  |   test('Should authenticate via existing Brave profile and verify Admin access', async ({ page }) => {
+  62  |     test.setTimeout(120000); // 2 mins for auth flow
+  63  |     await page.setViewportSize({ width: 1440, height: 900 });
+  64  |     
+  65  |     console.log('Navigating to production...');
+  66  |     await page.goto('https://dsatracker.axly.in');
+  67  | 
+  68  |     // Wait to see if we land on dashboard or login
+  69  |     await page.waitForTimeout(3000);
+  70  |     
+  71  |     const currentUrl = page.url();
+  72  |     if (currentUrl.includes('/login') || await page.locator('text="Sign In"').isVisible()) {
+  73  |       console.log('Not logged in. Attempting Google OAuth...');
+  74  |       // Click Google login button (assuming there's a button with text like "Continue with Google" or similar)
+  75  |       const googleBtn = page.locator('button:has-text("Google"), a:has-text("Google")').first();
+  76  |       if (await googleBtn.isVisible()) {
+  77  |         await googleBtn.click();
+  78  |         
+  79  |         // Wait for redirect to google
+  80  |         await page.waitForTimeout(5000);
+  81  |         
+  82  |         // If we are on Google accounts page, try to click the specific email
+  83  |         if (page.url().includes('accounts.google.com')) {
+  84  |           console.log('On Google accounts page. Looking for medicharlaravikiran88@gmail.com');
+  85  |           const emailLocator = page.locator('text="medicharlaravikiran88@gmail.com"');
+  86  |           if (await emailLocator.isVisible()) {
+  87  |             await emailLocator.click();
+  88  |           }
+  89  |           // Now wait for the user to complete MFA if required, or for it to redirect automatically
+  90  |           await page.waitForURL('https://dsatracker.axly.in/**', { timeout: 60000 });
+  91  |         }
+  92  |       }
+  93  |     }
+  94  | 
+  95  |     console.log('Verifying Admin authentication...');
+  96  |     // Should be on admin dashboard
+> 97  |     await expect(page.locator('text="Admin Dashboard"').first()).toBeVisible({ timeout: 15000 });
+      |                                                                  ^ Error: expect(locator).toBeVisible() failed
+  98  |     
+  99  |     // Verify specific admin navigation items are visible
+  100 |     const navItems = [
+  101 |       'Dashboard',
+  102 |       'Question Bank',
+  103 |       'Daily Challenge',
+  104 |       'Reviews',
+  105 |       'Students',
+  106 |       'Progress',
+  107 |       'Submissions',
+  108 |       'Audit Logs',
+  109 |       'Profile'
+  110 |     ];
+  111 | 
+  112 |     for (const item of navItems) {
+  113 |       await expect(page.locator(`text="${item}"`).first()).toBeVisible();
+  114 |     }
+  115 |   });
+  116 | 
+  117 |   test('Should test all Admin sidebar routes and features', async ({ page }) => {
+  118 |     await page.setViewportSize({ width: 1440, height: 900 });
+  119 |     await page.goto('https://dsatracker.axly.in');
+  120 |     await expect(page.locator('text="Admin Dashboard"').first()).toBeVisible({ timeout: 15000 });
+  121 | 
+  122 |     // 1. Questions
+  123 |     await page.locator('text="Question Bank"').first().click();
+  124 |     await expect(page.locator('text="Question Management"').first()).toBeVisible();
+  125 |     await expect(page.locator('table').first()).toBeVisible();
+  126 | 
+  127 |     // 2. Daily Challenge
+  128 |     await page.locator('text="Daily Challenge"').first().click();
+  129 |     await expect(page.locator('text="Daily Challenge Config"').or(page.locator('text="Daily Challenge Management"')).first()).toBeVisible();
+  130 | 
+  131 |     // 3. Reviews
+  132 |     await page.locator('text="Reviews"').first().click();
+  133 |     await expect(page.locator('text="Submission Reviews"').or(page.locator('text="Review Console"')).first()).toBeVisible();
+  134 | 
+  135 |     // 4. Students
+  136 |     await page.locator('text="Students"').first().click();
+  137 |     await expect(page.locator('text="Student Management"').or(page.locator('text="User Management"')).first()).toBeVisible();
+  138 |     await expect(page.locator('table').first()).toBeVisible();
+  139 | 
+  140 |     // 5. Progress
+  141 |     await page.locator('text="Progress"').first().click();
+  142 |     await expect(page.locator('text="Progress Tracking"').or(page.locator('text="Student Progress"')).first()).toBeVisible();
+  143 | 
+  144 |     // 6. Submissions
+  145 |     await page.locator('text="Submissions"').first().click();
+  146 |     await expect(page.locator('text="All Submissions"').first()).toBeVisible();
+  147 |     await expect(page.locator('table').first()).toBeVisible();
+  148 | 
+  149 |     // 7. Audit Logs
+  150 |     await page.locator('text="Audit Logs"').first().click();
+  151 |     await expect(page.locator('text="System Audit Logs"').or(page.locator('text="Audit"')).first()).toBeVisible();
+  152 |     await expect(page.locator('table').first()).toBeVisible();
+  153 | 
+  154 |     // 8. Profile
+  155 |     await page.locator('text="Profile"').last().click();
+  156 |     await expect(page.locator('text="Profile"').or(page.locator('text="User Profile"')).first()).toBeVisible();
+  157 |   });
+  158 | 
+  159 |   test('Should perform CRUD on Admin Questions safely', async ({ page }) => {
+  160 |     test.setTimeout(60000);
+  161 |     await page.setViewportSize({ width: 1440, height: 900 });
+  162 |     await page.goto('https://dsatracker.axly.in');
+  163 |     await expect(page.locator('text="Admin Dashboard"').first()).toBeVisible({ timeout: 15000 });
+  164 |     
+  165 |     // Go to Questions
+  166 |     await page.locator('text="Question Bank"').first().click();
+  167 |     await expect(page.locator('text="Question Management"').first()).toBeVisible();
+  168 | 
+  169 |     // CREATE
+  170 |     const createBtn = page.locator('button:has-text("Create"), button:has-text("Add Question")').first();
+  171 |     await createBtn.click();
+  172 |     
+  173 |     // Fill form (Assuming standard fields, might need adjustment based on exact DOM)
+  174 |     const titleInput = page.locator('input[placeholder*="Title"], input[name="title"]');
+  175 |     await expect(titleInput).toBeVisible();
+  176 |     
+  177 |     const testTitle = `E2E_TEST_QUESTION_${Date.now()}`;
+  178 |     await titleInput.fill(testTitle);
+  179 |     
+  180 |     // Attempt to save
+  181 |     const saveBtn = page.locator('button:has-text("Save"), button:has-text("Create")').last();
+  182 |     await saveBtn.click();
+  183 |     
+  184 |     // Wait for modal to close
+  185 |     await expect(titleInput).toBeHidden({ timeout: 10000 });
+  186 |     
+  187 |     // VERIFY CREATE
+  188 |     await page.reload();
+  189 |     await expect(page.locator(`text="${testTitle}"`).first()).toBeVisible({ timeout: 10000 });
+  190 | 
+  191 |     // EDIT
+  192 |     // Find the row with our title and click the edit button (usually a pencil icon or an "Edit" text button in the same row)
+  193 |     const row = page.locator(`tr:has-text("${testTitle}")`).first();
+  194 |     await row.locator('button:has-text("Edit"), button[aria-label="Edit"], svg').first().click();
+  195 |     
+  196 |     const editTitleInput = page.locator('input[placeholder*="Title"], input[name="title"]');
+  197 |     await expect(editTitleInput).toBeVisible();
+```

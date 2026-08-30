@@ -75,9 +75,10 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
     e.preventDefault(); if (!title.trim() || !description.trim()) return;
     setSaving(true);
     try {
-      const payload = { title:title.trim(), difficulty, topic_id:topicId || null, points:Number(points), estimated_time:estimatedTime, due_date:dueDate || null, status,
+      const payload = { title:title.trim(), difficulty, topic_id:topicId || null, points:Number(points), estimated_time:estimatedTime, status,
         description:description.trim(), constraints:constraints.trim(), input_format:inputFormat.trim(), output_format:outputFormat.trim(), hints:hints.trim(),
         starter_code:{ javascript:jsStarter, python:pyStarter }, test_cases:testCases.filter(tc => String(tc.input).trim() || String(tc.expected_output).trim()) };
+      if (dueDate) { payload.due_date = dueDate; }
       if (currentQuestion) await api.updateQuestion(currentQuestion.id, payload); else await api.createQuestion(payload);
       await afterSave(payload); onClose();
     } catch (e) { alert(e.message || 'Failed to save challenge.'); } finally { setSaving(false); }

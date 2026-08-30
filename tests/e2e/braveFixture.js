@@ -21,11 +21,10 @@ const test = base.extend({
     
     await context.close();
   },
-  
   page: async ({ context }, use) => {
-    // Persistent context comes with an initial page
-    const page = context.pages().length > 0 ? context.pages()[0] : await context.newPage();
+    const page = await context.newPage();
     await use(page);
+    await page.close();
   }
 });
 
