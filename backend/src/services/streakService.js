@@ -31,8 +31,10 @@ function getCalendarDate(date = new Date(), timeZone = APP_TIMEZONE) {
  */
 function getDaysDifference(dateStr1, dateStr2) {
   if (!dateStr1 || !dateStr2) return null;
-  const d1 = Date.parse(`${dateStr1.slice(0, 10)}T00:00:00Z`);
-  const d2 = Date.parse(`${dateStr2.slice(0, 10)}T00:00:00Z`);
+  const dStr1 = dateStr1 instanceof Date ? dateStr1.toISOString() : String(dateStr1);
+  const dStr2 = dateStr2 instanceof Date ? dateStr2.toISOString() : String(dateStr2);
+  const d1 = Date.parse(`${dStr1.slice(0, 10)}T00:00:00Z`);
+  const d2 = Date.parse(`${dStr2.slice(0, 10)}T00:00:00Z`);
   if (isNaN(d1) || isNaN(d2)) return null;
   return Math.round((d2 - d1) / 86400000);
 }
