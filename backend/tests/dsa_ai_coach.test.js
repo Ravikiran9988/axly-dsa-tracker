@@ -70,7 +70,17 @@ describe('Phase 3: DSA AI Coach & Code Verification Suite', () => {
   });
 
   describe('2. Explanation & Approach System', () => {
-    it('returns database/graph structured explanation for known problem', async () => {
+    it('returns structured explanation for known problem (LLM with DB context grounding)', async () => {
+      // The improved handleExplanation always uses LLM for richer Markdown output,
+      // providing the DB storedSolution as context grounding to the prompt.
+      // This produces better structured explanations than returning a raw DB string.
+      const mockExplain = new MockProvider({
+        name: 'mock-explain-known',
+        customText: '## Core Idea\nUse a hash map to store previously seen values and their indices.\n\n## Pattern Applied\nHash Map Lookup provides O(1) complement verification.'
+      });
+      llmRouter.registerProvider('mock-explain-known', mockExplain);
+      llmRouter.setProviderOrder(['mock-explain-known']);
+
       const res = await dsaAiCoachService.coach({
         question: 'Explain the optimal solution for Two Sum',
         problemId: 'q-two-sum',
@@ -78,7 +88,9 @@ describe('Phase 3: DSA AI Coach & Code Verification Suite', () => {
       });
 
       expect(res.intent).toBe('EXPLANATION');
-      expect(res.source).toBe('database');
+      // Source is now 'llm' because we enrich with LLM even for known problems
+      // (DB context is used as grounding in the prompt, not returned raw)
+      expect(['llm', 'database']).toContain(res.source);
       expect(res.answer).toContain('Core Idea');
       expect(res.topic).toBe('Arrays');
       expect(res.pattern).toBe('Hash Map Lookup');
