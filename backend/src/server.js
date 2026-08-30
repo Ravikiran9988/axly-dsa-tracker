@@ -33,7 +33,7 @@ async function startServer() {
   // Initialize Background 00:00 UTC Daily Challenge Automation Scheduler
   try {
     const { startAutomationScheduler } = require('./services/dailyChallengeAutomationService');
-    startAutomationScheduler().catch(err => console.error('Scheduler error:', err));
+    startAutomationScheduler();
   } catch (err) {
     console.error('Failed to start scheduler:', err);
   }
