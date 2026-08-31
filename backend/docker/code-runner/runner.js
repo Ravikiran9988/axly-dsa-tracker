@@ -1,10 +1,10 @@
 const http = require('http');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 
 const PORT = Number(process.env.PORT || 8080);
+const RUNNER_TOKEN = process.env.CODE_RUNNER_TOKEN;
 const MAX_CODE = 100_000;
 const MAX_INPUT = 20_000;
 const MAX_OUTPUT = 64 * 1024;
@@ -19,17 +19,52 @@ const LANGUAGE_FILES = {
 
 function execute(command, args, input, timeout) {
   return new Promise(resolve => {
-    const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'], detached: true });
+    let child;
+    try {
+      child = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: true,
+        env: {
+          PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+          HOME: '/tmp',
+          TMPDIR: '/runner/work'
+        }
+      });
+    } catch (e) {
+      return resolve({ status: 'RUNTIME_ERROR', stdout: '', stderr: e.message, execution_time_ms: 0 });
+    }
+
     let stdout = '', stderr = '', settled = false;
     const started = Date.now();
+    let timer;
     const finish = result => {
-      if (!settled) { settled = true; clearTimeout(timer); resolve({ ...result, execution_time_ms: Date.now() - started }); }
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve({ ...result, execution_time_ms: Date.now() - started });
+      }
     };
-    const killGroup = () => { try { process.kill(-child.pid, 'SIGKILL'); } catch { try { child.kill('SIGKILL'); } catch {} } };
-    const timer = setTimeout(() => { killGroup(); finish({ status: 'TIME_LIMIT_EXCEEDED', stdout, stderr }); }, timeout);
-    const append = (current, chunk) => current + chunk.toString();
-    child.stdout.on('data', d => { stdout = append(stdout, d); if (Buffer.byteLength(stdout) > MAX_OUTPUT) { killGroup(); finish({ status: 'OUTPUT_LIMIT_EXCEEDED', stdout: stdout.slice(0, MAX_OUTPUT), stderr }); } });
-    child.stderr.on('data', d => { stderr = append(stderr, d); if (Buffer.byteLength(stderr) > MAX_OUTPUT) { killGroup(); finish({ status: 'OUTPUT_LIMIT_EXCEEDED', stdout, stderr: stderr.slice(0, MAX_OUTPUT) }); } });
+    const killGroup = () => {
+      try { process.kill(-child.pid, 'SIGKILL'); } catch { try { child.kill('SIGKILL'); } catch {} }
+    };
+    timer = setTimeout(() => {
+      killGroup();
+      finish({ status: 'TIME_LIMIT_EXCEEDED', stdout, stderr });
+    }, timeout);
+    child.stdout.on('data', d => {
+      stdout += d.toString();
+      if (Buffer.byteLength(stdout) > MAX_OUTPUT) {
+        killGroup();
+        finish({ status: 'OUTPUT_LIMIT_EXCEEDED', stdout: stdout.slice(0, MAX_OUTPUT), stderr });
+      }
+    });
+    child.stderr.on('data', d => {
+      stderr += d.toString();
+      if (Buffer.byteLength(stderr) > MAX_OUTPUT) {
+        killGroup();
+        finish({ status: 'OUTPUT_LIMIT_EXCEEDED', stdout, stderr: stderr.slice(0, MAX_OUTPUT) });
+      }
+    });
     child.on('error', e => finish({ status: 'RUNTIME_ERROR', stdout, stderr: e.message }));
     child.on('close', code => finish({ status: code === 0 ? 'PASSED' : 'RUNTIME_ERROR', stdout: stdout.slice(0, MAX_OUTPUT), stderr: stderr.slice(0, MAX_OUTPUT), exitCode: code }));
     child.stdin.end(input || '');
@@ -46,7 +81,7 @@ async function run(body) {
   if (testCases.some(t => String(t.input || '').length > MAX_INPUT)) throw new Error('Test input is too large');
 
   const dir = fs.mkdtempSync(path.join('/runner/work', 'axly-'));
-  let file = path.join(dir, LANGUAGE_FILES[language]);
+  const file = path.join(dir, LANGUAGE_FILES[language]);
   try {
     let source = code;
     if (language === 'java' && /public\s+class\s+Solution\b/.test(source)) source = source.replace(/public\s+class\s+Solution\b/, 'public class Main');
@@ -68,7 +103,8 @@ async function run(body) {
       if (compiled.status !== 'PASSED') return { status: 'COMPILATION_ERROR', stderr: compiled.stderr, stdout: compiled.stdout, execution_time_ms: compiled.execution_time_ms };
       command = 'java'; args = ['-cp', dir, 'Main'];
     } else {
-      command = language === 'python' ? 'python3' : 'node'; args = [file];
+      command = language === 'python' ? '/usr/bin/python3' : 'node';
+      args = [file];
     }
 
     const results = [];
@@ -85,19 +121,29 @@ async function run(body) {
         input: hidden ? '[Hidden Test Case]' : String(tc.input || ''),
         expected_output: hidden ? '[Hidden Output]' : expected,
         actual_output: hidden ? (passed ? '[Output Passed]' : '[Output Failed]') : actual,
-        status: result.status,
+        status: result.status === 'PASSED' && !passed ? 'WRONG_ANSWER' : result.status,
         stderr: hidden ? undefined : result.stderr
       });
-      if (result.status !== 'PASSED' || !passed) break;
+      if (!passed) break;
     }
-    const passedTests = results.filter(r => r.status === 'PASSED' && (r.actual_output === '[Output Passed]' || r.actual_output === r.expected_output)).length;
-    const status = results.some(r => r.status === 'TIME_LIMIT_EXCEEDED') ? 'TIME_LIMIT_EXCEEDED' : results.some(r => r.status === 'OUTPUT_LIMIT_EXCEEDED') ? 'OUTPUT_LIMIT_EXCEEDED' : passedTests === results.length && results.length === testCases.length ? 'ACCEPTED' : 'WRONG_ANSWER';
+    const passedTests = results.filter(r => r.status === 'PASSED').length;
+    const failed = results[results.length - 1];
+    const status = failed?.status === 'TIME_LIMIT_EXCEEDED' ? 'TIME_LIMIT_EXCEEDED'
+      : failed?.status === 'OUTPUT_LIMIT_EXCEEDED' ? 'OUTPUT_LIMIT_EXCEEDED'
+      : failed?.status === 'RUNTIME_ERROR' ? 'RUNTIME_ERROR'
+      : passedTests === testCases.length ? 'ACCEPTED' : 'WRONG_ANSWER';
     return { status, passed_tests: passedTests, total_tests: testCases.length, execution_time_ms: totalExecution, results };
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
 }
 
 const server = http.createServer((req, res) => {
   if (req.method !== 'POST' || req.url !== '/execute') { res.writeHead(404); return res.end(); }
+  if (RUNNER_TOKEN && req.headers.authorization !== `Bearer ${RUNNER_TOKEN}`) {
+    res.writeHead(401, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify({ message: 'Unauthorized' }));
+  }
   let raw = '';
   req.on('data', chunk => { raw += chunk; if (raw.length > 500000) req.destroy(); });
   req.on('end', async () => {
