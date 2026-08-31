@@ -2,7 +2,7 @@
 
 # Axly DSA Tracker
 
-**Production-oriented DSA learning platform combining structured practice, competitive Daily Challenges, and deterministic-first AI coaching.**
+**A production-ready DSA learning platform combining structured practice, competitive Daily Challenges, and deterministic-first AI coaching.**
 
 [![Tests](https://img.shields.io/badge/tests-306%20passed-brightgreen?style=flat-square)](#-testing)
 [![Languages](https://img.shields.io/badge/languages-JS%20%7C%20Python%20%7C%20TS%20%7C%20Java%20%7C%20C%20%7C%20C++-blue?style=flat-square)](#-secure-code-runner)
@@ -16,7 +16,20 @@
 
 ---
 
-## 📸 UI Preview
+## ?? Overview
+
+Axly DSA Tracker is a highly-scalable, production-level platform designed to help developers master Data Structures and Algorithms through curated, pattern-first problem solving. Unlike generic competitive programming platforms, Axly focuses on the **educational progression** of developers, offering both a standalone practice mode and competitive daily challenges.
+
+### ?? Key Capabilities
+* **Secure Sandbox Execution Engine:** Supports real-time code evaluation across JavaScript, Python, TypeScript, Java, C, and C++ using isolated Docker environments with strict CPU (2000ms) and memory limits.
+* **Dual-Driver Architecture:** Dynamically switches between an ephemeral SQLite driver for zero-config local testing and a robust PostgreSQL (Supabase) driver for production clustering.
+* **Intelligent AI Coach:** Leverages the Groq API (multi-key rotated for rate-limit protection) with strict deterministic cosine-similarity checks (>0.85 threshold) to prevent duplicate AI-generated problems and provide phase-based coaching.
+* **Role-Based Access Control (RBAC):** Complete administrative dashboard to manage user roles, audit trails, question curation, cohort assignments, and submission reviews.
+* **UTC-Synchronized Competitive Play:** Daily Challenges operate on strict UTC midnight rollovers, recalculating global streaks and Elo-style leaderboards immutably on the backend.
+
+---
+
+## ?? UI Preview
 
 <div align="center">
 
@@ -33,135 +46,138 @@
 
 ---
 
-## 🚀 Prerequisites
+## ?? Architecture & Tech Stack
 
-Before starting, ensure you have the following installed:
-1. **Node.js**: v18 or higher (required for the backend and modern React/Vite frontend).
-2. **Docker**: Required for the Secure Code Runner (to execute user submissions in isolated sandboxes).
-3. **Supabase Project**: A Postgres database is required before filling in production environment variables.
+The architecture is explicitly decoupled, allowing for horizontal scalability and independent deployment of microservices.
+
+### Backend (Node.js & Express)
+* **Core API**: Express RESTful architecture.
+* **Storage**: Repository pattern with `SqliteRepository` (local dev) and `PostgresRepository` (Supabase production).
+* **Execution**: Docker Engine via isolated subprocesses for untrusted code execution.
+* **AI & Search**: Groq LLM API with custom embedding pipelines.
+* **Auth**: Custom stateless JWT implementation over secure, HttpOnly channels (with fallback Dev-Bypass for local e2e testing).
+* **Mailer**: Nodemailer over SMTP with 5000ms Heroku H12 socket timeouts.
+
+### Frontend (React & Vite)
+* **Framework**: React 18 with Vite for HMR and optimized builds.
+* **Styling**: Tailwind CSS + Lucide Icons + Framer Motion.
+* **Routing**: React Router DOM (v6) with dynamic SPA configurations (`vercel.json` supported).
+* **State Management**: Context API and highly-optimized local React state.
+* **Code Editor**: Monaco Editor (VS Code core) integrated via `@monaco-editor/react`.
 
 ---
 
-## ⚙️ Quick Start
+## ?? Prerequisites
 
-### 1. Clone & Install
+1. **Node.js**: v18+ 
+2. **Docker Desktop**: Required to run the Secure Code Runner locally.
+3. **PostgreSQL**: A cloud Postgres instance (like Supabase) is required if `NODE_ENV=production`.
+
+---
+
+## ?? Local Development Guide
+
+### 1. Repository Setup
 ```bash
 git clone https://github.com/Ravikiran9988/axly-dsa-tracker.git
 cd axly-dsa-tracker
 
-# Install dependencies
+# Install dependencies for both environments
 cd backend && npm install
 cd ../frontend && npm install
 ```
 
-### 2. Environment Variables
-Create a `.env` file in `backend/`:
+### 2. Environment Configuration
+Create a `.env` file in the `backend/` directory:
 ```env
 PORT=5000
-JWT_SECRET=your_secret_key
+NODE_ENV=development
+JWT_SECRET=your_super_secret_key
 FRONTEND_URL=http://localhost:5173
 
-# Database Connection (Supabase/Postgres)
-DATABASE_URL=your_supabase_postgres_url
+# Required for Production (Postgres)
+DATABASE_URL=postgresql://user:password@host:port/db
 
-# Groq Multi-Key Setup for AI
-GROQ_API_KEY_1=your_first_groq_key
-GROQ_API_KEY_2=your_second_groq_key
+# Required for AI Features
+GROQ_API_KEY_1=your_groq_api_key
+
+# Required for Email Verification
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
 ```
 
-### 3. Setup & Run
+### 3. Launch Services
+Open two terminal instances.
+
+**Terminal 1 (Backend):**
 ```bash
 cd backend
-npm run db:setup
+npm run db:setup # Initializes SQLite schema for dev
 npm run dev
+```
 
-# Open new terminal
+**Terminal 2 (Frontend):**
+```bash
 cd frontend
 npm run dev
 ```
 
----
-
-## 🏗️ Architecture & Database Status
-
-The application uses a dual-driver database strategy to support both local development and scalable production:
-- **`repositoryFactory.js`**: Dynamically selects `SqliteRepository` (for lightweight local dev) or `PostgresRepository` (for production via Supabase) based on an env-driven `getDatabaseDriver()` call.
-- **Migration**: The `backend/scripts/migrate-postgres.js` script runs `initPostgresSchema` and `seedPostgresDatabase` for the Postgres pathway.
-- **Status**: SQLite remains the dev default, while Postgres/Supabase is the primary production target (migration in progress).
+The application will be available at `http://localhost:5173`.
 
 ---
 
-## 🔐 Auth Flow
+## ?? Core API Topology
 
-The platform implements a custom JWT-based authentication system:
-- **Stateless Sessions**: JWTs are signed securely on the backend and transmitted securely.
-- **Role-Based Access Control (RBAC)**: Enforces `admin` vs `user` boundaries.
-- **Dev Bypass**: A dedicated `dev-login` endpoint exists exclusively for local testing, completely disabled in production environments.
+Routes are registered in `backend/src/app.js` under the `/api/v1` namespace:
 
----
-
-## 💻 Secure Code Runner
-
-User submissions are executed securely:
-- Supported languages: **JavaScript, Python, TypeScript, Java, C, C++**.
-- Executions run inside isolated Docker sandboxed subprocesses.
-- Strict CPU timeouts (e.g., 2000ms) and memory limits prevent malicious code or infinite loops from crashing the server.
-- The execution engine securely manages hidden test cases out of user reach.
+- **Identity & Profiles**: `/auth`, `/users`
+- **Curriculum**: `/questions`, `/practice`, `/assignments`
+- **Competitive**: `/daily-challenges`, `/leaderboard`
+- **Execution**: `/submissions`, `/code`
+- **Analytics & Progression**: `/progress`, `/analytics`
+- **AI Infrastructure**: `/recommendations`, `/dsa-ai`, `/ai-questions`
+- **Admin & Telemetry**: `/admin/audit-logs`, `/notifications`, `/cohorts`
 
 ---
 
-## 📈 Progress Calculation
+## ?? Security & Sandboxing
 
-Progress is strictly tracked on the backend:
-- The frontend never decides scoring or streak eligibility.
-- Submissions are evaluated against authoritative test suites.
-- Only successful `Daily Challenge` submissions within the active UTC window increment competitive points. Practice problem completions increment pure educational progression flags (Solved/In Progress/Not Started).
+Security is a primary concern for the platform, particularly regarding the Code Runner:
 
----
-
-## 📜 Product Rules & Business Logic
-
-Core product rules enforced by the backend:
-- **Daily Challenges**: Run strictly on UTC, with a hard midnight-UTC submission cutoff.
-- **Streak Logic**: Maintained incrementally. Submissions must occur within consecutive 24-hour UTC windows. Missing a window resets the active streak.
-- **Leaderboards**: Ordered strictly by total competitive points, prioritizing earlier submissions as a tie-breaker.
-- **AI Duplicate Detection**: Problem duplicate detection uses cosine similarity applied to problem descriptions with a strict **0.85 threshold** to prevent repetitive generation.
+1. **Isolation**: Every user submission is executed inside a stateless, ephemeral Docker container (`docker run --rm`).
+2. **Resource Limits**: CPU cycles are heavily restricted. If an execution exceeds 2000ms (e.g. an infinite `while(true)` loop), the container is forcefully killed via SIGKILL.
+3. **Network Denial**: Network interfaces are stripped from the sandbox; code cannot perform outbound requests (`fetch`, `curl`, etc.).
+4. **CORS Validation**: Fail-closed strict Origin validation allows only explicit domains.
 
 ---
 
-## 📡 Major API Areas
+## ?? Testing & CI/CD
 
-Axly's backend architecture is heavily modularized. Routes registered in `backend/src/app.js`:
+Axly DSA Tracker maintains a robust E2E test suite using **Playwright**. Tests validate full user journeys including OTP registration, email timeouts, stateless auth token extraction, and code submission mechanics.
 
-- `/api/v1/auth` - Authentication & Session handling
-- `/api/v1/users` - User profiles & settings
-- `/api/v1/questions` - Core question bank (Practice)
-- `/api/v1/practice` - Practice progress and state
-- `/api/v1/daily-challenges` - UTC-synced challenges
-- `/api/v1/submissions` - Code submission & history
-- `/api/v1/code` - Secure execution endpoints
-- `/api/v1/progress` - User progress calculation
-- `/api/v1/analytics` - System & user-level analytics
-- `/api/v1/recommendations` - Knowledge-graph topic suggestions
-- `/api/v1/dsa-ai` - 4-phase AI Coach endpoints
-- `/api/v1/ai-questions` - AI generation context
-- `/api/v1/cohorts` - Grouping & cohort assignments
-- `/api/v1/assignments` - Instructor-assigned problems
-- `/api/v1/notifications` - Realtime and unread alert system
-- `/api/v1/admin/audit-logs` - System-wide audit trails
+```bash
+# Run local E2E test suite
+npx playwright test tests/e2e/axly_v1_complete.spec.js
+
+# View test trace for debugging
+npx playwright show-trace test-results/<failed-test-dir>/trace.zip
+```
 
 ---
 
-## 👑 Admin Experience
+## ?? Admin Experience
 
-Administrators have access to a full suite of moderation and configuration tools.
+Administrators have access to a full suite of moderation and configuration tools, hidden behind strict JWT Role RBAC.
 
 <div align="center">
-
-### Admin Dashboard
 <img src="docs/screenshots/admin-dashboard.png" width="800" alt="Admin Dashboard" />
-
-### Question Management
 <img src="docs/screenshots/admin-questions.png" width="800" alt="Admin Questions" />
+</div>
 
+---
+
+<div align="center">
+<i>Built for developers who want to master algorithms through dedicated practice.</i>
 </div>
