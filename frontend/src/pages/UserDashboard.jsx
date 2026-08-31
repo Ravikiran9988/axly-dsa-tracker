@@ -38,11 +38,18 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
   }
 
   const dailyQuestion = dailyData?.data || dailyData;
-  const totalSolved = practiceProgress?.problems_solved || analytics?.summary?.solved_submissions || analytics?.problems_solved || 0;
+  const totalSolved = practiceProgress?.solved ?? analytics?.summary?.solved_submissions ?? analytics?.problems_solved ?? 0;
   const individualStreak = user?.individualStreak ?? analytics?.summary?.individualStreak ?? user?.streak ?? 1;
   const dailyChallengeStreak = user?.dailyChallengeStreak ?? analytics?.summary?.dailyChallengeStreak ?? dailyQuestion?.dailyChallengeStreak ?? 0;
   const totalPoints = user?.points || analytics?.summary?.total_score || analytics?.total_points || 0;
   const dailySolved = dailyQuestion?.submission_status === 'solved' || dailyQuestion?.is_solved;
+
+  const practiceTotal = practiceProgress?.total ?? 0;
+  const practiceSolved = practiceProgress?.solved ?? 0;
+  const practicePercent = practiceTotal > 0 ? Math.round((practiceSolved / practiceTotal) * 100) : 0;
+  const difficultyTotals = Object.fromEntries(
+    (practiceProgress?.difficulties || []).map(d => [String(d.difficulty || '').toLowerCase(), d])
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -154,39 +161,38 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
             {/* Progress summary */}
             <div className="px-5 py-3 border-b border-[#1a2540] flex items-center justify-between">
               <div className="flex items-center gap-4 text-sm">
-                <span className="text-slate-400">{practiceProgress.problems_solved || 0} solved</span>
+                <span className="text-slate-400">{practiceSolved} solved</span>
                 <span className="text-slate-600">/</span>
-                <span className="text-slate-400">{practiceProgress.total_problems || practiceProgress.problems_total || '?'} total</span>
+                <span className="text-slate-400">{practiceTotal} total</span>
               </div>
-              {(practiceProgress.total_problems || 1) > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="w-32 h-1.5 bg-[#1a2540] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-axly-500 rounded-full"
-                      style={{ width: `${Math.round(((practiceProgress.problems_solved || 0) / (practiceProgress.total_problems || practiceProgress.problems_total || 1)) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-slate-500">
-                    {Math.round(((practiceProgress.problems_solved || 0) / (practiceProgress.total_problems || practiceProgress.problems_total || 1)) * 100)}%
-                  </span>
+              <div className="flex items-center gap-2">
+                <div className="w-32 h-1.5 bg-[#1a2540] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-axly-500 rounded-full"
+                    style={{ width: `${practicePercent}%` }}
+                  />
                 </div>
-              )}
+                <span className="text-xs text-slate-500">{practicePercent}%</span>
+              </div>
             </div>
             {/* Difficulty breakdown */}
             <div className="grid grid-cols-3 divide-x divide-[#1a2540]">
               {[
-                { label: 'Easy',   key: 'easy_solved',   total: 'easy_total',   cls: 'text-emerald-400' },
-                { label: 'Medium', key: 'medium_solved',  total: 'medium_total', cls: 'text-amber-400' },
-                { label: 'Hard',   key: 'hard_solved',    total: 'hard_total',   cls: 'text-rose-400' },
-              ].map(d => (
-                <div key={d.label} className="p-4 text-center">
-                  <div className={`text-lg font-bold ${d.cls}`}>
-                    {practiceProgress[d.key] || 0}
-                    <span className="text-xs text-slate-600 font-normal">/{practiceProgress[d.total] || '?'}</span>
+                { label: 'Easy', key: 'easy', cls: 'text-emerald-400' },
+                { label: 'Medium', key: 'medium', cls: 'text-amber-400' },
+                { label: 'Hard', key: 'hard', cls: 'text-rose-400' },
+              ].map(d => {
+                const item = difficultyTotals[d.key];
+                return (
+                  <div key={d.label} className="p-4 text-center">
+                    <div className={`text-lg font-bold ${d.cls}`}>
+                      {Number(item?.solved || 0)}
+                      <span className="text-xs text-slate-600 font-normal">/{Number(item?.total || 0)}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">{d.label}</div>
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">{d.label}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (
