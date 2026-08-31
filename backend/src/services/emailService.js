@@ -1,43 +1,24 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-const SMTP_HOST = process.env.SMTP_HOST || 'smtppro.zoho.in';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10) || 465;
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASSWORD = process.env.SMTP_PASSWORD;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const SMTP_FROM = process.env.SMTP_FROM || 'Axly <noreply@axly.in>';
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
-let transporter = null;
+let _resend = null;
 const sentMailLog = [];
 
-function getTransporter() {
-  if (transporter) return transporter;
-
-  let rawTransporter = null;
-  const isRealSmtpConfigured =
-    process.env.NODE_ENV !== 'test' &&
-    SMTP_HOST &&
-    SMTP_USER &&
-    SMTP_PASSWORD &&
-    !SMTP_USER.includes('your-domain') &&
-    !SMTP_PASSWORD.includes('your-');
-
-  if (isRealSmtpConfigured) {
-    rawTransporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_PORT === 465,
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASSWORD
-      },
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 15000
-    });
+function getResendClient() {
+  if (_resend) return _resend;
+  if (RESEND_API_KEY && process.env.NODE_ENV !== 'test') {
+    _resend = new Resend(RESEND_API_KEY);
   }
+  return _resend;
+}
 
-  transporter = {
+function getTransporter() {
+  const resend = getResendClient();
+
+  return {
     sendMail: async (mailOptions) => {
       const emailRecord = {
         ...mailOptions,
@@ -46,18 +27,25 @@ function getTransporter() {
       };
       sentMailLog.push(emailRecord);
 
-      if (rawTransporter) {
-        return rawTransporter.sendMail(mailOptions);
+      if (resend) {
+        const { error } = await resend.emails.send({
+          from: emailRecord.from,
+          to: Array.isArray(mailOptions.to) ? mailOptions.to : [mailOptions.to],
+          subject: mailOptions.subject,
+          html: mailOptions.html,
+          text: mailOptions.text
+        });
+        if (error) throw new Error(error.message);
+        return { messageId: `resend-${Date.now()}` };
       }
 
+      // Dev / test fallback — log to console
       if (process.env.NODE_ENV !== 'test') {
         console.log(`[EMAIL DISPATCH] From: ${emailRecord.from} | To: ${emailRecord.to} | Subject: ${emailRecord.subject}`);
       }
       return { messageId: `msg-${Date.now()}` };
     }
   };
-
-  return transporter;
 }
 
 function getOtpEmailHtml({ name, otp, expiresMinutes = 10 }) {
