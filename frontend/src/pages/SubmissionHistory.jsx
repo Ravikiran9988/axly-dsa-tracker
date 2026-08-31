@@ -107,6 +107,7 @@ export default function SubmissionHistory({ onSelectProblem }) {
                 <th>Problem</th>
                 <th className="hidden sm:table-cell">Method</th>
                 <th>Status</th>
+                <th className="hidden md:table-cell">Score</th>
                 <th className="hidden md:table-cell">Details</th>
                 <th className="hidden lg:table-cell">Submitted</th>
                 <th className="text-right">Action</th>
@@ -119,6 +120,7 @@ export default function SubmissionHistory({ onSelectProblem }) {
                     <td><Skeleton className="h-4 w-48" /></td>
                     <td className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></td>
                     <td><Skeleton className="h-5 w-24" /></td>
+                    <td className="hidden md:table-cell"><Skeleton className="h-4 w-16" /></td>
                     <td className="hidden md:table-cell"><Skeleton className="h-4 w-32" /></td>
                     <td className="hidden lg:table-cell"><Skeleton className="h-4 w-28" /></td>
                     <td><Skeleton className="h-7 w-24 ml-auto" /></td>
@@ -126,7 +128,7 @@ export default function SubmissionHistory({ onSelectProblem }) {
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="border-0 py-0">
+                  <td colSpan={7} className="border-0 py-0">
                     <EmptyState
                       icon={History}
                       title="No submissions found"
@@ -139,6 +141,11 @@ export default function SubmissionHistory({ onSelectProblem }) {
                   const badge = REVIEW_BADGES[sub.review_status] || REVIEW_BADGES[sub.status] || REVIEW_BADGES.attempted;
                   const isApproved = sub.review_status === 'approved' || sub.status === 'solved';
                   const isExpandable = sub.feedback;
+                  const score = sub.final_score !== null && sub.final_score !== undefined
+                    ? sub.final_score
+                    : sub.manual_score !== null && sub.manual_score !== undefined
+                    ? sub.manual_score
+                    : null;
                   return (
                     <React.Fragment key={sub.id}>
                       <tr
@@ -166,6 +173,15 @@ export default function SubmissionHistory({ onSelectProblem }) {
                         <td>
                           <span className={badge.cls}>{badge.label}</span>
                         </td>
+                        <td className="hidden md:table-cell">
+                          {score !== null ? (
+                            <span className="font-mono text-xs font-semibold text-cyan-400">
+                              {score}/100
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-500 font-mono">—</span>
+                          )}
+                        </td>
                         <td className="hidden md:table-cell text-xs text-slate-400">
                           {sub.submission_type === 'github' ? (
                             <a href={sub.github_url} target="_blank" rel="noreferrer"
@@ -192,7 +208,7 @@ export default function SubmissionHistory({ onSelectProblem }) {
                       </tr>
                       {isExpandable && expanded === sub.id && (
                         <tr>
-                          <td colSpan={6} className={`px-4 py-3 ${isApproved ? 'bg-emerald-950/20' : 'bg-amber-950/20'}`}>
+                          <td colSpan={7} className={`px-4 py-3 ${isApproved ? 'bg-emerald-950/20' : 'bg-amber-950/20'}`}>
                             <div className={`flex items-start gap-2.5 text-xs ${isApproved ? 'text-emerald-200' : 'text-amber-200'}`}>
                               <MessageSquareQuote className="w-4 h-4 shrink-0 mt-0.5" />
                               <div className="space-y-1 flex-1">
