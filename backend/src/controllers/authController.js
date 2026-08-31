@@ -21,9 +21,14 @@ function hashToken(token) {
 
 function isTokenExpired(expiresAt) {
   if (!expiresAt) return true;
-  const isoString = expiresAt.includes('T') ? expiresAt : (expiresAt.replace(' ', 'T') + (expiresAt.endsWith('Z') ? '' : 'Z'));
-  const expiryTime = new Date(isoString).getTime();
-  return isNaN(expiryTime) || expiryTime < Date.now();
+
+  // PostgreSQL drivers commonly return TIMESTAMP/TIMESTAMPTZ values as Date
+  // objects. Never call string methods on the value before normalizing it.
+  const expiryTime = expiresAt instanceof Date
+    ? expiresAt.getTime()
+    : new Date(expiresAt).getTime();
+
+  return !Number.isFinite(expiryTime) || expiryTime <= Date.now();
 }
 
 function validatePasswordStrength(password) {
@@ -80,7 +85,7 @@ async function signup(req, res, next) {
       });
     }
 
-    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' }
       });
@@ -235,7 +240,7 @@ async function resendOtp(req, res, next) {
     const { email } = req.body || {};
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' }
       });
@@ -296,7 +301,7 @@ async function login(req, res, next) {
 
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' }
       });
@@ -414,7 +419,7 @@ async function forgotPassword(req, res, next) {
     const { email } = req.body || {};
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' }
       });
@@ -523,7 +528,7 @@ async function devLogin(req, res, next) {
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     const allowedRoles = new Set(['user', 'mentor', 'admin']);
 
-    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid email is required', field: 'email' } });
     }
     if (!allowedRoles.has(role)) {
