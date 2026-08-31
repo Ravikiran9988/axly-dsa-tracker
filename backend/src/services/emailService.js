@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10) || 587;
+const SMTP_HOST = process.env.SMTP_HOST || 'smtppro.zoho.in';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT, 10) || 465;
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD;
 const SMTP_FROM = process.env.SMTP_FROM || 'Axly <noreply@axly.in>';
@@ -31,9 +31,9 @@ function getTransporter() {
         user: SMTP_USER,
         pass: SMTP_PASSWORD
       },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 5000
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 15000
     });
   }
 
