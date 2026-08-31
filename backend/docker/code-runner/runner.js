@@ -32,6 +32,29 @@ const LANGUAGE_FILES = {
   c: 'main.c'
 };
 
+function normalizeOutput(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+}
+
+function outputsMatch(actual, expected) {
+  const normalizedActual = normalizeOutput(actual);
+  const normalizedExpected = normalizeOutput(expected);
+
+  if (normalizedActual === normalizedExpected) return true;
+
+  // Coding-problem outputs are often JSON-like values. Compare parsed JSON
+  // structurally so formatting differences such as [0,1] vs [0, 1] do not
+  // incorrectly produce Wrong Answer.
+  try {
+    const actualValue = JSON.parse(normalizedActual);
+    const expectedValue = JSON.parse(normalizedExpected);
+    return JSON.stringify(actualValue) === JSON.stringify(expectedValue);
+  } catch {
+    return false;
+  }
+}
+
 function execute(command, args, input, timeout) {
   return new Promise(resolve => {
     let child;
@@ -198,7 +221,7 @@ async function run(body) {
       const actual = result.stdout.trim();
       const expected = String(tc.expectedOutput ?? '').trim();
       const hidden = Boolean(tc.is_hidden);
-      const outputMatches = result.status === 'PASSED' && actual === expected;
+      const outputMatches = result.status === 'PASSED' && outputsMatch(actual, expected);
 
       results.push({
         is_hidden: hidden,
