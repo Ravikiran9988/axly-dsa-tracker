@@ -49,6 +49,19 @@ function parsePublicRoute() {
   return { name: 'landing' };
 }
 
+const ADMIN_VIEWS = new Set([
+  'admin-dashboard',
+  'admin-challenges',
+  'admin-questions',
+  'admin-daily',
+  'admin-reviews',
+  'admin-users',
+  'admin-progress',
+  'admin-submissions',
+  'admin-audit',
+  'admin-settings'
+]);
+
 export default function App() {
   const { user, loading, logout, isAdmin } = useAuth();
   const [publicRoute, setPublicRoute] = useState(parsePublicRoute);
@@ -88,8 +101,13 @@ export default function App() {
       if (user.role === 'admin' && currentView === 'dashboard') {
         setCurrentView('admin-dashboard');
       }
+      // Never allow a non-admin to remain on an admin view, including after
+      // a role change, session restore, logout/login, or stale client state.
+      if (user.role !== 'admin' && ADMIN_VIEWS.has(currentView)) {
+        setCurrentView('dashboard');
+      }
     }
-  }, [user]);
+  }, [user, currentView]);
 
   async function loadNotificationsCount() {
     try {
@@ -114,6 +132,7 @@ export default function App() {
   };
 
   const handleOpenAdminDailyModal = async () => {
+    if (!isAdmin) return;
     try {
       const res = await api.getQuestions({ limit: 100 });
       setQuestionsForModal(res.data || []);
@@ -189,6 +208,11 @@ export default function App() {
   }
 
   const renderView = () => {
+    // Defense-in-depth: never render an admin page for a non-admin user.
+    if (ADMIN_VIEWS.has(currentView) && !isAdmin) {
+      return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} onOpenChallenge={handleSelectProblem} />;
+    }
+
     // Problem Solving IDE
     if (currentView === 'solve' && activeQuestionId) {
       return (
@@ -301,14 +325,13 @@ export default function App() {
           unreadCount={unreadNotifsCount}
         />
 
-          <div className={`flex-1 overflow-y-auto custom-scrollbar bg-[#070B14] ${currentView === 'solve' ? '' : 'p-4 md:p-6 lg:p-8'}`}>
+        <div className={`flex-1 overflow-y-auto custom-scrollbar bg-[#070B14] ${currentView === 'solve' ? '' : 'p-4 md:p-6 lg:p-8'}`}>
           {renderView()}
         </div>
       </div>
 
       {isAdmin && (
         <>
-
           {isCreateChallengeModalOpen && (
             <AdminQuestionModal
               isOpen={isCreateChallengeModalOpen}
