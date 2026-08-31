@@ -85,7 +85,7 @@ export default function StudentNavbar({
 
                 <button
                   onClick={logout}
-                  title="Sign Out"
+                  title="Log out"
                   className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />

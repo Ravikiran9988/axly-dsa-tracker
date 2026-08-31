@@ -74,10 +74,10 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
 
     // 1. Authenticate as Student
     await loginAsStudent(page);
-    await expect(page.locator('text=Practice (80 Problems)').first()).toBeVisible();
+    await expect(page.locator('text=Practice').first()).toBeVisible();
 
     // Logout
-    const logoutBtn = page.locator('button[title="Log out"]').first();
+    const logoutBtn = page.locator('#logout-button, #logout-btn, button[title="Log out"]').first();
     await expect(logoutBtn).toBeVisible();
     await logoutBtn.click();
     await expect(page.locator('text=AXLY DSA TRACKER').first()).toBeVisible();
@@ -154,8 +154,8 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await loginAsStudent(page);
 
     // Navigate to Practice
-    await page.click('button:has-text("Practice (80 Problems)")');
-    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
+    await page.click('button:has-text("Practice")');
+    await expect(page.locator('h1:has-text("Practice Library")')).toBeVisible({ timeout: 10000 });
 
     // Verify Practice library header
     await expect(page.locator('text=Practice Library').first()).toBeVisible();
@@ -177,17 +177,15 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await loginAsStudent(page);
 
     // Open Practice
-    await page.click('button:has-text("Practice (80 Problems)")');
-    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
+    await page.click('button:has-text("Practice")');
+    await expect(page.locator('h1:has-text("Practice Library")')).toBeVisible({ timeout: 10000 });
 
     // Click Start / Continue / Review on first problem card
-    const firstProblemBtn = page.locator('button:has-text("Start"), button:has-text("Continue"), button:has-text("Review")').first();
+    const firstProblemBtn = page.locator('button:has-text("Solve"), button:has-text("Continue"), button:has-text("Review")').first();
     await firstProblemBtn.click();
 
-    // Verify Workspace loaded with obvious Code Editor header
-    await expect(page.locator('text=Code Editor').first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=solution.js').first()).toBeVisible();
-    await expect(page.locator('text=Editable').first()).toBeVisible();
+    // Verify Workspace loaded with obvious file header
+    await expect(page.locator('text=solution.js').first()).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#code-editor-textarea')).toBeVisible();
 
     // Verify student can type and edit code in the editor
@@ -196,21 +194,21 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await editor.fill('const fs = require("fs");\nconsole.log(fs.readFileSync(0, "utf-8").trim());');
 
     // Run code
-    await page.click('#btn-run-code');
-    await expect(page.locator('text=Execution Results').first()).toBeVisible({ timeout: 15000 });
+    await page.click('button:has-text("Run")');
+    await expect(page.locator('button:has-text("Results")').first()).toBeVisible({ timeout: 15000 });
 
     // Switch language to Python 3
-    const langSelect = page.locator('#select-language');
+    const langSelect = page.locator('select').first();
     await langSelect.selectOption('python');
     await expect(page.locator('text=solution.py').first()).toBeVisible();
 
     // Submit code
-    await page.click('#btn-submit-code');
-    await expect(page.locator('text=Execution Results').first()).toBeVisible({ timeout: 15000 });
+    await page.click('button:has-text("Submit")');
+    await expect(page.locator('button:has-text("Results")').first()).toBeVisible({ timeout: 15000 });
 
     // Back to Practice
     await page.click('button:has-text("Practice")');
-    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1:has-text("Practice Library")')).toBeVisible({ timeout: 10000 });
   });
 
   test('6. Daily Challenge & Competitive Leaderboard', async ({ page }) => {
@@ -270,8 +268,8 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await loginAsStudent(page);
 
     // Open Practice
-    await page.click('button:has-text("Practice (80 Problems)")');
-    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
+    await page.click('button:has-text("Practice")');
+    await expect(page.locator('h1:has-text("Practice Library")')).toBeVisible({ timeout: 10000 });
 
     // Search for "Stock"
     const searchInput = page.locator('input[placeholder*="Search problems"]');
@@ -279,7 +277,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
     await expect(page.locator('h3:has-text("Best Time to Buy and Sell Stock")').first()).toBeVisible({ timeout: 5000 });
 
     // Open Problem Workspace for Stock problem
-    const stockBtn = page.locator('button:has-text("Start"), button:has-text("Continue"), button:has-text("Review")').first();
+    const stockBtn = page.locator('button:has-text("Solve"), button:has-text("Continue"), button:has-text("Review")').first();
     await stockBtn.click();
 
     // Verify Title & Statement

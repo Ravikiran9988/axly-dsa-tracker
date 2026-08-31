@@ -167,6 +167,7 @@ export default function AdminSidebar({
           )}
 
           <button
+            id="logout-btn"
             onClick={onLogout}
             className={`p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all ${
               isCollapsed ? 'w-full flex justify-center' : ''

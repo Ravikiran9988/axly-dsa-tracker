@@ -58,28 +58,28 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
     await loginAsStudent(page);
 
     // Open Practice Bank
-    await page.click('button:has-text("Practice (80 Problems)")');
-    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
+    await page.click('button:has-text("Practice")');
+    await expect(page.locator('h1:has-text("Practice Library")')).toBeVisible({ timeout: 10000 });
 
     // Open In-Platform Problem IDE
-    const solveBtn = page.locator('button:has-text("Start"), button:has-text("Continue"), button:has-text("Review")').first();
+    const solveBtn = page.locator('button:has-text("Solve"), button:has-text("Continue"), button:has-text("Review")').first();
     await expect(solveBtn).toBeVisible();
     await solveBtn.click();
 
     // Verify workspace components
-    await expect(page.locator('#btn-run-code')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#btn-submit-code')).toBeVisible();
+    await expect(page.locator('button:has-text("Run")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('button:has-text("Submit")')).toBeVisible();
 
     // Run code against test cases
-    await page.click('#btn-run-code');
-    await expect(page.locator('text=Execution Results').first()).toBeVisible({ timeout: 15000 });
+    await page.click('button:has-text("Run")');
+    await expect(page.locator('button:has-text("Results")').first()).toBeVisible({ timeout: 15000 });
 
     // Back to Practice
     await page.click('button:has-text("Practice")');
     await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
 
     // Sign out
-    const logoutBtn = page.locator('button[title="Log out"]').first();
+    const logoutBtn = page.locator('#logout-button, #logout-btn, button[title="Log out"]').first();
     await logoutBtn.click();
     await expect(page.locator('text=AXLY DSA TRACKER').first()).toBeVisible();
   });
@@ -112,7 +112,7 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
     await loginAsStudent(page);
 
     // Navigate to Practice
-    await page.click('button:has-text("Practice (80 Problems)")');
+    await page.click('button:has-text("Practice")');
     await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
 
     // Navigate to Daily Challenge

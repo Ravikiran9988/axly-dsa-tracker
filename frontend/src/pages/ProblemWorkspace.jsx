@@ -266,6 +266,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
         {submissionMethod === 'code' && (
           <>
             <select
+              id="select-language"
               value={language}
               onChange={e => handleLanguageChange(e.target.value)}
               className="bg-[#0d1525] border border-[#1a2540] text-slate-200 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-axly-500 shrink-0 font-medium"
@@ -286,6 +287,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
               Ask DSA AI
             </button>
             <button
+              id="btn-run-code"
               onClick={handleRunCode}
               disabled={isRunning || isSubmitting}
               title="Run (Ctrl+Enter)"
@@ -295,6 +297,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
               {isRunning ? 'Running...' : 'Run'}
             </button>
             <button
+              id="btn-submit-code"
               onClick={handleSubmitSolution}
               disabled={isRunning || isSubmitting}
               title="Submit (Ctrl+Shift+Enter)"
