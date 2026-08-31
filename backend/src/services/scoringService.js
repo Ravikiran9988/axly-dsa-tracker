@@ -22,7 +22,6 @@ function calculateScore({ passedTests, totalTests, durationSeconds, attempts, es
   const duration = Math.max(Number(durationSeconds) || 0, 0);
   let timeScore = 20;
   if (duration > expectedSeconds) {
-    // Gradual penalty, never below 5 for a correct solution.
     timeScore = Math.max(5, 20 * (expectedSeconds / duration));
   }
 
@@ -38,6 +37,14 @@ function calculateScore({ passedTests, totalTests, durationSeconds, attempts, es
   };
 }
 
+function normalizeDurationSeconds(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  // Keep sub-second precision in application logic while preventing accidental
+  // string/NaN/Infinity values from reaching PostgreSQL.
+  return Math.round(n * 1000) / 1000;
+}
+
 async function recordAttempt({ userId, questionId, passedTests, totalTests, executionTimeMs, solved }) {
   const now = new Date();
   const nowIso = now.toISOString();
@@ -46,14 +53,12 @@ async function recordAttempt({ userId, questionId, passedTests, totalTests, exec
   const question = (await repo.one('SELECT estimated_time, is_practice FROM questions WHERE id = ?', [questionId])) || {};
   const assignment = await repo.one('SELECT assigned_at FROM assignments WHERE user_id = ? AND question_id = ?', [userId, questionId]);
 
-  if (question.is_practice) {
-    // Practice submissions do not calculate or record competitive scoring.
-    return submission;
-  }
+  if (question.is_practice) return submission;
 
   const startedAt = submission?.started_at || submission?.attempted_at || assignment?.assigned_at || nowIso;
   const startedMs = Date.parse(startedAt);
-  const durationSeconds = Number.isFinite(startedMs) ? Math.max(0, (now.getTime() - startedMs) / 1000) : 0;
+  const rawDurationSeconds = Number.isFinite(startedMs) ? Math.max(0, (now.getTime() - startedMs) / 1000) : 0;
+  const durationSeconds = normalizeDurationSeconds(rawDurationSeconds);
   const attempts = (submission?.attempt_count || 0) + 1;
   const score = calculateScore({
     passedTests,
@@ -80,7 +85,9 @@ async function recordAttempt({ userId, questionId, passedTests, totalTests, exec
     const existingSolved = ['solved', 'approved', 'completed'].includes(submission.status);
     const effectiveSolved = existingSolved || solved;
     const solvedAt = effectiveSolved ? (submission.solved_at || nowIso) : null;
-    const finalDuration = effectiveSolved ? (submission.solve_duration_seconds || durationSeconds) : (submission.solve_duration_seconds || 0);
+    const finalDuration = effectiveSolved
+      ? normalizeDurationSeconds(submission.solve_duration_seconds || durationSeconds)
+      : normalizeDurationSeconds(submission.solve_duration_seconds || 0);
 
     await repo.execute(`
       UPDATE submissions SET
