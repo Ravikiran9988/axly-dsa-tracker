@@ -3,7 +3,12 @@ const { createClient } = require('@supabase/supabase-js');
 const authUserRepository = require('../db/authUserRepository');
 const { getDatabaseDriver } = require('../db/repository');
 const PostgresRepository = require('../db/postgresRepository');
-const SqliteRepository = require('../db/sqliteRepository');
+
+function getSqliteRepository() {
+  const SqliteRepository = require('../db/sqliteRepository');
+  return new SqliteRepository();
+}
+
 const { AppError } = require('./errorHandler');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -19,9 +24,7 @@ if (isProduction && !JWT_SECRET) {
 let supabaseClient = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && !SUPABASE_URL.includes('mock')) {
   try {
-    supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false }
-    });
+    supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   } catch (e) {
     console.warn('Supabase client init skipped:', e.message);
   }
@@ -30,20 +33,11 @@ if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && !SUPABASE_URL.includes('mock'))
 async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next(new AppError('Authentication required. Missing Bearer token.', 401, 'UNAUTHORIZED'));
-    }
-
+    if (!authHeader || !authHeader.startsWith('Bearer ')) return next(new AppError('Authentication required. Missing Bearer token.', 401, 'UNAUTHORIZED'));
     const token = authHeader.split(' ')[1];
-    if (!token || !token.trim()) {
-      return next(new AppError('Authentication required. Bearer token is empty.', 401, 'UNAUTHORIZED'));
-    }
+    if (!token || !token.trim()) return next(new AppError('Authentication required. Bearer token is empty.', 401, 'UNAUTHORIZED'));
 
-    let userId = null;
-    let userEmail = null;
-    let userName = null;
-    let userAvatar = null;
-
+    let userId = null, userEmail = null, userName = null, userAvatar = null;
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       userId = decoded.sub || decoded.id;
@@ -53,9 +47,7 @@ async function authenticate(req, res, next) {
     } catch (jwtErr) {
       if (supabaseClient) {
         const { data: { user: sbUser }, error } = await supabaseClient.auth.getUser(token);
-        if (error || !sbUser) {
-          return next(new AppError('Invalid or expired session token', 401, 'UNAUTHORIZED'));
-        }
+        if (error || !sbUser) return next(new AppError('Invalid or expired session token', 401, 'UNAUTHORIZED'));
         userId = sbUser.id;
         userEmail = sbUser.email;
         userName = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || (userEmail ? userEmail.split('@')[0] : 'Developer');
@@ -65,24 +57,14 @@ async function authenticate(req, res, next) {
       }
     }
 
-    if (!userId && !userEmail) {
-      return next(new AppError('User identity could not be verified', 401, 'UNAUTHORIZED'));
-    }
-
+    if (!userId && !userEmail) return next(new AppError('User identity could not be verified', 401, 'UNAUTHORIZED'));
     const normalizedEmail = (userEmail || '').trim().toLowerCase();
-    const isAdminEmail = Boolean(
-      process.env.ADMIN_EMAIL &&
-      normalizedEmail &&
-      process.env.ADMIN_EMAIL.trim().toLowerCase() === normalizedEmail
-    );
-
+    const isAdminEmail = Boolean(process.env.ADMIN_EMAIL && normalizedEmail && process.env.ADMIN_EMAIL.trim().toLowerCase() === normalizedEmail);
     let user = userId ? await authUserRepository.findUserById(userId) : null;
 
     if (!user && normalizedEmail) {
       user = await authUserRepository.findUserByEmail(normalizedEmail);
-      if (user && userId && user.id !== userId) {
-        userId = user.id;
-      }
+      if (user && userId && user.id !== userId) userId = user.id;
     }
 
     if (!user) {
@@ -90,28 +72,19 @@ async function authenticate(req, res, next) {
       const effectiveRole = isAdminEmail ? 'admin' : 'user';
       const effectiveName = userName || (normalizedEmail ? normalizedEmail.split('@')[0] : 'Learner');
       const effectiveEmail = normalizedEmail || `${effectiveId}@axly.local`;
-
-      user = await authUserRepository.provisionUser({
-        id: effectiveId,
-        name: effectiveName,
-        email: effectiveEmail
-      });
-
+      user = await authUserRepository.provisionUser({ id: effectiveId, name: effectiveName, email: effectiveEmail });
       if (user.role !== effectiveRole) {
-        const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : new SqliteRepository();
+        const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : getSqliteRepository();
         await repo.execute('UPDATE users SET role = ? WHERE id = ?', [effectiveRole, effectiveId]);
         user = await authUserRepository.findUserById(effectiveId);
       }
     } else if (isAdminEmail && user.role !== 'admin') {
-      const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : new SqliteRepository();
+      const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : getSqliteRepository();
       await repo.execute('UPDATE users SET role = ? WHERE id = ?', ['admin', user.id]);
       user = { ...user, role: 'admin' };
     }
 
-    if (!user) {
-      return next(new AppError('User profile provisioning failed', 401, 'UNAUTHORIZED'));
-    }
-
+    if (!user) return next(new AppError('User profile provisioning failed', 401, 'UNAUTHORIZED'));
     req.user = user;
     next();
   } catch (err) {
@@ -119,22 +92,11 @@ async function authenticate(req, res, next) {
   }
 }
 
-// Generate auth token with configurable JWT_EXPIRES_IN (defaults to 30d)
 function generateToken(payload, options = {}) {
-  if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET is not configured.');
-  }
+  if (!JWT_SECRET) throw new Error('JWT_SECRET is not configured.');
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN, ...options });
 }
 
-function generateTestToken(payload, options = {}) {
-  return generateToken(payload, options);
-}
+function generateTestToken(payload, options = {}) { return generateToken(payload, options); }
 
-module.exports = {
-  authenticate,
-  generateToken,
-  generateTestToken,
-  JWT_SECRET,
-  JWT_EXPIRES_IN
-};
+module.exports = { authenticate, generateToken, generateTestToken, JWT_SECRET, JWT_EXPIRES_IN };
