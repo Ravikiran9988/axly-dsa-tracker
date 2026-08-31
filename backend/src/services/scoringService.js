@@ -53,8 +53,6 @@ async function recordAttempt({ userId, questionId, passedTests, totalTests, exec
   const question = (await repo.one('SELECT estimated_time, is_practice FROM questions WHERE id = ?', [questionId])) || {};
   const assignment = await repo.one('SELECT assigned_at FROM assignments WHERE user_id = ? AND question_id = ?', [userId, questionId]);
 
-  if (question.is_practice) return submission;
-
   const startedAt = submission?.started_at || submission?.attempted_at || assignment?.assigned_at || nowIso;
   const startedMs = Date.parse(startedAt);
   const rawDurationSeconds = Number.isFinite(startedMs) ? Math.max(0, (now.getTime() - startedMs) / 1000) : 0;
