@@ -225,7 +225,23 @@ async function submitSolution(req, res, next) {
         submissionId: logId,
         passed: isAllPassed
       });
+
+      // Practice submissions use the same 100-point performance score as
+      // competitive submissions, but their score does not affect the leaderboard.
+      await recordAttempt({
+        userId,
+        questionId: question_id,
+        passedTests: execResult.passed_tests,
+        totalTests: allTestCases.length,
+        executionTimeMs: execResult.execution_time_ms,
+        solved: isAllPassed
+      });
+
       const practice = await practiceService.getPracticeProblem({ user: req.user, questionId: question_id });
+      const scoredSubmission = await repo.one(
+        'SELECT test_score, time_score, attempt_score, final_score, attempt_count, solve_duration_seconds FROM submissions WHERE user_id = ? AND question_id = ?',
+        [userId, question_id]
+      );
 
       let awardResult = { pointsAwarded: 0, breakdown: null };
       if (isAllPassed) {
@@ -245,12 +261,18 @@ async function submitSolution(req, res, next) {
           results: execResult.results,
           points_awarded: awardResult.pointsAwarded,
           score_breakdown: awardResult.breakdown,
-          scoring: awardResult.breakdown ? {
-            practice_points: awardResult.breakdown.practice_points,
-            total_score: awardResult.breakdown.total_score,
-            leaderboard_score: awardResult.breakdown.leaderboard_score,
-            points_awarded: awardResult.pointsAwarded
-          } : null,
+          scoring: {
+            test_score: scoredSubmission?.test_score || 0,
+            time_score: scoredSubmission?.time_score || 0,
+            attempt_score: scoredSubmission?.attempt_score || 0,
+            final_score: scoredSubmission?.final_score || 0,
+            attempt_count: scoredSubmission?.attempt_count || 1,
+            solve_duration_seconds: scoredSubmission?.solve_duration_seconds || 0,
+            score_max: 100,
+            points_awarded: awardResult.pointsAwarded,
+            total_score: awardResult.breakdown?.total_score,
+            leaderboard_score: awardResult.breakdown?.leaderboard_score
+          },
           practice_progress: practice
         }
       });
