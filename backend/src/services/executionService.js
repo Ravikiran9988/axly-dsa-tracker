@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const MAX_EXECUTION_TIME_MS = 5000;
 const MAX_OUTPUT_BYTES = 64 * 1024;
 const RUNNER_URL = process.env.CODE_EXECUTION_SERVICE_URL;
+const RUNNER_TOKEN = process.env.CODE_RUNNER_TOKEN;
 
 function normalizeOutput(str) {
   if (typeof str !== 'string') return '';
@@ -25,8 +26,6 @@ async function executeCode({ language, sourceCode, testCases = [], isSubmit = fa
     throw err;
   }
 
-  // Production must always use the isolated code runner. Never execute
-  // untrusted student code inside the API/Heroku dyno.
   if (!RUNNER_URL) {
     if (process.env.NODE_ENV === 'production') {
       const err = new Error('Code execution service is unavailable');
@@ -41,9 +40,12 @@ async function executeCode({ language, sourceCode, testCases = [], isSubmit = fa
   const timer = setTimeout(() => controller.abort(), MAX_EXECUTION_TIME_MS + 2000);
 
   try {
+    const headers = { 'content-type': 'application/json' };
+    if (RUNNER_TOKEN) headers.authorization = `Bearer ${RUNNER_TOKEN}`;
+
     const response = await fetch(`${RUNNER_URL.replace(/\/$/, '')}/execute`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         language,
         code: sourceCode,
@@ -82,7 +84,6 @@ async function executeCode({ language, sourceCode, testCases = [], isSubmit = fa
     };
   } catch (err) {
     if (err.code === 'CODE_EXECUTION_UNAVAILABLE') throw err;
-
     const unavailable = new Error('Code execution service is unavailable');
     unavailable.statusCode = 503;
     unavailable.code = 'CODE_EXECUTION_UNAVAILABLE';
@@ -93,51 +94,26 @@ async function executeCode({ language, sourceCode, testCases = [], isSubmit = fa
   }
 }
 
-// Development/test-only fallback. This function must never be reached by
-// production because executeCode() explicitly rejects missing RUNNER_URL there.
-async function executeLocally({ language, sourceCode, testCases, isSubmit }) {
+// Development/test-only fallback. Production must always use the isolated runner.
+async function executeLocally({ language, sourceCode, testCases }) {
   const { spawn } = require('child_process');
   const lang = String(language || 'javascript').toLowerCase();
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'axly-code-'));
-  const extMap = {
-    javascript: 'js', js: 'js', node: 'js',
-    python: 'py', py: 'py', python3: 'py',
-    typescript: 'ts', ts: 'ts',
-    java: 'java', cpp: 'cpp', c: 'c'
-  };
+  const extMap = { javascript: 'js', js: 'js', node: 'js', python: 'py', py: 'py', python3: 'py', typescript: 'ts', ts: 'ts', java: 'java', cpp: 'cpp', c: 'c' };
   const ext = extMap[lang] || 'js';
   const fileName = lang === 'java' ? 'Main.java' : `solution_${uuidv4()}.${ext}`;
   const filePath = path.join(tempDir, fileName);
 
   function runProcess(command, args, input, timeoutMs = MAX_EXECUTION_TIME_MS) {
-    return new Promise((resolve) => {
-      let stdout = '';
-      let stderr = '';
-      let isSettled = false;
-      const startTime = Date.now();
-      let child;
-      try {
-        child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
-      } catch (err) {
-        return resolve({ status: 'Runtime Error', stdout: '', stderr: err.message, executionTimeMs: 0 });
-      }
-      const finish = (result) => {
-        if (isSettled) return;
-        isSettled = true;
-        clearTimeout(timer);
-        resolve({ ...result, executionTimeMs: Date.now() - startTime });
-      };
-      const timer = setTimeout(() => {
-        try { child.kill('SIGKILL'); } catch {}
-        finish({ status: 'Time Limit Exceeded', stdout, stderr: 'Time Limit Exceeded (5s limit)' });
-      }, timeoutMs);
-      child.stdout.on('data', data => {
-        stdout += data.toString();
-        if (Buffer.byteLength(stdout) > MAX_OUTPUT_BYTES) {
-          try { child.kill('SIGKILL'); } catch {}
-          finish({ status: 'Output Limit Exceeded', stdout: stdout.slice(0, MAX_OUTPUT_BYTES), stderr: 'Output limit exceeded (64KB max)' });
-        }
-      });
+    return new Promise(resolve => {
+      let stdout = '', stderr = '', settled = false, child;
+      const started = Date.now();
+      let timer;
+      const finish = result => { if (settled) return; settled = true; clearTimeout(timer); resolve({ ...result, executionTimeMs: Date.now() - started }); };
+      try { child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }); }
+      catch (err) { return finish({ status: 'Runtime Error', stdout, stderr: err.message }); }
+      timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} finish({ status: 'Time Limit Exceeded', stdout, stderr: 'Time Limit Exceeded (5s limit)' }); }, timeoutMs);
+      child.stdout.on('data', data => { stdout += data.toString(); if (Buffer.byteLength(stdout) > MAX_OUTPUT_BYTES) { try { child.kill('SIGKILL'); } catch {} finish({ status: 'Output Limit Exceeded', stdout: stdout.slice(0, MAX_OUTPUT_BYTES), stderr: 'Output limit exceeded (64KB max)' }); } });
       child.stderr.on('data', data => { stderr += data.toString(); });
       child.on('error', err => finish({ status: 'Runtime Error', stdout, stderr: err.message }));
       child.on('close', code => finish({ status: code === 0 ? 'Passed' : 'Runtime Error', stdout, stderr }));
@@ -147,60 +123,28 @@ async function executeLocally({ language, sourceCode, testCases, isSubmit }) {
 
   try {
     fs.writeFileSync(filePath, sourceCode, 'utf-8');
-    let command = 'node';
-    let args = [filePath];
+    let command = 'node', args = [filePath];
     const isWin = process.platform === 'win32';
-    const shellCmd = isWin ? 'cmd' : 'sh';
-    const shellArg = isWin ? '/c' : '-c';
-    if (lang.includes('python') || lang === 'py') {
-      command = isWin ? 'python' : 'python3';
-      args = [filePath];
-    } else if (lang === 'typescript' || lang === 'ts') {
-      command = isWin ? 'npx.cmd' : 'npx';
-      args = ['ts-node', '--skip-project', filePath];
-    } else if (lang === 'java') {
-      command = shellCmd;
-      args = [shellArg, `javac "${filePath}" && java -cp "${tempDir}" Main`];
-    } else if (lang === 'cpp' || lang === 'c++') {
-      const outPath = path.join(tempDir, isWin ? 'a.exe' : 'a.out');
-      command = shellCmd;
-      args = [shellArg, `g++ -O2 -o "${outPath}" "${filePath}" && "${outPath}"`];
-    } else if (lang === 'c') {
-      const outPath = path.join(tempDir, isWin ? 'a.exe' : 'a.out');
-      command = shellCmd;
-      args = [shellArg, `gcc -o "${outPath}" "${filePath}" && "${outPath}"`];
-    }
+    const shellCmd = isWin ? 'cmd' : 'sh', shellArg = isWin ? '/c' : '-c';
+    if (lang.includes('python') || lang === 'py') { command = isWin ? 'python' : 'python3'; }
+    else if (lang === 'typescript' || lang === 'ts') { command = isWin ? 'npx.cmd' : 'npx'; args = ['ts-node', '--skip-project', filePath]; }
+    else if (lang === 'java') { command = shellCmd; args = [shellArg, `javac "${filePath}" && java -cp "${tempDir}" Main`]; }
+    else if (lang === 'cpp' || lang === 'c++') { const out = path.join(tempDir, isWin ? 'a.exe' : 'a.out'); command = shellCmd; args = [shellArg, `g++ -O2 -o "${out}" "${filePath}" && "${out}"`]; }
+    else if (lang === 'c') { const out = path.join(tempDir, isWin ? 'a.exe' : 'a.out'); command = shellCmd; args = [shellArg, `gcc -o "${out}" "${filePath}" && "${out}"`]; }
 
-    const results = [];
-    let passedCount = 0;
+    const results = [], passed = [];
     let maxTimeMs = 0;
     for (let i = 0; i < testCases.length; i++) {
-      const tc = testCases[i];
-      const exec = await runProcess(command, args, String(tc.input ?? ''));
+      const tc = testCases[i], exec = await runProcess(command, args, String(tc.input ?? ''));
       maxTimeMs = Math.max(maxTimeMs, exec.executionTimeMs);
-      const actualNormalized = normalizeOutput(exec.stdout);
-      const expectedNormalized = normalizeOutput(tc.expected_output);
-      let testStatus = 'Accepted';
-      if (exec.status !== 'Passed') testStatus = exec.status;
-      else if (actualNormalized !== expectedNormalized && tc.expected_output !== undefined && tc.expected_output !== '') testStatus = 'Wrong Answer';
-      const isPassed = testStatus === 'Accepted';
-      if (isPassed) passedCount++;
-      results.push({
-        test_index: i + 1,
-        status: testStatus,
-        is_hidden: Boolean(tc.is_hidden),
-        input: tc.is_hidden ? '[Hidden Test Case]' : tc.input,
-        expected_output: tc.is_hidden ? '[Hidden Output]' : tc.expected_output,
-        actual_output: tc.is_hidden ? (isPassed ? '[Output Passed]' : '[Output Failed]') : actualNormalized,
-        stderr: tc.is_hidden ? undefined : (exec.stderr || undefined),
-        execution_time_ms: exec.executionTimeMs
-      });
+      const actual = normalizeOutput(exec.stdout), expected = normalizeOutput(tc.expected_output);
+      const ok = exec.status === 'Passed' && (!tc.expected_output || actual === expected);
+      const status = exec.status !== 'Passed' ? exec.status : ok ? 'Passed' : 'Wrong Answer';
+      if (ok) passed.push(i + 1);
+      results.push({ test_index: i + 1, status, is_hidden: Boolean(tc.is_hidden), input: tc.is_hidden ? '[Hidden Test Case]' : tc.input, expected_output: tc.is_hidden ? '[Hidden Output]' : tc.expected_output, actual_output: tc.is_hidden ? (ok ? '[Output Passed]' : '[Output Failed]') : actual, stderr: tc.is_hidden ? undefined : (exec.stderr || undefined), execution_time_ms: exec.executionTimeMs });
     }
-    let overallStatus = 'Accepted';
-    if (passedCount !== testCases.length) {
-      overallStatus = results.some(r => r.status === 'Time Limit Exceeded') ? 'Time Limit Exceeded' : results.some(r => r.status === 'Runtime Error') ? 'Runtime Error' : 'Wrong Answer';
-    }
-    return { status: overallStatus, passed_tests: passedCount, total_tests: testCases.length, execution_time_ms: maxTimeMs, results };
+    const status = passed.length === testCases.length ? 'Accepted' : results.some(r => r.status === 'Time Limit Exceeded') ? 'Time Limit Exceeded' : results.some(r => r.status === 'Runtime Error') ? 'Runtime Error' : 'Wrong Answer';
+    return { status, passed_tests: passed.length, total_tests: testCases.length, execution_time_ms: maxTimeMs, results };
   } finally {
     try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
   }
