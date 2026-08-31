@@ -56,7 +56,10 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      if (allowedOrigins.includes(origin)) {
+        cb(null, true);
+      } else if (!origin && process.env.NODE_ENV !== 'production') {
+        // Allow requests with no origin (like curl) only in development
         cb(null, true);
       } else {
         cb(new Error('CORS policy: Not allowed by origin'));
