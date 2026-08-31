@@ -85,7 +85,7 @@ async function findAuthTokenByHash(tokenHash, tokenType) {
 async function markAuthTokenUsed(id) {
   const repo = getRepo();
   await repo.execute(
-    "UPDATE auth_tokens SET used_at = datetime('now') WHERE id = ?",
+    'UPDATE auth_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?',
     [id]
   );
 }
@@ -93,7 +93,7 @@ async function markAuthTokenUsed(id) {
 async function invalidateUserTokens(userId, tokenType) {
   const repo = getRepo();
   await repo.execute(
-    "UPDATE auth_tokens SET used_at = datetime('now') WHERE user_id = ? AND token_type = ? AND used_at IS NULL",
+    'UPDATE auth_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND token_type = ? AND used_at IS NULL',
     [userId, tokenType]
   );
 }
