@@ -18,10 +18,17 @@ async function loginAsAdmin(page) {
     data: { email: 'admin@axly.in', role: 'admin' }
   });
   const body = await res.json();
+
+  // Store the dev-login token before loading the authenticated admin UI.
+  // Without this, the initial page remains logged out and admin controls are absent.
+  await page.goto('/');
+  await page.evaluate((token) => {
+    localStorage.setItem('axly_auth_token', token);
+  }, body.token);
   await page.goto('/');
 
-  // The admin dashboard is identified by its page heading. Do not require the
-  // sidebar Dashboard button because the sidebar can vary by responsive state.
+  // Verify the authenticated admin UI through the actual page heading rather than
+  // depending on a particular sidebar/responsive layout.
   await expect(page.locator('h1').filter({ hasText: 'Admin Dashboard' }).first()).toBeVisible({ timeout: 10000 });
 }
 
