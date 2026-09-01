@@ -122,7 +122,6 @@ async function submitSolution(req, res, next) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [logId, userId, question_id, language, source_code, execResult.status, execResult.passed_tests, allTestCases.length, execResult.execution_time_ms, nowIso]);
 
-    // Upsert into submissions table so that submissions history has complete record
     const existingSub = await repo.one(
       'SELECT id, status, review_status, attempted_at, started_at, solved_at FROM submissions WHERE user_id = ? AND question_id = ?',
       [userId, question_id]
@@ -192,7 +191,6 @@ async function submitSolution(req, res, next) {
       ]);
     }
 
-    // Create submission notification
     try {
       const notificationService = require('../services/notificationService');
       const qTitle = question?.title || 'Coding Challenge';
@@ -226,8 +224,6 @@ async function submitSolution(req, res, next) {
         passed: isAllPassed
       });
 
-      // Practice submissions use the same 100-point performance score as
-      // competitive submissions, but their score does not affect the leaderboard.
       await recordAttempt({
         userId,
         questionId: question_id,
@@ -248,6 +244,19 @@ async function submitSolution(req, res, next) {
         awardResult = await gamificationService.awardPracticeSolve(userId, question_id);
       }
 
+      const scoring = isAllPassed ? {
+        test_score: scoredSubmission?.test_score || 0,
+        time_score: scoredSubmission?.time_score || 0,
+        attempt_score: scoredSubmission?.attempt_score || 0,
+        final_score: scoredSubmission?.final_score || 0,
+        attempt_count: scoredSubmission?.attempt_count || 1,
+        solve_duration_seconds: scoredSubmission?.solve_duration_seconds || 0,
+        score_max: 100,
+        points_awarded: awardResult.pointsAwarded,
+        total_score: awardResult.breakdown?.total_score,
+        leaderboard_score: awardResult.breakdown?.leaderboard_score
+      } : null;
+
       return res.status(200).json({
         data: {
           submission_id: logId,
@@ -261,18 +270,7 @@ async function submitSolution(req, res, next) {
           results: execResult.results,
           points_awarded: awardResult.pointsAwarded,
           score_breakdown: awardResult.breakdown,
-          scoring: {
-            test_score: scoredSubmission?.test_score || 0,
-            time_score: scoredSubmission?.time_score || 0,
-            attempt_score: scoredSubmission?.attempt_score || 0,
-            final_score: scoredSubmission?.final_score || 0,
-            attempt_count: scoredSubmission?.attempt_count || 1,
-            solve_duration_seconds: scoredSubmission?.solve_duration_seconds || 0,
-            score_max: 100,
-            points_awarded: awardResult.pointsAwarded,
-            total_score: awardResult.breakdown?.total_score,
-            leaderboard_score: awardResult.breakdown?.leaderboard_score
-          },
+          scoring,
           practice_progress: practice
         }
       });
