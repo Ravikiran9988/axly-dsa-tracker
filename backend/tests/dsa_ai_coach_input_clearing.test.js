@@ -8,7 +8,7 @@ describe('DSA AI Coach — Input Handling, Multi-Turn Chat & Request Integrity',
 
   beforeAll(async () => {
     studentToken = jwt.sign(
-      { id: 'usr-student-alex', email: 'alex@example.com', role: 'user' },
+      { id: 'usr-user-01', email: 'alex@example.com', name: 'Alex Mercer', role: 'user' },
       process.env.JWT_SECRET || 'axly_secret_key_2026_production',
       { expiresIn: '1h' }
     );
