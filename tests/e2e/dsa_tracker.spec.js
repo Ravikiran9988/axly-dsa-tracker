@@ -19,15 +19,10 @@ async function loginAsAdmin(page) {
   });
   const body = await res.json();
   await page.goto('/');
-  await page.evaluate((token) => {
-    localStorage.setItem('axly_auth_token', token);
-  }, body.token);
-  await page.goto('/');
 
-  // The Admin dashboard page itself renders the heading "Admin". Verify the
-  // actual admin navigation item and page heading instead of assuming the
-  // sidebar label is also the page H1.
-  await expect(page.locator('button:has-text("Admin Dashboard")').first()).toBeVisible({ timeout: 10000 });
+  // Admin users are automatically routed to the admin dashboard.
+  // The sidebar label is "Dashboard" and the page heading is "Admin".
+  await expect(page.getByRole('button', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 10000 });
   await expect(page.locator('h1:has-text("Admin")').first()).toBeVisible({ timeout: 10000 });
 }
 
@@ -46,44 +41,34 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
     await expect(page).toHaveTitle(/Axly DSA Tracker/);
     await expect(page.locator('text=AXLY DSA TRACKER').first()).toBeVisible();
 
-    // Verify Landing page has NO embedded login card
     await expect(page.locator('#google-signin-btn')).not.toBeVisible();
 
-    // Navigate to /login
     await page.click('header button:has-text("Get Started")');
     await expect(page.locator('#google-signin-btn')).toBeVisible();
 
-    // Verify absence of dev login buttons on /login
     await expect(page.locator('#btn-login-user-alex')).not.toBeVisible();
     await expect(page.locator('#btn-login-admin-axly')).not.toBeVisible();
   });
 
   test('2. Student Journey: Dashboard, In-Platform IDE, Run Code & Test Cases', async ({ page }) => {
-    // Login as Alex Mercer
     await loginAsStudent(page);
 
-    // Open Practice Bank
     await page.click('button:has-text("Practice")');
     await expect(page.locator('h1:has-text("Practice Library")')).toBeVisible({ timeout: 10000 });
 
-    // Open In-Platform Problem IDE
     const solveBtn = page.locator('button:has-text("Solve"), button:has-text("Continue"), button:has-text("Review")').first();
     await expect(solveBtn).toBeVisible();
     await solveBtn.click();
 
-    // Verify workspace components
     await expect(page.locator('button:has-text("Run")')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('button:has-text("Submit")')).toBeVisible();
 
-    // Run code against test cases
     await page.click('button:has-text("Run")');
     await expect(page.locator('button:has-text("Results")').first()).toBeVisible({ timeout: 15000 });
 
-    // Back to Practice
     await page.click('button:has-text("Practice")');
     await expect(page.locator('h1:has-text("Practice")')).toBeVisible({ timeout: 10000 });
 
-    // Sign out
     const logoutBtn = page.locator('#logout-button, #logout-btn, button[title="Log out"]').first();
     await logoutBtn.click();
     await expect(page.locator('text=AXLY DSA TRACKER').first()).toBeVisible();
@@ -92,23 +77,20 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
   test('3. Admin Journey: Admin Portal, Question Bank & Content Management', async ({ page }) => {
     await loginAsAdmin(page);
 
-    // Navigate to Question Management
-    await page.click('button:has-text("Question Management")');
+    // Match the current AdminSidebar labels exactly.
+    await page.getByRole('button', { name: 'Question Bank', exact: true }).click();
     await expect(page.locator('h1:has-text("Question Bank Management")')).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Daily Challenge Admin
-    await page.click('button:has-text("Daily Challenge Management")');
+    await page.getByRole('button', { name: 'Daily Challenge', exact: true }).click();
     await expect(page.locator('h1:has-text("Daily Challenge Portal")')).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Students
-    await page.click('button:has-text("Student Directory")');
-    await expect(page.locator('text=Student').first()).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Students', exact: true }).click();
+    await expect(page.locator('h1:has-text("Student & User Management")')).toBeVisible({ timeout: 10000 });
   });
 
   test('4. RBAC & Security Boundary: Regular student cannot access Admin Question Bank', async ({ page }) => {
     await loginAsStudent(page);
 
-    // Question Bank and Admin actions should not exist for regular user
     await expect(page.locator('button:has-text("Question Bank")')).not.toBeVisible();
     await expect(page.locator('button:has-text("Audit Logs")')).not.toBeVisible();
   });
@@ -116,19 +98,15 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
   test('5. Student Navigation: Practice, Daily Challenge & Leaderboard', async ({ page }) => {
     await loginAsStudent(page);
 
-    // Navigate to Practice
     await page.click('button:has-text("Practice")');
     await expect(page.locator('h1:has-text("Practice")')).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Daily Challenge
     await page.click('button:has-text("Daily Challenge")');
     await expect(page.locator('text=Daily Challenge').first()).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Leaderboard
     await page.click('button:has-text("Leaderboard")');
     await expect(page.locator('h1:has-text("Leaderboard")')).toBeVisible({ timeout: 10000 });
 
-    // Navigate to personal progress analytics
     await page.click('button:has-text("My Progress")');
     await expect(page.locator('h1:has-text("Learning Progress & Analytics")')).toBeVisible({ timeout: 10000 });
   });
