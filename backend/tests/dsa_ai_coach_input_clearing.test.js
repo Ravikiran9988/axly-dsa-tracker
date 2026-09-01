@@ -7,9 +7,10 @@ describe('DSA AI Coach — Input Handling, Multi-Turn Chat & Request Integrity',
   let studentToken;
 
   beforeAll(async () => {
+    const JWT_SECRET = process.env.JWT_SECRET || 'axly-dsa-tracker-dev-secret-key-32-chars-minimum';
     studentToken = jwt.sign(
-      { id: 'usr-user-01', email: 'alex@example.com', name: 'Alex Mercer', role: 'user' },
-      process.env.JWT_SECRET || 'axly_secret_key_2026_production',
+      { sub: 'usr-user-01', id: 'usr-user-01', email: 'alex@example.com', name: 'Alex Mercer', role: 'user' },
+      JWT_SECRET,
       { expiresIn: '1h' }
     );
   });
