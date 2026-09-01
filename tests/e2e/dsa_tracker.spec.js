@@ -23,9 +23,12 @@ async function loginAsAdmin(page) {
     localStorage.setItem('axly_auth_token', token);
   }, body.token);
   await page.goto('/');
-  // The current admin UI identifies the authenticated role through the
-  // dedicated Admin Dashboard/sidebar rather than a role badge assertion.
-  await expect(page.locator('h1:has-text("Admin Dashboard")')).toBeVisible({ timeout: 10000 });
+
+  // The Admin dashboard page itself renders the heading "Admin". Verify the
+  // actual admin navigation item and page heading instead of assuming the
+  // sidebar label is also the page H1.
+  await expect(page.locator('button:has-text("Admin Dashboard")').first()).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('h1:has-text("Admin")').first()).toBeVisible({ timeout: 10000 });
 }
 
 test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
