@@ -10,11 +10,11 @@ module.exports = defineConfig({
   workers: 1,
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
-    baseURL: 'https://dsatracker.axly.in',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    headless: false
+    headless: true
   },
   webServer: [
     {
@@ -22,10 +22,14 @@ module.exports = defineConfig({
       cwd: './backend',
       port: 5000,
       reuseExistingServer: !process.env.CI,
-      timeout: 30000
+      timeout: 30000,
+      env: {
+        NODE_ENV: 'development',
+        PORT: '5000'
+      }
     },
     {
-      command: 'npm run dev',
+      command: 'npm run dev -- --host 127.0.0.1',
       cwd: './frontend',
       port: 5173,
       reuseExistingServer: !process.env.CI,
