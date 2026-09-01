@@ -95,7 +95,7 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
 
     // Navigate to Daily Challenge Admin
     await page.click('button:has-text("Daily Challenge Management")');
-    await expect(page.locator('text=Daily Challenge Management').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1:has-text("Daily Challenge Portal")')).toBeVisible({ timeout: 10000 });
 
     // Navigate to Students
     await page.click('button:has-text("Student Directory")');
@@ -122,11 +122,11 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
     await expect(page.locator('text=Daily Challenge').first()).toBeVisible({ timeout: 10000 });
 
     // Navigate to Leaderboard
-    await page.click('button:has-text("Competitive Leaderboard")');
+    await page.click('button:has-text("Leaderboard")');
     await expect(page.locator('h1:has-text("Leaderboard")')).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Progress & Analytics
-    await page.click('button:has-text("Progress & Analytics")');
+    // Navigate to personal progress analytics
+    await page.click('button:has-text("My Progress")');
     await expect(page.locator('h1:has-text("Learning Progress & Analytics")')).toBeVisible({ timeout: 10000 });
   });
 });
