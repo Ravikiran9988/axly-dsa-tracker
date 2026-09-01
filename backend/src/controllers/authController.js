@@ -15,7 +15,7 @@ const { recordDailyLogin, getUserStreaks } = require('../services/streakService'
 const { getUserScoreBreakdown } = require('../services/gamificationService');
 
 function getSqliteRepository() {
-  // Keep better-sqlite3 completely out of PostgreSQL production processes.
+  // Keep better-sqlite3 out of PostgreSQL production processes.
   const SqliteRepository = require('../db/sqliteRepository');
   return new SqliteRepository();
 }
@@ -26,23 +26,16 @@ function hashToken(token) {
 
 function isTokenExpired(expiresAt) {
   if (!expiresAt) return true;
-
-  // PostgreSQL drivers commonly return TIMESTAMP/TIMESTAMPTZ values as Date
-  // objects. Never call string methods on the value before normalizing it.
   const expiryTime = expiresAt instanceof Date
     ? expiresAt.getTime()
     : new Date(expiresAt).getTime();
-
   return !Number.isFinite(expiryTime) || expiryTime <= Date.now();
 }
 
 function validatePasswordStrength(password) {
   if (typeof password !== 'string') return false;
   if (password.length < 8) return false;
-  const hasUpper = /[A-Z]/.test(password);
-  const hasLower = /[a-z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  return hasUpper && hasLower && hasNumber;
+  return /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password);
 }
 
 function generateNumericOtp() {
@@ -53,7 +46,6 @@ async function formatAuthUser(user) {
   if (!user) return null;
   const streaks = await getUserStreaks(user.id);
   const score = await getUserScoreBreakdown(user.id);
-
   return {
     id: user.id,
     name: user.name,
@@ -83,7 +75,228 @@ async function signup(req, res, next) {
     const { name, email, password } = req.body || {};
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     const trimmedName = typeof name === 'string' ? name.trim() : '';
-    if (!trimmedName || !normalizedEmail || !password) {
-      throw new AppError('Name, email and password are required', 400, 'VALIDATION_ERROR');
+
+    if (!trimmedName) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Full name is required', field: 'name' } });
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' } });
+    if (!validatePasswordStrength(password)) return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters long and contain uppercase, lowercase, and numeric characters.', field: 'password' } });
+
+    const existingUser = await authUserRepository.findUserByEmail(normalizedEmail);
+    if (existingUser && existingUser.password_hash && (existingUser.email_verified === 1 || existingUser.email_verified === true)) {
+      return res.status(409).json({ error: { code: 'EMAIL_EXISTS', message: 'An account with this email address already exists.' } });
     }
-    // ...
+
+    const passwordHash = bcrypt.hashSync(password, 10);
+    let user;
+    if (existingUser) {
+      await authUserRepository.updatePassword(existingUser.id, passwordHash);
+      await authUserRepository.updateProfile(existingUser.id, { name: trimmedName });
+      user = await authUserRepository.findUserById(existingUser.id);
+    } else {
+      user = await authUserRepository.provisionUser({ id: `usr-${uuidv4()}`, name: trimmedName, email: normalizedEmail, password_hash: passwordHash, email_verified: false });
+    }
+
+    const otp = generateNumericOtp();
+    await authUserRepository.invalidateUserTokens(user.id, 'otp_verification');
+    await authUserRepository.invalidateUserTokens(user.id, 'verification');
+    await authUserRepository.createAuthToken({
+      id: `tok-${uuidv4()}`,
+      userId: user.id,
+      tokenHash: hashToken(otp),
+      tokenType: 'otp_verification',
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    });
+
+    const rawLinkToken = crypto.randomBytes(32).toString('hex');
+    await authUserRepository.createAuthToken({
+      id: `tok-link-${uuidv4()}`,
+      userId: user.id,
+      tokenHash: hashToken(rawLinkToken),
+      tokenType: 'verification',
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    });
+
+    await sendOtpEmail({ to: user.email, name: user.name, otp, expiresMinutes: 10 }).catch(err => console.warn('Failed to dispatch OTP email:', err.message));
+    return res.status(201).json({ message: 'Account created successfully. A 6-digit verification code has been sent to your email.', email: user.email });
+  } catch (err) { next(err); }
+}
+
+// 2. POST /api/v1/auth/verify-otp
+async function verifyOtp(req, res, next) {
+  try {
+    const { email, otp } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const cleanOtp = typeof otp === 'string' ? otp.trim() : '';
+    if (!normalizedEmail || !cleanOtp) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Email and 6-digit verification code are required' } });
+
+    const user = await authUserRepository.findUserByEmail(normalizedEmail);
+    if (!user) return res.status(400).json({ error: { code: 'INVALID_OTP', message: 'Invalid verification code. Please check and try again.' } });
+    const authToken = await authUserRepository.findAuthTokenByHash(hashToken(cleanOtp), 'otp_verification');
+    if (!authToken || authToken.user_id !== user.id || authToken.used_at) return res.status(400).json({ error: { code: 'INVALID_OTP', message: 'Invalid verification code. Please check and try again.' } });
+    if (isTokenExpired(authToken.expires_at)) return res.status(400).json({ error: { code: 'EXPIRED_OTP', message: 'The verification code has expired. Please request a new code.' } });
+
+    await authUserRepository.markAuthTokenUsed(authToken.id);
+    await authUserRepository.setEmailVerified(user.id, true);
+    const updatedUser = await authUserRepository.findUserById(user.id);
+    await recordDailyLogin(updatedUser.id);
+    const formattedUser = await formatAuthUser(updatedUser);
+    return res.status(200).json({
+      message: 'Account verified and created successfully.',
+      token: generateToken({ id: updatedUser.id, email: updatedUser.email, name: updatedUser.name, role: updatedUser.role }),
+      user: formattedUser
+    });
+  } catch (err) { next(err); }
+}
+
+// 3. POST /api/v1/auth/resend-otp
+async function resendOtp(req, res, next) {
+  try {
+    const { email } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' } });
+    const user = await authUserRepository.findUserByEmail(normalizedEmail);
+    if (user && (user.email_verified === 0 || user.email_verified === false)) {
+      await authUserRepository.invalidateUserTokens(user.id, 'otp_verification');
+      const newOtp = generateNumericOtp();
+      await authUserRepository.createAuthToken({ id: `tok-${uuidv4()}`, userId: user.id, tokenHash: hashToken(newOtp), tokenType: 'otp_verification', expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
+      await sendOtpEmail({ to: user.email, name: user.name, otp: newOtp, expiresMinutes: 10 }).catch(err => console.warn('Failed to dispatch resend OTP email:', err.message));
+    }
+    return res.status(200).json({ message: 'If an unverified account exists for this email, a new verification code has been sent.' });
+  } catch (err) { next(err); }
+}
+
+// 4. POST /api/v1/auth/login
+async function login(req, res, next) {
+  try {
+    const { email, password, user_id } = req.body || {};
+    if (!password && user_id && process.env.NODE_ENV !== 'production') {
+      let user = await authUserRepository.findUserById(user_id);
+      if (!user) {
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : `${user_id}@example.com`;
+        user = await authUserRepository.provisionUser({ id: user_id, name: normalizedEmail.split('@')[0], email: normalizedEmail, email_verified: true });
+      }
+      return res.status(200).json({ token: generateToken({ id: user.id, email: user.email, name: user.name, role: user.role }), user });
+    }
+
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' } });
+    if (!password || typeof password !== 'string') return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password is required', field: 'password' } });
+
+    const user = await authUserRepository.findUserByEmail(normalizedEmail);
+    if (!user) return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
+    if (!user.password_hash) return res.status(401).json({ error: { code: 'GOOGLE_AUTH_REQUIRED', message: 'This account was registered with Google. Please use Continue with Google.' } });
+    if (!bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' } });
+    if (user.email_verified === 0 || user.email_verified === false) return res.status(403).json({ error: { code: 'UNVERIFIED_EMAIL', message: 'Please verify your email before signing in.', email: user.email } });
+
+    await recordDailyLogin(user.id);
+    return res.status(200).json({ token: generateToken({ id: user.id, email: user.email, name: user.name, role: user.role }), user: await formatAuthUser(user) });
+  } catch (err) { next(err); }
+}
+
+// 5. POST /api/v1/auth/verify-email
+async function verifyEmail(req, res, next) {
+  try {
+    const { token, email, otp } = req.body || {};
+    if (email && otp) return verifyOtp(req, res, next);
+    if (!token || typeof token !== 'string') return res.status(400).json({ error: { code: 'INVALID_TOKEN', message: 'Verification token or code is required' } });
+
+    const tokenHash = hashToken(token.trim());
+    let authToken = await authUserRepository.findAuthTokenByHash(tokenHash, 'verification');
+    if (!authToken) authToken = await authUserRepository.findAuthTokenByHash(tokenHash, 'otp_verification');
+    if (!authToken || authToken.used_at) return res.status(400).json({ error: { code: 'INVALID_OR_EXPIRED_TOKEN', message: 'The verification link is invalid or has already been used.' } });
+    if (isTokenExpired(authToken.expires_at)) return res.status(400).json({ error: { code: 'EXPIRED_TOKEN', message: 'The verification link has expired. Please request a new one.' } });
+
+    await authUserRepository.markAuthTokenUsed(authToken.id);
+    await authUserRepository.setEmailVerified(authToken.user_id, true);
+    const user = await authUserRepository.findUserById(authToken.user_id);
+    await recordDailyLogin(user.id);
+    return res.status(200).json({ message: 'Your email address has been verified successfully.', token: generateToken({ id: user.id, email: user.email, name: user.name, role: user.role }), user: await formatAuthUser(user) });
+  } catch (err) { next(err); }
+}
+
+// 6. POST /api/v1/auth/resend-verification
+async function resendVerification(req, res, next) { return resendOtp(req, res, next); }
+
+// 7. POST /api/v1/auth/forgot-password
+async function forgotPassword(req, res, next) {
+  try {
+    const { email } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid email address is required', field: 'email' } });
+    const user = await authUserRepository.findUserByEmail(normalizedEmail);
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      await authUserRepository.invalidateUserTokens(user.id, 'password_reset');
+      await authUserRepository.createAuthToken({ id: `tok-${uuidv4()}`, userId: user.id, tokenHash: hashToken(rawToken), tokenType: 'password_reset', expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString() });
+      await sendPasswordResetEmail({ to: user.email, name: user.name, token: rawToken }).catch(err => console.warn('Failed to dispatch password reset email:', err.message));
+    }
+    return res.status(200).json({ message: 'If an account exists for this email, a password reset link has been sent.' });
+  } catch (err) { next(err); }
+}
+
+// 8. POST /api/v1/auth/reset-password
+async function resetPassword(req, res, next) {
+  try {
+    const { token, password } = req.body || {};
+    if (!token || typeof token !== 'string') return res.status(400).json({ error: { code: 'INVALID_TOKEN', message: 'Password reset token is required' } });
+    if (!validatePasswordStrength(password)) return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters long and contain uppercase, lowercase, and numeric characters.', field: 'password' } });
+
+    const authToken = await authUserRepository.findAuthTokenByHash(hashToken(token.trim()), 'password_reset');
+    if (!authToken || authToken.used_at) return res.status(400).json({ error: { code: 'INVALID_OR_EXPIRED_TOKEN', message: 'The password reset link is invalid or has already been used.' } });
+    if (isTokenExpired(authToken.expires_at)) return res.status(400).json({ error: { code: 'EXPIRED_TOKEN', message: 'The password reset link has expired. Please request a new one.' } });
+
+    await authUserRepository.updatePassword(authToken.user_id, bcrypt.hashSync(password, 10));
+    await authUserRepository.markAuthTokenUsed(authToken.id);
+    return res.status(200).json({ message: 'Password has been reset successfully. You can now sign in with your new password.' });
+  } catch (err) { next(err); }
+}
+
+// 9. GET or POST /api/v1/auth/verify
+async function verifySession(req, res, next) {
+  try {
+    await recordDailyLogin(req.user.id);
+    return res.status(200).json({ user: await formatAuthUser(req.user) });
+  } catch (err) { next(err); }
+}
+
+// 10. POST /api/v1/auth/dev-login (Disabled in production)
+async function devLogin(req, res, next) {
+  try {
+    if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Development login is disabled in production.' } });
+    const { email, role = 'user' } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const allowedRoles = new Set(['user', 'mentor', 'admin']);
+    if (!normalizedEmail || !/^([^\s@]+)@([^\s@]+)\.([^\s@]+)$/.test(normalizedEmail)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'A valid email is required', field: 'email' } });
+    if (!allowedRoles.has(role)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid role', field: 'role' } });
+
+    let user = await authUserRepository.findUserByEmail(normalizedEmail);
+    if (!user) {
+      const id = `usr-${Date.now()}`;
+      user = await authUserRepository.provisionUser({ id, name: normalizedEmail.split('@')[0], email: normalizedEmail, email_verified: true });
+      if (role !== 'user') {
+        const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : getSqliteRepository();
+        await repo.execute('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+        user = await authUserRepository.findUserById(id);
+      }
+    } else if (role !== user.role) {
+      const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : getSqliteRepository();
+      await repo.execute('UPDATE users SET role = ? WHERE id = ?', [role, user.id]);
+      user = { ...user, role };
+    }
+
+    await recordDailyLogin(user.id);
+    return res.status(200).json({ token: generateToken({ id: user.id, email: user.email, name: user.name, role: user.role }), user: await formatAuthUser(user) });
+  } catch (err) { next(err); }
+}
+
+module.exports = {
+  signup,
+  verifyOtp,
+  resendOtp,
+  login,
+  verifyEmail,
+  resendVerification,
+  forgotPassword,
+  resetPassword,
+  verifySession,
+  devLogin
+};
