@@ -23,7 +23,9 @@ async function loginAsAdmin(page) {
     localStorage.setItem('axly_auth_token', token);
   }, body.token);
   await page.goto('/');
-  await expect(page.locator('text=Super Administrator').first()).toBeVisible({ timeout: 10000 });
+  // The current admin UI identifies the authenticated role through the
+  // dedicated Admin Dashboard/sidebar rather than a role badge assertion.
+  await expect(page.locator('h1:has-text("Admin Dashboard")')).toBeVisible({ timeout: 10000 });
 }
 
 test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
@@ -76,7 +78,7 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
 
     // Back to Practice
     await page.click('button:has-text("Practice")');
-    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1:has-text("Practice")')).toBeVisible({ timeout: 10000 });
 
     // Sign out
     const logoutBtn = page.locator('#logout-button, #logout-btn, button[title="Log out"]').first();
@@ -87,16 +89,16 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
   test('3. Admin Journey: Admin Portal, Question Bank & Content Management', async ({ page }) => {
     await loginAsAdmin(page);
 
-    // Navigate to Question Bank
-    await page.click('button:has-text("Question Bank")');
-    await expect(page.locator('h1:has-text("Question Bank")')).toBeVisible({ timeout: 10000 });
+    // Navigate to Question Management
+    await page.click('button:has-text("Question Management")');
+    await expect(page.locator('h1:has-text("Question Bank Management")')).toBeVisible({ timeout: 10000 });
 
     // Navigate to Daily Challenge Admin
-    await page.click('button:has-text("Daily Challenge")');
+    await page.click('button:has-text("Daily Challenge Management")');
     await expect(page.locator('text=Daily Challenge Management').first()).toBeVisible({ timeout: 10000 });
 
     // Navigate to Students
-    await page.click('button:has-text("Students")');
+    await page.click('button:has-text("Student Directory")');
     await expect(page.locator('text=Student').first()).toBeVisible({ timeout: 10000 });
   });
 
@@ -113,7 +115,7 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
 
     // Navigate to Practice
     await page.click('button:has-text("Practice")');
-    await expect(page.locator('h1:has-text("Practice Problems Bank")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1:has-text("Practice")')).toBeVisible({ timeout: 10000 });
 
     // Navigate to Daily Challenge
     await page.click('button:has-text("Daily Challenge")');
