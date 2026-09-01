@@ -20,10 +20,9 @@ async function loginAsAdmin(page) {
   const body = await res.json();
   await page.goto('/');
 
-  // Admin users are automatically routed to the admin dashboard.
-  // The sidebar label is "Dashboard" and the page heading is "Admin".
-  await expect(page.getByRole('button', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 10000 });
-  await expect(page.locator('h1:has-text("Admin")').first()).toBeVisible({ timeout: 10000 });
+  // The admin dashboard is identified by its page heading. Do not require the
+  // sidebar Dashboard button because the sidebar can vary by responsive state.
+  await expect(page.locator('h1').filter({ hasText: 'Admin Dashboard' }).first()).toBeVisible({ timeout: 10000 });
 }
 
 test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
@@ -77,7 +76,6 @@ test.describe('Axly DSA Tracker — Core End-to-End Specs', () => {
   test('3. Admin Journey: Admin Portal, Question Bank & Content Management', async ({ page }) => {
     await loginAsAdmin(page);
 
-    // Match the current AdminSidebar labels exactly.
     await page.getByRole('button', { name: 'Question Bank', exact: true }).click();
     await expect(page.locator('h1:has-text("Question Bank Management")')).toBeVisible({ timeout: 10000 });
 
