@@ -88,23 +88,26 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          mkdir -p .vercel
-          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+          rm -rf .vercel
+          npx vercel@latest link --yes --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
 
       - name: Pull Vercel Production Settings
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
+        run: |
+          npx vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
 
-      - name: Build Frontend for Vercel
+      - name: Build Vercel Production Bundle
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx vercel@latest build --prod --token "$VERCEL_TOKEN"
+        run: |
+          npx vercel@latest build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy Frontend to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+        run: |
+          npx vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
 
   production-smoke:
     name: Production Smoke Tests
