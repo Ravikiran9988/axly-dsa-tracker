@@ -10,7 +10,13 @@ test.describe('Axly DSA Tracker — Production Smoke Tests', () => {
   });
 
   test('production API health check responds', async ({ request }) => {
-    const apiBaseURL = process.env.PRODUCTION_API_URL || 'https://dsatracker-api.herokuapp.com/api/v1';
+    // The backend exposes liveness at /health, not /api/v1/health.
+    // Accept either a host-only secret or the previously configured /api/v1 base.
+    const configuredURL = process.env.PRODUCTION_API_URL;
+    const apiBaseURL = (configuredURL || 'https://dsa-tracker-ee58e15ab674.herokuapp.com')
+      .replace(/\/+$/, '')
+      .replace(/\/api\/v1$/, '');
+
     const response = await request.get(`${apiBaseURL}/health`);
     expect(response.ok()).toBeTruthy();
   });
