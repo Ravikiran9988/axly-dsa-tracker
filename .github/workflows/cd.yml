@@ -82,24 +82,22 @@ jobs:
           test -n "$VERCEL_ORG_ID" || { echo "VERCEL_ORG_ID is not configured"; exit 1; }
           test -n "$VERCEL_PROJECT_ID" || { echo "VERCEL_PROJECT_ID is not configured"; exit 1; }
 
-      - name: Configure Vercel Project
+      - name: Pull Vercel Project Settings
+        working-directory: ./frontend
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          rm -rf frontend/.vercel
-          mkdir -p frontend/.vercel
-          cat > frontend/.vercel/project.json <<EOF
-          {
-            "orgId": "${VERCEL_ORG_ID}",
-            "projectId": "${VERCEL_PROJECT_ID}"
-          }
-          EOF
+          rm -rf .vercel
+          npx vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
 
       - name: Build Vercel Production Bundle
         working-directory: ./frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           npx vercel@latest build --prod --token "$VERCEL_TOKEN"
 
@@ -107,6 +105,8 @@ jobs:
         working-directory: ./frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           npx vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
 
