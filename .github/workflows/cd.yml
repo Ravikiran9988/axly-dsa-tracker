@@ -30,9 +30,9 @@ jobs:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
           HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
         run: |
-          curl https://cli-assets.heroku.com/install.sh | sh
-          heroku container:login
-          git push https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git HEAD:main
+          test -n "$HEROKU_API_KEY" || { echo "HEROKU_API_KEY is not configured"; exit 1; }
+          test -n "$HEROKU_APP_NAME" || { echo "HEROKU_APP_NAME is not configured"; exit 1; }
+          git push "https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git" HEAD:main
 
   deploy-frontend:
     name: Deploy Frontend to Vercel
@@ -63,6 +63,9 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
+          test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN is not configured"; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo "VERCEL_ORG_ID is not configured"; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "VERCEL_PROJECT_ID is not configured"; exit 1; }
           npx vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
           npx vercel@latest build --prod --token "$VERCEL_TOKEN"
           npx vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
@@ -92,4 +95,7 @@ jobs:
         env:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
           PRODUCTION_API_URL: ${{ secrets.PRODUCTION_API_URL }}
-        run: npx playwright test tests/e2e/production-smoke.spec.js --reporter=list
+        run: |
+          test -n "$PRODUCTION_BASE_URL" || { echo "PRODUCTION_BASE_URL is not configured"; exit 1; }
+          test -n "$PRODUCTION_API_URL" || { echo "PRODUCTION_API_URL is not configured"; exit 1; }
+          npx playwright test tests/e2e/production-smoke.spec.js --reporter=list
