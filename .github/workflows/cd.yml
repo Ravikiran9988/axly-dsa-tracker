@@ -31,14 +31,23 @@ jobs:
         working-directory: ./backend
         run: npm ci
 
-      - name: Deploy Backend to Heroku
+      - name: Verify Heroku Configuration
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
           HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
         run: |
           test -n "$HEROKU_API_KEY" || { echo "HEROKU_API_KEY is not configured"; exit 1; }
           test -n "$HEROKU_APP_NAME" || { echo "HEROKU_APP_NAME is not configured"; exit 1; }
-          git push "https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git" HEAD:main
+          echo "Heroku app configured: $HEROKU_APP_NAME"
+
+      - name: Deploy Backend to Heroku
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+          HEROKU_APP_NAME: ${{ secrets.HEROKU_APP_NAME }}
+        run: |
+          git remote remove heroku 2>/dev/null || true
+          git remote add heroku "https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git"
+          git push heroku HEAD:main
 
   deploy-frontend:
     name: Deploy Frontend to Vercel
@@ -63,7 +72,7 @@ jobs:
         working-directory: ./frontend
         run: npm run build
 
-      - name: Deploy Frontend to Vercel
+      - name: Verify Vercel Configuration
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -72,6 +81,13 @@ jobs:
           test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN is not configured"; exit 1; }
           test -n "$VERCEL_ORG_ID" || { echo "VERCEL_ORG_ID is not configured"; exit 1; }
           test -n "$VERCEL_PROJECT_ID" || { echo "VERCEL_PROJECT_ID is not configured"; exit 1; }
+
+      - name: Deploy Frontend to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
           npx vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
           npx vercel@latest build --prod --token "$VERCEL_TOKEN"
           npx vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
