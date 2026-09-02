@@ -87,9 +87,9 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          rm -rf .vercel
-          mkdir -p .vercel
-          cat > .vercel/project.json <<EOF
+          rm -rf frontend/.vercel
+          mkdir -p frontend/.vercel
+          cat > frontend/.vercel/project.json <<EOF
           {
             "orgId": "${VERCEL_ORG_ID}",
             "projectId": "${VERCEL_PROJECT_ID}"
@@ -97,12 +97,14 @@ jobs:
           EOF
 
       - name: Build Vercel Production Bundle
+        working-directory: ./frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           npx vercel@latest build --prod --token "$VERCEL_TOKEN"
 
       - name: Deploy Frontend to Vercel
+        working-directory: ./frontend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
