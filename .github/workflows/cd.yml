@@ -118,4 +118,4 @@ jobs:
         run: |
           test -n "$PRODUCTION_BASE_URL" || { echo "PRODUCTION_BASE_URL is not configured"; exit 1; }
           test -n "$PRODUCTION_API_URL" || { echo "PRODUCTION_API_URL is not configured"; exit 1; }
-          npx playwright test tests/e2e/production-smoke.spec.js --reporter=list
+          npx playwright test --config=playwright.production.config.js tests/e2e/production-smoke.spec.js --reporter=list
