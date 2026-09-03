@@ -447,7 +447,7 @@ async function runAutomationPipeline(options = {}) {
 let schedulerTimer = null;
 let schedulerRunning = false;
 
-const SCHEDULER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const SCHEDULER_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const FAILED_RUN_RETRY_DELAY_MS = 60 * 60 * 1000;
 
 async function runScheduledAutomationWithRecovery() {
@@ -493,7 +493,7 @@ async function runScheduledAutomationWithRecovery() {
 function startAutomationScheduler() {
   stopAutomationScheduler();
 
-  console.log('⏰ Daily Challenge Automation Scheduler starting with resilient 5-minute checks.');
+  console.log('⏰ Daily Challenge Automation Scheduler starting with resilient hourly checks.');
 
   // Recovery check immediately after the server starts. This catches a missed
   // midnight run after Heroku deploys/restarts without waiting another day.
