@@ -12,7 +12,7 @@ test.describe('Take README Screenshots', () => {
   });
 
   async function loginAsStudent(page) {
-    const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
+    const res = await page.request.post('http://127.0.0.1:5000/api/v1/auth/dev-login', {
       data: { email: 'alex@example.com', role: 'user' }
     });
     const body = await res.json();
@@ -23,7 +23,7 @@ test.describe('Take README Screenshots', () => {
   }
 
   async function loginAsAdmin(page) {
-    const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
+    const res = await page.request.post('http://127.0.0.1:5000/api/v1/auth/dev-login', {
       data: { email: 'admin@axly.in', role: 'admin' }
     });
     const body = await res.json();
@@ -56,12 +56,12 @@ test.describe('Take README Screenshots', () => {
     await page.click('text=Practice');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(1000);
-    
+
     // Select a filter to make it visible
     const difficultySelect = page.locator('.practice-filters select').nth(0);
     if (await difficultySelect.count() > 0) {
-       await difficultySelect.selectOption('Medium');
-       await page.waitForTimeout(500);
+      await difficultySelect.selectOption('Medium');
+      await page.waitForTimeout(500);
     }
     await page.screenshot({ path: path.join(screenshotsDir, 'question-bank.png') });
   });
@@ -74,7 +74,7 @@ test.describe('Take README Screenshots', () => {
     await page.goto('/practice/two-sum');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000); // Let workspace load
-    
+
     await page.screenshot({ path: path.join(screenshotsDir, 'code-editor.png') });
   });
 

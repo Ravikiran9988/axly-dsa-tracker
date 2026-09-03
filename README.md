@@ -247,6 +247,9 @@ The code runner should be deployed separately from the public API so untrusted s
 
 <div align="center">
 
+### Landing Page
+<img src="docs/screenshots/landing.png" width="800" alt="Axly landing page" />
+
 ### Learner Dashboard
 <img src="docs/screenshots/dashboard.png" width="800" alt="Axly learner dashboard" />
 
@@ -256,8 +259,14 @@ The code runner should be deployed separately from the public API so untrusted s
 ### Question Bank
 <img src="docs/screenshots/question-bank.png" width="800" alt="Axly question bank" />
 
+### Submission History
+<img src="docs/screenshots/submission-history.png" width="800" alt="Axly submission history" />
+
 ### Admin Dashboard
 <img src="docs/screenshots/admin-dashboard.png" width="800" alt="Axly admin dashboard" />
+
+### Admin Questions
+<img src="docs/screenshots/admin-questions.png" width="800" alt="Axly admin questions management" />
 
 </div>
 
