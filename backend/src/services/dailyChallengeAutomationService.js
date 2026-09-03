@@ -1,10 +1,8 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
-const { AppError } = require('../middleware/errorHandler');
 const {
   getCanonicalUtcDate,
-  getNextCanonicalUtcDate,
-  isValidDateString
+  getNextCanonicalUtcDate
 } = require('../utils/dateUtils');
 const {
   generateDailyChallenge,
@@ -16,6 +14,18 @@ const { createDailyChallenge } = require('./dailyChallengeService');
 
 function getRepo() {
   return getRepository();
+}
+
+function toBooleanFlag(value, fallback = false) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off', ''].includes(normalized)) return false;
+  }
+  return Boolean(value);
 }
 
 /**
@@ -37,17 +47,21 @@ async function getAutomationSettings() {
   }
   return {
     ...row,
-    is_enabled: Boolean(row.is_enabled)
+    is_enabled: toBooleanFlag(row.is_enabled)
   };
 }
 
 /**
- * Update Daily Challenge Automation Settings
+ * Update Daily Challenge Automation Settings.
+ * The database schema stores is_enabled as INTEGER (0/1), while the API
+ * exposes it as a boolean. Normalize at the persistence boundary.
  */
 async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
   const current = await getAutomationSettings();
   const nextMode = mode && ['manual', 'ai_assist', 'auto_fill'].includes(mode) ? mode : current.mode;
-  const nextEnabled = is_enabled !== undefined ? Boolean(is_enabled) : Boolean(current.is_enabled);
+  const nextEnabled = is_enabled !== undefined
+    ? (toBooleanFlag(is_enabled) ? 1 : 0)
+    : (current.is_enabled ? 1 : 0);
   const nextRetryLimit = Number(retry_limit) > 0 ? Number(retry_limit) : current.retry_limit;
 
   await getRepo().execute(`
@@ -101,7 +115,6 @@ async function runAdminAutoFillNow(options = {}) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     attemptCount = attempt;
     try {
-      // 1. AI Generation via LLM router
       const selectedDifficulty = difficulty || (attempt === 1 ? 'medium' : attempt === 2 ? 'easy' : 'hard');
       const aiResult = await generateDailyChallenge({
         topic: topic || 'Surprise Me',
@@ -117,8 +130,6 @@ async function runAdminAutoFillNow(options = {}) {
       }
 
       const generated = aiResult.data;
-
-      // 2. Schema & Structure Validation
       const validation = validateDailyChallenge(generated);
       if (!validation.isValid) {
         lastFailureReason = `Validation failed: ${validation.errors.join(', ')}`;
@@ -126,7 +137,6 @@ async function runAdminAutoFillNow(options = {}) {
         continue;
       }
 
-      // 3. Content Duplicate Check (Daily Challenges + Practice Problems)
       const dupCheck = await checkDuplicateChallenge(generated);
       if (dupCheck.isDuplicate) {
         lastFailureReason = `Content duplicate detected: ${dupCheck.reason}`;
@@ -134,7 +144,6 @@ async function runAdminAutoFillNow(options = {}) {
         continue;
       }
 
-      // 4. Sandbox Verification of Reference Solution
       const sandboxRes = await verifyReferenceSolution(generated);
       if (!sandboxRes.verified) {
         lastFailureReason = `Sandbox verification failed: ${sandboxRes.reason}`;
@@ -142,8 +151,6 @@ async function runAdminAutoFillNow(options = {}) {
         continue;
       }
 
-      // 5. SAVE AS DRAFT WITH scheduled_date = NULL
-      // The new Draft does NOT claim or overwrite any calendar date.
       const created = await createDailyChallenge({
         ...generated,
         status: 'draft',
@@ -201,7 +208,6 @@ async function runAdminAutoFillNow(options = {}) {
     };
   }
 
-  // All attempts failed
   await getRepo().execute(`
     INSERT INTO daily_challenge_automation_logs (
       id, target_date, mode, attempt_count, validation_result, sandbox_result,
@@ -233,16 +239,15 @@ async function runAdminAutoFillNow(options = {}) {
 }
 
 // =========================================================================
-// 2. SCHEDULED AUTOMATION: AUTO_FILL / AI_ASSIST (source: "scheduled_automation")
-// Runs daily at 00:00 UTC targeting TOMORROW.
-// If tomorrow already has a challenge -> returns SUCCESS_NOOP (no-op).
-// If tomorrow is empty -> generates, validates, sandbox-tests, and publishes/drafts.
+// 2. SCHEDULED AUTOMATION
+// Runs at/after the daily UTC boundary targeting TOMORROW.
+// A startup/recovery check may run the same pipeline if the midnight run was
+// missed because the web dyno restarted or was redeployed.
 // =========================================================================
 async function runDailyScheduledAutomation() {
   const tomorrowUtc = getNextCanonicalUtcDate();
   const settings = await getAutomationSettings();
 
-  // If automation is disabled or set to manual, skip safely with SUCCESS_NOOP
   if (!settings.is_enabled || settings.mode === 'manual') {
     const logId = `auto-log-${uuidv4().slice(0, 8)}`;
     await getRepo().execute(`
@@ -260,7 +265,6 @@ async function runDailyScheduledAutomation() {
     };
   }
 
-  // Check if tomorrow already has an active scheduled/published challenge
   const existingChallenge = await getRepo().one(`
     SELECT id, title, status, scheduled_date
     FROM daily_challenge_problems
@@ -291,7 +295,6 @@ async function runDailyScheduledAutomation() {
     };
   }
 
-  // Loop retry attempts (up to 3)
   const maxAttempts = settings.retry_limit || 3;
   let lastFailureReason = 'Unknown failure';
   let lastFailureCategory = 'UNKNOWN';
@@ -301,7 +304,6 @@ async function runDailyScheduledAutomation() {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     attemptCount = attempt;
     try {
-      // 1. AI Generation
       const aiResult = await generateDailyChallenge({
         topic: 'Surprise Me',
         difficulty: attempt === 1 ? 'medium' : attempt === 2 ? 'easy' : 'hard',
@@ -316,8 +318,6 @@ async function runDailyScheduledAutomation() {
       }
 
       const generated = aiResult.data;
-
-      // 2. Schema Validation
       const validation = validateDailyChallenge(generated);
       if (!validation.isValid) {
         lastFailureReason = `Validation failed: ${validation.errors.join(', ')}`;
@@ -325,7 +325,6 @@ async function runDailyScheduledAutomation() {
         continue;
       }
 
-      // 3. Content Duplicate Check
       const dupCheck = await checkDuplicateChallenge(generated);
       if (dupCheck.isDuplicate) {
         lastFailureReason = `Content duplicate detected: ${dupCheck.reason}`;
@@ -333,7 +332,6 @@ async function runDailyScheduledAutomation() {
         continue;
       }
 
-      // 4. Sandbox Verification of Reference Solution
       const sandboxRes = await verifyReferenceSolution(generated);
       if (!sandboxRes.verified) {
         lastFailureReason = `Sandbox verification failed: ${sandboxRes.reason}`;
@@ -341,7 +339,6 @@ async function runDailyScheduledAutomation() {
         continue;
       }
 
-      // 5. Schedule & Publish for Tomorrow (mode determines scheduled vs draft)
       const targetStatus = settings.mode === 'auto_fill' ? 'scheduled' : 'draft';
       const created = await createDailyChallenge({
         ...generated,
@@ -362,6 +359,10 @@ async function runDailyScheduledAutomation() {
   const nowIso = new Date().toISOString();
 
   if (successfulChallenge) {
+    const resultDescription = settings.mode === 'auto_fill'
+      ? `Tomorrow's Daily Challenge was generated and scheduled successfully for ${tomorrowUtc}.`
+      : `Tomorrow's Daily Challenge was generated as a draft for ${tomorrowUtc}; admin review is required.`;
+
     await getRepo().execute(`
       INSERT INTO daily_challenge_automation_logs (
         id, target_date, mode, attempt_count, validation_result, sandbox_result,
@@ -373,7 +374,7 @@ async function runDailyScheduledAutomation() {
       settings.mode,
       attemptCount,
       successfulChallenge.id,
-      `Tomorrow's Daily Challenge was generated and published successfully for ${tomorrowUtc}.`
+      resultDescription
     ]);
 
     await getRepo().execute(`
@@ -388,11 +389,10 @@ async function runDailyScheduledAutomation() {
       target_date: tomorrowUtc,
       attempts: attemptCount,
       challenge: successfulChallenge,
-      message: "Tomorrow's Daily Challenge was generated and published successfully."
+      message: resultDescription
     };
   }
 
-  // All attempts failed
   await getRepo().execute(`
     INSERT INTO daily_challenge_automation_logs (
       id, target_date, mode, attempt_count, validation_result, sandbox_result,
@@ -404,7 +404,7 @@ async function runDailyScheduledAutomation() {
     settings.mode,
     attemptCount,
     lastFailureCategory,
-    `Automated 00:00 UTC generation failed after ${attemptCount} attempts (${lastFailureReason}). Admin review required.`
+    `Automated Daily Challenge generation failed after ${attemptCount} attempts (${lastFailureReason}). Admin review required.`
   ]);
 
   await getRepo().execute(`
@@ -418,7 +418,7 @@ async function runDailyScheduledAutomation() {
     status: 'failed',
     target_date: tomorrowUtc,
     attempts: attemptCount,
-    error: `Automated daily challenge generation failed after ${attemptCount} attempts.`,
+    error: `Automated daily challenge generation failed after ${attemptCount} attempts (${lastFailureReason}).`,
     failure_category: lastFailureCategory
   };
 }
@@ -437,50 +437,97 @@ async function runAutomationPipeline(options = {}) {
 }
 
 // =========================================================================
-// BACKGROUND SCHEDULER (00:00 UTC Daily Trigger)
+// RESILIENT BACKGROUND SCHEDULER
 // =========================================================================
+// The old scheduler waited for one in-memory timeout until midnight. A Heroku
+// restart/redeploy around midnight could therefore miss the run entirely.
+// This scheduler checks periodically and also performs a recovery check at
+// startup. It is idempotent because the scheduled pipeline first checks for an
+// existing challenge for the target date.
 let schedulerTimer = null;
+let schedulerRunning = false;
 
-function getMsUntilNextUtcMidnight() {
-  const now = new Date();
-  const nextMidnight = new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate() + 1,
-    0, 0, 0, 0
-  ));
-  return Math.max(1000, nextMidnight.getTime() - now.getTime());
+const SCHEDULER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const FAILED_RUN_RETRY_DELAY_MS = 60 * 60 * 1000;
+
+async function runScheduledAutomationWithRecovery() {
+  if (schedulerRunning) {
+    console.log('⏳ Daily Challenge automation already running; skipping overlapping trigger.');
+    return null;
+  }
+
+  const settings = await getAutomationSettings();
+  if (!settings.is_enabled || settings.mode === 'manual') {
+    return runDailyScheduledAutomation();
+  }
+
+  const targetDate = getNextCanonicalUtcDate();
+  const latestLog = await getRepo().one(`
+    SELECT status, created_at
+    FROM daily_challenge_automation_logs
+    WHERE target_date = ? AND mode = 'scheduled_automation'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `, [targetDate]);
+
+  if (latestLog?.status === 'success' || latestLog?.status === 'skipped') {
+    return null;
+  }
+
+  if (latestLog?.status === 'failed') {
+    const lastAttemptMs = new Date(latestLog.created_at).getTime();
+    if (Number.isFinite(lastAttemptMs) && Date.now() - lastAttemptMs < FAILED_RUN_RETRY_DELAY_MS) {
+      return null;
+    }
+  }
+
+  schedulerRunning = true;
+  try {
+    console.log(`⏰ Running Daily Challenge automation for target ${targetDate} (scheduled/recovery check).`);
+    return await runDailyScheduledAutomation();
+  } finally {
+    schedulerRunning = false;
+  }
 }
 
 function startAutomationScheduler() {
-  if (schedulerTimer) {
-    clearTimeout(schedulerTimer);
-    schedulerTimer = null;
-  }
+  stopAutomationScheduler();
 
-  const msUntilMidnight = getMsUntilNextUtcMidnight();
-  const nextMidnightIso = new Date(Date.now() + msUntilMidnight).toISOString();
-  console.log(`⏰ Daily Challenge Automation Scheduler initialized. Next run at 00:00 UTC (${nextMidnightIso}, in ${Math.round(msUntilMidnight / 60000)} mins).`);
+  console.log('⏰ Daily Challenge Automation Scheduler starting with resilient 5-minute checks.');
 
-  function scheduleNext() {
-    schedulerTimer = setTimeout(async () => {
-      try {
-        console.log('⏰ Executing 00:00 UTC Daily Challenge Automation pipeline...');
-        await runDailyScheduledAutomation();
-      } catch (err) {
-        console.error('❌ Error executing scheduled 00:00 UTC automation:', err.message);
-      } finally {
-        scheduleNext();
+  // Recovery check immediately after the server starts. This catches a missed
+  // midnight run after Heroku deploys/restarts without waiting another day.
+  runScheduledAutomationWithRecovery()
+    .then(result => {
+      if (result) {
+        console.log(`✅ Daily Challenge scheduler startup check completed with status: ${result.status}.`);
+      } else {
+        console.log('ℹ️ Daily Challenge scheduler startup check: no work required.');
       }
-    }, getMsUntilNextUtcMidnight());
-  }
+    })
+    .catch(err => {
+      console.error('❌ Daily Challenge scheduler startup check failed:', err.message);
+    });
 
-  scheduleNext();
+  schedulerTimer = setInterval(async () => {
+    try {
+      const result = await runScheduledAutomationWithRecovery();
+      if (result) {
+        console.log(`✅ Daily Challenge scheduler check completed with status: ${result.status}.`);
+      }
+    } catch (err) {
+      console.error('❌ Error executing Daily Challenge scheduler check:', err.message);
+    }
+  }, SCHEDULER_CHECK_INTERVAL_MS);
+
+  if (typeof schedulerTimer.unref === 'function') {
+    schedulerTimer.unref();
+  }
 }
 
 function stopAutomationScheduler() {
   if (schedulerTimer) {
-    clearTimeout(schedulerTimer);
+    clearInterval(schedulerTimer);
     schedulerTimer = null;
     console.log('⏹️ Daily Challenge Automation Scheduler stopped.');
   }
@@ -494,5 +541,6 @@ module.exports = {
   runDailyScheduledAutomation,
   runAutomationPipeline,
   startAutomationScheduler,
-  stopAutomationScheduler
+  stopAutomationScheduler,
+  toBooleanFlag
 };
