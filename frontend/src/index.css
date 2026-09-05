@@ -175,3 +175,28 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ─── Daily Challenge automation cleanup ─────── */
+/* The legacy page markup is kept intact, but these controls are no longer
+   user-facing: automation mode is the activation control. */
+div.p-5[class*="border-purple-500/30"] > div:first-child > div:first-child > div:first-child > span {
+  display: none;
+}
+div.p-5[class*="border-purple-500/30"] > div:first-child > div:first-child > div:nth-child(2) > p {
+  display: none;
+}
+div.p-5[class*="border-purple-500/30"] > div:nth-child(2) > div:nth-child(1) > div > button:first-child {
+  display: none;
+}
+div.p-5[class*="border-purple-500/30"] > div:nth-child(2) > div:nth-child(2) {
+  display: none;
+}
+div.p-5[class*="border-purple-500/30"] > div:nth-child(2) > div:nth-child(3) > div:last-child {
+  display: none;
+}
+#btn-run-autofill-now:not(:disabled) > span {
+  display: none;
+}
+#btn-run-autofill-now:not(:disabled)::after {
+  content: 'Run Automation Now';
+}
