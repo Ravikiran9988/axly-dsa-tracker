@@ -450,7 +450,7 @@ async function runAutomationPipeline(options = {}) {
 let schedulerTimer = null;
 let schedulerRunning = false;
 
-const SCHEDULER_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const SCHEDULER_CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
 const FAILED_RUN_RETRY_DELAY_MS = 60 * 60 * 1000;
 
 async function runScheduledAutomationWithRecovery() {
@@ -496,7 +496,7 @@ async function runScheduledAutomationWithRecovery() {
 function startAutomationScheduler() {
   stopAutomationScheduler();
 
-  console.log('⏰ Daily Challenge Automation Scheduler starting with resilient hourly checks.');
+  console.log('⏰ Daily Challenge Automation Scheduler starting with resilient 3-hour checks.');
 
   runScheduledAutomationWithRecovery()
     .then(result => {
