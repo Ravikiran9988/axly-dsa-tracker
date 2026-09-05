@@ -28,9 +28,6 @@ function toBooleanFlag(value, fallback = false) {
   return Boolean(value);
 }
 
-/**
- * Get current Daily Challenge Automation Settings
- */
 async function getAutomationSettings() {
   const row = await getRepo().one('SELECT * FROM daily_challenge_automation_settings WHERE id = ?', ['global-settings']);
   if (!row) {
@@ -51,11 +48,6 @@ async function getAutomationSettings() {
   };
 }
 
-/**
- * Update Daily Challenge Automation Settings.
- * The database schema stores is_enabled as INTEGER (0/1), while the API
- * exposes it as a boolean. Normalize at the persistence boundary.
- */
 async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
   const current = await getAutomationSettings();
   const nextMode = mode && ['manual', 'ai_assist', 'auto_fill'].includes(mode) ? mode : current.mode;
@@ -73,9 +65,6 @@ async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
   return getAutomationSettings();
 }
 
-/**
- * Get Automation Run Logs
- */
 async function getAutomationLogs(limit = 20) {
   const l = Math.max(1, Math.min(100, Number(limit) || 20));
   const logs = await getRepo().many(`
@@ -94,7 +83,7 @@ async function getAutomationLogs(limit = 20) {
 }
 
 // =========================================================================
-// 1. MANUAL ADMIN: RUN AUTO-FILL NOW (source: "manual_admin")
+// 1. MANUAL ADMIN: RUN AUTO-FILL NOW
 // ALWAYS generates a NEW Draft with scheduled_date = NULL.
 // Never skips due to existing dates. Existing challenges remain untouched.
 // =========================================================================
@@ -111,16 +100,22 @@ async function runAdminAutoFillNow(options = {}) {
   let lastFailureCategory = 'UNKNOWN';
   let createdDraft = null;
   let attemptCount = 0;
+  let rejectedTitles = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     attemptCount = attempt;
     try {
       const selectedDifficulty = difficulty || (attempt === 1 ? 'medium' : attempt === 2 ? 'easy' : 'hard');
+      const retryInstructions = rejectedTitles.length > 0
+        ? `Previous generation attempts were rejected as duplicates. NEVER reuse or create a variant of these titles: ${rejectedTitles.map(t => `"${t}"`).join(', ')}. Generate a genuinely different algorithmic problem, not a renamed or parameter-changed variant.`
+        : 'Generate a genuinely original problem and avoid all existing Daily Challenge and Practice concepts.';
+
       const aiResult = await generateDailyChallenge({
         topic: topic || 'Surprise Me',
         difficulty: selectedDifficulty,
         scheduled_date: null,
-        skipSandbox: false
+        skipSandbox: false,
+        instructions: retryInstructions
       });
 
       if (!aiResult || !aiResult.data) {
@@ -139,6 +134,8 @@ async function runAdminAutoFillNow(options = {}) {
 
       const dupCheck = await checkDuplicateChallenge(generated);
       if (dupCheck.isDuplicate) {
+        const duplicateTitle = dupCheck.duplicateOf?.title || generated.title;
+        if (duplicateTitle && !rejectedTitles.includes(duplicateTitle)) rejectedTitles.push(duplicateTitle);
         lastFailureReason = `Content duplicate detected: ${dupCheck.reason}`;
         lastFailureCategory = 'DUPLICATE_COLLISION';
         continue;
@@ -163,6 +160,10 @@ async function runAdminAutoFillNow(options = {}) {
     } catch (err) {
       lastFailureReason = err.message || 'Error occurred during generation attempt';
       lastFailureCategory = err.code || 'PIPELINE_ERROR';
+      if (err.code === 'DUPLICATE_COLLISION' && err.message) {
+        const match = err.message.match(/title [\"']([^\"']+)[\"']/i);
+        if (match?.[1] && !rejectedTitles.includes(match[1])) rejectedTitles.push(match[1]);
+      }
     }
   }
 
@@ -232,7 +233,7 @@ async function runAdminAutoFillNow(options = {}) {
     status: 'failed',
     attempts: attemptCount,
     error: lastFailureCategory === 'DUPLICATE_COLLISION'
-      ? 'Unable to generate a sufficiently unique challenge. Please try again.'
+      ? 'Unable to generate a sufficiently unique challenge after multiple attempts. Please try again.'
       : `AI generation failed after ${attemptCount} attempts (${lastFailureReason}).`,
     failure_category: lastFailureCategory
   };
@@ -241,8 +242,6 @@ async function runAdminAutoFillNow(options = {}) {
 // =========================================================================
 // 2. SCHEDULED AUTOMATION
 // Runs at/after the daily UTC boundary targeting TOMORROW.
-// A startup/recovery check may run the same pipeline if the midnight run was
-// missed because the web dyno restarted or was redeployed.
 // =========================================================================
 async function runDailyScheduledAutomation() {
   const tomorrowUtc = getNextCanonicalUtcDate();
@@ -300,15 +299,21 @@ async function runDailyScheduledAutomation() {
   let lastFailureCategory = 'UNKNOWN';
   let successfulChallenge = null;
   let attemptCount = 0;
+  let rejectedTitles = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     attemptCount = attempt;
     try {
+      const retryInstructions = rejectedTitles.length > 0
+        ? `Previous generation attempts were rejected as duplicates. NEVER reuse or create a variant of these titles: ${rejectedTitles.map(t => `"${t}"`).join(', ')}. Generate a genuinely different algorithmic problem, not a renamed or parameter-changed variant.`
+        : 'Generate a genuinely original problem and avoid all existing Daily Challenge and Practice concepts.';
+
       const aiResult = await generateDailyChallenge({
         topic: 'Surprise Me',
         difficulty: attempt === 1 ? 'medium' : attempt === 2 ? 'easy' : 'hard',
         scheduled_date: tomorrowUtc,
-        skipSandbox: false
+        skipSandbox: false,
+        instructions: retryInstructions
       });
 
       if (!aiResult || !aiResult.data) {
@@ -327,6 +332,8 @@ async function runDailyScheduledAutomation() {
 
       const dupCheck = await checkDuplicateChallenge(generated);
       if (dupCheck.isDuplicate) {
+        const duplicateTitle = dupCheck.duplicateOf?.title || generated.title;
+        if (duplicateTitle && !rejectedTitles.includes(duplicateTitle)) rejectedTitles.push(duplicateTitle);
         lastFailureReason = `Content duplicate detected: ${dupCheck.reason}`;
         lastFailureCategory = 'DUPLICATE_COLLISION';
         continue;
@@ -352,6 +359,10 @@ async function runDailyScheduledAutomation() {
     } catch (err) {
       lastFailureReason = err.message || 'Error occurred during generation';
       lastFailureCategory = err.code || 'PIPELINE_ERROR';
+      if (err.code === 'DUPLICATE_COLLISION' && err.message) {
+        const match = err.message.match(/title [\"']([^\"']+)[\"']/i);
+        if (match?.[1] && !rejectedTitles.includes(match[1])) rejectedTitles.push(match[1]);
+      }
     }
   }
 
@@ -423,9 +434,6 @@ async function runDailyScheduledAutomation() {
   };
 }
 
-/**
- * Unified pipeline entry point with backend source enforcement
- */
 async function runAutomationPipeline(options = {}) {
   const { source = 'scheduled_automation', force = false } = options;
 
@@ -439,11 +447,6 @@ async function runAutomationPipeline(options = {}) {
 // =========================================================================
 // RESILIENT BACKGROUND SCHEDULER
 // =========================================================================
-// The old scheduler waited for one in-memory timeout until midnight. A Heroku
-// restart/redeploy around midnight could therefore miss the run entirely.
-// This scheduler checks periodically and also performs a recovery check at
-// startup. It is idempotent because the scheduled pipeline first checks for an
-// existing challenge for the target date.
 let schedulerTimer = null;
 let schedulerRunning = false;
 
@@ -495,8 +498,6 @@ function startAutomationScheduler() {
 
   console.log('⏰ Daily Challenge Automation Scheduler starting with resilient hourly checks.');
 
-  // Recovery check immediately after the server starts. This catches a missed
-  // midnight run after Heroku deploys/restarts without waiting another day.
   runScheduledAutomationWithRecovery()
     .then(result => {
       if (result) {
