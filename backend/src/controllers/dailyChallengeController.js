@@ -212,7 +212,11 @@ async function getAutomationStatus(req, res, next) {
 async function updateAutomationSettings(req, res, next) {
   try {
     const { mode, is_enabled, retry_limit } = req.body;
-    const updated = await updateAutoSettings({ mode, is_enabled, retry_limit });
+    const updated = await updateAutoSettings({
+      mode,
+      is_enabled: mode === 'ai_assist' || mode === 'auto_fill' ? true : is_enabled,
+      retry_limit
+    });
     return res.status(200).json({ success: true, data: updated, message: 'Automation settings updated successfully' });
   } catch (err) {
     next(err);
