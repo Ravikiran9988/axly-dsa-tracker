@@ -4,11 +4,13 @@ const {
   getCanonicalUtcDate,
   getNextCanonicalUtcDate
 } = require('../utils/dateUtils');
+const llmRouter = require('./llm/llmRouter');
 const {
-  generateDailyChallenge,
   validateDailyChallenge,
   checkDuplicateChallenge,
-  verifyReferenceSolution
+  stripVariantIdentifiers,
+  generateProblemSignature,
+  extractProblemConcept
 } = require('./aiDailyChallengeService');
 const { createDailyChallenge } = require('./dailyChallengeService');
 
@@ -29,7 +31,11 @@ function toBooleanFlag(value, fallback = false) {
 }
 
 async function getAutomationSettings() {
-  const row = await getRepo().one('SELECT * FROM daily_challenge_automation_settings WHERE id = ?', ['global-settings']);
+  const row = await getRepo().one(
+    'SELECT * FROM daily_challenge_automation_settings WHERE id = ?',
+    ['global-settings']
+  );
+
   if (!row) {
     return {
       id: 'global-settings',
@@ -42,15 +48,15 @@ async function getAutomationSettings() {
       next_run_at: null
     };
   }
-  return {
-    ...row,
-    is_enabled: toBooleanFlag(row.is_enabled)
-  };
+
+  return { ...row, is_enabled: toBooleanFlag(row.is_enabled) };
 }
 
 async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
   const current = await getAutomationSettings();
-  const nextMode = mode && ['manual', 'ai_assist', 'auto_fill'].includes(mode) ? mode : current.mode;
+  const nextMode = mode && ['manual', 'ai_assist', 'auto_fill'].includes(mode)
+    ? mode
+    : current.mode;
   const nextEnabled = is_enabled !== undefined
     ? (toBooleanFlag(is_enabled) ? 1 : 0)
     : (current.is_enabled ? 1 : 0);
@@ -78,378 +84,320 @@ async function getAutomationLogs(limit = 20) {
   return logs.map(log => ({
     ...log,
     validation_result: log.validation_result || 'Passed',
-    sandbox_result: log.sandbox_result || 'Passed'
+    sandbox_result: 'Not used'
   }));
 }
 
-// =========================================================================
-// 1. MANUAL ADMIN: RUN AUTO-FILL NOW
-// ALWAYS generates a NEW Draft with scheduled_date = NULL.
-// Never skips due to existing dates. Existing challenges remain untouched.
-// =========================================================================
+function parseJson(text) {
+  let cleaned = String(text || '').trim();
+  if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
+  else if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
+  if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+  cleaned = cleaned.trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (firstError) {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
+    throw firstError;
+  }
+}
+
+async function getRecentTitles(limit = 20) {
+  try {
+    const rows = await getRepo().many(`
+      SELECT title
+      FROM daily_challenge_problems
+      WHERE status != 'archived' AND is_active = TRUE
+      ORDER BY created_at DESC
+      LIMIT ?
+    `, [limit]);
+    return rows.map(row => stripVariantIdentifiers(row.title)).filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+async function generateUniqueChallenge({ topic = 'Surprise Me', difficulty = 'medium', instructions = '' } = {}) {
+  const recentTitles = await getRecentTitles(20);
+  const exclusion = recentTitles.length
+    ? `\n\nRECENTLY USED TITLES — DO NOT REUSE OR CREATE VARIANTS:\n${recentTitles.map(t => `- ${t}`).join('\n')}`
+    : '';
+
+  const prompt = `Generate one original interview-grade DSA problem for AXLY DSA Tracker.
+
+Topic: ${topic}
+Difficulty: ${difficulty}
+${instructions ? `Additional instructions: ${instructions}\n` : ''}
+
+STRICT UNIQUENESS:
+- The problem must be materially different from every existing Daily Challenge.
+- Do not rename, parameter-change, constrain differently, or otherwise create a variant of an existing problem.
+- Prefer a different algorithmic idea/data structure when a similar concept exists.
+${exclusion}
+
+Return ONLY valid JSON with these fields:
+{
+  "title":"Clean canonical title",
+  "slug":"clean-slug",
+  "difficulty":"${difficulty}",
+  "topic":"${topic}",
+  "pattern":"Algorithmic pattern",
+  "description":"Complete problem statement",
+  "constraints":"Constraints",
+  "input_format":"Input format",
+  "output_format":"Output format",
+  "examples":[{"input":"...","output":"...","explanation":"..."}],
+  "starter_code":"function solution(...) { }",
+  "reference_solution":"function solution(...) { }",
+  "driver_code":"...",
+  "test_cases":[{"input":"...","expected_output":"...","is_hidden":0},{"input":"...","expected_output":"...","is_hidden":1}],
+  "hints":["Progressive hint 1","Progressive hint 2","Progressive hint 3"],
+  "editorial":"Approach explanation",
+  "complexity":"Time: ... | Space: ..."
+}`;
+
+  console.log(`[DailyChallenge] Requesting unique challenge through LLM fallback router (topic=${topic}, difficulty=${difficulty}).`);
+
+  const result = await llmRouter.generate({
+    prompt,
+    systemPrompt: 'You are a Principal DSA Problem Author. Respond ONLY in valid raw JSON without markdown code fences.',
+    maxTokens: 2400,
+    temperature: 0.2,
+    timeoutMs: 30000
+  });
+
+  if (!result || result.source === 'fallback' || !result.text) {
+    const error = new Error(result?.error || 'All configured LLM fallback slots failed or returned invalid/duplicate challenges.');
+    error.code = 'LLM_GENERATION_FAILED';
+    error.providerErrors = result?.providerErrors || [];
+    throw error;
+  }
+
+  const candidate = parseJson(result.text);
+  candidate.title = stripVariantIdentifiers(candidate.title);
+  candidate.slug = String(candidate.title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  candidate.topic = candidate.topic || topic;
+  candidate.difficulty = String(candidate.difficulty || difficulty).toLowerCase();
+  candidate.created_via = 'ai';
+  candidate.status = 'draft';
+  candidate.sandbox_verified = false;
+  candidate.problem_concept = extractProblemConcept(candidate.title, candidate.description);
+  candidate.problem_signature = generateProblemSignature(candidate);
+
+  const validation = validateDailyChallenge(candidate);
+  if (!validation.isValid) {
+    const error = new Error(`Validation failed: ${validation.errors.join(', ')}`);
+    error.code = 'VALIDATION_FAILED';
+    throw error;
+  }
+
+  // Defense-in-depth: the router already performs this uniqueness gate.
+  // Keep this second check immediately before persistence to prevent races.
+  const duplicate = await checkDuplicateChallenge(candidate);
+  if (duplicate.isDuplicate) {
+    const error = new Error(duplicate.reason || 'Duplicate challenge candidate');
+    error.code = 'DUPLICATE_COLLISION';
+    throw error;
+  }
+
+  console.log(`[DailyChallenge] Accepted unique candidate from ${result.fallbackSlot || result.provider || 'LLM router'}.`);
+  return candidate;
+}
+
+async function persistRunStatus(status) {
+  await getRepo().execute(`
+    UPDATE daily_challenge_automation_settings
+    SET last_run_at = ?, last_run_status = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = 'global-settings'
+  `, [new Date().toISOString(), status]);
+}
+
 async function runAdminAutoFillNow(options = {}) {
   const {
     adminId = 'usr-admin-01',
-    difficulty = null,
+    difficulty = 'medium',
     topic = 'Surprise Me'
   } = options;
 
-  const settings = await getAutomationSettings();
-  const maxAttempts = settings.retry_limit || 3;
+  let createdDraft = null;
   let lastFailureReason = 'Unknown failure during AI synthesis';
   let lastFailureCategory = 'UNKNOWN';
-  let createdDraft = null;
-  let attemptCount = 0;
-  let rejectedTitles = [];
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    attemptCount = attempt;
-    try {
-      const selectedDifficulty = difficulty || (attempt === 1 ? 'medium' : attempt === 2 ? 'easy' : 'hard');
-      const retryInstructions = rejectedTitles.length > 0
-        ? `Previous generation attempts were rejected as duplicates. NEVER reuse or create a variant of these titles: ${rejectedTitles.map(t => `"${t}"`).join(', ')}. Generate a genuinely different algorithmic problem, not a renamed or parameter-changed variant.`
-        : 'Generate a genuinely original problem and avoid all existing Daily Challenge and Practice concepts.';
+  try {
+    const generated = await generateUniqueChallenge({
+      topic,
+      difficulty,
+      instructions: 'Create a genuinely original problem. Do not use a variant of an existing challenge.'
+    });
 
-      const aiResult = await generateDailyChallenge({
-        topic: topic || 'Surprise Me',
-        difficulty: selectedDifficulty,
-        scheduled_date: null,
-        skipSandbox: false,
-        instructions: retryInstructions
-      });
-
-      if (!aiResult || !aiResult.data) {
-        lastFailureReason = 'AI generation returned empty payload';
-        lastFailureCategory = 'AI_EMPTY_RESPONSE';
-        continue;
-      }
-
-      const generated = aiResult.data;
-      const validation = validateDailyChallenge(generated);
-      if (!validation.isValid) {
-        lastFailureReason = `Validation failed: ${validation.errors.join(', ')}`;
-        lastFailureCategory = 'VALIDATION_FAILED';
-        continue;
-      }
-
-      const dupCheck = await checkDuplicateChallenge(generated);
-      if (dupCheck.isDuplicate) {
-        const duplicateTitle = dupCheck.duplicateOf?.title || generated.title;
-        if (duplicateTitle && !rejectedTitles.includes(duplicateTitle)) rejectedTitles.push(duplicateTitle);
-        lastFailureReason = `Content duplicate detected: ${dupCheck.reason}`;
-        lastFailureCategory = 'DUPLICATE_COLLISION';
-        continue;
-      }
-
-      const sandboxRes = await verifyReferenceSolution(generated);
-      if (!sandboxRes.verified) {
-        lastFailureReason = `Sandbox verification failed: ${sandboxRes.reason}`;
-        lastFailureCategory = 'SANDBOX_FAILED';
-        continue;
-      }
-
-      const created = await createDailyChallenge({
-        ...generated,
-        status: 'draft',
-        scheduled_date: null,
-        created_via: 'ai'
-      }, adminId);
-
-      createdDraft = created;
-      break;
-    } catch (err) {
-      lastFailureReason = err.message || 'Error occurred during generation attempt';
-      lastFailureCategory = err.code || 'PIPELINE_ERROR';
-      if (err.code === 'DUPLICATE_COLLISION' && err.message) {
-        const match = err.message.match(/title [\"']([^\"']+)[\"']/i);
-        if (match?.[1] && !rejectedTitles.includes(match[1])) rejectedTitles.push(match[1]);
-      }
-    }
+    createdDraft = await createDailyChallenge({
+      ...generated,
+      status: 'draft',
+      scheduled_date: null,
+      created_via: 'ai'
+    }, adminId);
+  } catch (err) {
+    lastFailureReason = err.message || lastFailureReason;
+    lastFailureCategory = err.code || 'PIPELINE_ERROR';
   }
 
   const logId = `auto-log-${uuidv4().slice(0, 8)}`;
-  const nowIso = new Date().toISOString();
-  const logTargetDate = getCanonicalUtcDate();
+  const targetDate = getCanonicalUtcDate();
 
   if (createdDraft) {
     await getRepo().execute(`
-      INSERT INTO daily_challenge_automation_logs (
-        id, target_date, mode, attempt_count, validation_result, sandbox_result,
-        status, challenge_id, details, created_at
-      ) VALUES (?, ?, 'manual_admin', ?, 'Passed', 'Passed', 'success', ?, ?, CURRENT_TIMESTAMP)
+      INSERT INTO daily_challenge_automation_logs
+      (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, challenge_id, details, created_at)
+      VALUES (?, ?, 'manual_admin', 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)
     `, [
       logId,
-      logTargetDate,
-      attemptCount,
+      targetDate,
       createdDraft.id,
-      `AI challenge "${createdDraft.title}" generated successfully and saved as Draft (scheduled_date = NULL).`
+      `AI challenge "${createdDraft.title}" generated through the five-slot LLM fallback chain and saved as Draft.`
     ]);
 
-    await getRepo().execute(`
-      UPDATE daily_challenge_automation_settings
-      SET last_run_at = ?, last_run_status = 'success', updated_at = CURRENT_TIMESTAMP
-      WHERE id = 'global-settings'
-    `, [nowIso]);
-
+    await persistRunStatus('success');
     return {
       success: true,
       status: 'success',
-      attempts: attemptCount,
-      challenge: {
-        id: createdDraft.id,
-        title: createdDraft.title,
-        difficulty: createdDraft.difficulty,
-        topic: createdDraft.topic,
-        pattern: createdDraft.pattern,
-        status: createdDraft.status,
-        created_via: createdDraft.created_via,
-        scheduled_date: createdDraft.scheduled_date || null
-      },
+      attempts: 1,
+      challenge: createdDraft,
       message: 'AI challenge generated successfully and saved as Draft.'
     };
   }
 
   await getRepo().execute(`
-    INSERT INTO daily_challenge_automation_logs (
-      id, target_date, mode, attempt_count, validation_result, sandbox_result,
-      status, failure_category, details, created_at
-    ) VALUES (?, ?, 'manual_admin', ?, 'Failed', 'Failed', 'failed', ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO daily_challenge_automation_logs
+    (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at)
+    VALUES (?, ?, 'manual_admin', 1, 'Failed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)
   `, [
     logId,
-    logTargetDate,
-    attemptCount,
+    targetDate,
     lastFailureCategory,
-    `Admin Auto-Fill generation failed after ${attemptCount} attempts (${lastFailureReason}).`
+    `Admin Auto-Fill generation failed: ${lastFailureReason}`
   ]);
 
-  await getRepo().execute(`
-    UPDATE daily_challenge_automation_settings
-    SET last_run_at = ?, last_run_status = 'failed', updated_at = CURRENT_TIMESTAMP
-    WHERE id = 'global-settings'
-  `, [nowIso]);
-
+  await persistRunStatus('failed');
   return {
     success: false,
     status: 'failed',
-    attempts: attemptCount,
-    error: lastFailureCategory === 'DUPLICATE_COLLISION'
-      ? 'Unable to generate a sufficiently unique challenge after multiple attempts. Please try again.'
-      : `AI generation failed after ${attemptCount} attempts (${lastFailureReason}).`,
+    attempts: 1,
+    error: lastFailureReason,
     failure_category: lastFailureCategory
   };
 }
 
-// =========================================================================
-// 2. SCHEDULED AUTOMATION
-// Runs at/after the daily UTC boundary targeting TOMORROW.
-// =========================================================================
 async function runDailyScheduledAutomation() {
-  const tomorrowUtc = getNextCanonicalUtcDate();
+  const targetDate = getNextCanonicalUtcDate();
   const settings = await getAutomationSettings();
 
   if (!settings.is_enabled || settings.mode === 'manual') {
     const logId = `auto-log-${uuidv4().slice(0, 8)}`;
     await getRepo().execute(`
-      INSERT INTO daily_challenge_automation_logs (
-        id, target_date, mode, attempt_count, validation_result, sandbox_result,
-        status, failure_category, details, created_at
-      ) VALUES (?, ?, ?, 0, 'Skipped', 'Skipped', 'skipped', 'DISABLED_MODE', ?, CURRENT_TIMESTAMP)
-    `, [logId, tomorrowUtc, settings.mode, `Scheduled automation skipped: system is in ${settings.mode} mode.`]);
-
-    return {
-      success: true,
-      status: 'SUCCESS_NOOP',
-      target_date: tomorrowUtc,
-      message: `Scheduled automation skipped: mode is ${settings.mode}.`
-    };
+      INSERT INTO daily_challenge_automation_logs
+      (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at)
+      VALUES (?, ?, ?, 0, 'Skipped', 'Not used', 'skipped', 'DISABLED_MODE', ?, CURRENT_TIMESTAMP)
+    `, [logId, targetDate, settings.mode, `Scheduled automation skipped: system is in ${settings.mode} mode.`]);
+    return { success: true, status: 'SUCCESS_NOOP', target_date: targetDate };
   }
 
-  const existingChallenge = await getRepo().one(`
+  const existing = await getRepo().one(`
     SELECT id, title, status, scheduled_date
     FROM daily_challenge_problems
     WHERE scheduled_date = ? AND status != 'archived' AND is_active = TRUE
-  `, [tomorrowUtc]);
+  `, [targetDate]);
 
-  if (existingChallenge) {
-    const logId = `auto-log-${uuidv4().slice(0, 8)}`;
-    await getRepo().execute(`
-      INSERT INTO daily_challenge_automation_logs (
-        id, target_date, mode, attempt_count, validation_result, sandbox_result,
-        status, challenge_id, details, created_at
-      ) VALUES (?, ?, ?, 0, 'Passed', 'Passed', 'skipped', ?, ?, CURRENT_TIMESTAMP)
-    `, [
-      logId,
-      tomorrowUtc,
-      settings.mode,
-      existingChallenge.id,
-      `Target date ${tomorrowUtc} already has an active challenge ("${existingChallenge.title}"). Preserved existing challenge.`
-    ]);
-
+  if (existing) {
     return {
       success: true,
       status: 'SUCCESS_NOOP',
-      target_date: tomorrowUtc,
-      challenge: existingChallenge,
-      message: `Challenge already exists for ${tomorrowUtc}. No action required.`
+      target_date: targetDate,
+      challenge: existing,
+      message: `Challenge already exists for ${targetDate}. No action required.`
     };
   }
 
-  const maxAttempts = settings.retry_limit || 3;
-  let lastFailureReason = 'Unknown failure';
-  let lastFailureCategory = 'UNKNOWN';
-  let successfulChallenge = null;
-  let attemptCount = 0;
-  let rejectedTitles = [];
+  let generated = null;
+  let failureReason = 'Unknown failure';
+  let failureCategory = 'UNKNOWN';
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    attemptCount = attempt;
-    try {
-      const retryInstructions = rejectedTitles.length > 0
-        ? `Previous generation attempts were rejected as duplicates. NEVER reuse or create a variant of these titles: ${rejectedTitles.map(t => `"${t}"`).join(', ')}. Generate a genuinely different algorithmic problem, not a renamed or parameter-changed variant.`
-        : 'Generate a genuinely original problem and avoid all existing Daily Challenge and Practice concepts.';
-
-      const aiResult = await generateDailyChallenge({
-        topic: 'Surprise Me',
-        difficulty: attempt === 1 ? 'medium' : attempt === 2 ? 'easy' : 'hard',
-        scheduled_date: tomorrowUtc,
-        skipSandbox: false,
-        instructions: retryInstructions
-      });
-
-      if (!aiResult || !aiResult.data) {
-        lastFailureReason = 'AI generation returned empty payload';
-        lastFailureCategory = 'AI_EMPTY_RESPONSE';
-        continue;
-      }
-
-      const generated = aiResult.data;
-      const validation = validateDailyChallenge(generated);
-      if (!validation.isValid) {
-        lastFailureReason = `Validation failed: ${validation.errors.join(', ')}`;
-        lastFailureCategory = 'VALIDATION_FAILED';
-        continue;
-      }
-
-      const dupCheck = await checkDuplicateChallenge(generated);
-      if (dupCheck.isDuplicate) {
-        const duplicateTitle = dupCheck.duplicateOf?.title || generated.title;
-        if (duplicateTitle && !rejectedTitles.includes(duplicateTitle)) rejectedTitles.push(duplicateTitle);
-        lastFailureReason = `Content duplicate detected: ${dupCheck.reason}`;
-        lastFailureCategory = 'DUPLICATE_COLLISION';
-        continue;
-      }
-
-      const sandboxRes = await verifyReferenceSolution(generated);
-      if (!sandboxRes.verified) {
-        lastFailureReason = `Sandbox verification failed: ${sandboxRes.reason}`;
-        lastFailureCategory = 'SANDBOX_FAILED';
-        continue;
-      }
-
-      const targetStatus = settings.mode === 'auto_fill' ? 'scheduled' : 'draft';
-      const created = await createDailyChallenge({
-        ...generated,
-        status: targetStatus,
-        scheduled_date: tomorrowUtc,
-        created_via: 'ai'
-      }, 'usr-system-cron');
-
-      successfulChallenge = created;
-      break;
-    } catch (err) {
-      lastFailureReason = err.message || 'Error occurred during generation';
-      lastFailureCategory = err.code || 'PIPELINE_ERROR';
-      if (err.code === 'DUPLICATE_COLLISION' && err.message) {
-        const match = err.message.match(/title [\"']([^\"']+)[\"']/i);
-        if (match?.[1] && !rejectedTitles.includes(match[1])) rejectedTitles.push(match[1]);
-      }
-    }
+  try {
+    generated = await generateUniqueChallenge({
+      topic: 'Surprise Me',
+      difficulty: 'medium',
+      instructions: `Generate the challenge for UTC date ${targetDate}. It must be fundamentally different from every existing challenge.`
+    });
+  } catch (err) {
+    failureReason = err.message || failureReason;
+    failureCategory = err.code || 'PIPELINE_ERROR';
   }
 
   const logId = `auto-log-${uuidv4().slice(0, 8)}`;
-  const nowIso = new Date().toISOString();
 
-  if (successfulChallenge) {
-    const resultDescription = settings.mode === 'auto_fill'
-      ? `Tomorrow's Daily Challenge was generated and scheduled successfully for ${tomorrowUtc}.`
-      : `Tomorrow's Daily Challenge was generated as a draft for ${tomorrowUtc}; admin review is required.`;
+  if (generated) {
+    const targetStatus = settings.mode === 'auto_fill' ? 'scheduled' : 'draft';
+    const created = await createDailyChallenge({
+      ...generated,
+      status: targetStatus,
+      scheduled_date: targetDate,
+      created_via: 'ai'
+    }, 'usr-system-cron');
 
     await getRepo().execute(`
-      INSERT INTO daily_challenge_automation_logs (
-        id, target_date, mode, attempt_count, validation_result, sandbox_result,
-        status, challenge_id, details, created_at
-      ) VALUES (?, ?, ?, ?, 'Passed', 'Passed', 'success', ?, ?, CURRENT_TIMESTAMP)
+      INSERT INTO daily_challenge_automation_logs
+      (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, challenge_id, details, created_at)
+      VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)
     `, [
       logId,
-      tomorrowUtc,
+      targetDate,
       settings.mode,
-      attemptCount,
-      successfulChallenge.id,
-      resultDescription
+      created.id,
+      settings.mode === 'auto_fill'
+        ? `Daily Challenge generated and scheduled for ${targetDate}.`
+        : `Daily Challenge generated as a draft for ${targetDate}; admin review required.`
     ]);
 
-    await getRepo().execute(`
-      UPDATE daily_challenge_automation_settings
-      SET last_run_at = ?, last_run_status = 'success', updated_at = CURRENT_TIMESTAMP
-      WHERE id = 'global-settings'
-    `, [nowIso]);
-
-    return {
-      success: true,
-      status: 'SUCCESS',
-      target_date: tomorrowUtc,
-      attempts: attemptCount,
-      challenge: successfulChallenge,
-      message: resultDescription
-    };
+    await persistRunStatus('success');
+    return { success: true, status: 'SUCCESS', target_date: targetDate, attempts: 1, challenge: created };
   }
 
   await getRepo().execute(`
-    INSERT INTO daily_challenge_automation_logs (
-      id, target_date, mode, attempt_count, validation_result, sandbox_result,
-      status, failure_category, details, created_at
-    ) VALUES (?, ?, ?, ?, 'Failed', 'Failed', 'failed', ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO daily_challenge_automation_logs
+    (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at)
+    VALUES (?, ?, ?, 1, 'Failed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)
   `, [
     logId,
-    tomorrowUtc,
+    targetDate,
     settings.mode,
-    attemptCount,
-    lastFailureCategory,
-    `Automated Daily Challenge generation failed after ${attemptCount} attempts (${lastFailureReason}). Admin review required.`
+    failureCategory,
+    `Automated Daily Challenge generation failed: ${failureReason}. Admin review required.`
   ]);
 
-  await getRepo().execute(`
-    UPDATE daily_challenge_automation_settings
-    SET last_run_at = ?, last_run_status = 'failed', updated_at = CURRENT_TIMESTAMP
-    WHERE id = 'global-settings'
-  `, [nowIso]);
-
+  await persistRunStatus('failed');
   return {
     success: false,
     status: 'failed',
-    target_date: tomorrowUtc,
-    attempts: attemptCount,
-    error: `Automated daily challenge generation failed after ${attemptCount} attempts (${lastFailureReason}).`,
-    failure_category: lastFailureCategory
+    target_date: targetDate,
+    attempts: 1,
+    error: failureReason,
+    failure_category: failureCategory
   };
 }
 
 async function runAutomationPipeline(options = {}) {
   const { source = 'scheduled_automation', force = false } = options;
-
-  if (source === 'manual_admin' || force) {
-    return runAdminAutoFillNow(options);
-  }
-
+  if (source === 'manual_admin' || force) return runAdminAutoFillNow(options);
   return runDailyScheduledAutomation();
 }
 
-// =========================================================================
-// RESILIENT BACKGROUND SCHEDULER
-// =========================================================================
 let schedulerTimer = null;
 let schedulerRunning = false;
-
 const SCHEDULER_CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
 const FAILED_RUN_RETRY_DELAY_MS = 60 * 60 * 1000;
 
@@ -460,9 +408,7 @@ async function runScheduledAutomationWithRecovery() {
   }
 
   const settings = await getAutomationSettings();
-  if (!settings.is_enabled || settings.mode === 'manual') {
-    return runDailyScheduledAutomation();
-  }
+  if (!settings.is_enabled || settings.mode === 'manual') return null;
 
   const targetDate = getNextCanonicalUtcDate();
   const latestLog = await getRepo().one(`
@@ -473,20 +419,16 @@ async function runScheduledAutomationWithRecovery() {
     LIMIT 1
   `, [targetDate]);
 
-  if (latestLog?.status === 'success' || latestLog?.status === 'skipped') {
-    return null;
-  }
+  if (latestLog?.status === 'success' || latestLog?.status === 'skipped') return null;
 
   if (latestLog?.status === 'failed') {
     const lastAttemptMs = new Date(latestLog.created_at).getTime();
-    if (Number.isFinite(lastAttemptMs) && Date.now() - lastAttemptMs < FAILED_RUN_RETRY_DELAY_MS) {
-      return null;
-    }
+    if (Number.isFinite(lastAttemptMs) && Date.now() - lastAttemptMs < FAILED_RUN_RETRY_DELAY_MS) return null;
   }
 
   schedulerRunning = true;
   try {
-    console.log(`⏰ Running Daily Challenge automation for target ${targetDate} (scheduled/recovery check).`);
+    console.log(`⏰ Running Daily Challenge automation for target ${targetDate}.`);
     return await runDailyScheduledAutomation();
   } finally {
     schedulerRunning = false;
@@ -495,35 +437,25 @@ async function runScheduledAutomationWithRecovery() {
 
 function startAutomationScheduler() {
   stopAutomationScheduler();
-
   console.log('⏰ Daily Challenge Automation Scheduler starting with resilient 3-hour checks.');
 
   runScheduledAutomationWithRecovery()
     .then(result => {
-      if (result) {
-        console.log(`✅ Daily Challenge scheduler startup check completed with status: ${result.status}.`);
-      } else {
-        console.log('ℹ️ Daily Challenge scheduler startup check: no work required.');
-      }
+      if (result) console.log(`✅ Daily Challenge scheduler startup check completed with status: ${result.status}.`);
+      else console.log('ℹ️ Daily Challenge scheduler startup check: no work required.');
     })
-    .catch(err => {
-      console.error('❌ Daily Challenge scheduler startup check failed:', err.message);
-    });
+    .catch(err => console.error('❌ Daily Challenge scheduler startup check failed:', err.message));
 
   schedulerTimer = setInterval(async () => {
     try {
       const result = await runScheduledAutomationWithRecovery();
-      if (result) {
-        console.log(`✅ Daily Challenge scheduler check completed with status: ${result.status}.`);
-      }
+      if (result) console.log(`✅ Daily Challenge scheduler check completed with status: ${result.status}.`);
     } catch (err) {
       console.error('❌ Error executing Daily Challenge scheduler check:', err.message);
     }
   }, SCHEDULER_CHECK_INTERVAL_MS);
 
-  if (typeof schedulerTimer.unref === 'function') {
-    schedulerTimer.unref();
-  }
+  if (typeof schedulerTimer.unref === 'function') schedulerTimer.unref();
 }
 
 function stopAutomationScheduler() {
