@@ -12,10 +12,9 @@ const OpenAICompatibleProvider = require('./openAICompatibleProvider');
  *   4. Gemini Key 2 -> Gemini 3.6 Flash-Lite
  *   5. Groq Key 3 -> GPT-OSS 120B
  *
- * The GroqProvider normally supports multi-key failover itself. For this
- * router, each Groq key is intentionally instantiated as a single-key
- * provider so fallback happens in the exact slot order above rather than
- * exhausting all Groq keys before trying Gemini.
+ * OpenAI is intentionally not part of the router. The default chain uses
+ * Groq + Gemini only, with Groq keys isolated per slot so fallback alternates
+ * between providers instead of exhausting all Groq keys first.
  */
 class LLMRouter {
   constructor() {
@@ -32,8 +31,6 @@ class LLMRouter {
     const geminiModel1 = process.env.GEMINI_MODEL_1 || 'gemini-3.1-flash-lite';
     const geminiModel2 = process.env.GEMINI_MODEL_2 || 'gemini-3.6-flash-lite';
 
-    // Each provider instance gets exactly ONE credential. This is deliberate:
-    // the router, not GroqProvider, owns the cross-provider fallback order.
     this.providers.set('groq-1', new GroqProvider({
       keys: [process.env.GROQ_API_KEY_1 || process.env.GROQ_API_KEY],
       model: groqModel,
@@ -62,12 +59,11 @@ class LLMRouter {
       baseUrl: process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1'
     }));
 
-    // Keep the legacy providers available for explicit custom/test ordering,
-    // but do not include them in the default production fallback chain.
+    // Legacy/custom providers. OpenAI is intentionally removed.
+    // OpenRouter remains available only when explicitly requested via custom order.
     this.providers.set('gemini', new GeminiProvider());
     this.providers.set('groq', new GroqProvider());
     this.providers.set('openrouter', new OpenAICompatibleProvider({ name: 'openrouter' }));
-    this.providers.set('openai', new OpenAICompatibleProvider({ name: 'openai' }));
   }
 
   registerProvider(name, providerInstance) {
@@ -107,14 +103,6 @@ class LLMRouter {
     return activeList;
   }
 
-  /**
-   * Generate completion using the exact configured fallback sequence.
-   *
-   * A provider only counts as successful when it returns non-empty text.
-   * Provider-specific failures (429, timeout, 5xx, invalid model, etc.) are
-   * recorded and the next slot is attempted. No automatic jump to OpenRouter
-   * or OpenAI occurs in the default chain.
-   */
   async generate(options = {}) {
     const {
       prompt,
