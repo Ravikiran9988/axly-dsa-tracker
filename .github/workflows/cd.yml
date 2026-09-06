@@ -12,19 +12,13 @@ defaults:
   run:
     shell: bash
 
-# CD is strictly ordered:
-# 1. CI must be successful (workflow_run trigger + job condition)
-# 2. Deploy backend to Heroku
-# 3. Wait for the Vercel deployment result for the exact tested commit
-# 4. Run production smoke tests against the deployed stack
+# Production order:
+# CI green -> Heroku backend deploy -> Vercel CD gate -> production smoke tests.
 permissions:
   contents: read
   checks: read
   statuses: read
 
-# Prevent overlapping production deployments on the same branch. We deliberately
-# do not cancel an in-flight deployment because a partial Heroku deploy must not
-# be interrupted by a newer run.
 concurrency:
   group: axly-dsa-cd-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
@@ -66,8 +60,6 @@ jobs:
         run: |
           git remote remove heroku 2>/dev/null || true
           git remote add heroku "https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git"
-          # Heroku's main branch has independent deployment history. Force-push so
-          # the app exactly matches the CI-tested GitHub commit.
           git push heroku HEAD:main --force
 
   vercel-gate:
@@ -81,14 +73,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          echo "Waiting for a successful Vercel result on $TESTED_SHA"
-          # Vercel has been observed on this repository using the Commit Status API
-          # (context: Vercel), so check both Status and Checks APIs for compatibility.
+          echo "Waiting for Vercel deployment result on $TESTED_SHA"
+          # Vercel may report through either Commit Status or Checks API.
           # 60 x 15s = 15 minutes maximum wait.
           for attempt in {1..60}; do
             STATUSES="$(gh api --header 'Accept: application/vnd.github+json' \
               "/repos/${GITHUB_REPOSITORY}/commits/${TESTED_SHA}/status")"
-
             CHECKS="$(gh api --header 'Accept: application/vnd.github+json' \
               "/repos/${GITHUB_REPOSITORY}/commits/${TESTED_SHA}/check-runs?per_page=100")"
 
@@ -97,9 +87,7 @@ jobs:
                 | select((.context // "" | ascii_downcase | contains("vercel")))
                 | .state
               ]
-              | if length == 0 then "missing"
-                else .[0]
-                end
+              | if length == 0 then "missing" else (last) end
             ')"
 
             VERCEL_CHECK="$(printf '%s' "$CHECKS" | jq -r '
@@ -117,28 +105,26 @@ jobs:
             echo "Vercel commit status: $VERCEL_STATUS"
             echo "Vercel check: $VERCEL_CHECK"
 
-            # Success from either GitHub integration mechanism is sufficient.
             if [[ "$VERCEL_STATUS" == "success" || "$VERCEL_CHECK" == "completed:success" ]]; then
               echo "Vercel gate passed."
               exit 0
             fi
 
-            # Fail fast when Vercel explicitly reports a terminal failure.
             if [[ "$VERCEL_STATUS" == "failure" || "$VERCEL_STATUS" == "error" ]]; then
-              echo "Vercel gate failed: commit status=$VERCEL_STATUS"
+              echo "Vercel gate failed: $VERCEL_STATUS"
               exit 1
             fi
 
             if [[ "$VERCEL_CHECK" == "completed:failure" || "$VERCEL_CHECK" == "completed:cancelled" || "$VERCEL_CHECK" == "completed:timed_out" || "$VERCEL_CHECK" == "completed:error" ]]; then
-              echo "Vercel gate failed: check=$VERCEL_CHECK"
+              echo "Vercel gate failed: $VERCEL_CHECK"
               exit 1
             fi
 
-            echo "Vercel result is not successful yet; waiting 15 seconds..."
+            echo "Vercel result not successful yet; waiting 15 seconds..."
             sleep 15
           done
 
-          echo "Timed out waiting for the Vercel deployment result after 15 minutes."
+          echo "Timed out waiting for Vercel after 15 minutes."
           exit 1
 
   production-smoke:
