@@ -38,9 +38,9 @@
 │  │ PostgreSQL │  │                      │
 │  │ (prod)     │  │                      ▼
 │  └────────────┘  │          ┌──────────────────────────┐
-└──────────────────┘          │  Groq Multi-Key Router   │
-                              │  KEY_1 → KEY_2 → KEY_3   │
-                              │  Health-Aware Cooldown   │
+└──────────────────┘          │ Exact 5-Slot LLM Chain   │
+                              │ Groq1 → Gemini1 → Groq2  │
+                              │ → Gemini2 → Groq3         │
                               └──────────────────────────┘
 ```
 
@@ -97,25 +97,33 @@ Response (0 LLM tokens for known problems)
 
 ### Phase 2: LLM Router (`llmRouter.js`)
 
+The production fallback chain is intentionally slot-based. Each Groq slot receives exactly one Groq key, preventing the Groq provider from exhausting all three keys before Gemini is attempted.
+
 ```
 llmRouter.generate(options)
     │
     ▼
 getConfiguredProviders()
-    │  Reads: LLM_PROVIDER_ORDER env var or defaults to [groq, gemini, openrouter, openai]
-    │  Filters: only providers with keys configured
-    ▼
-for provider in ordered_providers:
     │
-    ├─► provider.generate(options)
-    │       │ success
-    │       └─► return { text, provider, model, usage }
-    │
-    │       │ error (timeout / rate limit / network)
-    │       └─► errors.push(); continue to next provider
-    │
-    └─► all failed: return graceful fallback response
+    ├─► Slot 1: Groq Key 1 / GPT-OSS 120B
+    │       │ fail
+    │       ▼
+    ├─► Slot 2: Gemini Key 1 / Gemini 3.1 Flash-Lite
+    │       │ fail
+    │       ▼
+    ├─► Slot 3: Groq Key 2 / GPT-OSS 120B
+    │       │ fail
+    │       ▼
+    ├─► Slot 4: Gemini Key 2 / Gemini 3.6 Flash-Lite
+    │       │ fail
+    │       ▼
+    ├─► Slot 5: Groq Key 3 / GPT-OSS 120B
+    │       │ fail
+    │       ▼
+    └─► graceful fallback response
 ```
+
+Each configured slot is attempted in order. A successful non-empty completion returns immediately. Provider failures are sanitized and recorded for server-side diagnostics. OpenRouter/OpenAI remain available only when explicitly registered/ordered for compatibility and are not part of the default five-slot chain.
 
 **Provider Contract (`baseProvider.js`):**
 ```js
@@ -125,6 +133,18 @@ class BaseLLMProvider {
   fetchWithTimeout(url, body, headers, timeoutMs)  // shared HTTP implementation
 }
 ```
+
+### LLM Environment Configuration
+
+```text
+GROQ_API_KEY_1 + LLM_MODEL
+GEMINI_API_KEY_1 + GEMINI_MODEL_1
+GROQ_API_KEY_2 + LLM_MODEL
+GEMINI_API_KEY_2 + GEMINI_MODEL_2
+GROQ_API_KEY_3 + LLM_MODEL
+```
+
+The router defaults to the requested model IDs when the Gemini model variables are omitted.
 
 ---
 
