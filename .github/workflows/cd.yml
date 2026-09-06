@@ -12,13 +12,70 @@ defaults:
   run:
     shell: bash
 
-# Production deployments are intentionally gated by a successful CI run on main.
-# Backend is deployed to Heroku; Vercel deployment is handled outside GitHub Actions.
+# Production deployment is gated by successful CI on main and a successful
+# Vercel check for the exact tested commit. Vercel is a gate only; the actual
+# production deployment performed by this workflow is the Heroku backend.
+permissions:
+  contents: read
+  checks: read
+
 jobs:
+  vercel-gate:
+    name: Vercel CD Gate
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel Check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          echo "Waiting for a successful Vercel check on $TESTED_SHA"
+          for attempt in {1..40}; do
+            CHECKS="$(gh api --header 'Accept: application/vnd.github+json' \
+              "/repos/${GITHUB_REPOSITORY}/commits/${TESTED_SHA}/check-runs?per_page=100")"
+
+            VERCEL_STATUS="$(printf '%s' "$CHECKS" | jq -r '
+              [.check_runs[]
+                | select((.app.slug // "" | ascii_downcase) == "vercel"
+                  or (.name // "" | ascii_downcase | startswith("vercel")))
+                | {status, conclusion, name}
+              ]
+              | if length == 0 then "missing"
+                else (map(select(.status == "completed")) | last // .[0])
+                end
+              | if type == "string" then . else (.status + ":" + (.conclusion // "")) end
+            ')
+
+            echo "Vercel check: $VERCEL_STATUS"
+
+            if [[ "$VERCEL_STATUS" == "completed:success" ]]; then
+              echo "Vercel gate passed."
+              exit 0
+            fi
+
+            if [[ "$VERCEL_STATUS" == "completed:failure" || "$VERCEL_STATUS" == "completed:cancelled" || "$VERCEL_STATUS" == "completed:timed_out" ]]; then
+              echo "Vercel gate failed: $VERCEL_STATUS"
+              exit 1
+            fi
+
+            if [[ "$VERCEL_STATUS" == "completed:error" ]]; then
+              echo "Vercel gate failed: $VERCEL_STATUS"
+              exit 1
+            fi
+
+            echo "Vercel check is not successful yet; waiting 15 seconds..."
+            sleep 15
+          done
+
+          echo "Timed out waiting for the Vercel check."
+          exit 1
+
   deploy-backend:
     name: Deploy Backend to Heroku
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
+    needs: vercel-gate
     steps:
       - name: Checkout Tested Commit
         uses: actions/checkout@v4
