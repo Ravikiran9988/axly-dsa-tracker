@@ -4,13 +4,10 @@ const {
   getCanonicalUtcDate,
   getNextCanonicalUtcDate
 } = require('../utils/dateUtils');
-const llmRouter = require('./llm/llmRouter');
 const {
-  validateDailyChallenge,
+  generateDailyChallenge,
   checkDuplicateChallenge,
-  stripVariantIdentifiers,
-  generateProblemSignature,
-  extractProblemConcept
+  stripVariantIdentifiers
 } = require('./aiDailyChallengeService');
 const { createDailyChallenge } = require('./dailyChallengeService');
 
@@ -88,117 +85,36 @@ async function getAutomationLogs(limit = 20) {
   }));
 }
 
-function parseJson(text) {
-  let cleaned = String(text || '').trim();
-  if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
-  else if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
-  if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
-  cleaned = cleaned.trim();
-
-  try {
-    return JSON.parse(cleaned);
-  } catch (firstError) {
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-    if (start >= 0 && end > start) return JSON.parse(cleaned.slice(start, end + 1));
-    throw firstError;
-  }
-}
-
-async function getRecentTitles(limit = 20) {
-  try {
-    const rows = await getRepo().many(`
-      SELECT title
-      FROM daily_challenge_problems
-      WHERE status != 'archived' AND is_active = TRUE
-      ORDER BY created_at DESC
-      LIMIT ?
-    `, [limit]);
-    return rows.map(row => stripVariantIdentifiers(row.title)).filter(Boolean);
-  } catch (_) {
-    return [];
-  }
-}
-
 async function generateUniqueChallenge({ topic = 'Surprise Me', difficulty = 'medium', instructions = '' } = {}) {
-  const recentTitles = await getRecentTitles(20);
-  const exclusion = recentTitles.length
-    ? `\n\nRECENTLY USED TITLES — DO NOT REUSE OR CREATE VARIANTS:\n${recentTitles.map(t => `- ${t}`).join('\n')}`
-    : '';
+  console.log(`[DailyChallenge] Requesting unique challenge through the five-slot LLM router (topic=${topic}, difficulty=${difficulty}).`);
 
-  const prompt = `Generate one original interview-grade DSA problem for AXLY DSA Tracker.
-
-Topic: ${topic}
-Difficulty: ${difficulty}
-${instructions ? `Additional instructions: ${instructions}\n` : ''}
-
-STRICT UNIQUENESS:
-- The problem must be materially different from every existing Daily Challenge.
-- Do not rename, parameter-change, constrain differently, or otherwise create a variant of an existing problem.
-- Prefer a different algorithmic idea/data structure when a similar concept exists.
-${exclusion}
-
-Return ONLY valid JSON with these fields:
-{
-  "title":"Clean canonical title",
-  "slug":"clean-slug",
-  "difficulty":"${difficulty}",
-  "topic":"${topic}",
-  "pattern":"Algorithmic pattern",
-  "description":"Complete problem statement",
-  "constraints":"Constraints",
-  "input_format":"Input format",
-  "output_format":"Output format",
-  "examples":[{"input":"...","output":"...","explanation":"..."}],
-  "starter_code":"function solution(...) { }",
-  "reference_solution":"function solution(...) { }",
-  "driver_code":"...",
-  "test_cases":[{"input":"...","expected_output":"...","is_hidden":0},{"input":"...","expected_output":"...","is_hidden":1}],
-  "hints":["Progressive hint 1","Progressive hint 2","Progressive hint 3"],
-  "editorial":"Approach explanation",
-  "complexity":"Time: ... | Space: ..."
-}`;
-
-  console.log(`[DailyChallenge] Requesting unique challenge through LLM fallback router (topic=${topic}, difficulty=${difficulty}).`);
-
-  const result = await llmRouter.generate({
-    prompt,
-    systemPrompt: 'You are a Principal DSA Problem Author. Respond ONLY in valid raw JSON without markdown code fences.',
-    maxTokens: 2400,
-    temperature: 0.2,
-    timeoutMs: 30000
+  // Reuse the canonical Daily Challenge generator so the same five-slot LLM
+  // fallback chain and curated uniqueness fallback are used everywhere.
+  // Sandbox execution is explicitly disabled for automation generation.
+  const result = await generateDailyChallenge({
+    topic,
+    difficulty,
+    instructions,
+    skipSandbox: true
   });
 
-  if (!result || result.source === 'fallback' || !result.text) {
-    const error = new Error(result?.error || 'All configured LLM fallback slots failed or returned invalid/duplicate challenges.');
-    error.code = 'LLM_GENERATION_FAILED';
-    error.providerErrors = result?.providerErrors || [];
+  if (!result || !result.success || !result.data) {
+    const error = new Error(result?.error || 'All configured LLM fallback slots failed and no unique curated challenge was available.');
+    error.code = result?.code || 'LLM_GENERATION_FAILED';
     throw error;
   }
 
-  const candidate = parseJson(result.text);
-  candidate.title = stripVariantIdentifiers(candidate.title);
-  candidate.slug = String(candidate.title || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  candidate.topic = candidate.topic || topic;
-  candidate.difficulty = String(candidate.difficulty || difficulty).toLowerCase();
-  candidate.created_via = 'ai';
-  candidate.status = 'draft';
-  candidate.sandbox_verified = false;
-  candidate.problem_concept = extractProblemConcept(candidate.title, candidate.description);
-  candidate.problem_signature = generateProblemSignature(candidate);
+  const candidate = {
+    ...result.data,
+    title: stripVariantIdentifiers(result.data.title),
+    status: 'draft',
+    created_via: 'ai',
+    scheduled_date: null,
+    sandbox_verified: false
+  };
 
-  const validation = validateDailyChallenge(candidate);
-  if (!validation.isValid) {
-    const error = new Error(`Validation failed: ${validation.errors.join(', ')}`);
-    error.code = 'VALIDATION_FAILED';
-    throw error;
-  }
-
-  // Defense-in-depth: the router already performs this uniqueness gate.
-  // Keep this second check immediately before persistence to prevent races.
+  // Defense-in-depth: generateDailyChallenge already checks uniqueness, but
+  // repeat the check immediately before persistence to protect against races.
   const duplicate = await checkDuplicateChallenge(candidate);
   if (duplicate.isDuplicate) {
     const error = new Error(duplicate.reason || 'Duplicate challenge candidate');
@@ -206,7 +122,7 @@ Return ONLY valid JSON with these fields:
     throw error;
   }
 
-  console.log(`[DailyChallenge] Accepted unique candidate from ${result.fallbackSlot || result.provider || 'LLM router'}.`);
+  console.log(`[DailyChallenge] Accepted unique ${result.source || 'generated'} candidate.`);
   return candidate;
 }
 
