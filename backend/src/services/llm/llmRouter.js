@@ -86,6 +86,30 @@ class LLMRouter {
     return activeList;
   }
 
+  buildSandboxDiagnostics(sandbox) {
+    if (!sandbox || !Array.isArray(sandbox.results)) return null;
+
+    const failed = sandbox.results
+      .filter(result => result && result.status && result.status !== 'Passed')
+      .slice(0, 3)
+      .map(result => ({
+        test_index: result.test_index,
+        status: result.status,
+        input: String(result.input ?? '').slice(0, 4000),
+        expected_output: String(result.expected_output ?? '').slice(0, 2000),
+        actual_output: String(result.actual_output ?? '').slice(0, 2000),
+        stderr: String(result.stderr ?? '').slice(0, 2000)
+      }));
+
+    return {
+      total_tests: sandbox.total_tests,
+      passed_tests: sandbox.passed_tests,
+      failed_tests: sandbox.failed_tests,
+      status: sandbox.verified ? 'Accepted' : (sandbox.reason || 'Failed'),
+      failed_tests_detail: failed
+    };
+  }
+
   async validateDailyChallengeCandidate(text) {
     let cleaned = String(text || '').trim();
     if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
@@ -124,18 +148,29 @@ class LLMRouter {
 
     const sandbox = await dailyService.verifyReferenceSolution(candidate);
     if (!sandbox.verified) {
-      return { valid: false, reason: sandbox.reason || 'Reference solution failed sandbox verification' };
+      return {
+        valid: false,
+        reason: sandbox.reason || 'Reference solution failed sandbox verification',
+        diagnostics: this.buildSandboxDiagnostics(sandbox)
+      };
     }
 
     candidate.sandbox_verified = true;
     return { valid: true, candidate };
   }
 
-  async repairDailyChallengeCandidate(provider, originalText, failureReason, options) {
+  async repairDailyChallengeCandidate(provider, originalText, failureReason, diagnostics, options) {
+    const diagnosticText = diagnostics
+      ? JSON.stringify(diagnostics, null, 2)
+      : 'No per-test sandbox diagnostics were available.';
+
     const repairPrompt = `A Daily Challenge candidate you generated failed validation.
 
 Failure reason:
 ${failureReason}
+
+Sandbox diagnostics:
+${diagnosticText}
 
 Original candidate:
 ${originalText}
@@ -143,14 +178,19 @@ ${originalText}
 Repair the candidate and return ONLY one complete valid JSON object.
 
 CRITICAL RULES:
-- Preserve the same problem concept unless the failure requires correcting the problem itself.
-- The reference_solution MUST correctly solve the stated problem.
-- The driver_code, input_format, output_format, test_cases, examples, and reference_solution MUST all agree exactly.
-- Recalculate expected_output for every test case from the corrected reference solution.
-- Make the reference solution executable JavaScript compatible with the provided driver.
-- Do not include markdown fences, explanations, or commentary.
-- The candidate must pass sandbox verification on every test case.
-- Do not invent a solution that only matches the examples; reason about edge cases and constraints.
+- Treat the problem statement and its constraints as the source of truth.
+- Do NOT assume the original reference solution is correct.
+- Do NOT blindly preserve the original expected outputs.
+- Re-derive the expected output for every test case independently from the stated problem.
+- If the test inputs are invalid, ambiguous, or expose a flawed problem definition, correct the problem, test cases, reference solution, driver, examples, and expected outputs together.
+- The reference_solution MUST correctly solve the stated problem, not merely reproduce the supplied expected outputs.
+- The driver_code, input_format, output_format, test_cases, examples, and reference_solution MUST agree exactly.
+- Use executable JavaScript compatible with the provided driver.
+- Fix the specific failing tests shown in the diagnostics and consider edge cases beyond them.
+- Keep the same concept when it is sound; rebuild the candidate when the original formulation is inconsistent.
+- Return exactly one complete JSON object.
+- No markdown fences, explanations, or commentary.
+- The final candidate MUST pass sandbox verification on every test case.
 
 Return the complete corrected challenge JSON.`;
 
@@ -182,9 +222,6 @@ Return the complete corrected challenge JSON.`;
     } = options;
 
     const isDailyChallenge = systemPrompt && /Principal DSA Problem Author/i.test(systemPrompt);
-    // Daily Challenge responses contain reference code + tests. 1600 tokens was
-    // too small in production and caused truncated JSON. Give structured output
-    // enough room while keeping normal AI responses unchanged.
     if (isDailyChallenge) {
       maxTokens = Math.max(Number(maxTokens) || 0, 2400);
       temperature = 0.2;
@@ -236,15 +273,13 @@ Return the complete corrected challenge JSON.`;
           });
           console.warn(`[LLMRouter] Rejected ${slotName} candidate: ${failureReason}`);
 
-          // A sandbox/schema failure is often repairable because the model has
-          // already produced a coherent challenge. Give the SAME provider one
-          // tightly-scoped repair attempt before spending the next fallback slot.
           if (isDailyChallenge && typeof validateResponse !== 'function') {
             try {
               const repairedText = await this.repairDailyChallengeCandidate(
                 provider,
                 response.text,
                 failureReason,
+                validationResult.diagnostics,
                 { systemPrompt, maxTokens, timeoutMs }
               );
               const repairedValidation = await this.validateDailyChallengeCandidate(repairedText);
