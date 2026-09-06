@@ -123,6 +123,13 @@ class LLMRouter {
       return { valid: false, reason: `Invalid JSON: ${err.message}` };
     }
 
+    if (Array.isArray(candidate.test_cases) && candidate.test_cases.length > 1) {
+      const hasHidden = candidate.test_cases.some(tc => Boolean(tc?.is_hidden));
+      const hasPublic = candidate.test_cases.some(tc => !tc?.is_hidden);
+      if (!hasHidden) candidate.test_cases[candidate.test_cases.length - 1].is_hidden = 1;
+      if (!hasPublic) candidate.test_cases[0].is_hidden = 0;
+    }
+
     // Lazy import avoids the llmRouter <-> aiDailyChallengeService circular
     // dependency during module initialization.
     const dailyService = require('../aiDailyChallengeService');
