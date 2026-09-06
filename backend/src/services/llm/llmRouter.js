@@ -48,8 +48,8 @@ class LLMRouter {
    * Get active ordered list of configured providers
    */
   getConfiguredProviders() {
-    const rawOrder = this.customOrder || (process.env.LLM_PROVIDER_ORDER 
-      ? process.env.LLM_PROVIDER_ORDER.split(',').map(s => s.trim().toLowerCase()) 
+    const rawOrder = this.customOrder || (process.env.LLM_PROVIDER_ORDER
+      ? process.env.LLM_PROVIDER_ORDER.split(',').map(s => s.trim().toLowerCase())
       : ['groq', 'gemini', 'openrouter', 'openai']);
 
     const activeList = [];
@@ -64,13 +64,6 @@ class LLMRouter {
 
   /**
    * Generate completion with multi-provider fallback
-   * @param {object} options
-   * @param {string} options.prompt - Prompt content
-   * @param {string} [options.systemPrompt] - System instructions
-   * @param {number} [options.maxTokens] - Max tokens to generate (default 800)
-   * @param {number} [options.temperature] - Sampling temperature (default 0.4)
-   * @param {number} [options.timeoutMs] - Timeout per provider (default 8000ms)
-   * @returns {Promise<{ text: string, source: string, provider: string, model: string, usage: object, error?: string }>}
    */
   async generate(options = {}) {
     const {
@@ -84,6 +77,7 @@ class LLMRouter {
     const availableProviders = this.getConfiguredProviders();
 
     if (availableProviders.length === 0) {
+      console.warn('[LLMRouter] No configured LLM providers are available.');
       return {
         text: 'AI generation is temporarily unavailable (no LLM providers configured). Please refer to the structured problem hints and verified approach.',
         source: 'fallback',
@@ -119,10 +113,8 @@ class LLMRouter {
           };
         }
 
-        // Empty response counts as failure, try next
         errors.push({ provider: provider.name, error: 'Empty completion received' });
       } catch (err) {
-        // Sanitize error to ensure API keys are never exposed in error objects
         const sanitizedMsg = String(err.message || 'Provider request failed')
           .replace(/key=[^&\s]+/gi, 'key=***')
           .replace(/Bearer\s+[^\s]+/gi, 'Bearer ***');
@@ -136,7 +128,10 @@ class LLMRouter {
       }
     }
 
-    // All configured providers failed -> graceful fallback
+    // Keep the detailed, sanitized provider failures in the server logs so a
+    // production fallback can be diagnosed without exposing API credentials.
+    console.error('[LLMRouter] All configured LLM providers failed:', JSON.stringify(errors));
+
     return {
       text: 'AI generation is temporarily unavailable. Please refer to the structured problem hints, complexity breakdown, and algorithmic approach above.',
       source: 'fallback',
