@@ -15,11 +15,19 @@ defaults:
 # CD is strictly ordered:
 # 1. CI must be successful (workflow_run trigger + job condition)
 # 2. Deploy backend to Heroku
-# 3. Wait for the Vercel deployment check for the exact tested commit
+# 3. Wait for the Vercel deployment result for the exact tested commit
 # 4. Run production smoke tests against the deployed stack
 permissions:
   contents: read
   checks: read
+  statuses: read
+
+# Prevent overlapping production deployments on the same branch. We deliberately
+# do not cancel an in-flight deployment because a partial Heroku deploy must not
+# be interrupted by a newer run.
+concurrency:
+  group: axly-dsa-cd-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
 
 jobs:
   deploy-backend:
@@ -68,17 +76,33 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy-backend
     steps:
-      - name: Wait for Vercel Check
+      - name: Wait for Vercel Deployment Result
         env:
           GH_TOKEN: ${{ github.token }}
           TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          echo "Waiting for a successful Vercel check on $TESTED_SHA"
-          for attempt in {1..40}; do
+          echo "Waiting for a successful Vercel result on $TESTED_SHA"
+          # Vercel has been observed on this repository using the Commit Status API
+          # (context: Vercel), so check both Status and Checks APIs for compatibility.
+          # 60 x 15s = 15 minutes maximum wait.
+          for attempt in {1..60}; do
+            STATUSES="$(gh api --header 'Accept: application/vnd.github+json' \
+              "/repos/${GITHUB_REPOSITORY}/commits/${TESTED_SHA}/status")"
+
             CHECKS="$(gh api --header 'Accept: application/vnd.github+json' \
               "/repos/${GITHUB_REPOSITORY}/commits/${TESTED_SHA}/check-runs?per_page=100")"
 
-            VERCEL_STATUS="$(printf '%s' "$CHECKS" | jq -r '
+            VERCEL_STATUS="$(printf '%s' "$STATUSES" | jq -r '
+              [.statuses[]
+                | select((.context // "" | ascii_downcase | contains("vercel")))
+                | .state
+              ]
+              | if length == 0 then "missing"
+                else .[0]
+                end
+            ')"
+
+            VERCEL_CHECK="$(printf '%s' "$CHECKS" | jq -r '
               [.check_runs[]
                 | select((.app.slug // "" | ascii_downcase) == "vercel"
                   or (.name // "" | ascii_downcase | startswith("vercel")))
@@ -88,30 +112,33 @@ jobs:
                 else (map(select(.status == "completed")) | last // .[0])
                 end
               | if type == "string" then . else (.status + ":" + (.conclusion // "")) end
-            ')
+            ')"
 
-            echo "Vercel check: $VERCEL_STATUS"
+            echo "Vercel commit status: $VERCEL_STATUS"
+            echo "Vercel check: $VERCEL_CHECK"
 
-            if [[ "$VERCEL_STATUS" == "completed:success" ]]; then
+            # Success from either GitHub integration mechanism is sufficient.
+            if [[ "$VERCEL_STATUS" == "success" || "$VERCEL_CHECK" == "completed:success" ]]; then
               echo "Vercel gate passed."
               exit 0
             fi
 
-            if [[ "$VERCEL_STATUS" == "completed:failure" || "$VERCEL_STATUS" == "completed:cancelled" || "$VERCEL_STATUS" == "completed:timed_out" ]]; then
-              echo "Vercel gate failed: $VERCEL_STATUS"
+            # Fail fast when Vercel explicitly reports a terminal failure.
+            if [[ "$VERCEL_STATUS" == "failure" || "$VERCEL_STATUS" == "error" ]]; then
+              echo "Vercel gate failed: commit status=$VERCEL_STATUS"
               exit 1
             fi
 
-            if [[ "$VERCEL_STATUS" == "completed:error" ]]; then
-              echo "Vercel gate failed: $VERCEL_STATUS"
+            if [[ "$VERCEL_CHECK" == "completed:failure" || "$VERCEL_CHECK" == "completed:cancelled" || "$VERCEL_CHECK" == "completed:timed_out" || "$VERCEL_CHECK" == "completed:error" ]]; then
+              echo "Vercel gate failed: check=$VERCEL_CHECK"
               exit 1
             fi
 
-            echo "Vercel check is not successful yet; waiting 15 seconds..."
+            echo "Vercel result is not successful yet; waiting 15 seconds..."
             sleep 15
           done
 
-          echo "Timed out waiting for the Vercel check."
+          echo "Timed out waiting for the Vercel deployment result after 15 minutes."
           exit 1
 
   production-smoke:
