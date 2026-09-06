@@ -131,6 +131,46 @@ class LLMRouter {
     return { valid: true, candidate };
   }
 
+  async repairDailyChallengeCandidate(provider, originalText, failureReason, options) {
+    const repairPrompt = `A Daily Challenge candidate you generated failed validation.
+
+Failure reason:
+${failureReason}
+
+Original candidate:
+${originalText}
+
+Repair the candidate and return ONLY one complete valid JSON object.
+
+CRITICAL RULES:
+- Preserve the same problem concept unless the failure requires correcting the problem itself.
+- The reference_solution MUST correctly solve the stated problem.
+- The driver_code, input_format, output_format, test_cases, examples, and reference_solution MUST all agree exactly.
+- Recalculate expected_output for every test case from the corrected reference solution.
+- Make the reference solution executable JavaScript compatible with the provided driver.
+- Do not include markdown fences, explanations, or commentary.
+- The candidate must pass sandbox verification on every test case.
+- Do not invent a solution that only matches the examples; reason about edge cases and constraints.
+
+Return the complete corrected challenge JSON.`;
+
+    console.warn(`[LLMRouter] Attempting one repair for candidate from ${provider.name}: ${failureReason}`);
+
+    const response = await provider.generate({
+      prompt: repairPrompt,
+      systemPrompt: options.systemPrompt,
+      maxTokens: Math.max(Number(options.maxTokens) || 0, 2800),
+      temperature: 0.1,
+      timeoutMs: options.timeoutMs
+    });
+
+    if (!response || !response.text || !response.text.trim()) {
+      throw new Error('Repair attempt returned an empty completion');
+    }
+
+    return response.text.trim();
+  }
+
   async generate(options = {}) {
     let {
       prompt,
@@ -186,13 +226,66 @@ class LLMRouter {
         }
 
         if (validationResult && validationResult.valid === false) {
+          const failureReason = validationResult.reason || 'Response rejected by semantic validator';
+
           errors.push({
             slot: slotName,
             provider: provider.name,
-            error: validationResult.reason || 'Response rejected by semantic validator',
+            error: failureReason,
             stage: 'validation'
           });
-          console.warn(`[LLMRouter] Rejected ${slotName} candidate: ${validationResult.reason || 'semantic validation failed'}`);
+          console.warn(`[LLMRouter] Rejected ${slotName} candidate: ${failureReason}`);
+
+          // A sandbox/schema failure is often repairable because the model has
+          // already produced a coherent challenge. Give the SAME provider one
+          // tightly-scoped repair attempt before spending the next fallback slot.
+          if (isDailyChallenge && typeof validateResponse !== 'function') {
+            try {
+              const repairedText = await this.repairDailyChallengeCandidate(
+                provider,
+                response.text,
+                failureReason,
+                { systemPrompt, maxTokens, timeoutMs }
+              );
+              const repairedValidation = await this.validateDailyChallengeCandidate(repairedText);
+
+              if (repairedValidation && repairedValidation.valid !== false) {
+                console.log(`[LLMRouter] Repaired ${slotName} candidate successfully`);
+                return {
+                  text: repairedText,
+                  source: 'llm',
+                  provider: response.provider || provider.name,
+                  model: response.model || provider.model,
+                  usage: response.usage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+                  attemptsCount: i + 1,
+                  fallbackSlot: slotName,
+                  repairAttempted: true,
+                  validation: repairedValidation.candidate ? { verified: true } : undefined
+                };
+              }
+
+              const repairFailure = repairedValidation?.reason || 'Repair candidate failed validation';
+              errors.push({
+                slot: slotName,
+                provider: provider.name,
+                error: `Repair failed: ${repairFailure}`,
+                stage: 'repair'
+              });
+              console.warn(`[LLMRouter] Repair rejected for ${slotName}: ${repairFailure}`);
+            } catch (repairErr) {
+              const repairMessage = String(repairErr.message || 'Repair request failed')
+                .replace(/key=[^&\s]+/gi, 'key=***')
+                .replace(/Bearer\s+[^\s]+/gi, 'Bearer ***');
+              errors.push({
+                slot: slotName,
+                provider: provider.name,
+                error: `Repair request failed: ${repairMessage}`,
+                stage: 'repair'
+              });
+              console.warn(`[LLMRouter] Repair request failed for ${slotName}: ${repairMessage}`);
+            }
+          }
+
           continue;
         }
 
