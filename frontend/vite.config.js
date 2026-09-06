@@ -50,9 +50,9 @@ function dailyChallengeAiAuthoringPlugin() {
         if (!code.includes(statusMarker)) throw new Error('Daily Challenge automation status marker not found');
         code = code.replace(statusMarker, statusReplacement);
 
-        const progressStartMarker = "    setActionError(null);\n";
+        const progressStartMarker = "  const handleRunAutoFillNow = async () => {\n    setIsRunningAutomation(true);\n    setActionError(null);\n";
         const progressStartReplacement = `${progressStartMarker}    setAutomationProgressStage('Starting pipeline');\n    setAutomationElapsed(0);\n`;
-        if (!code.includes(progressStartMarker)) throw new Error('Daily Challenge action error marker not found');
+        if (!code.includes(progressStartMarker)) throw new Error('Daily Challenge automation handler start marker not found');
         code = code.replace(progressStartMarker, progressStartReplacement);
 
         const handlerCatchMarker = "    } catch (err) {\n      setActionError(err.message || 'Automatic challenge generation failed. Admin action required.');\n";
