@@ -1,6 +1,7 @@
 const GeminiProvider = require('./geminiProvider');
 const GroqProvider = require('./groqProvider');
 const OpenAICompatibleProvider = require('./openAICompatibleProvider');
+const { executeCode } = require('../executionService');
 
 /**
  * Ordered LLM fallback router.
@@ -110,6 +111,39 @@ class LLMRouter {
     };
   }
 
+  async collectSandboxDiagnostics(candidate) {
+    try {
+      const testCases = Array.isArray(candidate?.test_cases) ? candidate.test_cases : [];
+      const codeToRun = candidate?.reference_solution || candidate?.starter_code;
+      if (!testCases.length || !codeToRun) return null;
+
+      const fullCode = candidate.driver_code
+        ? `${codeToRun}\n\n${candidate.driver_code}`
+        : codeToRun;
+
+      const sandbox = await executeCode({
+        language: 'javascript',
+        sourceCode: fullCode,
+        testCases
+      });
+
+      return this.buildSandboxDiagnostics({
+        ...sandbox,
+        verified: sandbox.status === 'Accepted' || sandbox.passed_tests === testCases.length,
+        reason: sandbox.status !== 'Accepted' ? `Sandbox execution failed with status: ${sandbox.status}` : null,
+        failed_tests: testCases.length - Number(sandbox.passed_tests || 0)
+      });
+    } catch (err) {
+      return {
+        total_tests: Array.isArray(candidate?.test_cases) ? candidate.test_cases.length : 0,
+        passed_tests: 0,
+        failed_tests: Array.isArray(candidate?.test_cases) ? candidate.test_cases.length : 0,
+        status: `Sandbox execution failed: ${err.message}`,
+        failed_tests_detail: []
+      };
+    }
+  }
+
   async validateDailyChallengeCandidate(text) {
     let cleaned = String(text || '').trim();
     if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
@@ -148,10 +182,11 @@ class LLMRouter {
 
     const sandbox = await dailyService.verifyReferenceSolution(candidate);
     if (!sandbox.verified) {
+      const diagnostics = this.buildSandboxDiagnostics(sandbox) || await this.collectSandboxDiagnostics(candidate);
       return {
         valid: false,
         reason: sandbox.reason || 'Reference solution failed sandbox verification',
-        diagnostics: this.buildSandboxDiagnostics(sandbox)
+        diagnostics
       };
     }
 
@@ -343,7 +378,7 @@ Return the complete corrected challenge JSON.`;
           provider: provider.name,
           error: sanitizedMsg,
           isTimeout: Boolean(err.isTimeout),
-          isQuotaOrRateLimit: Boolean(err.isQuotaOrRateLimit)
+          isQuotaOrRateLimit: Boolean(err.isQuotaOrRateLimit) || /\b(?:429|rate limit|tokens per day|quota)\b/i.test(sanitizedMsg)
         });
       }
     }
