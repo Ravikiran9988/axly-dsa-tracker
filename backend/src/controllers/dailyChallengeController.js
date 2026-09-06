@@ -42,7 +42,17 @@ async function generateAiChallenge(req, res, next) {
   try {
     const { topic, difficulty, pattern, points, instructions, scheduled_date, skipSandbox } = req.body;
     return res.status(200).json(await generateDailyChallenge({ topic, difficulty, pattern, points, instructions, scheduled_date, skipSandbox: Boolean(skipSandbox) }));
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (err?.code === 'DUPLICATE_COLLISION') {
+      return res.status(409).json({
+        success: false,
+        code: 'NO_UNIQUE_PROBLEM',
+        error: 'NO_UNIQUE_PROBLEM',
+        message: 'No unused Daily Challenge problem is currently available.'
+      });
+    }
+    next(err);
+  }
 }
 
 async function validateDuplicate(req, res, next) {
@@ -161,8 +171,6 @@ async function runAutomationNow(req, res, next) {
     const adminId = req.user?.id || 'usr-admin-01';
     manualAutomationInFlight = true;
 
-    // Do not hold the HTTP request open while AI generation and sandbox verification run.
-    // Heroku's router has a 30-second request timeout; the pipeline can legitimately take longer.
     void runAdminAutoFillNow({ topic, difficulty, adminId })
       .catch(err => {
         console.error('❌ Background Daily Challenge automation failed:', err);
