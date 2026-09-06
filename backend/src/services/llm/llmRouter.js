@@ -12,9 +12,7 @@ const OpenAICompatibleProvider = require('./openAICompatibleProvider');
  *   4. Gemini Key 2 -> Gemini 3.5 Flash-Lite
  *   5. Groq Key 3 -> GPT-OSS 120B
  *
- * OpenAI is intentionally not part of the router. The default chain uses
- * Groq + Gemini only, with Groq keys isolated per slot so fallback alternates
- * between providers instead of exhausting all Groq keys first.
+ * OpenAI is intentionally not part of the router.
  */
 class LLMRouter {
   constructor() {
@@ -36,31 +34,25 @@ class LLMRouter {
       model: groqModel,
       baseUrl: process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1'
     }));
-
     this.providers.set('gemini-1', new GeminiProvider({
       apiKey: process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY,
       model: geminiModel1
     }));
-
     this.providers.set('groq-2', new GroqProvider({
       keys: [process.env.GROQ_API_KEY_2],
       model: groqModel,
       baseUrl: process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1'
     }));
-
     this.providers.set('gemini-2', new GeminiProvider({
       apiKey: process.env.GEMINI_API_KEY_2,
       model: geminiModel2
     }));
-
     this.providers.set('groq-3', new GroqProvider({
       keys: [process.env.GROQ_API_KEY_3],
       model: groqModel,
       baseUrl: process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1'
     }));
 
-    // Legacy/custom providers. OpenAI is intentionally removed.
-    // OpenRouter remains available only when explicitly requested via custom order.
     this.providers.set('gemini', new GeminiProvider());
     this.providers.set('groq', new GroqProvider());
     this.providers.set('openrouter', new OpenAICompatibleProvider({ name: 'openrouter' }));
@@ -85,30 +77,15 @@ class LLMRouter {
   }
 
   getConfiguredProviders() {
-    const rawOrder = this.customOrder || [
-      'groq-1',
-      'gemini-1',
-      'groq-2',
-      'gemini-2',
-      'groq-3'
-    ];
-
+    const rawOrder = this.customOrder || ['groq-1', 'gemini-1', 'groq-2', 'gemini-2', 'groq-3'];
     const activeList = [];
     for (const name of rawOrder) {
       const provider = this.providers.get(name);
-      if (provider && provider.isConfigured()) {
-        activeList.push({ name, provider });
-      }
+      if (provider && provider.isConfigured()) activeList.push({ name, provider });
     }
     return activeList;
   }
 
-  /**
-   * Daily Challenge candidates need semantic validation, not just a successful
-   * HTTP response. A provider can return valid JSON that is malformed,
-   * duplicated, or has an unverified reference solution. Such a candidate must
-   * be rejected so the router can continue to the next slot.
-   */
   async validateDailyChallengeCandidate(text) {
     let cleaned = String(text || '').trim();
     if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
@@ -130,16 +107,10 @@ class LLMRouter {
       if (!hasPublic) candidate.test_cases[0].is_hidden = 0;
     }
 
-    // Lazy import avoids the llmRouter <-> aiDailyChallengeService circular
-    // dependency during module initialization.
     const dailyService = require('../aiDailyChallengeService');
-
     const validation = dailyService.validateDailyChallenge(candidate);
     if (!validation.isValid) {
-      return {
-        valid: false,
-        reason: `Schema validation failed: ${validation.errors.join('; ')}`
-      };
+      return { valid: false, reason: `Schema validation failed: ${validation.errors.join('; ')}` };
     }
 
     candidate.title = dailyService.stripVariantIdentifiers(candidate.title);
@@ -148,18 +119,12 @@ class LLMRouter {
 
     const duplicate = await dailyService.checkDuplicateChallenge(candidate);
     if (duplicate.isDuplicate) {
-      return {
-        valid: false,
-        reason: duplicate.reason || 'Duplicate Daily Challenge candidate'
-      };
+      return { valid: false, reason: duplicate.reason || 'Duplicate Daily Challenge candidate' };
     }
 
     const sandbox = await dailyService.verifyReferenceSolution(candidate);
     if (!sandbox.verified) {
-      return {
-        valid: false,
-        reason: sandbox.reason || 'Reference solution failed sandbox verification'
-      };
+      return { valid: false, reason: sandbox.reason || 'Reference solution failed sandbox verification' };
     }
 
     candidate.sandbox_verified = true;
@@ -167,7 +132,7 @@ class LLMRouter {
   }
 
   async generate(options = {}) {
-    const {
+    let {
       prompt,
       systemPrompt,
       maxTokens = 800,
@@ -176,8 +141,16 @@ class LLMRouter {
       validateResponse = null
     } = options;
 
-    const availableProviders = this.getConfiguredProviders();
+    const isDailyChallenge = systemPrompt && /Principal DSA Problem Author/i.test(systemPrompt);
+    // Daily Challenge responses contain reference code + tests. 1600 tokens was
+    // too small in production and caused truncated JSON. Give structured output
+    // enough room while keeping normal AI responses unchanged.
+    if (isDailyChallenge) {
+      maxTokens = Math.max(Number(maxTokens) || 0, 2400);
+      temperature = 0.2;
+    }
 
+    const availableProviders = this.getConfiguredProviders();
     if (availableProviders.length === 0) {
       console.warn('[LLMRouter] No configured LLM fallback slots are available.');
       return this.buildFallbackResponse([], 'No configured LLM providers available');
@@ -187,7 +160,6 @@ class LLMRouter {
 
     for (let i = 0; i < availableProviders.length; i++) {
       const { name: slotName, provider } = availableProviders[i];
-
       try {
         const response = await provider.generate({
           prompt,
@@ -198,11 +170,7 @@ class LLMRouter {
         });
 
         if (!response || !response.text || response.text.trim().length === 0) {
-          errors.push({
-            slot: slotName,
-            provider: provider.name,
-            error: 'Empty completion received'
-          });
+          errors.push({ slot: slotName, provider: provider.name, error: 'Empty completion received' });
           continue;
         }
 
@@ -213,7 +181,7 @@ class LLMRouter {
             provider: provider.name,
             model: provider.model
           });
-        } else if (systemPrompt && /Principal DSA Problem Author/i.test(systemPrompt)) {
+        } else if (isDailyChallenge) {
           validationResult = await this.validateDailyChallengeCandidate(response.text);
         }
 
@@ -242,7 +210,6 @@ class LLMRouter {
         const sanitizedMsg = String(err.message || 'Provider request failed')
           .replace(/key=[^&\s]+/gi, 'key=***')
           .replace(/Bearer\s+[^\s]+/gi, 'Bearer ***');
-
         errors.push({
           slot: slotName,
           provider: provider.name,
