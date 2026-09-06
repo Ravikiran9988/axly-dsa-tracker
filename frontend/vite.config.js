@@ -35,6 +35,12 @@ function dailyChallengeAiAuthoringPlugin() {
       if (id.endsWith('/AdminDailyChallenge.jsx')) {
         if (code.includes('automationProgressStage')) return null;
 
+        // Keep AI Assist and Auto Fill modes; remove only the Manual mode button from the UI.
+        const manualModeButton = "                { key: 'manual', label: 'Manual' },\n";
+        if (code.includes(manualModeButton)) {
+          code = code.replace(manualModeButton, '');
+        }
+
         const stateMarker = "  const [showLogsModal, setShowLogsModal] = useState(false);\n";
         const stateInsert = `${stateMarker}  const [automationProgressStage, setAutomationProgressStage] = useState('Starting pipeline');\n  const [automationElapsed, setAutomationElapsed] = useState(0);\n`;
         if (!code.includes(stateMarker)) throw new Error('Daily Challenge automation state marker not found');
