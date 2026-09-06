@@ -1,7 +1,6 @@
 const app = require('./app');
 const { assertProductionDatabase } = require('./config/runtimeDatabase');
 const { checkPostgresHealth } = require('./db/postgres');
-const { initPostgresSchema } = require('./db/postgresSchema');
 
 const PORT = process.env.PORT || 5000;
 
@@ -15,10 +14,11 @@ async function startServer() {
       startupError = `PostgreSQL health check failed: ${health.reason || 'database unavailable'}`;
       console.error('❌', startupError);
     } else {
+      // Production schema changes run in Heroku's release phase via:
+      //   release: cd backend && npm run migrate:postgres
+      // Never run migrations during web dyno boot: Heroku expects the web
+      // process to bind to PORT quickly, and long DDL/lock waits can trigger H20.
       console.log('✅ Production PostgreSQL connection verified.');
-      console.log('🔄 Applying PostgreSQL migrations...');
-      await initPostgresSchema();
-      console.log('✅ PostgreSQL migrations applied.');
     }
   } else {
     // Local / Test SQLite initialization
@@ -42,7 +42,7 @@ async function startServer() {
     console.log(`🚀 Axly DSA Tracker API running on port ${PORT}`);
     console.log(`📡 API Version 1 mounted at /api/v1`);
   });
-  
+
   // Attach startup error to app for health check to read
   app.locals.startupError = startupError;
 
