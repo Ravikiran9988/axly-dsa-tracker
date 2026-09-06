@@ -46,8 +46,45 @@ async function recommendTopic(req, res, next) { try { const topicService = requi
 async function createDailyChallengeFromPractice(req, res, next) { try { return res.status(201).json({ data: await dailyChallengeService.createDailyChallengeFromPractice(req.body, req.user.id), message: 'Daily challenge created from practice question' }); } catch (err) { next(err); } }
 async function getAutomationStatus(req, res, next) { try { const settings = await getAutomationSettings(); const logs = await fetchAutoLogs(10); return res.status(200).json({ success: true, data: { settings, today_utc: getCanonicalUtcDate(), next_target_date: getNextCanonicalUtcDate(), generation_time_utc: '00:00 UTC', recent_logs: logs } }); } catch (err) { next(err); } }
 async function updateAutomationSettings(req, res, next) { try { const { mode, is_enabled, retry_limit } = req.body; const updated = await updateAutoSettings({ mode, is_enabled: mode === 'ai_assist' || mode === 'auto_fill' ? true : is_enabled, retry_limit }); return res.status(200).json({ success: true, data: updated, message: 'Automation settings updated successfully' }); } catch (err) { next(err); } }
-async function runAutomationNow(req, res, next) { try { if (manualAutomationInFlight) return res.status(409).json({ success: false, status: 'running', message: 'Daily Challenge automation is already running. Please wait for the current run to finish.' }); const { topic, difficulty } = req.body || {}; const adminId = req.user?.id || 'usr-admin-01'; manualAutomationInFlight = true; void runAdminAutoFillNow({ topic, difficulty, adminId }).catch(err => console.error('❌ Background Daily Challenge automation failed:', err)).finally(() => { manualAutomationInFlight = false; }); return res.status(202).json({ success: true, status: 'running', message: 'Daily Challenge automation started. Check the automation status/logs for the result.' }); } catch (err) { next(err); } }
+async function runAutomationNow(req, res, next) {
+  try {
+    if (manualAutomationInFlight) {
+      return res.status(409).json({
+        success: false,
+        status: 'running',
+        code: 'AUTOMATION_ALREADY_RUNNING',
+        message: 'Daily Challenge automation is already running. Please wait for the current run to finish.'
+      });
+    }
+
+    const { topic, difficulty } = req.body || {};
+    const adminId = req.user?.id || 'usr-admin-01';
+    manualAutomationInFlight = true;
+
+    // Persist RUNNING immediately so the Admin Portal does not show a stale
+    // FAILED/SUCCESS result while the background pipeline is still executing.
+    await getRepoForController().execute(`
+      UPDATE daily_challenge_automation_settings
+      SET last_run_at = ?, last_run_status = 'running', updated_at = CURRENT_TIMESTAMP
+      WHERE id = 'global-settings'
+    `, [new Date().toISOString()]);
+
+    void runAdminAutoFillNow({ topic, difficulty, adminId })
+      .catch(err => console.error('❌ Background Daily Challenge automation failed:', err))
+      .finally(() => { manualAutomationInFlight = false; });
+
+    return res.status(202).json({
+      success: true,
+      status: 'running',
+      message: 'Daily Challenge automation started. Check the automation status/logs for the result.'
+    });
+  } catch (err) { next(err); }
+}
 async function getAutomationLogs(req, res, next) { try { const { limit } = req.query; return res.status(200).json({ success: true, data: await fetchAutoLogs(limit || 50) }); } catch (err) { next(err); } }
+
+function getRepoForController() {
+  return require('../db/repositoryFactory').getRepository();
+}
 
 module.exports = {
   listDailyChallenges, getTodayDailyChallenge, getDailyChallenge, createDailyChallenge, createDailyChallengeFromPractice,
