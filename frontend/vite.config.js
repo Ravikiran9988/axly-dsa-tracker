@@ -32,64 +32,9 @@ function dailyChallengeAiAuthoringPlugin() {
         return { code, map: null };
       }
 
-      if (id.endsWith('/AdminDailyChallenge.jsx')) {
-        if (code.includes('automationProgressStage')) return null;
-
-        // Keep exactly the two supported automation modes: AI Assist and Auto Fill.
-        const manualModeButton = "                { key: 'manual', label: 'Manual' },\n";
-        if (code.includes(manualModeButton)) {
-          code = code.replace(manualModeButton, '');
-        }
-        const modeArrayMarker = "              {[\n                { key: 'ai_assist', label: 'AI Assist' },\n                { key: 'auto_fill', label: 'Auto Fill' }\n              ].map(m => (";
-        if (!code.includes(modeArrayMarker)) {
-          const originalModeArray = "              {[\n                { key: 'manual', label: 'Manual' },\n                { key: 'ai_assist', label: 'AI Assist' },\n                { key: 'auto_fill', label: 'Auto Fill' }\n              ].map(m => (";
-          if (code.includes(originalModeArray)) code = code.replace(originalModeArray, modeArrayMarker);
-        }
-
-        // Sandbox execution was removed from the generation pipeline.
-        code = code.replace(
-          'Automated AI generation, sandbox verification, scheduling & competitive publication.',
-          'Automated AI generation, uniqueness validation, scheduling & competitive publication.'
-        );
-
-        const stateMarker = "  const [showLogsModal, setShowLogsModal] = useState(false);\n";
-        const stateInsert = `${stateMarker}  const [automationProgressStage, setAutomationProgressStage] = useState('Starting pipeline');\n  const [automationElapsed, setAutomationElapsed] = useState(0);\n`;
-        if (!code.includes(stateMarker)) throw new Error('Daily Challenge automation state marker not found');
-        code = code.replace(stateMarker, stateInsert);
-
-        const effectMarker = "  useEffect(() => {\n    loadData();\n  }, [difficulty, topicId, statusFilter, dateFilter]);\n";
-        const progressEffect = `${effectMarker}\n  useEffect(() => {\n    if (!isRunningAutomation) {\n      setAutomationElapsed(0);\n      return undefined;\n    }\n\n    const startedAt = Date.now();\n    const stageTimer = window.setInterval(() => {\n      const elapsed = Math.floor((Date.now() - startedAt) / 1000);\n      setAutomationElapsed(elapsed);\n      const stages = [\n        'Generating challenge',\n        'Checking schema & uniqueness',\n        'Trying next fallback if needed',\n        'Finalizing result'\n      ];\n      setAutomationProgressStage(stages[Math.min(Math.floor(elapsed / 3), stages.length - 1)]);\n    }, 1000);\n\n    const poll = window.setInterval(async () => {\n      try {\n        const res = await api.getDailyChallengeAutomationStatus();\n        const status = res?.data?.settings?.last_run_status;\n        if (status && status !== 'running') {\n          setAutomationProgressStage(status === 'success' ? 'Challenge generated successfully' : 'Pipeline finished with no valid challenge');\n          setIsRunningAutomation(false);\n          await loadAutomationStatus();\n          await loadData();\n        }\n      } catch (_) {}\n    }, 1000);\n\n    return () => {\n      window.clearInterval(stageTimer);\n      window.clearInterval(poll);\n    };\n  }, [isRunningAutomation]);\n`;
-        if (!code.includes(effectMarker)) throw new Error('Daily Challenge data effect marker not found');
-        code = code.replace(effectMarker, progressEffect);
-
-        const statusMarker = "        setAutomationLogs(res.data.recent_logs || []);\n";
-        const statusReplacement = `${statusMarker}        setIsRunningAutomation(res.data.settings?.last_run_status === 'running');\n`;
-        if (!code.includes(statusMarker)) throw new Error('Daily Challenge automation status marker not found');
-        code = code.replace(statusMarker, statusReplacement);
-
-        const progressStartMarker = "  const handleRunAutoFillNow = async () => {\n    setIsRunningAutomation(true);\n    setActionError(null);\n";
-        const progressStartReplacement = `${progressStartMarker}    setAutomationProgressStage('Starting pipeline');\n    setAutomationElapsed(0);\n`;
-        if (!code.includes(progressStartMarker)) throw new Error('Daily Challenge automation handler start marker not found');
-        code = code.replace(progressStartMarker, progressStartReplacement);
-
-        const handlerCatchMarker = "    } catch (err) {\n      setActionError(err.message || 'Automatic challenge generation failed. Admin action required.');\n";
-        const handlerCatchReplacement = `${handlerCatchMarker}      setIsRunningAutomation(false);\n`;
-        if (!code.includes(handlerCatchMarker)) throw new Error('Daily Challenge automation catch marker not found');
-        code = code.replace(handlerCatchMarker, handlerCatchReplacement);
-
-        const handlerEndMarker = "    } finally {\n      setIsRunningAutomation(false);\n    }\n  };";
-        const handlerEndReplacement = "    } finally {\n      // The API starts a background job. Polling owns the transition out of RUNNING.\n    }\n  };";
-        if (!code.includes(handlerEndMarker)) throw new Error('Daily Challenge automation handler end marker not found');
-        code = code.replace(handlerEndMarker, handlerEndReplacement);
-
-        const panelMarker = "      <div className=\"p-5 rounded-3xl bg-slate-900/80 border border-purple-500/30 space-y-4 backdrop-blur-xl\">";
-        const progressPanel = `${panelMarker}\n        {isRunningAutomation && (\n          <div className=\"rounded-2xl border border-purple-500/25 bg-purple-500/5 p-4 space-y-3\">\n            <div className=\"flex items-center justify-between gap-3\">\n              <div className=\"flex items-center gap-2\">\n                <Activity className=\"w-4 h-4 text-purple-400 animate-pulse\" />\n                <span className=\"text-xs font-bold text-white\">AI PIPELINE IN PROGRESS</span>\n              </div>\n              <span className=\"text-[10px] font-mono text-purple-300\">{Math.floor(automationElapsed / 60)}:{String(automationElapsed % 60).padStart(2, '0')}</span>\n            </div>\n            <div className=\"h-2 w-full overflow-hidden rounded-full bg-slate-800\">\n              <div className=\"h-full w-2/5 rounded-full bg-purple-500 animate-[pulse_1.4s_ease-in-out_infinite]\" />\n            </div>\n            <div className=\"flex items-center justify-between gap-3 text-[10px] font-mono\">\n              <span className=\"text-slate-300\">{automationProgressStage}</span>\n              <span className=\"text-slate-500\">Live status</span>\n            </div>\n          </div>\n        )}`;
-        if (!code.includes(panelMarker)) throw new Error('Daily Challenge automation panel marker not found');
-        code = code.replace(panelMarker, progressPanel);
-
-        return { code, map: null };
-      }
-
+      // AdminDailyChallenge.jsx already contains the final two-mode UI directly:
+      // AI Assist + Auto Fill. Do not transform this file here; the old transform
+      // depended on exact source formatting and was causing Vercel build failures.
       return null;
     }
   };
