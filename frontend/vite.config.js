@@ -45,13 +45,23 @@ function dailyChallengeAiAuthoringPlugin() {
         if (!code.includes(effectMarker)) throw new Error('Daily Challenge data effect marker not found');
         code = code.replace(effectMarker, progressEffect);
 
-        const handlerMarker = "  const handleRunAutoFillNow = async () => {";
-        const handlerStart = `  const handleRunAutoFillNow = async () => {\n    setIsRunningAutomation(true);\n    setAutomationProgressStage('Starting pipeline');\n    setAutomationElapsed(0);\n    setActionError(null);\n`;
-        if (!code.includes(handlerMarker)) throw new Error('Daily Challenge automation handler marker not found');
-        code = code.replace(handlerMarker, handlerStart);
+        const statusMarker = "        setAutomationLogs(res.data.recent_logs || []);\n";
+        const statusReplacement = `${statusMarker}        setIsRunningAutomation(res.data.settings?.last_run_status === 'running');\n`;
+        if (!code.includes(statusMarker)) throw new Error('Daily Challenge automation status marker not found');
+        code = code.replace(statusMarker, statusReplacement);
+
+        const progressStartMarker = "    setActionError(null);\n";
+        const progressStartReplacement = `${progressStartMarker}    setAutomationProgressStage('Starting pipeline');\n    setAutomationElapsed(0);\n`;
+        if (!code.includes(progressStartMarker)) throw new Error('Daily Challenge action error marker not found');
+        code = code.replace(progressStartMarker, progressStartReplacement);
+
+        const handlerCatchMarker = "    } catch (err) {\n      setActionError(err.message || 'Automatic challenge generation failed. Admin action required.');\n";
+        const handlerCatchReplacement = `${handlerCatchMarker}      setIsRunningAutomation(false);\n`;
+        if (!code.includes(handlerCatchMarker)) throw new Error('Daily Challenge automation catch marker not found');
+        code = code.replace(handlerCatchMarker, handlerCatchReplacement);
 
         const handlerEndMarker = "    } finally {\n      setIsRunningAutomation(false);\n    }\n  };";
-        const handlerEndReplacement = "    } finally {\n      // Keep the progress UI alive until the background pipeline reports its final status.\n      if (!isRunningAutomation) setIsRunningAutomation(false);\n    }\n  };";
+        const handlerEndReplacement = "    } finally {\n      // The API starts a background job. Polling owns the transition out of RUNNING.\n    }\n  };";
         if (!code.includes(handlerEndMarker)) throw new Error('Daily Challenge automation handler end marker not found');
         code = code.replace(handlerEndMarker, handlerEndReplacement);
 
