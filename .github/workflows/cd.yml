@@ -13,7 +13,7 @@ defaults:
     shell: bash
 
 # Production deployments are intentionally gated by a successful CI run on main.
-# The exact CI commit SHA is deployed to both Heroku and Vercel.
+# Backend is deployed to Heroku; Vercel deployment is handled outside GitHub Actions.
 jobs:
   deploy-backend:
     name: Deploy Backend to Heroku
@@ -55,57 +55,11 @@ jobs:
           # the app exactly matches the CI-tested GitHub commit.
           git push heroku HEAD:main --force
 
-  deploy-frontend:
-    name: Deploy Frontend to Vercel
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
-    runs-on: ubuntu-latest
-    needs: deploy-backend
-    steps:
-      - name: Checkout Tested Commit
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install Frontend Dependencies
-        working-directory: ./frontend
-        run: npm ci
-
-      - name: Build Frontend
-        working-directory: ./frontend
-        run: npm run build
-
-      - name: Verify Vercel Configuration
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN is not configured"; exit 1; }
-          test -n "$VERCEL_ORG_ID" || { echo "VERCEL_ORG_ID is not configured"; exit 1; }
-          test -n "$VERCEL_PROJECT_ID" || { echo "VERCEL_PROJECT_ID is not configured"; exit 1; }
-
-      - name: Deploy Vercel Project
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          # Run from repository root because the Vercel project Root Directory is ./frontend.
-          npx vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" --project "$VERCEL_PROJECT_ID"
-
   production-smoke:
     name: Production Smoke Tests
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
-    needs: [deploy-backend, deploy-frontend]
+    needs: deploy-backend
     steps:
       - name: Checkout Tested Commit
         uses: actions/checkout@v4
