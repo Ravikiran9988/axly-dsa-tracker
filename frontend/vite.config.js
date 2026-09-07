@@ -32,21 +32,39 @@ function dailyChallengeAiAuthoringPlugin() {
         return { code, map: null };
       }
 
-      // Keep the Admin Daily Challenge timing display aligned with the backend.
-      // 12:30 AM IST is 19:00 UTC on the previous calendar day.
+      // Keep the Admin Daily Challenge UI in IST only.
+      // Backend scheduling remains IST-aware; this transform only controls presentation.
       if (id.endsWith('/AdminDailyChallenge.jsx')) {
         code = code.replace(
           "generation_time_utc: '00:00 UTC'",
-          "generation_time_utc: '19:00 UTC (12:30 AM IST)'"
+          "generation_time_utc: '12:30 AM IST'"
+        );
+        code = code.replace(
+          "generation_time_utc: res.data.generation_time_utc || '00:00 UTC'",
+          "generation_time_utc: '12:30 AM IST'"
         );
         code = code.replace(
           '00:00 UTC &rarr; Next Day',
-          '{automationMeta.generation_time_utc} &rarr; Next Day'
+          '12:30 AM IST &rarr; Next Day'
         );
         code = code.replace(
           "Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare tomorrow's challenge ({automationMeta.next_target_date || 'Next UTC Day'})",
-          "Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare the next India-day challenge ({automationMeta.next_target_date || 'Next Day'})"
+          "Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare tomorrow's challenge ({automationMeta.next_target_date || 'Next Day'})"
         );
+        code = code.replace(
+          'Strictly one challenge per UTC calendar date.',
+          'Strictly one challenge per IST calendar date.'
+        );
+        code = code.replace(/\{nextScheduledChallenge\.scheduled_date\}/g, '{formatIstDate(nextScheduledChallenge.scheduled_date)}');
+        code = code.replace(/\{c\.scheduled_date\}/g, '{formatIstDate(c.scheduled_date)}');
+        code = code.replace(
+          "export default function AdminDailyChallenge({ onSelectProblem }) {",
+          "const formatIstDate = (value) => { if (!value) return ''; const d = new Date(value); if (Number.isNaN(d.getTime())) return String(value).replace(/T.*$/, ''); return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d); };\n\nexport default function AdminDailyChallenge({ onSelectProblem }) {"
+        );
+        code = code.replace(/ \(UTC\)/g, ' (IST)');
+        code = code.replace(/UTC calendar date/g, 'IST calendar date');
+        code = code.replace(/Next UTC Day/g, 'Next Day');
+        code = code.replace(/Tomorrow \(UTC\)/g, 'Tomorrow');
         return { code, map: null };
       }
 
