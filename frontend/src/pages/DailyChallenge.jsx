@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Calendar, CheckCircle2, Clock3, Trophy, AlertCircle, Zap, Code2, ArrowRight, Flame, RefreshCw, Award } from 'lucide-react';
 import { api } from '../services/api';
 import { Spinner, ErrorState } from '../components/ui/index.jsx';
+import { formatIstDate } from '../utils/dateUtils';
 
 export default function DailyChallenge({ onSelectProblem }) {
   const [daily, setDaily] = useState(null);
@@ -66,7 +67,7 @@ export default function DailyChallenge({ onSelectProblem }) {
 
   const solved = ['solved', 'completed', 'approved'].includes(daily.submission_status);
   const inProgress = daily.submission_status === 'attempted';
-  const displayDate = daily.date || new Date().toISOString().split('T')[0];
+  const displayDate = formatIstDate(daily.date || daily.scheduled_date);
 
   const diffStr = String(daily.difficulty || '').toLowerCase();
   const calculatedPoints = diffStr === 'hard' ? 150 : diffStr === 'medium' ? 100 : 50;
@@ -158,7 +159,7 @@ export default function DailyChallenge({ onSelectProblem }) {
             >
               <Code2 className="w-4 h-4" />
               {solved ? 'Review Solution' : inProgress ? 'Continue Solving' : 'Solve Challenge'}
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-3.5 h-3.5'" />
             </button>
           </div>
         </div>
