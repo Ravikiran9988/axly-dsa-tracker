@@ -1,10 +1,11 @@
 import React from 'react';
 import { Calendar, Code2, ArrowRight, CheckCircle2, Zap } from 'lucide-react';
+import { formatIstDate } from '../utils/dateUtils';
 
 export default function DailyQuestionCard({ dailyQuestion, dailyData, onOpenInPlatform }) {
-  const todayUtc = new Date().toISOString().split('T')[0];
   const question = dailyQuestion || dailyData?.data || dailyData;
   const solved = question?.submission_status === 'solved';
+  const displayDate = formatIstDate(question?.date || question?.scheduled_date);
 
   const diffCls = {
     easy:   'badge-easy',
@@ -48,7 +49,7 @@ export default function DailyQuestionCard({ dailyQuestion, dailyData, onOpenInPl
           </h3>
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <Calendar className="w-3.5 h-3.5" />
-            <span>{question.date || question.scheduled_date || todayUtc}</span>
+            <span>{displayDate}</span>
             <span className="mx-1">·</span>
             <span>One challenge for all students</span>
           </div>
