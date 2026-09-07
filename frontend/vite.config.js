@@ -32,9 +32,24 @@ function dailyChallengeAiAuthoringPlugin() {
         return { code, map: null };
       }
 
-      // AdminDailyChallenge.jsx already contains the final two-mode UI directly:
-      // AI Assist + Auto Fill. Do not transform this file here; the old transform
-      // depended on exact source formatting and was causing Vercel build failures.
+      // Keep the Admin Daily Challenge timing display aligned with the backend.
+      // 12:30 AM IST is 19:00 UTC on the previous calendar day.
+      if (id.endsWith('/AdminDailyChallenge.jsx')) {
+        code = code.replace(
+          "generation_time_utc: '00:00 UTC'",
+          "generation_time_utc: '19:00 UTC (12:30 AM IST)'"
+        );
+        code = code.replace(
+          '00:00 UTC &rarr; Next Day',
+          '{automationMeta.generation_time_utc} &rarr; Next Day'
+        );
+        code = code.replace(
+          "Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare tomorrow's challenge ({automationMeta.next_target_date || 'Next UTC Day'})",
+          "Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare the next India-day challenge ({automationMeta.next_target_date || 'Next Day'})"
+        );
+        return { code, map: null };
+      }
+
       return null;
     }
   };
