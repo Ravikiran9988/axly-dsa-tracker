@@ -2,30 +2,15 @@
  * Canonical calendar date utilities for Axly.
  *
  * Daily Challenge uses Asia/Kolkata (IST) as its calendar boundary.
- * UTC helpers are retained for backwards compatibility with other platform code.
+ * UTC helpers are retained explicitly for non-Daily-Challenge callers.
  */
 
-function getCanonicalUtcDate(date = new Date()) {
+function getActualUtcDate(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
   if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
-function getNextCanonicalUtcDate(date = new Date()) {
-  const d = date instanceof Date ? new Date(date.getTime()) : new Date(date);
-  if (isNaN(d.getTime())) {
-    const now = new Date();
-    now.setUTCDate(now.getUTCDate() + 1);
-    return getCanonicalUtcDate(now);
-  }
-  d.setUTCDate(d.getUTCDate() + 1);
-  return getCanonicalUtcDate(d);
-}
-
-/**
- * Returns the current calendar date in Asia/Kolkata (IST), YYYY-MM-DD.
- * This is the canonical date for Daily Challenge scheduling/publication.
- */
 function getCanonicalIstDate(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
   if (isNaN(d.getTime())) return getCanonicalIstDate(new Date());
@@ -39,16 +24,23 @@ function getCanonicalIstDate(date = new Date()) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-/**
- * Returns the next IST calendar date. DST is irrelevant because India stays at UTC+05:30.
- */
 function getNextCanonicalIstDate(date = new Date()) {
   const d = date instanceof Date ? new Date(date.getTime()) : new Date(date);
   if (isNaN(d.getTime())) return getNextCanonicalIstDate(new Date());
   const istDate = getCanonicalIstDate(d);
   const [y, m, day] = istDate.split('-').map(Number);
-  const next = new Date(Date.UTC(y, m - 1, day + 1, 0, 0, 0));
-  return getCanonicalUtcDate(next);
+  const next = new Date(Date.UTC(y, m - 1, day + 1));
+  return getActualUtcDate(next);
+}
+
+// Backwards-compatible names used by the Daily Challenge codebase.
+// These now represent the canonical IST calendar, not UTC.
+function getCanonicalUtcDate(date = new Date()) {
+  return getCanonicalIstDate(date);
+}
+
+function getNextCanonicalUtcDate(date = new Date()) {
+  return getNextCanonicalIstDate(date);
 }
 
 function isValidDateString(dateStr) {
@@ -60,14 +52,14 @@ function isValidDateString(dateStr) {
   return dateObj.getUTCFullYear() === y && dateObj.getUTCMonth() === m - 1 && dateObj.getUTCDate() === d;
 }
 
-function isFutureUtcDate(targetDateStr, baseDateStr = null) {
-  if (!isValidDateString(targetDateStr)) return false;
-  return targetDateStr > (baseDateStr || getCanonicalUtcDate());
-}
-
 function isFutureIstDate(targetDateStr, baseDateStr = null) {
   if (!isValidDateString(targetDateStr)) return false;
   return targetDateStr > (baseDateStr || getCanonicalIstDate());
+}
+
+// Legacy alias retained for existing Daily Challenge callers.
+function isFutureUtcDate(targetDateStr, baseDateStr = null) {
+  return isFutureIstDate(targetDateStr, baseDateStr);
 }
 
 function getUtcCalendarDifference(dateStr1, dateStr2) {
@@ -82,6 +74,7 @@ module.exports = {
   getNextCanonicalUtcDate,
   getCanonicalIstDate,
   getNextCanonicalIstDate,
+  getActualUtcDate,
   isValidDateString,
   isFutureUtcDate,
   isFutureIstDate,
