@@ -1,9 +1,6 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
-const {
-  getCanonicalUtcDate,
-  getNextCanonicalUtcDate
-} = require('../utils/dateUtils');
+const { getCanonicalIstDate } = require('../utils/dateUtils');
 const {
   generateDailyChallenge,
   checkDuplicateChallenge,
@@ -12,7 +9,7 @@ const {
 const { createDailyChallenge } = require('./dailyChallengeService');
 
 // 12:30 AM IST = 19:00 UTC on the previous calendar day.
-// Generation targets the next UTC calendar date, which is the current India date.
+// Daily Challenge dates are now explicitly based on Asia/Kolkata.
 const GENERATION_HOUR_UTC = 19;
 const GENERATION_MINUTE_UTC = 0;
 const SCHEDULER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -166,7 +163,7 @@ async function runAdminAutoFillNow(options = {}) {
   }
 
   const logId = `auto-log-${uuidv4().slice(0, 8)}`;
-  const targetDate = getCanonicalUtcDate();
+  const targetDate = getCanonicalIstDate();
 
   if (createdDraft) {
     await getRepo().execute(`
@@ -212,7 +209,7 @@ async function runAdminAutoFillNow(options = {}) {
 }
 
 async function runDailyScheduledAutomation() {
-  const targetDate = getNextCanonicalUtcDate();
+  const targetDate = getCanonicalIstDate();
   const settings = await getAutomationSettings();
 
   if (!settings.is_enabled || settings.mode === 'manual') {
@@ -249,7 +246,7 @@ async function runDailyScheduledAutomation() {
     generated = await generateUniqueChallenge({
       topic: 'Surprise Me',
       difficulty: 'medium',
-      instructions: `Generate the challenge for UTC date ${targetDate}. It must be fundamentally different from every existing challenge.`
+      instructions: `Generate the challenge for IST date ${targetDate}. It must be fundamentally different from every existing challenge.`
     });
   } catch (err) {
     failureReason = err.message || failureReason;
@@ -277,8 +274,8 @@ async function runDailyScheduledAutomation() {
       settings.mode,
       created.id,
       settings.mode === 'auto_fill'
-        ? `Daily Challenge generated and scheduled for ${targetDate}.`
-        : `Daily Challenge generated as a draft for ${targetDate}; admin review required.`
+        ? `Daily Challenge generated and scheduled for IST date ${targetDate}.`
+        : `Daily Challenge generated as a draft for IST date ${targetDate}; admin review required.`
     ]);
 
     await persistRunStatus('success');
@@ -332,11 +329,11 @@ async function runScheduledAutomationWithRecovery() {
   const settings = await getAutomationSettings();
   if (!settings.is_enabled || settings.mode === 'manual') return null;
 
-  // Do not generate before 12:30 AM IST (19:00 UTC). On a dyno restart after
-  // the scheduled time, the first eligible scheduler check safely catches up.
+  // 12:30 AM IST is 19:00 UTC on the previous day.
+  // The scheduler checks every 5 minutes and catches up safely after a dyno restart.
   if (!isPastGenerationTime()) return null;
 
-  const targetDate = getNextCanonicalUtcDate();
+  const targetDate = getCanonicalIstDate();
   const latestLog = await getRepo().one(`
     SELECT status, created_at
     FROM daily_challenge_automation_logs
@@ -354,7 +351,7 @@ async function runScheduledAutomationWithRecovery() {
 
   schedulerRunning = true;
   try {
-    console.log(`⏰ Running Daily Challenge automation at ${GENERATION_HOUR_UTC}:${String(GENERATION_MINUTE_UTC).padStart(2, '0')} UTC (12:30 AM IST) for target ${targetDate}.`);
+    console.log(`⏰ Running Daily Challenge automation at 12:30 AM IST (19:00 UTC) for IST date ${targetDate}.`);
     return await runDailyScheduledAutomation();
   } finally {
     schedulerRunning = false;
@@ -365,8 +362,6 @@ function startAutomationScheduler() {
   stopAutomationScheduler();
   console.log('⏰ Daily Challenge Automation Scheduler starting. Generation time: 12:30 AM IST (19:00 UTC).');
 
-  // Check frequently enough to hit the configured minute while remaining
-  // resilient to dyno restarts and brief scheduler delays.
   runScheduledAutomationWithRecovery()
     .then(result => {
       if (result) console.log(`✅ Daily Challenge scheduler startup check completed with status: ${result.status}.`);
