@@ -37,14 +37,14 @@ async function validateDuplicate(req, res, next) { try { const { title, descript
 async function updateDailyChallenge(req, res, next) { try { const { id } = req.params; return res.status(200).json({ data: await dailyChallengeService.updateDailyChallenge(id, req.body, req.user.id), message: 'Daily challenge updated successfully' }); } catch (err) { next(err); } }
 async function scheduleDailyChallenge(req, res, next) { try { const { id } = req.params; const { date } = req.body; return res.status(200).json({ data: await dailyChallengeService.scheduleDailyChallenge(id, date, req.user.id), message: 'Daily challenge scheduled successfully' }); } catch (err) { next(err); } }
 async function publishDailyChallenge(req, res, next) { try { const { id } = req.params; return res.status(200).json({ data: await dailyChallengeService.publishDailyChallenge(id, req.user.id), message: 'Daily challenge published successfully' }); } catch (err) { next(err); } }
-async function publishNowDailyChallenge(req, res, next) { try { const { id } = req.params; return res.status(200).json({ data: await dailyChallengeService.publishNowDailyChallenge(id, req.user.id), message: "Daily challenge published for today's active challenge" }); } catch (err) { next(err); } }
+async function publishNowDailyChallenge(req, res, next) { try { const { id } = req.params; return res.status(200).json({ data: await dailyChallengeService.publishNowDailyChallenge(req.params.id, req.user.id), message: "Daily challenge published for today's active challenge" }); } catch (err) { next(err); } }
 async function unpublishDailyChallenge(req, res, next) { try { const { id } = req.params; return res.status(200).json({ data: await dailyChallengeService.unpublishDailyChallenge(id, req.user.id), message: 'Daily challenge unpublished successfully' }); } catch (err) { next(err); } }
 async function archiveDailyChallenge(req, res, next) { try { return res.status(200).json(await dailyChallengeService.archiveDailyChallenge(req.params.id)); } catch (err) { next(err); } }
 async function deleteDailyChallenge(req, res, next) { try { return res.status(200).json(await dailyChallengeService.deleteDailyChallenge(req.params.id)); } catch (err) { next(err); } }
 async function getDailyChallengeTopics(req, res, next) { try { const topicService = require('../services/topicService'); return res.status(200).json({ success: true, data: await topicService.listDailyChallengeTopics() }); } catch (err) { next(err); } }
 async function recommendTopic(req, res, next) { try { const topicService = require('../services/topicService'); const { difficulty } = req.body || req.query || {}; return res.status(200).json({ success: true, data: await topicService.recommendTopicForDailyChallenge({ difficulty }) }); } catch (err) { next(err); } }
 async function createDailyChallengeFromPractice(req, res, next) { try { return res.status(201).json({ data: await dailyChallengeService.createDailyChallengeFromPractice(req.body, req.user.id), message: 'Daily challenge created from practice question' }); } catch (err) { next(err); } }
-async function getAutomationStatus(req, res, next) { try { const settings = await getAutomationSettings(); const logs = await fetchAutoLogs(10); return res.status(200).json({ success: true, data: { settings, today_utc: getCanonicalUtcDate(), next_target_date: getNextCanonicalUtcDate(), generation_time_utc: '00:00 UTC', recent_logs: logs } }); } catch (err) { next(err); } }
+async function getAutomationStatus(req, res, next) { try { const settings = await getAutomationSettings(); const logs = await fetchAutoLogs(10); return res.status(200).json({ success: true, data: { settings, today_utc: getCanonicalUtcDate(), next_target_date: getNextCanonicalUtcDate(), generation_time_utc: '19:00 UTC (12:30 AM IST)', generation_time_ist: '12:30 AM IST', recent_logs: logs } }); } catch (err) { next(err); } }
 async function updateAutomationSettings(req, res, next) { try { const { mode, is_enabled, retry_limit } = req.body; const updated = await updateAutoSettings({ mode, is_enabled: mode === 'ai_assist' || mode === 'auto_fill' ? true : is_enabled, retry_limit }); return res.status(200).json({ success: true, data: updated, message: 'Automation settings updated successfully' }); } catch (err) { next(err); } }
 async function runAutomationNow(req, res, next) {
   try {
@@ -61,8 +61,6 @@ async function runAutomationNow(req, res, next) {
     const adminId = req.user?.id || 'usr-admin-01';
     manualAutomationInFlight = true;
 
-    // Persist RUNNING immediately so the Admin Portal does not show a stale
-    // FAILED/SUCCESS result while the background pipeline is still executing.
     await getRepoForController().execute(`
       UPDATE daily_challenge_automation_settings
       SET last_run_at = ?, last_run_status = 'running', updated_at = CURRENT_TIMESTAMP
