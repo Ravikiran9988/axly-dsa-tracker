@@ -11,6 +11,13 @@ const {
 } = require('./aiDailyChallengeService');
 const { createDailyChallenge } = require('./dailyChallengeService');
 
+// 12:30 AM IST = 19:00 UTC on the previous calendar day.
+// Generation targets the next UTC calendar date, which is the current India date.
+const GENERATION_HOUR_UTC = 19;
+const GENERATION_MINUTE_UTC = 0;
+const SCHEDULER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+const FAILED_RUN_RETRY_DELAY_MS = 60 * 60 * 1000;
+
 function getRepo() {
   return getRepository();
 }
@@ -38,7 +45,7 @@ async function getAutomationSettings() {
       id: 'global-settings',
       mode: 'ai_assist',
       is_enabled: true,
-      target_hour_utc: 0,
+      target_hour_utc: GENERATION_HOUR_UTC,
       retry_limit: 3,
       last_run_at: null,
       last_run_status: null,
@@ -46,7 +53,7 @@ async function getAutomationSettings() {
     };
   }
 
-  return { ...row, is_enabled: toBooleanFlag(row.is_enabled) };
+  return { ...row, is_enabled: toBooleanFlag(row.is_enabled), target_hour_utc: GENERATION_HOUR_UTC };
 }
 
 async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
@@ -88,9 +95,6 @@ async function getAutomationLogs(limit = 20) {
 async function generateUniqueChallenge({ topic = 'Surprise Me', difficulty = 'medium', instructions = '' } = {}) {
   console.log(`[DailyChallenge] Requesting unique challenge through the five-slot LLM router (topic=${topic}, difficulty=${difficulty}).`);
 
-  // Reuse the canonical Daily Challenge generator so the same five-slot LLM
-  // fallback chain and curated uniqueness fallback are used everywhere.
-  // Sandbox execution is explicitly disabled for automation generation.
   const result = await generateDailyChallenge({
     topic,
     difficulty,
@@ -113,8 +117,6 @@ async function generateUniqueChallenge({ topic = 'Surprise Me', difficulty = 'me
     sandbox_verified: false
   };
 
-  // Defense-in-depth: generateDailyChallenge already checks uniqueness, but
-  // repeat the check immediately before persistence to protect against races.
   const duplicate = await checkDuplicateChallenge(candidate);
   if (duplicate.isDuplicate) {
     const error = new Error(duplicate.reason || 'Duplicate challenge candidate');
@@ -314,8 +316,12 @@ async function runAutomationPipeline(options = {}) {
 
 let schedulerTimer = null;
 let schedulerRunning = false;
-const SCHEDULER_CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
-const FAILED_RUN_RETRY_DELAY_MS = 60 * 60 * 1000;
+
+function isPastGenerationTime(now = new Date()) {
+  const hour = now.getUTCHours();
+  const minute = now.getUTCMinutes();
+  return hour > GENERATION_HOUR_UTC || (hour === GENERATION_HOUR_UTC && minute >= GENERATION_MINUTE_UTC);
+}
 
 async function runScheduledAutomationWithRecovery() {
   if (schedulerRunning) {
@@ -326,11 +332,15 @@ async function runScheduledAutomationWithRecovery() {
   const settings = await getAutomationSettings();
   if (!settings.is_enabled || settings.mode === 'manual') return null;
 
+  // Do not generate before 12:30 AM IST (19:00 UTC). On a dyno restart after
+  // the scheduled time, the first eligible scheduler check safely catches up.
+  if (!isPastGenerationTime()) return null;
+
   const targetDate = getNextCanonicalUtcDate();
   const latestLog = await getRepo().one(`
     SELECT status, created_at
     FROM daily_challenge_automation_logs
-    WHERE target_date = ? AND mode = 'scheduled_automation'
+    WHERE target_date = ? AND mode IN ('scheduled_automation', 'ai_assist', 'auto_fill')
     ORDER BY created_at DESC
     LIMIT 1
   `, [targetDate]);
@@ -344,7 +354,7 @@ async function runScheduledAutomationWithRecovery() {
 
   schedulerRunning = true;
   try {
-    console.log(`⏰ Running Daily Challenge automation for target ${targetDate}.`);
+    console.log(`⏰ Running Daily Challenge automation at ${GENERATION_HOUR_UTC}:${String(GENERATION_MINUTE_UTC).padStart(2, '0')} UTC (12:30 AM IST) for target ${targetDate}.`);
     return await runDailyScheduledAutomation();
   } finally {
     schedulerRunning = false;
@@ -353,12 +363,14 @@ async function runScheduledAutomationWithRecovery() {
 
 function startAutomationScheduler() {
   stopAutomationScheduler();
-  console.log('⏰ Daily Challenge Automation Scheduler starting with resilient 3-hour checks.');
+  console.log('⏰ Daily Challenge Automation Scheduler starting. Generation time: 12:30 AM IST (19:00 UTC).');
 
+  // Check frequently enough to hit the configured minute while remaining
+  // resilient to dyno restarts and brief scheduler delays.
   runScheduledAutomationWithRecovery()
     .then(result => {
       if (result) console.log(`✅ Daily Challenge scheduler startup check completed with status: ${result.status}.`);
-      else console.log('ℹ️ Daily Challenge scheduler startup check: no work required.');
+      else console.log('ℹ️ Daily Challenge scheduler startup check: waiting for 12:30 AM IST or no work required.');
     })
     .catch(err => console.error('❌ Daily Challenge scheduler startup check failed:', err.message));
 
