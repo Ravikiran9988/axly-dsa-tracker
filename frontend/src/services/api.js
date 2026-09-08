@@ -1,3 +1,5 @@
+import { toast } from 'react-hot-toast';
+
 const API_BASE = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/$/, '');
 
 function getAuthHeader() {
@@ -7,16 +9,23 @@ function getAuthHeader() {
 
 async function request(endpoint, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
-  const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    const error = new Error(data?.error?.message || 'An unexpected error occurred');
-    error.status = response.status;
-    error.code = data?.error?.code;
-    error.details = data?.error?.details;
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = new Error(data?.error?.message || 'An unexpected error occurred');
+      error.status = response.status;
+      error.code = data?.error?.code;
+      error.details = data?.error?.details;
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    if (endpoint !== '/auth/verify') {
+      toast.error(error.message || 'Network error occurred');
+    }
     throw error;
   }
-  return data;
 }
 
 export const api = {
