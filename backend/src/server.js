@@ -38,8 +38,8 @@ async function startServer() {
     console.error('Failed to start scheduler:', err);
   }
 
-  const server = app.listen(PORT, () => {
-    console.log(`🚀 Axly DSA Tracker API running on port ${PORT}`);
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Axly DSA Tracker API running on port ${PORT} (0.0.0.0)`);
     console.log(`📡 API Version 1 mounted at /api/v1`);
   });
 
