@@ -186,7 +186,7 @@ export default function AdminSubmissionsReview() {
 
       {/* Review Modal */}
       {selectedSub && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-2xl rounded-3xl bg-theme-surface border border-theme-border shadow-2xl p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-theme-border pb-3">
               <div>

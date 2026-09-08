@@ -35,7 +35,7 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm">
       <div className="w-full max-w-lg bg-theme-surface border border-theme-border rounded-3xl p-6 shadow-2xl space-y-5">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-theme-text1">Assign Problem to Student</h2>

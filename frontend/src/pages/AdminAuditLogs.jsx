@@ -240,7 +240,7 @@ export default function AdminAuditLogs() {
 
       {/* Inspect Modal */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-theme-surface border border-theme-border rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-theme-border pb-4">
               <div className="space-y-0.5">

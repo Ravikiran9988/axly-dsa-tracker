@@ -64,9 +64,9 @@ export default function SubmissionReviewConsole() {
         <button onClick={() => openReview(item)} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shrink-0">Review Submission</button>
       </div>)}</div>}
 
-    {selected && <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    {selected && <div className="fixed inset-0 z-50 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl bg-theme-surface border border-theme-border shadow-2xl p-6 space-y-5">
-        <div className="flex items-start justify-between"><div><div className="text-[10px] uppercase tracking-widest text-indigo-400 font-bold">Submission Review</div><h2 className="text-lg font-bold text-white mt-1">{selected.question_title}</h2><p className="text-xs text-theme-text2 mt-1">{selected.user_name || selected.user_email}</p></div><button onClick={() => setSelected(null)}><X className="w-5 h-5 text-theme-text2 hover:text-white"/></button></div>
+        <div className="flex items-start justify-between"><div><div className="text-[10px] uppercase tracking-widest text-indigo-400 font-bold">Submission Review</div><h2 className="text-lg font-bold text-theme-text1 mt-1">{selected.question_title}</h2><p className="text-xs text-theme-text2 mt-1">{selected.user_name || selected.user_email}</p></div><button onClick={() => setSelected(null)}><X className="w-5 h-5 text-theme-text2 hover:text-theme-text1"/></button></div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[['Tests',`${selected.passed_tests || 0}/${selected.total_tests || 0}`],['Runtime',`${selected.execution_time_ms || 0} ms`],['AI Score',aiScore ?? selected.ai_score ?? '—'],['Final',selected.final_score ?? selected.manual_score ?? '—']].map(([a,b]) => <div key={a} className="p-3 rounded-xl bg-theme-surface border border-theme-border"><div className="text-[10px] uppercase text-theme-text3">{a}</div><div className="text-lg font-extrabold text-white mt-1">{b}</div></div>)}</div>
 

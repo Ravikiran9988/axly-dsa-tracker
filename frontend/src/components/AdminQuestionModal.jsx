@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Plus,
@@ -287,6 +287,15 @@ export default function AdminQuestionModal({
 
   const diffCfg = DIFF_CONFIG[difficulty] || DIFF_CONFIG.easy;
 
+  const [showAiGen, setShowAiGen] = useState(false);
+  const modalCardRef = useRef(null);
+
+  useEffect(() => {
+    if (modalCardRef.current) {
+      modalCardRef.current.scrollLeft = 0;
+    }
+  }, [isOpen, activeTab, showAiGen]);
+
   if (!isOpen) return null;
 
   const inputClasses =
@@ -297,57 +306,92 @@ export default function AdminQuestionModal({
     'w-full p-3 rounded-xl border border-theme-border bg-theme-surface font-mono text-xs text-cyan-500 dark:text-cyan-300 placeholder:text-theme-text3 focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/20 resize-none leading-relaxed';
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-      <div className="relative w-full max-w-4xl rounded-2xl md:rounded-3xl border border-theme-border bg-theme-bg shadow-2xl overflow-hidden flex flex-col my-4 sm:my-6 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden">
+      <div 
+        ref={modalCardRef}
+        onScroll={(e) => {
+          if (e.currentTarget.scrollLeft !== 0) {
+            e.currentTarget.scrollLeft = 0;
+          }
+        }}
+        className="relative w-full max-w-4xl max-h-[92vh] rounded-2xl md:rounded-3xl border border-theme-border bg-theme-surface shadow-2xl overflow-hidden overflow-x-hidden flex flex-col my-auto animate-in fade-in zoom-in-95 duration-200 min-w-0"
+      >
         
         {/* Header */}
-        <div className="px-5 py-4 sm:px-6 flex items-center justify-between border-b border-theme-border bg-theme-surface/80">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-cyan-500/20">
+        <div className="px-5 py-3.5 sm:px-6 flex items-center justify-between border-b border-theme-border bg-theme-surface shrink-0 min-w-0 w-full z-10 relative">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0">
               <FileCode className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-bold text-theme-text1 flex items-center gap-2">
-                {currentQuestion ? 'Edit Coding Challenge' : 'Create New Challenge'}
-                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border ${diffCfg.color} ${diffCfg.bg} ${diffCfg.border}`}>
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-theme-text1 flex items-center gap-2 truncate">
+                <span>{currentQuestion ? 'Edit Coding Challenge' : 'Create New Challenge'}</span>
+                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border shrink-0 ${diffCfg.color} ${diffCfg.bg} ${diffCfg.border}`}>
                   {diffCfg.label}
                 </span>
               </h2>
-              <p className="text-[11px] text-theme-text2">
+              <p className="text-[11px] text-theme-text2 truncate">
                 Configure problem details, test cases, and starter templates
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {!currentQuestion && (
+              <button
+                type="button"
+                onClick={() => setShowAiGen(!showAiGen)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  showAiGen
+                    ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30'
+                    : 'bg-theme-surface2 text-theme-text2 hover:text-theme-text1 border border-theme-border'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
+                <span className="hidden sm:inline">{showAiGen ? 'Hide AI Generator' : 'Generate with AI'}</span>
+                <span className="sm:hidden">AI</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* AI Quick Generator Box (for new challenges) */}
-        {!currentQuestion && (
-          <div className="mx-4 sm:mx-6 mt-4 p-4 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 dark:bg-cyan-950/20">
-            <div className="flex items-center justify-between gap-2 mb-2.5">
+        {!currentQuestion && showAiGen && (
+          <div className="mx-4 sm:mx-6 mt-3 p-3.5 rounded-2xl border border-cyan-500/25 bg-gradient-to-br from-cyan-500/5 via-theme-surface2 to-indigo-500/5 shrink-0 min-w-0 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-cyan-500" />
                 <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400">
                   AI Question Generator
                 </span>
-                <span className="text-[10px] text-theme-text3">
+                <span className="text-[10px] text-theme-text3 hidden sm:inline">
                   (Prompt topic and difficulty to auto-fill specs)
                 </span>
               </div>
-              {aiSuccess && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                  <Check className="w-3.5 h-3.5" /> Generated & Loaded!
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {aiSuccess && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    <Check className="w-3.5 h-3.5" /> Generated & Loaded!
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowAiGen(false)}
+                  className="text-theme-text3 hover:text-theme-text1 p-1 rounded-lg hover:bg-theme-surface2 transition-colors"
+                  title="Close AI Generator"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 min-w-0">
               <input
                 type="text"
                 value={aiTopic}
@@ -401,8 +445,29 @@ export default function AdminQuestionModal({
           </div>
         )}
 
+        {/* AI Generator Sleek Collapsed Hint */}
+        {!currentQuestion && !showAiGen && (
+          <div 
+            onClick={() => setShowAiGen(true)}
+            className="mx-4 sm:mx-6 mt-3 px-3.5 py-1.5 rounded-xl border border-dashed border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 cursor-pointer flex items-center justify-between shrink-0 min-w-0 transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+              <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 truncate">
+                Want AI to draft this challenge?
+              </span>
+              <span className="text-[11px] text-theme-text3 hidden sm:inline truncate">
+                — Auto-generates problem statement, constraints, starter templates & verified test cases
+              </span>
+            </div>
+            <span className="text-xs font-bold text-cyan-500 shrink-0 ml-2 hover:underline">
+              Open AI Generator &rarr;
+            </span>
+          </div>
+        )}
+
         {/* Tab Navigation */}
-        <div className="px-4 sm:px-6 flex items-center gap-2 border-b border-theme-border bg-theme-surface/50 mt-2">
+        <div className="px-4 sm:px-6 flex items-center gap-2 border-b border-theme-border bg-theme-surface shrink-0 min-w-0 w-full z-10 relative">
           {[
             { id: 'basic', label: 'Problem & Specs', icon: <FileCode className="w-3.5 h-3.5" /> },
             { id: 'starter', label: 'Starter Code', icon: <Code2 className="w-3.5 h-3.5" /> },
@@ -412,7 +477,7 @@ export default function AdminQuestionModal({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`py-3 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 ${
+              className={`py-2.5 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 ${
                 activeTab === tab.id
                   ? 'border-cyan-500 text-cyan-500'
                   : 'border-transparent text-theme-text2 hover:text-theme-text1'
@@ -427,14 +492,21 @@ export default function AdminQuestionModal({
         </div>
 
         {/* Main Form Content */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 space-y-4 max-h-[60vh]">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden min-w-0 w-full">
+          <div 
+            onScroll={(e) => {
+              if (e.currentTarget.scrollLeft !== 0) {
+                e.currentTarget.scrollLeft = 0;
+              }
+            }}
+            className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 sm:p-6 space-y-4 min-w-0 w-full"
+          >
             
             {/* Tab 1: Basic & Problem Specs */}
             {activeTab === 'basic' && (
-              <div className="space-y-4">
+              <div className="space-y-4 min-w-0 w-full">
                 {/* Title */}
-                <div>
+                <div className="min-w-0 w-full">
                   <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
                     Challenge Title <span className="text-rose-500">*</span>
                   </label>
@@ -449,8 +521,8 @@ export default function AdminQuestionModal({
                 </div>
 
                 {/* Meta Row: Difficulty, Topic, Points, Status, Est Time */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-0 w-full">
+                  <div className="min-w-0">
                     <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Difficulty</label>
                     <div className="relative">
                       <select
@@ -472,7 +544,7 @@ export default function AdminQuestionModal({
                     </div>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Topic</label>
                     <div className="relative">
                       <select
@@ -491,7 +563,7 @@ export default function AdminQuestionModal({
                     </div>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Points</label>
                     <input
                       type="number"
@@ -502,7 +574,7 @@ export default function AdminQuestionModal({
                     />
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Est. Time</label>
                     <input
                       type="text"
@@ -514,8 +586,8 @@ export default function AdminQuestionModal({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
                     <label className="text-xs font-semibold text-theme-text2">Status:</label>
                     <div className="relative inline-block">
                       <select
@@ -533,7 +605,7 @@ export default function AdminQuestionModal({
                 </div>
 
                 {/* Description */}
-                <div>
+                <div className="min-w-0 w-full">
                   <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
                     Problem Description <span className="text-rose-500">*</span>
                   </label>
@@ -548,8 +620,8 @@ export default function AdminQuestionModal({
                 </div>
 
                 {/* Input & Output format */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0 w-full">
+                  <div className="min-w-0">
                     <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
                       Input Format
                     </label>
@@ -561,7 +633,7 @@ export default function AdminQuestionModal({
                       className={textareaClasses}
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
                       Output Format
                     </label>
@@ -576,7 +648,7 @@ export default function AdminQuestionModal({
                 </div>
 
                 {/* Constraints */}
-                <div>
+                <div className="min-w-0 w-full">
                   <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
                     Constraints
                   </label>
@@ -590,7 +662,7 @@ export default function AdminQuestionModal({
                 </div>
 
                 {/* Hints */}
-                <div>
+                <div className="min-w-0 w-full">
                   <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
                     Hints <span className="font-normal opacity-60 text-theme-text3">(one per line)</span>
                   </label>
@@ -607,12 +679,12 @@ export default function AdminQuestionModal({
 
             {/* Tab 2: Starter Code */}
             {activeTab === 'starter' && (
-              <div className="space-y-4">
-                <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 text-xs text-indigo-500 dark:text-indigo-300">
+              <div className="space-y-4 min-w-0 w-full">
+                <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 text-xs text-indigo-500 dark:text-indigo-300 min-w-0">
                   <span className="font-bold">Starter Code Templates:</span> When students open this problem in the code workspace, this code is loaded as the default template. Standard stdin/stdout reading is recommended.
                 </div>
 
-                <div>
+                <div className="min-w-0 w-full">
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="flex items-center gap-2 text-xs font-semibold text-theme-text1">
                       <span className="px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-mono text-[10px] font-bold">
@@ -637,7 +709,7 @@ export default function AdminQuestionModal({
                   />
                 </div>
 
-                <div>
+                <div className="min-w-0 w-full">
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="flex items-center gap-2 text-xs font-semibold text-theme-text1">
                       <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 font-mono text-[10px] font-bold">
@@ -666,15 +738,15 @@ export default function AdminQuestionModal({
 
             {/* Tab 3: Test Cases */}
             {activeTab === 'testcases' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-theme-text2">
+              <div className="space-y-3 min-w-0 w-full">
+                <div className="flex items-center justify-between min-w-0">
+                  <p className="text-xs text-theme-text2 truncate mr-2">
                     Public test cases are displayed to students. Hidden test cases evaluate submissions.
                   </p>
                   <button
                     type="button"
                     onClick={addTest}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-cyan-500 hover:bg-cyan-400 transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-cyan-500 hover:bg-cyan-400 transition-all shadow-sm shrink-0"
                   >
                     <Plus className="w-3.5 h-3.5" /> Add Case
                   </button>
@@ -683,19 +755,19 @@ export default function AdminQuestionModal({
                 {testCases.map((tc, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-2xl border border-theme-border bg-theme-surface/70 space-y-3"
+                    className="p-4 rounded-2xl border border-theme-border bg-theme-surface/70 space-y-3 min-w-0 w-full"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-500 flex items-center justify-center text-xs font-bold font-mono">
+                    <div className="flex items-center justify-between min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-500 flex items-center justify-center text-xs font-bold font-mono shrink-0">
                           {idx + 1}
                         </span>
-                        <span className="text-xs font-semibold text-theme-text1">
+                        <span className="text-xs font-semibold text-theme-text1 truncate">
                           Test Case #{idx + 1}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 shrink-0">
                         <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-amber-500">
                           <input
                             type="checkbox"
@@ -717,8 +789,8 @@ export default function AdminQuestionModal({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0 w-full">
+                      <div className="min-w-0">
                         <label className="block text-[11px] font-semibold text-theme-text2 mb-1">
                           Input (stdin)
                         </label>
@@ -731,7 +803,7 @@ export default function AdminQuestionModal({
                           className={`${inputClasses} font-mono`}
                         />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <label className="block text-[11px] font-semibold text-emerald-500 dark:text-emerald-400 mb-1">
                           Expected Output (stdout)
                         </label>
@@ -753,17 +825,17 @@ export default function AdminQuestionModal({
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-4 sm:px-6 border-t border-theme-border bg-theme-surface/80 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${diffCfg.color} ${diffCfg.bg} ${diffCfg.border}`}>
+          <div className="px-5 py-3.5 sm:px-6 border-t border-theme-border bg-theme-surface flex items-center justify-between gap-3 shrink-0 min-w-0 w-full z-10 relative">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border shrink-0 ${diffCfg.color} ${diffCfg.bg} ${diffCfg.border}`}>
                 {diffCfg.label}
               </span>
-              <span className="text-xs text-theme-text3">
+              <span className="text-xs text-theme-text3 truncate">
                 {points} pts • {testCases.length} test case{testCases.length !== 1 ? 's' : ''}
               </span>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={onClose}

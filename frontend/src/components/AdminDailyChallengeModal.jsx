@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { api } from '../services/api';
 import {
   X,
@@ -279,8 +279,6 @@ export default function AdminDailyChallengeModal({
     }
   }, [isOpen, challengeToEdit, initialMode, topics]);
 
-  if (!isOpen) return null;
-
   // Handle AI Challenge Generation
   const handleGenerateAI = async () => {
     setAiGenerating(true);
@@ -423,15 +421,22 @@ export default function AdminDailyChallengeModal({
     setLoading(true);
 
     try {
-      if (!formData.title.trim()) throw new Error('Challenge Title is required');
-      if (!formData.description.trim()) throw new Error('Problem Description is required');
+      if (!formData.title.trim()) {
+        setActiveTab('details');
+        throw new Error('Challenge Title is required');
+      }
+      if (!formData.description.trim()) {
+        setActiveTab('content');
+        throw new Error('Problem Description is required (see Statement & Examples tab)');
+      }
 
       const targetStatus = overrideStatus || formData.status || 'draft';
       const cleanHints = formData.hints.filter(h => h && h.trim());
       const cleanTestCases = formData.test_cases.filter(tc => tc.input !== '' && tc.expected_output !== '');
 
       if (cleanTestCases.length < 2) {
-        throw new Error('At least 2 test cases (public and hidden) are required.');
+        setActiveTab('testcases');
+        throw new Error('At least 2 test cases (public and hidden) are required (see Test Cases tab).');
       }
 
       const payload = {
@@ -441,6 +446,7 @@ export default function AdminDailyChallengeModal({
         test_cases: cleanTestCases,
         topic_id: formData.topic_id && String(formData.topic_id).trim() ? formData.topic_id : undefined,
         pattern_id: formData.pattern_id && String(formData.pattern_id).trim() ? formData.pattern_id : undefined,
+        scheduled_date: formData.scheduled_date && String(formData.scheduled_date).trim() ? formData.scheduled_date.trim() : null,
         points: Number(formData.points) || 100,
         estimated_time: Number(formData.estimated_time) || 30,
         created_via: challengeToEdit ? (formData.created_via || 'manual') : (creationMode === 'ai' ? 'ai' : 'manual'),
@@ -463,21 +469,39 @@ export default function AdminDailyChallengeModal({
     }
   };
 
+  const modalCardRef = useRef(null);
+
+  useEffect(() => {
+    if (modalCardRef.current) {
+      modalCardRef.current.scrollLeft = 0;
+    }
+  }, [isOpen, creationMode, activeTab]);
+
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto overflow-x-hidden">
+      <div 
+        ref={modalCardRef}
+        onScroll={(e) => {
+          if (e.currentTarget.scrollLeft !== 0) {
+            e.currentTarget.scrollLeft = 0;
+          }
+        }}
+        className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden overflow-x-hidden animate-slide-up relative min-w-0"
+      >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface shrink-0">
+        <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface shrink-0 min-w-0 w-full">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-              {creationMode === 'ai' ? <Sparkles className="w-5 h-5" /> : <Flame className="w-5 h-5 fill-amber-400" />}
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
+              {creationMode === 'ai' ? <Sparkles className="w-5 h-5" /> : <Flame className="w-5 h-5 fill-amber-400 text-amber-500" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-theme-text1">
                   {challengeToEdit ? 'Edit Daily Challenge' : 'Create Daily Challenge'}
                 </h3>
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 font-semibold">
                   Competitive DSA
                 </span>
               </div>
@@ -490,13 +514,13 @@ export default function AdminDailyChallengeModal({
           <div className="flex items-center gap-3">
             {/* Mode Switcher (Only when creating new) */}
             {!challengeToEdit && !aiGeneratedData && (
-              <div className="flex items-center gap-1 bg-theme-surface p-1 rounded-xl border border-theme-border">
+              <div className="flex items-center gap-1 bg-theme-surface2 p-1 rounded-xl border border-theme-border">
                 <button
                   type="button"
                   onClick={() => setCreationMode('manual')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                     creationMode === 'manual'
-                      ? 'bg-theme-surface text-theme-text1 shadow-md'
+                      ? 'bg-theme-surface text-theme-text1 shadow-sm border border-theme-border'
                       : 'text-theme-text2 hover:text-theme-text1'
                   }`}
                 >
@@ -507,7 +531,7 @@ export default function AdminDailyChallengeModal({
                   onClick={() => setCreationMode('ai')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                     creationMode === 'ai'
-                      ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md shadow-purple-500/30'
+                      ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md shadow-cyan-500/25'
                       : 'text-theme-text2 hover:text-theme-text1'
                   }`}
                 >
@@ -543,17 +567,17 @@ export default function AdminDailyChallengeModal({
         {/* ============================================================ */}
         {creationMode === 'ai' && !aiGeneratedData && (
           <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-950/20 via-slate-900 to-slate-950 border border-purple-500/30 space-y-4">
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-500/5 via-theme-surface2 to-indigo-500/5 border border-cyan-500/20 dark:border-cyan-500/30 space-y-4">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
-                  <Sparkles className="w-5 h-5 text-purple-400" />
+                <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 font-bold text-sm">
+                  <Sparkles className="w-5 h-5 text-cyan-500" />
                   <span className="tracking-wide">AI Daily Challenge Generator</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2.5 py-1 rounded-full shadow-sm">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/25 px-2.5 py-1 rounded-full shadow-sm">
                     Autonomous Validation
                   </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-theme-text2 bg-theme-surface2 border border-theme-border px-2.5 py-1 rounded-full shadow-sm">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-theme-text2 bg-theme-surface border border-theme-border px-2.5 py-1 rounded-full shadow-sm">
                     Saves as Draft
                   </span>
                 </div>
@@ -570,9 +594,9 @@ export default function AdminDailyChallengeModal({
                       type="button"
                       onClick={() => handleRecommendTopic(aiConfig.difficulty)}
                       disabled={recLoading}
-                      className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-[11px] font-semibold transition-all"
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 rounded-lg text-[11px] font-semibold transition-all"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
                       {recLoading ? 'Analyzing...' : 'AI Recommend Topic'}
                     </button>
                   </div>
@@ -611,11 +635,11 @@ export default function AdminDailyChallengeModal({
                         className={`py-2 rounded-xl text-xs font-bold uppercase transition-all border ${
                           aiConfig.difficulty === d
                             ? d === 'easy'
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/30'
                               : d === 'medium'
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                              : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                            : 'bg-theme-surface border-theme-border text-theme-text2 hover:text-theme-text1'
+                              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 shadow-sm ring-1 ring-amber-500/30'
+                              : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/40 shadow-sm ring-1 ring-rose-500/30'
+                            : 'bg-theme-surface border-theme-border text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2'
                         }`}
                       >
                         {d} ({d === 'hard' ? 150 : d === 'medium' ? 100 : 50}p)
@@ -626,23 +650,23 @@ export default function AdminDailyChallengeModal({
 
                 {aiConfig.topic === 'Other' && (
                   <div className="col-span-full">
-                    <label className="block text-xs font-semibold text-amber-300 mb-1.5">Custom Topic Name *</label>
+                    <label className="block text-xs font-semibold text-amber-600 dark:text-amber-300 mb-1.5">Custom Topic Name *</label>
                     <input
                       type="text"
                       placeholder="e.g. Quantum Sorting, Trie Hashing"
                       value={aiConfig.custom_topic || ''}
                       onChange={(e) => setAiConfig(prev => ({ ...prev, custom_topic: e.target.value }))}
-                      className="input-field w-full text-xs border-amber-500/40 text-amber-200"
+                      className="input-field w-full text-xs border-amber-500/40 text-theme-text1"
                     />
                   </div>
                 )}
 
                 {recReason && (
-                  <div className="col-span-full p-2.5 rounded-xl bg-indigo-950/70 border border-indigo-500/40 text-xs text-indigo-200 flex items-start gap-2 animate-fadeIn">
-                    <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="col-span-full p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs text-theme-text1 flex items-start gap-2 animate-fadeIn">
+                    <Sparkles className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold text-amber-300">Topic Diversity Recommendation: </span>
-                      {recReason}
+                      <span className="font-bold text-cyan-600 dark:text-cyan-400">Topic Diversity Recommendation: </span>
+                      <span className="text-theme-text2">{recReason}</span>
                     </div>
                   </div>
                 )}
@@ -699,14 +723,14 @@ export default function AdminDailyChallengeModal({
 
               <div className="pt-2 flex items-center justify-between border-t border-theme-border">
                 <div className="text-[11px] text-theme-text3 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                   <span>AI content is strictly created in Draft status and never auto-published.</span>
                 </div>
                 <button
                   type="button"
                   disabled={aiGenerating}
                   onClick={handleGenerateAI}
-                  className="btn-primary inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-purple-600/30"
+                  className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-cyan-500/25 active:scale-95 transition-all text-white"
                 >
                   {aiGenerating ? (
                     <>
@@ -730,17 +754,17 @@ export default function AdminDailyChallengeModal({
         {/* ============================================================ */}
         {creationMode === 'ai' && aiGeneratedData && (
           <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
-            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Sparkles className="w-5 h-5 text-purple-400" />
+                <Sparkles className="w-5 h-5 text-cyan-500" />
                 <div>
                   <h4 className="text-sm font-bold text-theme-text1">AI Challenge Synthesized Successfully</h4>
-                  <p className="text-[11px] text-purple-300">
+                  <p className="text-[11px] text-theme-text2">
                     Review the generated problem statement, test cases, and editorial below before saving.
                   </p>
                 </div>
               </div>
-              <span className="text-xs px-2.5 py-1 rounded-full font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+              <span className="text-xs px-2.5 py-1 rounded-full font-mono bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 font-bold">
                 {aiGeneratedData.difficulty?.toUpperCase()} &middot; {aiGeneratedData.points} pts
               </span>
             </div>
@@ -841,9 +865,9 @@ export default function AdminDailyChallengeModal({
         {/* MODE 2: MANUAL AUTHORING FORM */}
         {/* ============================================================ */}
         {creationMode === 'manual' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden overflow-x-hidden min-w-0 w-full">
             {/* Sub-tabs */}
-            <div className="flex items-center gap-2 px-6 pt-3 border-b border-theme-border bg-theme-surface shrink-0">
+            <div className="flex items-center gap-2 px-6 pt-3 border-b border-theme-border bg-theme-surface shrink-0 overflow-x-auto custom-scrollbar min-w-0 w-full">
               {[
                 { id: 'details', label: 'Basic Details', icon: Sliders },
                 { id: 'content', label: 'Statement & Examples', icon: BookOpen },
@@ -854,9 +878,9 @@ export default function AdminDailyChallengeModal({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all shrink-0 ${
                     activeTab === tab.id
-                      ? 'border-amber-400 text-amber-400'
+                      ? 'border-amber-400 text-amber-500 dark:text-amber-400'
                       : 'border-transparent text-theme-text2 hover:text-theme-text1'
                   }`}
                 >
@@ -867,12 +891,12 @@ export default function AdminDailyChallengeModal({
             </div>
 
             {/* Tab Contents */}
-            <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+            <div className="p-6 space-y-5 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 min-w-0 w-full">
               {/* TAB 1: DETAILS */}
               {activeTab === 'details' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2">
+                <div className="space-y-4 min-w-0 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 w-full">
+                    <div className="sm:col-span-2 min-w-0">
                       <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Challenge Title *</label>
                       <input
                         type="text"
@@ -885,7 +909,7 @@ export default function AdminDailyChallengeModal({
                       />
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Problem Slug (Optional)</label>
                       <input
                         type="text"
@@ -897,7 +921,7 @@ export default function AdminDailyChallengeModal({
                       />
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Difficulty *</label>
                       <select
                         name="difficulty"
@@ -911,16 +935,16 @@ export default function AdminDailyChallengeModal({
                       </select>
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-xs font-semibold text-theme-text2">Primary Topic *</label>
                         <button
                           type="button"
                           onClick={() => handleRecommendTopic(formData.difficulty)}
                           disabled={recLoading}
-                          className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-lg text-[10px] font-semibold transition-all"
+                          className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-semibold transition-all"
                         >
-                          <Sparkles className="w-3 h-3 text-amber-400" />
+                          <Sparkles className="w-3 h-3 text-amber-500" />
                           {recLoading ? 'Analyzing...' : 'AI Recommend'}
                         </button>
                       </div>
@@ -953,20 +977,20 @@ export default function AdminDailyChallengeModal({
                     </div>
 
                     {formData.topic_id === 'other' && (
-                      <div className="col-span-full">
-                        <label className="block text-xs font-semibold text-amber-300 mb-1.5">Custom Topic Name *</label>
+                      <div className="col-span-full min-w-0">
+                        <label className="block text-xs font-semibold text-amber-600 dark:text-amber-300 mb-1.5">Custom Topic Name *</label>
                         <input
                           type="text"
                           name="custom_topic"
                           placeholder="e.g. Quantum Algorithms, Trie Hashing"
                           value={formData.custom_topic || ''}
                           onChange={handleFormChange}
-                          className="input-field w-full text-xs border-amber-500/40 text-amber-200"
+                          className="input-field w-full text-xs border-amber-500/40 text-theme-text1"
                         />
                       </div>
                     )}
 
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Algorithm Pattern (Optional)</label>
                       {manualAvailablePatterns.length > 0 ? (
                         <select
@@ -992,7 +1016,7 @@ export default function AdminDailyChallengeModal({
                       )}
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Competitive Points</label>
                       <input
                         type="number"
@@ -1001,11 +1025,11 @@ export default function AdminDailyChallengeModal({
                         max="500"
                         value={formData.points}
                         onChange={handleFormChange}
-                        className="input-field w-full text-xs font-mono font-bold text-amber-400"
+                        className="input-field w-full text-xs font-mono font-bold text-amber-500"
                       />
                     </div>
 
-                    <div>
+                    <div className="min-w-0">
                       <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Schedule Calendar Date (Optional)</label>
                       <input
                         type="date"
@@ -1275,13 +1299,13 @@ export default function AdminDailyChallengeModal({
             </div>
 
             {/* Footer Buttons */}
-            <div className="px-6 py-4 border-t border-theme-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-theme-surface shrink-0">
-              <div className="text-[11px] text-theme-text2 flex items-center gap-2">
-                <span>Status: <strong className="text-amber-400 capitalize">{formData.status}</strong></span>
-                {formData.scheduled_date && <span>&middot; Scheduled: <strong className="text-cyan-400 font-mono">{formData.scheduled_date}</strong></span>}
+            <div className="px-6 py-4 border-t border-theme-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-theme-surface shrink-0 min-w-0 w-full">
+              <div className="text-[11px] text-theme-text2 flex items-center gap-2 min-w-0">
+                <span>Status: <strong className="text-amber-500 capitalize">{formData.status}</strong></span>
+                {formData.scheduled_date && <span>&middot; Scheduled: <strong className="text-cyan-500 font-mono">{formData.scheduled_date}</strong></span>}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   disabled={loading}
@@ -1296,7 +1320,7 @@ export default function AdminDailyChallengeModal({
                   type="button"
                   disabled={loading}
                   onClick={() => handleSubmit(formData.scheduled_date ? 'scheduled' : 'published')}
-                  className="btn-primary text-xs inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold"
+                  className="btn-primary text-xs inline-flex items-center gap-1.5 px-5 py-2 font-bold shadow-md shadow-cyan-500/20 text-white"
                 >
                   {loading ? (
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />

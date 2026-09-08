@@ -341,7 +341,7 @@ export default function StudentProfile({ onSelectProblem }) {
 
       {/* Edit Profile Modal */}
       {isEditing && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-theme-surface border border-theme-border rounded-3xl p-6 max-w-xl w-full space-y-5 shadow-2xl animate-in fade-in">
             <div className="flex items-center justify-between border-b border-theme-border pb-3">
               <h3 className="text-base font-bold text-theme-text1">Edit Student Profile</h3>

@@ -43,7 +43,7 @@ export default function AdminScheduleDailyModal({
   }[challenge.difficulty?.toLowerCase()] || 'text-theme-text2 bg-slate-500/10';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
       <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-slide-up">
         {/* Header */}
         <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface">
