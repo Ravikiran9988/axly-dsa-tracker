@@ -56,7 +56,7 @@ export default function AdminSettings() {
         <button
           onClick={checkHealth}
           disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold border border-theme-border"
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text1 text-xs font-semibold border border-theme-border"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Check Health</span>
@@ -70,7 +70,7 @@ export default function AdminSettings() {
             <span>Backend Server</span>
             <Server className="w-4 h-4 text-cyan-400" />
           </div>
-          <div className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="text-lg font-bold text-theme-text1 flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="capitalize">{health?.status || 'Online'}</span>
           </div>
@@ -84,7 +84,7 @@ export default function AdminSettings() {
             <span>Auth & Identity</span>
             <Lock className="w-4 h-4 text-indigo-400" />
           </div>
-          <div className="text-lg font-bold text-white">
+          <div className="text-lg font-bold text-theme-text1">
             Supabase + OAuth
           </div>
           <div className="text-[10px] text-emerald-400 font-mono">
@@ -97,7 +97,7 @@ export default function AdminSettings() {
             <span>Code Execution Sandbox</span>
             <Cpu className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="text-lg font-bold text-white">
+          <div className="text-lg font-bold text-theme-text1">
             Isolated Process
           </div>
           <div className="text-[10px] text-theme-text2 font-mono">
@@ -108,7 +108,7 @@ export default function AdminSettings() {
 
       {/* Security & Rate Limit Safeguards */}
       <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
-        <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+        <h2 className="text-sm font-bold text-theme-text1 tracking-tight flex items-center gap-2">
           <Shield className="w-4 h-4 text-rose-400" />
           <span>Security & Guardrail Specifications</span>
         </h2>

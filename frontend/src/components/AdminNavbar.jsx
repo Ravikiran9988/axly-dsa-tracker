@@ -23,12 +23,12 @@ export default function AdminNavbar({
               className="flex items-center space-x-3 cursor-pointer group"
             >
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 via-indigo-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 transition-transform duration-200 group-hover:scale-105">
-                <Terminal className="w-5 h-5 text-white" />
+                <Terminal className="w-5 h-5 text-slate-50" />
               </div>
 
               <div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-base sm:text-lg font-black tracking-tight text-white font-mono">
+                  <span className="text-base sm:text-lg font-black tracking-tight text-theme-text1 font-mono">
                     AXLY DSA TRACKER
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/30">
@@ -59,7 +59,7 @@ export default function AdminNavbar({
             {onOpenAdminDailyModal && (
               <button
                 onClick={onOpenAdminDailyModal}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-850 hover:bg-theme-surface2 text-theme-text1 border border-theme-border text-xs font-semibold transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-theme-surface hover:bg-theme-surface2 text-theme-text1 border border-theme-border text-xs font-semibold transition-all"
               >
                 <Calendar className="w-3.5 h-3.5 text-amber-400" />
                 <span>Daily Challenge</span>
@@ -69,12 +69,12 @@ export default function AdminNavbar({
             {/* Notification Bell */}
             <button
               onClick={() => setActiveTab('notifications')}
-              className="relative p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
+              className="relative p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center">
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-slate-50 font-bold text-[10px] flex items-center justify-center">
                   {unreadCount}
                 </span>
               )}
@@ -88,10 +88,10 @@ export default function AdminNavbar({
                   className="flex items-center space-x-2.5 cursor-pointer group"
                 >
                   <div className="relative">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-800 to-slate-700 border border-theme-border flex items-center justify-center text-xs font-bold text-rose-300 shadow-sm group-hover:border-rose-500 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-theme-surface2 border border-theme-border flex items-center justify-center text-xs font-bold text-rose-300 shadow-sm group-hover:border-rose-500 transition-colors">
                       {(user.name || user.email || 'A').charAt(0).toUpperCase()}
                     </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#080C14] bg-rose-400" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-theme-bg bg-rose-400" />
                   </div>
                   <div className="hidden md:block text-left">
                     <p className="text-xs font-semibold text-theme-text1 leading-tight group-hover:text-rose-300 transition-colors">
@@ -131,7 +131,7 @@ export default function AdminNavbar({
             )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2"
+              className="p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -148,7 +148,7 @@ export default function AdminNavbar({
                 {(user?.name || user?.email || 'A').charAt(0).toUpperCase()}
               </div>
               <div>
-                <p className="text-xs font-medium text-white">{user?.name || user?.email}</p>
+                <p className="text-xs font-medium text-theme-text1">{user?.name || user?.email}</p>
                 <p className="text-[10px] text-theme-text2 font-mono">{user?.email}</p>
               </div>
             </div>

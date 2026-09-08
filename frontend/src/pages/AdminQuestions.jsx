@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import AdminQuestionModal from '../components/AdminQuestionModal';
+import { DifficultyBadge } from '../components/ui/index.jsx';
 import {
   Code2,
   Plus,
@@ -166,51 +167,60 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
       )}
 
       {/* Toolbar: Search & Filters */}
-      <div className="p-4 rounded-2xl bg-theme-surface border border-theme-border space-y-3">
-        <form onSubmit={handleSearchSubmit} className="flex flex-wrap items-center gap-3">
+      <div className="card p-3 flex flex-wrap items-center gap-2">
+        <form onSubmit={handleSearchSubmit} className="contents">
           {/* Search Input */}
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-text3" />
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-theme-text3 pointer-events-none" />
             <input
               type="text"
               placeholder="Search questions by title or keyword..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-theme-surface border border-theme-border text-xs text-theme-text1 focus:outline-none focus:border-cyan-500 placeholder:text-slate-600"
+              className="input-field pl-9 py-1.5 text-sm h-9"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-text3 hover:text-theme-text2"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-
-          {/* Topic Filter */}
-          <select
-            value={topicId}
-            onChange={(e) => { setTopicId(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-xs text-theme-text1 focus:outline-none focus:border-cyan-500"
-          >
-            <option value="">All Topics</option>
-            {topics.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
 
           {/* Difficulty Filter */}
           <select
             value={difficulty}
             onChange={(e) => { setDifficulty(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-xs text-theme-text1 focus:outline-none focus:border-cyan-500"
+            className="select-field h-9 text-sm"
           >
-            <option value="">All Difficulties</option>
+            <option value="">Difficulty</option>
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
+          </select>
+
+          {/* Topic Filter */}
+          <select
+            value={topicId}
+            onChange={(e) => { setTopicId(e.target.value); setPage(1); }}
+            className="select-field h-9 text-sm"
+          >
+            <option value="">Topic</option>
+            {topics.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
           </select>
 
           {/* Status Filter */}
           <select
             value={status}
             onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-            className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-xs text-theme-text1 focus:outline-none focus:border-cyan-500"
+            className="select-field h-9 text-sm"
           >
-            <option value="">All Statuses</option>
+            <option value="">Status</option>
             <option value="published">Published</option>
             <option value="draft">Draft</option>
             <option value="archived">Archived</option>
@@ -218,33 +228,35 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold"
+            className="btn-secondary btn-sm h-9"
           >
             Filter
           </button>
 
-          <button
-            type="button"
-            onClick={() => { setSearch(''); setDifficulty(''); setTopicId(''); setStatus(''); setPage(1); loadQuestions(); }}
-            className="px-3 py-2 rounded-xl border border-theme-border text-theme-text2 hover:text-white text-xs font-semibold"
-          >
-            Reset
-          </button>
+          {(search || difficulty || topicId || status) && (
+            <button
+              type="button"
+              onClick={() => { setSearch(''); setDifficulty(''); setTopicId(''); setStatus(''); setPage(1); loadQuestions(); }}
+              className="btn-ghost btn-sm flex items-center gap-1 h-9"
+            >
+              <X className="w-3.5 h-3.5" /> Reset
+            </button>
+          )}
 
           <button
             type="button"
             onClick={loadQuestions}
             disabled={loading}
-            className="p-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text2 hover:text-white ml-auto"
+            className="p-2 rounded-md text-theme-text3 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors ml-auto"
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </form>
       </div>
 
       {/* Questions Table */}
-      <div className="rounded-3xl bg-theme-surface border border-theme-border overflow-hidden shadow-xl">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="py-20 text-center text-theme-text2 space-y-3">
             <div className="w-8 h-8 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto" />
@@ -257,79 +269,79 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
             <div>No questions match the current filter criteria.</div>
             <button
               onClick={() => { setEditingQuestion(null); setIsEditModalOpen(true); }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs font-semibold"
+              className="btn-primary btn-sm inline-flex items-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5" /> Create First Question
             </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="data-table">
               <thead>
-                <tr className="border-b border-theme-border bg-theme-surface text-theme-text2 font-semibold font-mono uppercase text-[10px] tracking-wider">
-                  <th className="py-3.5 px-4">Title</th>
-                  <th className="py-3.5 px-4">Topic</th>
-                  <th className="py-3.5 px-4">Difficulty</th>
-                  <th className="py-3.5 px-4">Pattern</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                <tr>
+                  <th className="w-12 text-center">#</th>
+                  <th>Problem</th>
+                  <th className="hidden sm:table-cell">Difficulty</th>
+                  <th className="hidden md:table-cell">Topic</th>
+                  <th className="hidden lg:table-cell">Pattern</th>
+                  <th className="hidden sm:table-cell">Status</th>
+                  <th className="text-right w-36">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-theme-text2 text-xs">
-                {questions.map((q) => {
+              <tbody>
+                {questions.map((q, idx) => {
                   const topicName = topics.find(t => t.id === q.topic_id)?.name || q.topic_name || q.topic_id || '—';
                   const patternName = patterns.find(p => p.id === q.pattern_id)?.name || q.pattern_id || '—';
 
                   return (
                     <tr key={q.id} className="hover:bg-theme-surface2 transition-colors group">
-                      {/* Title */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-white group-hover:text-cyan-300 transition-colors">
-                          {q.title}
-                        </div>
-                        <div className="text-[11px] text-theme-text3 font-mono mt-0.5 flex items-center gap-2">
-                          <span>{q.id}</span>
-                          {q.is_practice ? (
-                            <span className="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-400 text-[9px] uppercase font-bold">Practice V1</span>
-                          ) : null}
-                        </div>
+                      {/* # */}
+                      <td className="text-center text-theme-text3 font-mono text-xs w-12">
+                        {(page - 1) * limit + idx + 1}
                       </td>
 
-                      {/* Topic */}
-                      <td className="py-3.5 px-4">
-                        <span className="px-2.5 py-1 rounded-lg bg-theme-surface2 border border-theme-border text-theme-text2 font-medium">
-                          {topicName}
-                        </span>
+                      {/* Title */}
+                      <td>
+                        <div
+                          onClick={() => onSelectProblem && onSelectProblem(q.id)}
+                          className="font-medium text-theme-text1 group-hover:text-cyan-500 transition-colors leading-snug cursor-pointer"
+                        >
+                          {q.title}
+                        </div>
+                        <div className="text-[10px] text-theme-text3 font-mono mt-0.5">
+                          {q.id}
+                        </div>
                       </td>
 
                       {/* Difficulty */}
-                      <td className="py-3.5 px-4">
-                        <span className={`px-2.5 py-0.5 rounded-md font-bold uppercase text-[10px] border ${difficultyColors[q.difficulty] || difficultyColors.easy}`}>
-                          {q.difficulty}
-                        </span>
+                      <td className="hidden sm:table-cell">
+                        <DifficultyBadge difficulty={q.difficulty} />
+                      </td>
+
+                      {/* Topic */}
+                      <td className="hidden md:table-cell text-theme-text2 text-xs">
+                        {topicName}
                       </td>
 
                       {/* Pattern */}
-                      <td className="py-3.5 px-4">
-                        <span className="text-theme-text2 font-mono text-[11px]">
-                          {patternName}
-                        </span>
+                      <td className="hidden lg:table-cell text-theme-text2 font-mono text-xs">
+                        {patternName}
                       </td>
 
                       {/* Status */}
-                      <td className="py-3.5 px-4">
-                        <span className={`px-2.5 py-0.5 rounded-md font-bold uppercase text-[10px] border ${statusColors[q.status] || statusColors.draft}`}>
+                      <td className="hidden sm:table-cell">
+                        <span className={`badge text-[10px] uppercase font-bold ${q.status === 'published' ? 'badge-solved' : q.status === 'draft' ? 'badge-prog' : 'badge-neutral'}`}>
                           {q.status}
                         </span>
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="inline-flex items-center gap-1">
+                      <td className="text-right">
+                        <div className="inline-flex items-center gap-1 justify-end">
                           {/* View Preview */}
                           <button
                             onClick={() => setPreviewQuestion(q)}
-                            className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-cyan-500/20 text-theme-text2 hover:text-cyan-300 transition-colors"
+                            className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-cyan-400 hover:bg-theme-surface2 transition-colors"
                             title="Preview question"
                           >
                             <Eye className="w-3.5 h-3.5" />
@@ -341,7 +353,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                               setEditingQuestion(q);
                               setIsEditModalOpen(true);
                             }}
-                            className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-indigo-500/20 text-theme-text2 hover:text-indigo-300 transition-colors"
+                            className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-indigo-400 hover:bg-theme-surface2 transition-colors"
                             title="Edit question details"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -364,7 +376,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                           {q.status !== 'archived' && (
                             <button
                               onClick={() => handleArchive(q.id)}
-                              className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-rose-500/20 text-theme-text2 hover:text-rose-400 transition-colors"
+                              className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
                               title="Archive question"
                             >
                               <Archive className="w-3.5 h-3.5" />
@@ -383,14 +395,14 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
         {/* Pagination Footer */}
         <div className="p-4 border-t border-theme-border bg-theme-surface flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-theme-text2">
           <div>
-            Showing <strong className="text-white">{questions.length}</strong> of <strong className="text-white">{total}</strong> questions
+            Showing <strong className="text-theme-text1">{questions.length}</strong> of <strong className="text-theme-text1">{total}</strong> questions
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1 || loading}
-              className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white"
+              className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 disabled:opacity-40 disabled:cursor-not-allowed text-theme-text1"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -400,7 +412,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages || loading}
-              className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white"
+              className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 disabled:opacity-40 disabled:cursor-not-allowed text-theme-text1"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -432,12 +444,12 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
           <div className="w-full max-w-2xl rounded-3xl bg-theme-surface border border-theme-border shadow-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-theme-border">
               <div>
-                <h3 className="text-base font-bold text-white">{previewQuestion.title}</h3>
+                <h3 className="text-base font-bold text-theme-text1">{previewQuestion.title}</h3>
                 <div className="text-xs text-theme-text2 font-mono mt-0.5">{previewQuestion.id} · {previewQuestion.difficulty}</div>
               </div>
               <button
                 onClick={() => setPreviewQuestion(null)}
-                className="p-1.5 rounded-xl bg-theme-surface2 text-theme-text2 hover:text-white"
+                className="p-1.5 rounded-xl bg-theme-surface2 text-theme-text2 hover:text-theme-text1"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -459,7 +471,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
               {previewQuestion.solution_approach && (
                 <div>
                   <div className="font-bold text-cyan-400 uppercase text-[10px] mb-1">Solution Approach</div>
-                  <p className="whitespace-pre-line bg-cyan-950/20 p-3 rounded-xl border border-cyan-900/30 text-cyan-200">{previewQuestion.solution_approach}</p>
+                  <p className="whitespace-pre-line bg-cyan-950/20 p-3 rounded-xl border border-cyan-900/30 text-cyan-700 dark:text-cyan-200">{previewQuestion.solution_approach}</p>
                 </div>
               )}
             </div>
@@ -467,7 +479,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
             <div className="flex justify-end pt-3 border-t border-theme-border">
               <button
                 onClick={() => setPreviewQuestion(null)}
-                className="px-4 py-2 rounded-xl bg-theme-surface2 text-white text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-theme-surface2 text-theme-text1 text-xs font-semibold"
               >
                 Close Preview
               </button>

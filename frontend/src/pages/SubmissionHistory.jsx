@@ -47,16 +47,16 @@ export default function SubmissionHistory({ onSelectProblem }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Submission History</h1>
+          <h1 className="text-xl font-bold text-theme-text1 tracking-tight">Submission History</h1>
           <p className="text-sm text-theme-text2 mt-0.5">Code editor and GitHub link submissions</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <div className="text-center">
-            <div className="text-lg font-bold text-white">{submissions.length}</div>
+            <div className="text-lg font-bold text-theme-text1">{submissions.length}</div>
             <div className="text-[10px] text-theme-text3 uppercase tracking-wider">Total</div>
           </div>
           <div className="text-center">
-            <div className="text-lg font-bold text-emerald-400">{approvedCount}</div>
+            <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{approvedCount}</div>
             <div className="text-[10px] text-theme-text3 uppercase tracking-wider">Approved</div>
           </div>
         </div>
@@ -175,7 +175,7 @@ export default function SubmissionHistory({ onSelectProblem }) {
                         </td>
                         <td className="hidden md:table-cell">
                           {score !== null ? (
-                            <span className="font-mono text-xs font-semibold text-cyan-400">
+                            <span className="font-mono text-xs font-semibold text-theme-cyan">
                               {score}/100
                             </span>
                           ) : (
@@ -186,7 +186,7 @@ export default function SubmissionHistory({ onSelectProblem }) {
                           {sub.submission_type === 'github' ? (
                             <a href={sub.github_url} target="_blank" rel="noreferrer"
                               onClick={e => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-cyan-400 hover:underline font-mono text-[11px]">
+                              className="inline-flex items-center gap-1 text-theme-cyan hover:underline font-mono text-[11px]">
                               View repo <ExternalLink className="w-3 h-3" />
                             </a>
                           ) : (
@@ -208,8 +208,8 @@ export default function SubmissionHistory({ onSelectProblem }) {
                       </tr>
                       {isExpandable && expanded === sub.id && (
                         <tr>
-                          <td colSpan={7} className={`px-4 py-3 ${isApproved ? 'bg-emerald-950/20' : 'bg-amber-950/20'}`}>
-                            <div className={`flex items-start gap-2.5 text-xs ${isApproved ? 'text-emerald-200' : 'text-amber-200'}`}>
+                          <td colSpan={7} className={`px-4 py-3 rounded-lg ${isApproved ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200' : 'bg-amber-500/10 text-amber-800 dark:text-amber-200'}`}>
+                            <div className="flex items-start gap-2.5 text-xs">
                               <MessageSquareQuote className="w-4 h-4 shrink-0 mt-0.5" />
                               <div className="space-y-1 flex-1">
                                 <div className="font-semibold">

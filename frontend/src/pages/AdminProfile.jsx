@@ -150,7 +150,7 @@ export default function AdminProfile() {
             {/* Admin Name & Role */}
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl font-black text-white tracking-tight">
+                <h1 className="text-2xl font-black text-theme-text1 tracking-tight">
                   {p.name || p.email?.split('@')[0]}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/30">
@@ -183,7 +183,7 @@ export default function AdminProfile() {
 
           <button
             onClick={() => setIsEditing(!isEditing)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-theme-surface hover:bg-slate-850 border border-theme-border text-xs font-semibold text-theme-text1 transition-colors shrink-0 shadow-md"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-theme-surface hover:bg-theme-surface2 border border-theme-border text-xs font-semibold text-theme-text1 transition-colors shrink-0 shadow-md"
           >
             {isEditing ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4 text-rose-400" />}
             <span>{isEditing ? 'Cancel Edit' : 'Edit Profile'}</span>
@@ -200,7 +200,7 @@ export default function AdminProfile() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-theme-surface border border-theme-border text-white focus:outline-none focus:border-rose-500"
+                  className="w-full px-3.5 py-2 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 focus:outline-none focus:border-rose-500"
                   placeholder="Administrator Name"
                 />
               </div>
@@ -211,7 +211,7 @@ export default function AdminProfile() {
                   type="text"
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-theme-surface border border-theme-border text-white focus:outline-none focus:border-rose-500"
+                  className="w-full px-3.5 py-2 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 focus:outline-none focus:border-rose-500"
                   placeholder="e.g. Axly Curriculum HQ"
                 />
               </div>
@@ -222,7 +222,7 @@ export default function AdminProfile() {
                   type="text"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-theme-surface border border-theme-border text-white focus:outline-none focus:border-rose-500"
+                  className="w-full px-3.5 py-2 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 focus:outline-none focus:border-rose-500"
                   placeholder="Lead Mentor & Platform Architect"
                 />
               </div>
@@ -239,7 +239,7 @@ export default function AdminProfile() {
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-theme-text1 text-xs font-bold transition-all"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>{saving ? 'Saving...' : 'Save Changes'}</span>
@@ -254,7 +254,7 @@ export default function AdminProfile() {
         {/* Admin Account Details */}
         <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+            <h2 className="text-sm font-bold text-theme-text1 tracking-tight flex items-center gap-2">
               <Shield className="w-4 h-4 text-rose-400" />
               <span>Admin Account Details</span>
             </h2>
@@ -264,7 +264,7 @@ export default function AdminProfile() {
           <div className="space-y-3 text-xs">
             <div className="flex items-center justify-between py-2 border-b border-theme-border">
               <span className="text-theme-text2">Full Name</span>
-              <span className="font-semibold text-white">{p.name || '—'}</span>
+              <span className="font-semibold text-theme-text1">{p.name || '—'}</span>
             </div>
 
             <div className="flex items-center justify-between py-2 border-b border-theme-border">
@@ -303,13 +303,13 @@ export default function AdminProfile() {
         {/* 3. Administration Overview Telemetry */}
         <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+            <h2 className="text-sm font-bold text-theme-text1 tracking-tight flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" />
               <span>Administration Overview</span>
             </h2>
             <button
               onClick={loadData}
-              className="text-xs text-theme-text2 hover:text-white"
+              className="text-xs text-theme-text2 hover:text-theme-text1"
               title="Refresh telemetry"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -319,7 +319,7 @@ export default function AdminProfile() {
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border space-y-1">
               <span className="text-[10px] font-bold text-theme-text3 uppercase font-mono">Total Students</span>
-              <div className="text-xl font-bold text-white font-mono">{students.total}</div>
+              <div className="text-xl font-bold text-theme-text1 font-mono">{students.total}</div>
               <div className="text-[10px] text-emerald-400 font-semibold">{students.active || students.total} active this month</div>
             </div>
 
@@ -353,7 +353,7 @@ export default function AdminProfile() {
       {/* 4. Admin Permissions Matrix */}
       <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+          <h2 className="text-sm font-bold text-theme-text1 tracking-tight flex items-center gap-2">
             <Lock className="w-4 h-4 text-emerald-400" />
             <span>Assigned Role Privileges & Access Guardrails</span>
           </h2>
@@ -364,7 +364,7 @@ export default function AdminProfile() {
           {permissions.map((perm, idx) => (
             <div key={idx} className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-white text-xs">{perm.name}</span>
+                <span className="font-bold text-theme-text1 text-xs">{perm.name}</span>
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
               </div>
               <p className="text-[11px] text-theme-text2 leading-snug">
@@ -378,7 +378,7 @@ export default function AdminProfile() {
       {/* 5. Recent Admin Activity Log */}
       <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+          <h2 className="text-sm font-bold text-theme-text1 tracking-tight flex items-center gap-2">
             <Clock className="w-4 h-4 text-amber-400" />
             <span>Recent Administrative Actions</span>
           </h2>
@@ -398,7 +398,7 @@ export default function AdminProfile() {
                     <span className="px-2 py-0.5 rounded font-mono font-bold uppercase text-[9px] bg-rose-500/10 text-rose-300 border border-rose-500/20">
                       {log.action}
                     </span>
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-theme-text1">
                       {log.resource_type} {log.resource_id ? `#${log.resource_id}` : ''}
                     </span>
                   </div>

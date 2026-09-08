@@ -98,10 +98,11 @@
   .badge-neutral{ @apply badge text-slate-400   bg-slate-800/80   border-transparent; }
 
   /* ─── Tab bar ─────────────────────────────────── */
-  .tab-bar { @apply flex items-center border-b border-[#1e2d45]; }
+  .tab-bar { @apply flex items-center border-b border-theme-border overflow-x-auto; scrollbar-width: none; }
+  .tab-bar::-webkit-scrollbar { display: none; }
   .tab-btn {
-    @apply px-4 py-2.5 text-xs font-semibold text-theme-text2 hover:text-theme-text1
-           border-b-2 border-transparent transition-colors -mb-px whitespace-nowrap;
+    @apply px-3 sm:px-4 py-2 text-xs font-semibold text-theme-text2 hover:text-theme-text1
+           border-b-2 border-transparent transition-colors -mb-px whitespace-nowrap shrink-0;
   }
   .tab-btn-active { @apply text-theme-cyan border-b-2 border-theme-cyan; }
 

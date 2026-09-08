@@ -60,11 +60,11 @@ export default function AdminSidebar({
       <div className="flex items-center justify-between p-4 border-b border-theme-border">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 via-indigo-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
-            <span className="font-extrabold text-white text-base tracking-wider font-mono">AX</span>
+            <span className="font-extrabold text-theme-text1 text-base tracking-wider font-mono">AX</span>
           </div>
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="font-extrabold text-white text-sm tracking-wider font-mono leading-none truncate">
+              <span className="font-extrabold text-theme-text1 text-sm tracking-wider font-mono leading-none truncate">
                 AXLY DSA
               </span>
               <span className="text-[10px] font-bold uppercase tracking-widest mt-1 text-rose-400 truncate">
@@ -76,7 +76,7 @@ export default function AdminSidebar({
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
+          className="p-1.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -123,7 +123,7 @@ export default function AdminSidebar({
                 >
                   <Icon
                     className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${
-                      active ? 'text-rose-400' : 'text-theme-text2 group-hover:text-white'
+                      active ? 'text-rose-400' : 'text-theme-text2 group-hover:text-theme-text1'
                     }`}
                   />
                   {!isCollapsed && <span className="truncate">{item.label}</span>}
@@ -156,7 +156,7 @@ export default function AdminSidebar({
                 </div>
               )}
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold text-white truncate">
+                <span className="text-xs font-semibold text-theme-text1 truncate">
                   {user?.name || user?.email?.split('@')[0]}
                 </span>
                 <span className="text-[10px] text-theme-text3 truncate font-mono">

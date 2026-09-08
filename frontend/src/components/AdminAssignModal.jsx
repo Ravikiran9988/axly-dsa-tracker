@@ -38,8 +38,8 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="w-full max-w-lg bg-theme-surface border border-theme-border rounded-3xl p-6 shadow-2xl space-y-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">Assign Problem to Student</h2>
-          <button onClick={onClose} className="p-1 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2">
+          <h2 className="text-lg font-bold text-theme-text1">Assign Problem to Student</h2>
+          <button onClick={onClose} className="p-1 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -58,7 +58,7 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
               value={userId}
               onChange={e => setUserId(e.target.value)}
               required
-              className="w-full px-3.5 py-2.5 bg-theme-surface border border-theme-border rounded-xl text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3.5 py-2.5 bg-theme-surface border border-theme-border rounded-xl text-theme-text1 focus:outline-none focus:border-cyan-500"
             >
               <option value="">Select a student...</option>
               {users.map(u => (
@@ -73,7 +73,7 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
               value={questionId}
               onChange={e => setQuestionId(e.target.value)}
               required
-              className="w-full px-3.5 py-2.5 bg-theme-surface border border-theme-border rounded-xl text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3.5 py-2.5 bg-theme-surface border border-theme-border rounded-xl text-theme-text1 focus:outline-none focus:border-cyan-500"
             >
               <option value="">Select a question...</option>
               {questions.map(q => (
@@ -88,7 +88,7 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-theme-surface border border-theme-border rounded-xl text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3.5 py-2.5 bg-theme-surface border border-theme-border rounded-xl text-theme-text1 focus:outline-none focus:border-cyan-500"
             />
           </div>
 
@@ -96,7 +96,7 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-theme-surface2 text-theme-text2 font-medium hover:bg-slate-700"
+              className="px-4 py-2 rounded-xl bg-theme-surface2 text-theme-text2 font-medium hover:bg-theme-surface2"
             >
               Cancel
             </button>

@@ -52,13 +52,13 @@ export default function AdminScheduleDailyModal({
               <Calendar className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Schedule Daily Challenge</h3>
+              <h3 className="text-sm font-bold text-theme-text1">Schedule Daily Challenge</h3>
               <p className="text-[11px] text-theme-text2">Set active challenge date for students</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
+            className="p-1.5 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -83,7 +83,7 @@ export default function AdminScheduleDailyModal({
                 {challenge.points || 100} pts
               </span>
             </div>
-            <h4 className="text-sm font-bold text-white leading-snug">
+            <h4 className="text-sm font-bold text-theme-text1 leading-snug">
               {challenge.title}
             </h4>
             <p className="text-[11px] text-theme-text2 line-clamp-2">
@@ -99,7 +99,7 @@ export default function AdminScheduleDailyModal({
               type="date"
               value={targetDate}
               onChange={e => setTargetDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 font-mono text-xs focus:outline-none focus:border-amber-400"
               required
             />
             <p className="text-[10px] text-theme-text3 mt-1">
@@ -112,7 +112,7 @@ export default function AdminScheduleDailyModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
             >
               Cancel
             </button>

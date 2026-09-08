@@ -75,7 +75,7 @@ export default function AdminProgress({ onSelectStudent }) {
         <button
           onClick={loadProgress}
           disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold border border-theme-border"
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text1 text-xs font-semibold border border-theme-border"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -97,7 +97,7 @@ export default function AdminProgress({ onSelectStudent }) {
           </div>
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold"
+            className="px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text1 text-xs font-semibold"
           >
             Search
           </button>
@@ -130,11 +130,11 @@ export default function AdminProgress({ onSelectStudent }) {
                   <th className="py-3.5 px-4">Lifetime Solved</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-theme-text2 text-xs">
+              <tbody className="divide-y divide-theme-border text-theme-text2 text-xs">
                 {progressData.map((p) => (
-                  <tr key={p.user_id} className="hover:bg-slate-850/40 transition-colors">
+                  <tr key={p.user_id} className="hover:bg-theme-surface2/40 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white">
+                      <div className="font-semibold text-theme-text1">
                         {p.name || p.email?.split('@')[0]}
                       </div>
                       <div className="text-[10px] text-theme-text2 font-mono">

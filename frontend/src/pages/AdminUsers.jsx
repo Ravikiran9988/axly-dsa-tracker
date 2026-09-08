@@ -97,7 +97,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
         <button
           onClick={loadUsers}
           disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold border border-theme-border transition-all active:scale-95"
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text1 text-xs font-semibold border border-theme-border transition-all active:scale-95"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -157,7 +157,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-theme-text2 text-xs">
+              <tbody className="divide-y divide-theme-border text-theme-text2 text-xs">
                 {users.map((u) => (
                   <tr key={u.id} className="hover:bg-theme-surface2 transition-colors">
                     {/* Student Name + Avatar */}
@@ -175,7 +175,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
                           </div>
                         )}
                         <div>
-                          <div className="font-bold text-white">
+                          <div className="font-bold text-theme-text1">
                             {u.name || u.email?.split('@')[0]}
                           </div>
                         </div>
@@ -234,7 +234,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
                       <div className="inline-flex items-center gap-1.5">
                         <button
                           onClick={() => handleOpenStudentDetails(u)}
-                          className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-slate-700 text-cyan-400 transition-colors"
+                          className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 text-cyan-400 transition-colors"
                           title="View student profile details"
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -242,7 +242,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
 
                         <button
                           onClick={() => onOpenAssignModal && onOpenAssignModal(u)}
-                          className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-slate-700 text-indigo-400 transition-colors"
+                          className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 text-indigo-400 transition-colors"
                           title="Assign targeted problem"
                         >
                           <Send className="w-3.5 h-3.5" />
@@ -250,7 +250,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
 
                         <button
                           onClick={() => handleToggleRole(u)}
-                          className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-slate-700 text-theme-text2 hover:text-white transition-colors"
+                          className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 text-theme-text2 hover:text-theme-text1 transition-colors"
                           title="Toggle role permissions"
                         >
                           <Shield className="w-3.5 h-3.5" />
@@ -275,11 +275,11 @@ export default function AdminUsers({ onOpenAssignModal }) {
                   {(selectedStudent.name || selectedStudent.email || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">{selectedStudent.name || selectedStudent.email}</h3>
+                  <h3 className="text-base font-bold text-theme-text1">{selectedStudent.name || selectedStudent.email}</h3>
                   <p className="text-xs text-theme-text2 font-mono">{selectedStudent.email} • Role: {selectedStudent.role}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedStudent(null)} className="p-1.5 rounded-xl bg-theme-surface2 text-theme-text2 hover:text-white">
+              <button onClick={() => setSelectedStudent(null)} className="p-1.5 rounded-xl bg-theme-surface2 text-theme-text2 hover:text-theme-text1">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -290,7 +290,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
               <div className="space-y-4 text-xs">
                 <div className="grid grid-cols-3 gap-3">
                   <div className="p-3 rounded-xl bg-theme-surface border border-theme-border text-center">
-                    <div className="text-lg font-bold text-white">{studentDetails.assignments?.length || 0}</div>
+                    <div className="text-lg font-bold text-theme-text1">{studentDetails.assignments?.length || 0}</div>
                     <div className="text-[10px] text-theme-text2 uppercase">Assigned Tasks</div>
                   </div>
                   <div className="p-3 rounded-xl bg-theme-surface border border-theme-border text-center">
@@ -309,13 +309,13 @@ export default function AdminUsers({ onOpenAssignModal }) {
 
                 {/* Assigned Challenges List */}
                 <div className="space-y-2">
-                  <h4 className="font-bold text-white text-xs uppercase tracking-wider">Assigned Challenges</h4>
+                  <h4 className="font-bold text-theme-text1 text-xs uppercase tracking-wider">Assigned Challenges</h4>
                   {studentDetails.assignments && studentDetails.assignments.length > 0 ? (
                     <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1.5">
                       {studentDetails.assignments.map(a => (
                         <div key={a.id} className="p-2.5 rounded-xl bg-theme-surface border border-theme-border flex items-center justify-between text-xs">
                           <div>
-                            <span className="font-semibold text-white">{a.question_title}</span>
+                            <span className="font-semibold text-theme-text1">{a.question_title}</span>
                             <span className="ml-2 text-[10px] text-theme-text2">Due: {a.due_date || 'No deadline'}</span>
                           </div>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${

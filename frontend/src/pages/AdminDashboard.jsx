@@ -87,7 +87,7 @@ export default function AdminDashboard({
             <ShieldCheck className="w-4 h-4" />
             <span>Platform Operations & Administration</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-theme-text1 tracking-tight">
             Admin Dashboard
           </h1>
           <p className="text-xs text-theme-text2">
@@ -106,7 +106,7 @@ export default function AdminDashboard({
 
           <button
             onClick={onOpenDailyModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 border border-theme-border text-xs font-semibold transition-all active:scale-[0.98]"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text1 border border-theme-border text-xs font-semibold transition-all active:scale-[0.98]"
           >
             <Calendar className="w-4 h-4 text-amber-400" />
             <span>Create Daily Challenge</span>
@@ -115,7 +115,7 @@ export default function AdminDashboard({
           <button
             onClick={loadStats}
             disabled={loading}
-            className="p-2.5 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text2 hover:text-white border border-theme-border transition-colors"
+            className="p-2.5 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text2 hover:text-theme-text1 border border-theme-border transition-colors"
             title="Refresh dashboard metrics"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -141,7 +141,7 @@ export default function AdminDashboard({
             <span>Students</span>
             <Users className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="text-2xl sm:text-3xl font-black text-theme-text1 tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (students.total ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-theme-text2 font-mono">
@@ -158,7 +158,7 @@ export default function AdminDashboard({
             <span>Practice Questions</span>
             <Code2 className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="text-2xl sm:text-3xl font-black text-theme-text1 tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (questions.total ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-theme-text2 font-mono">
@@ -192,7 +192,7 @@ export default function AdminDashboard({
             <span>Questions Assigned</span>
             <Target className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="text-2xl sm:text-3xl font-black text-theme-text1 tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (assignments.active || assignments.total || 0) : '—')}
           </div>
           <div className="text-[11px] text-theme-text2 font-mono">
@@ -209,7 +209,7 @@ export default function AdminDashboard({
             <span>Completion Rate</span>
             <TrendingUp className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="text-2xl sm:text-3xl font-black text-theme-text1 tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? `${assignments.completion_rate || submissions.accuracy_rate || 0}%` : '—')}
           </div>
           <div className="text-[11px] text-theme-text2 font-mono">
@@ -226,7 +226,7 @@ export default function AdminDashboard({
             <span>Pending Reviews</span>
             <GitPullRequest className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="text-2xl sm:text-3xl font-black text-theme-text1 tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (pendingReviews ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-purple-400 font-semibold">
@@ -243,7 +243,7 @@ export default function AdminDashboard({
             <span>Active Cohorts</span>
             <Radio className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="text-2xl sm:text-3xl font-black text-theme-text1 tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (cohorts.active ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-theme-text2 font-mono">
@@ -260,7 +260,7 @@ export default function AdminDashboard({
             <span>Submissions</span>
             <History className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <div className="text-2xl sm:text-3xl font-black text-theme-text1 tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (submissions.total ?? 0) : '—')}
           </div>
           <div className="text-[11px] text-theme-text2 font-mono">
@@ -278,60 +278,60 @@ export default function AdminDashboard({
           {/* Add Question */}
           <button
             onClick={onOpenCreateModal}
-            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-rose-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-theme-surface2 border border-theme-border hover:border-rose-500/30 text-left transition-all group"
           >
             <Plus className="w-4 h-4 text-rose-400 mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-bold text-white">Add Question</div>
+            <div className="text-xs font-bold text-theme-text1">Add Question</div>
             <div className="text-[10px] text-theme-text3">Create new challenge</div>
           </button>
 
           {/* Manage Questions */}
           <button
             onClick={() => onNavigate && onNavigate('admin-challenges')}
-            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-indigo-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-theme-surface2 border border-theme-border hover:border-indigo-500/30 text-left transition-all group"
           >
             <Code2 className="w-4 h-4 text-indigo-400 mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-bold text-white">Manage Questions</div>
+            <div className="text-xs font-bold text-theme-text1">Manage Questions</div>
             <div className="text-[10px] text-theme-text3">Curate test cases</div>
           </button>
 
           {/* Create Daily Challenge */}
           <button
             onClick={onOpenDailyModal}
-            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-amber-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-theme-surface2 border border-theme-border hover:border-amber-500/30 text-left transition-all group"
           >
             <Calendar className="w-4 h-4 text-amber-400 mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-bold text-white">Daily Challenge</div>
+            <div className="text-xs font-bold text-theme-text1">Daily Challenge</div>
             <div className="text-[10px] text-theme-text3">Schedule featured problem</div>
           </button>
 
           {/* Assign Questions */}
           <button
             onClick={onOpenAssignModal}
-            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-cyan-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-theme-surface2 border border-theme-border hover:border-cyan-500/30 text-left transition-all group"
           >
             <Target className="w-4 h-4 text-cyan-400 mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-bold text-white">Assign Questions</div>
+            <div className="text-xs font-bold text-theme-text1">Assign Questions</div>
             <div className="text-[10px] text-theme-text3">Targeted student tasks</div>
           </button>
 
           {/* Manage Cohorts */}
           <button
             onClick={() => onNavigate && onNavigate('admin-cohorts')}
-            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-purple-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-theme-surface2 border border-theme-border hover:border-purple-500/30 text-left transition-all group"
           >
             <Radio className="w-4 h-4 text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-bold text-white">Manage Cohorts</div>
+            <div className="text-xs font-bold text-theme-text1">Manage Cohorts</div>
             <div className="text-[10px] text-theme-text3">Batches & live meets</div>
           </button>
 
           {/* Review Submissions */}
           <button
             onClick={() => onNavigate && onNavigate('admin-reviews')}
-            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-emerald-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-theme-surface2 border border-theme-border hover:border-emerald-500/30 text-left transition-all group"
           >
             <GitPullRequest className="w-4 h-4 text-emerald-400 mb-2 group-hover:scale-110 transition-transform" />
-            <div className="text-xs font-bold text-white">Review Solutions</div>
+            <div className="text-xs font-bold text-theme-text1">Review Solutions</div>
             <div className="text-[10px] text-theme-text3">Manual review & AI check</div>
           </button>
         </div>
@@ -344,7 +344,7 @@ export default function AdminDashboard({
           <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                <h2 className="text-sm font-bold text-theme-text1 tracking-tight flex items-center gap-2">
                   <Activity className="w-4 h-4 text-cyan-400" />
                   <span>Recent Student Activity</span>
                 </h2>
@@ -381,11 +381,11 @@ export default function AdminDashboard({
                       <th className="py-2.5 px-3 text-right">Time</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/50 text-theme-text2 text-xs">
+                  <tbody className="divide-y divide-theme-border text-theme-text2 text-xs">
                     {recentActivity.map((sub) => (
                       <tr key={sub.id} className="hover:bg-theme-surface2 transition-colors">
                         <td className="py-3 px-3">
-                          <div className="font-semibold text-white">
+                          <div className="font-semibold text-theme-text1">
                             {sub.user_name || sub.user_email?.split('@')[0]}
                           </div>
                           <div className="text-[10px] text-theme-text2 font-mono">
@@ -426,7 +426,7 @@ export default function AdminDashboard({
         <div className="lg:col-span-4 space-y-4">
           <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+              <h2 className="text-sm font-bold text-theme-text1 tracking-tight flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-amber-400" />
                 <span>Today's Daily Challenge</span>
               </h2>
@@ -440,7 +440,7 @@ export default function AdminDashboard({
                     <span className={`inline-block px-2 py-0.5 rounded-md font-bold uppercase text-[9px] border ${difficultyColors[todayChallenge.difficulty?.toLowerCase()] || ''}`}>
                       {todayChallenge.difficulty}
                     </span>
-                    <h3 className="text-sm font-bold text-white leading-snug">
+                    <h3 className="text-sm font-bold text-theme-text1 leading-snug">
                       {todayChallenge.title}
                     </h3>
                   </div>
@@ -458,14 +458,14 @@ export default function AdminDashboard({
                 <div className="pt-2 flex items-center gap-2 border-t border-theme-border">
                   <button
                     onClick={() => (onNavigate ? onNavigate('admin-daily') : onOpenDailyModal && onOpenDailyModal())}
-                    className="flex-1 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold transition-colors"
+                    className="flex-1 py-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text1 text-xs font-semibold transition-colors"
                   >
                     Manage Daily Challenge
                   </button>
                   {onSelectProblem && (todayChallenge.question_id || todayChallenge.id) && (
                     <button
                       onClick={() => onSelectProblem(todayChallenge.question_id || todayChallenge.id)}
-                      className="p-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-cyan-400"
+                      className="p-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-cyan-400"
                       title="Preview problem"
                     >
                       <ExternalLink className="w-4 h-4" />
@@ -479,7 +479,7 @@ export default function AdminDashboard({
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-white">No Challenge Set For Today</h4>
+                  <h4 className="text-xs font-bold text-theme-text1">No Challenge Set For Today</h4>
                   <p className="text-[11px] text-theme-text2">Set today's challenge for learners.</p>
                 </div>
                 <button
@@ -494,7 +494,7 @@ export default function AdminDashboard({
 
           {/* Questions by Difficulty */}
           <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-3">
-            <h3 className="text-xs font-bold text-white tracking-tight flex items-center gap-2">
+            <h3 className="text-xs font-bold text-theme-text1 tracking-tight flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-cyan-400" />
               <span>Questions Distribution</span>
             </h3>

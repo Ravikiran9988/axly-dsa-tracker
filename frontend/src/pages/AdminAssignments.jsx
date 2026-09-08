@@ -155,7 +155,7 @@ export default function AdminAssignments({ onOpenAssignModal, onSelectProblem })
         <button
           onClick={loadAssignments}
           disabled={loading}
-          className="p-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text2 hover:text-white border border-theme-border"
+          className="p-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text2 hover:text-theme-text1 border border-theme-border"
           title="Refresh"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -193,12 +193,12 @@ export default function AdminAssignments({ onOpenAssignModal, onSelectProblem })
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-theme-text2 text-xs">
+              <tbody className="divide-y divide-theme-border text-theme-text2 text-xs">
                 {filteredAssignments.map((asgn) => (
-                  <tr key={asgn.id} className="hover:bg-slate-850/40 transition-colors">
+                  <tr key={asgn.id} className="hover:bg-theme-surface2/40 transition-colors">
                     {/* Learner */}
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white">
+                      <div className="font-semibold text-theme-text1">
                         {asgn.user_name || asgn.user_email?.split('@')[0]}
                       </div>
                       <div className="text-[10px] text-theme-text2 font-mono">
@@ -248,7 +248,7 @@ export default function AdminAssignments({ onOpenAssignModal, onSelectProblem })
                         {onSelectProblem && asgn.question_id && (
                           <button
                             onClick={() => onSelectProblem(asgn.question_id)}
-                            className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-slate-700 text-theme-text2 hover:text-white"
+                            className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 text-theme-text2 hover:text-theme-text1"
                             title="Preview question"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />

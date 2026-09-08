@@ -95,7 +95,7 @@ export default function AdminSubmissions({ onSelectProblem }) {
         <button
           onClick={loadSubmissions}
           disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold border border-theme-border"
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text1 text-xs font-semibold border border-theme-border"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -117,7 +117,7 @@ export default function AdminSubmissions({ onSelectProblem }) {
           </div>
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold"
+            className="px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface2 text-theme-text1 text-xs font-semibold"
           >
             Search
           </button>
@@ -164,12 +164,12 @@ export default function AdminSubmissions({ onSelectProblem }) {
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-theme-text2 text-xs">
+              <tbody className="divide-y divide-theme-border text-theme-text2 text-xs">
                 {submissions.map((sub) => (
-                  <tr key={sub.id} className="hover:bg-slate-850/40 transition-colors">
+                  <tr key={sub.id} className="hover:bg-theme-surface2/40 transition-colors">
                     {/* Student */}
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white">
+                      <div className="font-semibold text-theme-text1">
                         {sub.user_name || sub.user_email?.split('@')[0]}
                       </div>
                       <div className="text-[10px] text-theme-text2 font-mono">
@@ -217,7 +217,7 @@ export default function AdminSubmissions({ onSelectProblem }) {
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       <button
                         onClick={() => setSelectedSubmission(sub)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-theme-surface2 hover:bg-slate-700 text-rose-400 text-xs font-semibold"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 text-rose-400 text-xs font-semibold"
                       >
                         <Eye className="w-3 h-3" />
                         <span>Inspect</span>
@@ -259,13 +259,13 @@ export default function AdminSubmissions({ onSelectProblem }) {
             <div className="flex items-center justify-between border-b border-theme-border pb-3">
               <div>
                 <div className="text-[10px] text-rose-400 font-mono uppercase font-bold">Submission Inspector</div>
-                <h3 className="text-sm font-bold text-white">
+                <h3 className="text-sm font-bold text-theme-text1">
                   {selectedSubmission.question_title} &bull; {selectedSubmission.user_name || selectedSubmission.user_email}
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedSubmission(null)}
-                className="p-1 rounded-lg bg-theme-surface2 text-theme-text2 hover:text-white"
+                className="p-1 rounded-lg bg-theme-surface2 text-theme-text2 hover:text-theme-text1"
               >
                 ✕
               </button>
@@ -274,7 +274,7 @@ export default function AdminSubmissions({ onSelectProblem }) {
             <div className="grid grid-cols-3 gap-3 text-xs font-mono">
               <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
                 <span className="text-theme-text3 block text-[10px]">STATUS:</span>
-                <span className="text-white font-bold uppercase">{selectedSubmission.status}</span>
+                <span className="text-theme-text1 font-bold uppercase">{selectedSubmission.status}</span>
               </div>
               <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
                 <span className="text-theme-text3 block text-[10px]">FINAL SCORE:</span>
@@ -289,7 +289,7 @@ export default function AdminSubmissions({ onSelectProblem }) {
             {selectedSubmission.source_code && (
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-theme-text2 uppercase font-mono">Submitted Source Code:</span>
-                <pre className="p-4 rounded-xl bg-theme-surface border border-theme-border text-cyan-200 font-mono text-xs max-h-56 overflow-y-auto">
+                <pre className="p-4 rounded-xl bg-theme-surface border border-theme-border text-cyan-700 dark:text-cyan-200 font-mono text-xs max-h-56 overflow-y-auto">
                   {selectedSubmission.source_code}
                 </pre>
               </div>
@@ -305,7 +305,7 @@ export default function AdminSubmissions({ onSelectProblem }) {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setSelectedSubmission(null)}
-                className="px-4 py-2 rounded-xl bg-theme-surface2 text-white text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-theme-surface2 text-theme-text1 text-xs font-semibold"
               >
                 Close Inspector
               </button>

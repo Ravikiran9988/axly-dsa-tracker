@@ -131,7 +131,7 @@ export default function AdminCreateFromPracticeModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
+            className="p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -166,7 +166,7 @@ export default function AdminCreateFromPracticeModal({
                   placeholder="Search practice library by title or topic..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-xs text-theme-text1 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -203,7 +203,7 @@ export default function AdminCreateFromPracticeModal({
                       }`}
                     >
                       <div className="min-w-0 pr-3">
-                        <div className="text-xs font-bold text-white truncate flex items-center gap-2">
+                        <div className="text-xs font-bold text-theme-text1 truncate flex items-center gap-2">
                           <span>{q.title}</span>
                           <span className={`px-2 py-0.5 rounded uppercase text-[9px] font-bold border ${diffCls[q.difficulty?.toLowerCase()] || ''}`}>
                             {q.difficulty}
@@ -250,7 +250,7 @@ export default function AdminCreateFromPracticeModal({
                   value={customTitle}
                   onChange={e => setCustomTitle(e.target.value)}
                   placeholder="Challenge title..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white text-xs focus:outline-none focus:border-amber-400"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 text-xs focus:outline-none focus:border-amber-400"
                   required
                 />
               </div>
@@ -277,7 +277,7 @@ export default function AdminCreateFromPracticeModal({
                     type="date"
                     value={scheduledDate}
                     onChange={e => setScheduledDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 font-mono text-xs focus:outline-none focus:border-amber-400"
                   />
                 </div>
 
@@ -289,7 +289,7 @@ export default function AdminCreateFromPracticeModal({
                     value={status}
                     onChange={e => setStatus(e.target.value)}
                     disabled={Boolean(scheduledDate)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50"
                   >
                     <option value="draft">Draft (Private)</option>
                     <option value="published">Published</option>
@@ -311,7 +311,7 @@ export default function AdminCreateFromPracticeModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
             >
               Cancel
             </button>

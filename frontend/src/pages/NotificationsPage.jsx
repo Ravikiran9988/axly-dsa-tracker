@@ -210,7 +210,7 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
             <button
               onClick={handleMarkAllRead}
               disabled={markingAll}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-white text-xs font-semibold border border-theme-border shadow-md transition-all active:scale-95 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface3 text-theme-text1 text-xs font-semibold border border-theme-border shadow-md transition-all active:scale-95 disabled:opacity-50"
             >
               <ShieldCheck className="w-4 h-4 text-cyan-400" />
               <span>{markingAll ? 'Marking...' : 'Mark All as Read'}</span>
@@ -219,7 +219,7 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
 
           <button
             onClick={loadNotifications}
-            className="p-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text2 hover:text-white border border-theme-border transition-colors"
+            className="p-2 rounded-xl bg-theme-surface2 hover:bg-theme-surface3 text-theme-text2 hover:text-white border border-theme-border transition-colors"
             title="Refresh notifications"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
@@ -241,7 +241,7 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 isActive
                   ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950/50'
-                  : 'text-theme-text2 hover:text-white hover:bg-theme-surface2'
+                  : 'text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2'
               }`}
             >
               <TabIcon className="w-3.5 h-3.5" />

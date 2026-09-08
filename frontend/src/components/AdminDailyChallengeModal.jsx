@@ -474,7 +474,7 @@ export default function AdminDailyChallengeModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-theme-text1">
                   {challengeToEdit ? 'Edit Daily Challenge' : 'Create Daily Challenge'}
                 </h3>
                 <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
@@ -496,8 +496,8 @@ export default function AdminDailyChallengeModal({
                   onClick={() => setCreationMode('manual')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                     creationMode === 'manual'
-                      ? 'bg-slate-700 text-white shadow-md'
-                      : 'text-theme-text2 hover:text-white'
+                      ? 'bg-theme-surface text-theme-text1 shadow-md'
+                      : 'text-theme-text2 hover:text-theme-text1'
                   }`}
                 >
                   <Edit3 className="w-4 h-4" /> Manual
@@ -508,7 +508,7 @@ export default function AdminDailyChallengeModal({
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                     creationMode === 'ai'
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md shadow-purple-500/30'
-                      : 'text-theme-text2 hover:text-white'
+                      : 'text-theme-text2 hover:text-theme-text1'
                   }`}
                 >
                   <Sparkles className="w-4 h-4" /> Generate with AI
@@ -518,7 +518,7 @@ export default function AdminDailyChallengeModal({
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
+              className="p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -615,7 +615,7 @@ export default function AdminDailyChallengeModal({
                               : d === 'medium'
                               ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                               : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                            : 'bg-theme-surface border-theme-border text-theme-text2 hover:text-white'
+                            : 'bg-theme-surface border-theme-border text-theme-text2 hover:text-theme-text1'
                         }`}
                       >
                         {d} ({d === 'hard' ? 150 : d === 'medium' ? 100 : 50}p)
@@ -734,7 +734,7 @@ export default function AdminDailyChallengeModal({
               <div className="flex items-center gap-2.5">
                 <Sparkles className="w-5 h-5 text-purple-400" />
                 <div>
-                  <h4 className="text-sm font-bold text-white">AI Challenge Synthesized Successfully</h4>
+                  <h4 className="text-sm font-bold text-theme-text1">AI Challenge Synthesized Successfully</h4>
                   <p className="text-[11px] text-purple-300">
                     Review the generated problem statement, test cases, and editorial below before saving.
                   </p>
@@ -749,7 +749,7 @@ export default function AdminDailyChallengeModal({
             <div className="p-5 rounded-2xl bg-theme-surface border border-theme-border space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-theme-border">
                 <div>
-                  <h3 className="text-lg font-bold text-white">{aiGeneratedData.title}</h3>
+                  <h3 className="text-lg font-bold text-theme-text1">{aiGeneratedData.title}</h3>
                   <div className="flex items-center gap-2 mt-1 text-xs text-theme-text2 font-mono">
                     <span>Topic: <strong className="text-cyan-400">{aiGeneratedData.topic}</strong></span>
                     {aiGeneratedData.pattern && <span>&middot; Pattern: <strong className="text-amber-400">{aiGeneratedData.pattern}</strong></span>}
