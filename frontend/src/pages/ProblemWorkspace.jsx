@@ -257,7 +257,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   return (
     <div className="flex flex-col bg-theme-bg" style={{ height: 'calc(100vh - 56px)' }}>
       {/* Top header */}
-      <div className="h-12 border-b border-theme-border bg-theme-bg px-4 flex items-center gap-3 shrink-0">
+      <div className="min-h-[48px] py-2 border-b border-theme-border bg-theme-bg px-4 flex flex-wrap items-center gap-3 shrink-0">
         <button onClick={onBack} className="btn-ghost btn-sm inline-flex items-center gap-1.5 shrink-0">
           <ArrowLeft className="w-3.5 h-3.5" /> Practice
         </button>
@@ -364,7 +364,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
       {/* Main workspace */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Left: Problem */}
-        <div className="lg:col-span-5 border-r border-theme-border flex flex-col overflow-hidden">
+        <div className="lg:col-span-5 border-r border-theme-border flex flex-col overflow-hidden min-w-0">
           <div className="tab-bar px-2 sm:px-3 shrink-0">
             <button
               onClick={() => setLeftTab('description')}
@@ -556,7 +556,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
         </div>
 
         {/* Right: Code editor — always dark like an IDE */}
-        <div className="lg:col-span-7 flex flex-col overflow-hidden" style={{ background: '#0d1117' }}>
+        <div className="lg:col-span-7 flex flex-col overflow-hidden min-w-0" style={{ background: '#0d1117' }}>
           {submissionMethod === 'code' ? (
             <>
               <div className="h-9 border-b px-3 flex items-center justify-between shrink-0" style={{ background: '#161b22', borderColor: 'rgba(255,255,255,0.08)' }}>

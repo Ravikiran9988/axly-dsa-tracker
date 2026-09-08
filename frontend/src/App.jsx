@@ -2,40 +2,55 @@ import React from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { Loader2, Terminal } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 
 // Layouts
-import MainLayout from './layouts/MainLayout';
+const MainLayout = React.lazy(() => import('./layouts/MainLayout'));
 
 // Public Pages
-import LandingPage from './pages/LandingPage';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import VerifyEmail from './pages/VerifyEmail';
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
+const Login = React.lazy(() => import('./pages/Login'));
+const Signup = React.lazy(() => import('./pages/Signup'));
+const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
+const VerifyEmail = React.lazy(() => import('./pages/VerifyEmail'));
 
 // Student Pages
-import UserDashboard from './pages/UserDashboard';
-import AvailableChallenges from './pages/AvailableChallenges';
-import DailyChallenge from './pages/DailyChallenge';
-import ProblemWorkspace from './pages/ProblemWorkspace';
-import SubmissionHistory from './pages/SubmissionHistory';
-import UserProfile from './pages/UserProfile';
-import NotificationsPage from './pages/NotificationsPage';
-import Leaderboard from './pages/Leaderboard';
-import StudentAnalytics from './pages/StudentAnalytics';
-import DsaAiCoachPanel from './components/DsaAiCoachPanel';
+const UserDashboard = React.lazy(() => import('./pages/UserDashboard'));
+const AvailableChallenges = React.lazy(() => import('./pages/AvailableChallenges'));
+const DailyChallenge = React.lazy(() => import('./pages/DailyChallenge'));
+const ProblemWorkspace = React.lazy(() => import('./pages/ProblemWorkspace'));
+const SubmissionHistory = React.lazy(() => import('./pages/SubmissionHistory'));
+const UserProfile = React.lazy(() => import('./pages/UserProfile'));
+const NotificationsPage = React.lazy(() => import('./pages/NotificationsPage'));
+const Leaderboard = React.lazy(() => import('./pages/Leaderboard'));
+const StudentAnalytics = React.lazy(() => import('./pages/StudentAnalytics'));
+const DsaAiCoachPanel = React.lazy(() => import('./components/DsaAiCoachPanel'));
 
 // Admin Pages
-import AdminCoreDashboard from './pages/AdminCoreDashboard';
-import AdminQuestions from './pages/AdminQuestions';
-import AdminDailyChallenge from './pages/AdminDailyChallenge';
-import AdminProgress from './pages/AdminProgress';
-import AdminSubmissions from './pages/AdminSubmissions';
-import AdminUsers from './pages/AdminUsers';
-import AdminAuditLogs from './pages/AdminAuditLogs';
-import AdminSettings from './pages/AdminSettings';
-import SubmissionReviewConsole from './pages/SubmissionReviewConsole';
+const AdminCoreDashboard = React.lazy(() => import('./pages/AdminCoreDashboard'));
+const AdminQuestions = React.lazy(() => import('./pages/AdminQuestions'));
+const AdminDailyChallenge = React.lazy(() => import('./pages/AdminDailyChallenge'));
+const AdminProgress = React.lazy(() => import('./pages/AdminProgress'));
+const AdminSubmissions = React.lazy(() => import('./pages/AdminSubmissions'));
+const AdminUsers = React.lazy(() => import('./pages/AdminUsers'));
+const AdminAuditLogs = React.lazy(() => import('./pages/AdminAuditLogs'));
+const AdminSettings = React.lazy(() => import('./pages/AdminSettings'));
+const SubmissionReviewConsole = React.lazy(() => import('./pages/SubmissionReviewConsole'));
+
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-theme-bg">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-12 h-12 rounded-xl bg-cyan-500 flex items-center justify-center shadow-lg">
+        <Terminal className="w-6 h-6 text-white" />
+      </div>
+      <div className="flex items-center gap-2 text-xs font-mono text-theme-text2">
+        <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+        <span>Loading Axly...</span>
+      </div>
+    </div>
+  </div>
+);
 
 // Wrapper for ProblemWorkspace to read ID from URL
 const ProblemWorkspaceWrapper = () => {
@@ -135,7 +150,10 @@ export default function App() {
   }
 
   return (
-    <Routes>
+    <>
+      <Toaster position="bottom-right" toastOptions={{ style: { background: '#1e293b', color: '#fff' } }} />
+      <React.Suspense fallback={<LoadingFallback />}>
+      <Routes>
       {/* Public Routes */}
       <Route path="/" element={!user ? <LandingPage onNavigateToLogin={() => navigate('/login')} /> : <Navigate to={user.role === 'admin' ? '/admin-dashboard' : '/dashboard'} replace />} />
       <Route path="/login" element={!user ? <Login onNavigate={handlePublicNav} onBackToHome={() => navigate('/')} /> : <Navigate to={user.role === 'admin' ? '/admin-dashboard' : '/dashboard'} replace />} />
@@ -190,6 +208,8 @@ export default function App() {
       
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+      </React.Suspense>
+    </>
   );
 }
