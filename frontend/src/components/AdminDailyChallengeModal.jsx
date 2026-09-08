@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../services/api';
 import {
   X,
@@ -479,7 +480,7 @@ export default function AdminDailyChallengeModal({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto overflow-x-hidden">
       <div 
         ref={modalCardRef}
@@ -1334,6 +1335,7 @@ export default function AdminDailyChallengeModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

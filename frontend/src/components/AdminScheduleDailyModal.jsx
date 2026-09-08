@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Calendar, AlertCircle, CheckCircle2, Clock, Flame, Zap } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -42,7 +43,7 @@ export default function AdminScheduleDailyModal({
     hard: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
   }[challenge.difficulty?.toLowerCase()] || 'text-theme-text2 bg-slate-500/10';
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
       <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-slide-up">
         {/* Header */}
@@ -127,6 +128,7 @@ export default function AdminScheduleDailyModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

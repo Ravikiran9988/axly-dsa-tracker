@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle2, AlertTriangle, User, Code2, Calendar } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -34,7 +35,7 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm">
       <div className="w-full max-w-lg bg-theme-surface border border-theme-border rounded-3xl p-6 shadow-2xl space-y-5">
         <div className="flex items-center justify-between">
@@ -110,6 +111,7 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Search,
@@ -111,7 +112,7 @@ export default function AdminCreateFromPracticeModal({
     hard: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
       <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-slide-up">
         {/* Header */}
@@ -327,6 +328,7 @@ export default function AdminCreateFromPracticeModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
