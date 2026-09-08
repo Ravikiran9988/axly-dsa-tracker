@@ -112,7 +112,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAdminDailyModal,
               </div>
               <div className="hidden md:block text-left">
                 <div className="text-xs font-semibold text-theme-text1 leading-none">{user.name}</div>
-                <div className="text-[10px] text-theme-text2 mt-0.5">{user.role}</div>
               </div>
             </button>
             <button

@@ -121,7 +121,7 @@ export default function LandingPage({ onNavigateToLogin }) {
     surface:  { background: "var(--surface)" },
     s2:       { background: "var(--surface-2)" },
     s3:       { background: "var(--surface-3)" },
-    border:   { borderColor: "var(--border)" },
+    border:   { borderColor: "var(--border-subtle)" },
     t1:       { color: "var(--text-1)" },
     t2:       { color: "var(--text-2)" },
     t3:       { color: "var(--text-3)" },
@@ -178,7 +178,7 @@ export default function LandingPage({ onNavigateToLogin }) {
 
   const diffColor = (d) => d === "Easy" ? "green" : d === "Medium" ? "amber" : "rose"
 
-  const navLinks = ["Features", "How It Works", "Curriculum", "Practice", "Challenges"]
+  const navLinks = ["Features", "How It Works", "Curriculum", "Practice", "AI Coach", "Challenges"]
 
   // ── Dark editor chrome (always dark regardless of page theme) ────────────
   const EditorChrome = ({ url }) => (
@@ -201,7 +201,7 @@ export default function LandingPage({ onNavigateToLogin }) {
       <header>
         <nav
           className="sticky top-0 z-50 border-b"
-          style={{ borderColor: "var(--border)", backdropFilter: "blur(12px)", background: isDark ? "rgba(7,11,20,0.93)" : "rgba(255,255,255,0.93)" }}
+          style={{ borderColor: "var(--border-subtle)", backdropFilter: "blur(12px)", background: isDark ? "rgba(7,11,20,0.93)" : "rgba(255,255,255,0.93)" }}
           aria-label="Main navigation"
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -221,11 +221,14 @@ export default function LandingPage({ onNavigateToLogin }) {
               <nav className="hidden md:flex items-center gap-6" aria-label="Site sections">
                 {navLinks.map(l => (
                   <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`}
-                    className="text-sm font-semibold transition-colors"
-                    style={{ ...T.t2, textDecoration: "none" }}
+                    className={`text-sm transition-colors flex items-center gap-1.5 ${l === "AI Coach" ? "font-bold" : "font-semibold"}`}
+                    style={{ ...(l === "AI Coach" ? { color: "var(--indigo)" } : T.t2), textDecoration: "none" }}
                     onMouseEnter={e => (e.currentTarget.style.color = "var(--text-1)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "var(--text-2)")}
-                  >{l}</a>
+                    onMouseLeave={e => (e.currentTarget.style.color = l === "AI Coach" ? "var(--indigo)" : "var(--text-2)")}
+                  >
+                    {l === "AI Coach" && <BotIcon size={14} />}
+                    {l}
+                  </a>
                 ))}
               </nav>
 
@@ -264,13 +267,17 @@ export default function LandingPage({ onNavigateToLogin }) {
 
           {/* Mobile menu */}
           {mobileOpen && (
-            <div id="mobile-menu" className="md:hidden border-t px-4 py-4 flex flex-col gap-4" style={{ ...T.surface, borderColor: "var(--border)" }}>
+            <div id="mobile-menu" className="md:hidden border-t px-4 py-4 flex flex-col gap-4" style={{ ...T.surface, borderColor: "var(--border-subtle)" }}>
               {navLinks.map(l => (
                 <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`}
-                  className="text-sm py-1 font-semibold" style={{ ...T.t2, textDecoration: "none" }}
-                  onClick={() => setMobileOpen(false)}>{l}</a>
+                  className={`text-sm py-1 flex items-center gap-1.5 ${l === "AI Coach" ? "font-bold" : "font-semibold"}`} 
+                  style={{ ...(l === "AI Coach" ? { color: "var(--indigo)" } : T.t2), textDecoration: "none" }}
+                  onClick={() => setMobileOpen(false)}>
+                  {l === "AI Coach" && <BotIcon size={14} />}
+                  {l}
+                </a>
               ))}
-              <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+              <div className="flex gap-2 pt-2 border-t" style={{ borderColor: "var(--border-subtle)" }}>
                 <button onClick={() => onNavigateToLogin('login')} className="flex-1 text-sm py-2 rounded-lg font-semibold" style={{ ...T.s2, ...T.t2 }}>Sign In</button>
                 <button onClick={() => onNavigateToLogin('login')} className="flex-1 text-sm py-2 rounded-lg text-white font-bold"
                   style={{ background: "linear-gradient(135deg, var(--cyan-bright), var(--indigo-bright))" }}>
@@ -292,7 +299,7 @@ export default function LandingPage({ onNavigateToLogin }) {
           </div>
           {/* Grid texture */}
           <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{
-            backgroundImage: `linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)`,
+            backgroundImage: `linear-gradient(var(--border-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)`,
             backgroundSize: "48px 48px", opacity: isDark ? 0.4 : 0.6,
           }} />
 
@@ -330,7 +337,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                   </button>
                 </div>
 
-                <div className="flex items-center gap-8 mt-10 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-8 mt-10 pt-8 border-t" style={{ borderColor: "var(--border-subtle)" }}>
                   {[["80+", "Curated Problems"], ["15+", "DSA Patterns"], ["Daily", "Challenges"]].map(([val, label]) => (
                     <div key={label}>
                       <div className="text-xl font-extrabold" style={T.t1}>{val}</div>
@@ -342,7 +349,7 @@ export default function LandingPage({ onNavigateToLogin }) {
 
               {/* Right: product preview — always dark */}
               <div className="relative">
-                <div className="rounded-2xl overflow-hidden shadow-2xl border" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.12)", background: "#0D1117" }}
+                <div className="rounded-2xl overflow-hidden shadow-2xl border" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "var(--border-subtle)", background: "#0D1117" }}
                   role="img" aria-label="Axly coding workspace showing Two Sum II problem with code editor and AI Coach panel">
                   <EditorChrome url="app.axly.dev/workspace/two-sum-ii" />
 
@@ -421,7 +428,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                 </div>
 
                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full border shadow-lg text-xs font-semibold whitespace-nowrap"
-                  style={{ ...T.surface, borderColor: "var(--border)", ...T.t1 }}>
+                  style={{ ...T.surface, borderColor: "var(--border-subtle)", ...T.t1 }}>
                   <div className="w-2 h-2 rounded-full bg-emerald-400" aria-hidden="true" />
                   Real product workspace — not a mockup
                 </div>
@@ -458,7 +465,7 @@ export default function LandingPage({ onNavigateToLogin }) {
         </section>
 
         {/* ══ HOW IT WORKS ═════════════════════════════════════════════════ */}
-        <section id="how-it-works" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }} aria-labelledby="hiw-heading">
+        <section id="how-it-works" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-2)" }} aria-labelledby="hiw-heading">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <SectionHeader
               headline={<span id="hiw-heading">The Axly Learning Loop</span>}
@@ -473,7 +480,7 @@ export default function LandingPage({ onNavigateToLogin }) {
               ].map((step, i) => (
                 <div key={step.n} className="flex lg:flex-col items-start gap-5 lg:gap-4 group">
                   <div className="flex-shrink-0 relative">
-                    <div className="w-14 h-14 rounded-2xl border flex items-center justify-center transition-colors group-hover:border-cyan-500/50" style={{ ...T.surface, borderColor: "var(--border)" }}>
+                    <div className="w-14 h-14 rounded-2xl border flex items-center justify-center transition-colors group-hover:border-cyan-500/50" style={{ ...T.surface, borderColor: "var(--border-subtle)" }}>
                       <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm" style={T.cyanBg}>{step.icon}</div>
                     </div>
                     <div className="absolute -top-1.5 -right-1.5 text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-sm" style={{...T.cyanBg, background: "linear-gradient(135deg, var(--cyan-bright), var(--indigo-bright))", color: "white"}}>
@@ -520,7 +527,7 @@ export default function LandingPage({ onNavigateToLogin }) {
 
               {/* AI Coach chat mockup */}
               <Card className="overflow-hidden shadow-xl">
-                <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: "var(--border)", ...T.s2 }}>
+                <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: "var(--border-subtle)", ...T.s2 }}>
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm" style={T.indigoBg}><BotIcon /></div>
                   <div>
                     <p className="text-sm font-bold" style={T.t1}>Axly AI Coach</p>
@@ -561,8 +568,8 @@ export default function LandingPage({ onNavigateToLogin }) {
                   </div>
                 </div>
 
-                <div className="p-4 border-t" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
-                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border" style={{ ...T.surface, borderColor: "var(--border)" }}>
+                <div className="p-4 border-t" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-2)" }}>
+                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border" style={{ ...T.surface, borderColor: "var(--border-subtle)" }}>
                     <span className="flex-1 text-sm font-medium" style={T.t3}>Ask the coach...</span>
                     <div style={T.indigo} className="bg-indigo-500/10 p-1.5 rounded-md"><ArrowRight /></div>
                   </div>
@@ -573,13 +580,13 @@ export default function LandingPage({ onNavigateToLogin }) {
         </section>
 
         {/* ══ PRACTICE LIBRARY ═════════════════════════════════════════════ */}
-        <section id="practice" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }} aria-labelledby="library-heading">
+        <section id="practice" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-2)" }} aria-labelledby="library-heading">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
               {/* Library mockup */}
               <Card className="overflow-hidden shadow-xl">
-                <div className="p-4 border-b" style={{ borderColor: "var(--border)", ...T.surface }}>
+                <div className="p-4 border-b" style={{ borderColor: "var(--border-subtle)", ...T.surface }}>
                   <div className="flex items-center gap-2 mb-4">
                     <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm shadow-sm" style={{ ...T.border, ...T.surface, ...T.t3 }}>
                       <SearchIcon /> Search problems...
@@ -614,7 +621,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                       : { ...T.s3, color: "var(--text-2)" }
                     return (
                       <div key={p.title} role="listitem" className="flex items-center gap-3 px-5 py-4 border-b text-sm transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-theme-surface2"
-                        style={{ borderColor: "var(--border)" }}
+                        style={{ borderColor: "var(--border-subtle)" }}
                       >
                         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${statusDot}`} aria-label={p.status} />
                         <span className="flex-1 font-bold truncate" style={T.t1}>{p.title}</span>
@@ -684,7 +691,7 @@ export default function LandingPage({ onNavigateToLogin }) {
               </div>
 
               {/* Always-dark workspace */}
-              <div className="rounded-2xl overflow-hidden border shadow-2xl" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.12)", background: "#0D1117" }}
+              <div className="rounded-2xl overflow-hidden border shadow-2xl" style={{ borderColor: isDark ? "rgba(255,255,255,0.08)" : "var(--border-subtle)", background: "#0D1117" }}
                 role="img" aria-label="Axly Monaco-style code editor with test results panel">
                 <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ background: "#161B22", borderColor: "rgba(255,255,255,0.06)" }}>
                   <div className="flex items-center gap-4">
@@ -736,7 +743,7 @@ export default function LandingPage({ onNavigateToLogin }) {
         </section>
 
         {/* ══ PRACTICE VS CHALLENGE ════════════════════════════════════════ */}
-        <section id="challenges" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }} aria-labelledby="pvc-heading">
+        <section id="challenges" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-2)" }} aria-labelledby="pvc-heading">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <SectionHeader
               headline={<span id="pvc-heading">Practice Deep. Challenge Daily.</span>}
@@ -808,7 +815,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                         </div>
                       ))}
                     </div>
-                    <div className="pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+                    <div className="pt-4 border-t" style={{ borderColor: "var(--border-subtle)" }}>
                       <ProgressBar pct={Math.round((c.done / c.problems) * 100)} color={`linear-gradient(90deg, var(--cyan-bright), var(--indigo-bright))`} />
                     </div>
                   </Card>
@@ -819,7 +826,7 @@ export default function LandingPage({ onNavigateToLogin }) {
         </section>
 
         {/* ══ ANALYTICS ════════════════════════════════════════════════════ */}
-        <section id="analytics" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }} aria-labelledby="analytics-heading">
+        <section id="analytics" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-2)" }} aria-labelledby="analytics-heading">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <div>
@@ -843,7 +850,7 @@ export default function LandingPage({ onNavigateToLogin }) {
 
               {/* Analytics dashboard mockup */}
               <Card className="overflow-hidden shadow-xl">
-                <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border)", ...T.s2 }}>
+                <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border-subtle)", ...T.s2 }}>
                   <span className="text-base font-bold" style={T.t1}>My Progress</span>
                   <Badge color="amber"><FlameIcon /> 12-day streak</Badge>
                 </div>
@@ -857,7 +864,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                       ["8d", "Challenge", "indigo"],
                       ["78%", "Accuracy", "green"],
                     ].map(([val, label, c]) => (
-                      <div key={label} className="p-3.5 rounded-xl text-center border shadow-sm" style={{...T.s2, borderColor: "var(--border)"}}>
+                      <div key={label} className="p-3.5 rounded-xl text-center border shadow-sm" style={{...T.s2, borderColor: "var(--border-subtle)"}}>
                         <div className="text-xl font-black mb-1" style={{ color: `var(--${c})` }}>{val}</div>
                         <div className="text-[11px] font-semibold uppercase tracking-wider" style={T.t3}>{label}</div>
                       </div>
@@ -891,7 +898,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                     <p className="text-sm font-bold mb-4" style={T.t2}>Difficulty Breakdown</p>
                     <div className="flex gap-3">
                       {[["Easy", 18, "green"], ["Medium", 20, "amber"], ["Hard", 4, "rose"]].map(([label, n, c]) => (
-                        <div key={label} className="flex-1 p-4 rounded-xl border shadow-sm" style={{ borderColor: "var(--border)", ...T.s2 }}>
+                        <div key={label} className="flex-1 p-4 rounded-xl border shadow-sm" style={{ borderColor: "var(--border-subtle)", ...T.s2 }}>
                           <div className="text-xl font-black mb-1" style={{ color: `var(--${c})` }}>{n}</div>
                           <div className="text-[11px] font-semibold uppercase tracking-wider" style={T.t3}>{label}</div>
                         </div>
@@ -914,7 +921,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                 <div className="absolute top-0 left-0 w-full h-1" style={{ background: "linear-gradient(90deg, var(--indigo-bright), var(--cyan-bright))" }} aria-hidden="true" />
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: "var(--border)", ...T.s2 }}>
+                <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: "var(--border-subtle)", ...T.s2 }}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={T.indigoBg}><FlameIcon /></div>
                     <div>
@@ -943,7 +950,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                       { label: "Your Streak", value: "🔥 12 days", icon: null },
                       { label: "Progress", value: "Not Started", icon: null },
                     ].map(({ label, value }) => (
-                      <div key={label} className="p-3 rounded-xl border shadow-sm" style={{...T.s2, borderColor: "var(--border)"}}>
+                      <div key={label} className="p-3 rounded-xl border shadow-sm" style={{...T.s2, borderColor: "var(--border-subtle)"}}>
                         <p className="text-[11px] mb-1 font-semibold uppercase tracking-wider" style={T.t3}>{label}</p>
                         <p className="text-sm font-bold" style={label === "Your Streak" ? { color: "var(--amber)" } : T.t1}>{value}</p>
                       </div>
@@ -958,7 +965,7 @@ export default function LandingPage({ onNavigateToLogin }) {
 
                 {/* Previous challenge */}
                 <div className="px-6 pb-5 pt-0" style={T.surface}>
-                  <div className="rounded-xl p-4 border shadow-sm" style={{ borderColor: "var(--border)", ...T.s2 }}>
+                  <div className="rounded-xl p-4 border shadow-sm" style={{ borderColor: "var(--border-subtle)", ...T.s2 }}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-bold mb-0.5" style={T.t1}>Yesterday: Valid Anagram</p>
@@ -1001,7 +1008,7 @@ export default function LandingPage({ onNavigateToLogin }) {
         </section>
 
         {/* ══ FINAL CTA ════════════════════════════════════════════════════ */}
-        <section className="py-24 lg:py-32 border-t relative overflow-hidden" style={{ borderColor: "var(--border)" }} aria-labelledby="cta-heading">
+        <section className="py-24 lg:py-32 border-t relative overflow-hidden" style={{ borderColor: "var(--border-subtle)" }} aria-labelledby="cta-heading">
           <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full blur-3xl" style={{ background: "var(--cyan-bright)", opacity: isDark ? 0.07 : 0.04 }} />
             <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-96 h-72 rounded-full blur-3xl" style={{ background: "var(--indigo-bright)", opacity: isDark ? 0.06 : 0.04 }} />
@@ -1031,7 +1038,7 @@ export default function LandingPage({ onNavigateToLogin }) {
       </main>
 
       {/* ══ FOOTER ═══════════════════════════════════════════════════════ */}
-      <footer className="border-t py-12" style={{ borderColor: "var(--border)", ...T.surface }}>
+      <footer className="border-t py-12" style={{ borderColor: "var(--border-subtle)", ...T.surface }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-8">
             <div>
@@ -1049,7 +1056,7 @@ export default function LandingPage({ onNavigateToLogin }) {
               ))}
             </nav>
           </div>
-          <div className="mt-12 pt-8 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6" style={{ borderColor: "var(--border)" }}>
+          <div className="mt-12 pt-8 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6" style={{ borderColor: "var(--border-subtle)" }}>
             <p className="text-sm font-medium" style={T.t3}>© 2026 Axly. All rights reserved.</p>
             <button onClick={toggle}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all hover:bg-theme-surface2 active:scale-95"
