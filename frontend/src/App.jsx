@@ -1,13 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { Loader2, Terminal } from 'lucide-react';
+
+// Layouts
+import MainLayout from './layouts/MainLayout';
+
+// Public Pages
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
-import Sidebar from './components/Sidebar';
-import Navbar from './components/Navbar';
+
+// Student Pages
 import UserDashboard from './pages/UserDashboard';
 import AvailableChallenges from './pages/AvailableChallenges';
 import DailyChallenge from './pages/DailyChallenge';
@@ -17,6 +24,9 @@ import UserProfile from './pages/UserProfile';
 import NotificationsPage from './pages/NotificationsPage';
 import Leaderboard from './pages/Leaderboard';
 import StudentAnalytics from './pages/StudentAnalytics';
+import DsaAiCoachPanel from './components/DsaAiCoachPanel';
+
+// Admin Pages
 import AdminCoreDashboard from './pages/AdminCoreDashboard';
 import AdminQuestions from './pages/AdminQuestions';
 import AdminDailyChallenge from './pages/AdminDailyChallenge';
@@ -27,130 +37,58 @@ import AdminAuditLogs from './pages/AdminAuditLogs';
 import AdminSettings from './pages/AdminSettings';
 import SubmissionReviewConsole from './pages/SubmissionReviewConsole';
 
-import AdminQuestionModal from './components/AdminQuestionModal';
-import DsaAiCoachPanel from './components/DsaAiCoachPanel';
-import { api } from './services/api';
-import { practiceApi } from './services/practiceApi';
-import { Loader2, Terminal } from 'lucide-react';
+// Wrapper for ProblemWorkspace to read ID from URL
+const ProblemWorkspaceWrapper = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  return (
+    <ProblemWorkspace
+      questionId={id}
+      onBack={() => navigate('/practice')}
+      onStatusUpdated={() => {}}
+    />
+  );
+};
 
-function parsePublicRoute() {
-  if (typeof window === 'undefined') return { name: 'landing' };
-  const path = window.location.pathname;
-  if (path === '/login') return { name: 'login' };
-  if (path === '/signup') return { name: 'signup' };
-  if (path === '/forgot-password') return { name: 'forgot-password' };
-  if (path.startsWith('/reset-password')) {
-    const token = path.split('/')[2] || '';
-    return { name: 'reset-password', token };
-  }
-  if (path.startsWith('/verify-email')) {
-    return { name: 'verify-email' };
-  }
-  return { name: 'landing' };
-}
-
-const ADMIN_VIEWS = new Set([
-  'admin-dashboard',
-  'admin-challenges',
-  'admin-questions',
-  'admin-daily',
-  'admin-reviews',
-  'admin-users',
-  'admin-progress',
-  'admin-submissions',
-  'admin-audit',
-  'admin-settings'
-]);
-
-export default function App() {
-  const { user, loading, logout, isAdmin } = useAuth();
-  const [publicRoute, setPublicRoute] = useState(parsePublicRoute);
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [activeQuestionId, setActiveQuestionId] = useState(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
-  const [isDailyModalOpen, setIsDailyModalOpen] = useState(false);
-  const [isCreateChallengeModalOpen, setIsCreateChallengeModalOpen] = useState(false);
-  const [questionsForModal, setQuestionsForModal] = useState([]);
-
-  useEffect(() => {
-    const handlePopState = () => {
-      setPublicRoute(parsePublicRoute());
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  const navigatePublic = (route, token = '') => {
-    let path = '/';
-    if (route === 'login') path = '/login';
-    else if (route === 'signup') path = '/signup';
-    else if (route === 'forgot-password') path = '/forgot-password';
-    else if (route === 'reset-password') path = token ? `/reset-password/${token}` : '/reset-password';
-    else if (route === 'verify-email') path = '/verify-email';
-
-    if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', path);
-    }
-    setPublicRoute({ name: route, token });
+// Wrapper for components that expect onSelectProblem and onNavigate
+const withNavProps = (Component) => {
+  return function WrappedComponent(props) {
+    const navigate = useNavigate();
+    const handleSelectProblem = (id) => navigate(`/solve/${id}`);
+    const handleNavigate = (view) => navigate(`/${view}`);
+    
+    return <Component 
+      {...props} 
+      onSelectProblem={handleSelectProblem} 
+      onNavigate={handleNavigate}
+      onOpenChallenge={handleSelectProblem}
+    />;
   };
+};
 
-  useEffect(() => {
-    if (user) {
-      loadNotificationsCount();
-      if (user.role === 'admin' && currentView === 'dashboard') {
-        setCurrentView('admin-dashboard');
-      }
-      // Never allow a non-admin to remain on an admin view, including after
-      // a role change, session restore, logout/login, or stale client state.
-      if (user.role !== 'admin' && ADMIN_VIEWS.has(currentView)) {
-        setCurrentView('dashboard');
-      }
-    }
-  }, [user, currentView]);
+const DashboardNav = withNavProps(UserDashboard);
+const ChallengesNav = withNavProps(AvailableChallenges);
+const DailyNav = withNavProps(DailyChallenge);
+const SubmissionsNav = withNavProps(SubmissionHistory);
+const AnalyticsNav = withNavProps(StudentAnalytics);
+const ProfileNav = withNavProps(UserProfile);
+const AdminDashNav = withNavProps(AdminCoreDashboard);
+const AdminQuestionsNav = withNavProps(AdminQuestions);
+const AdminDailyNav = withNavProps(AdminDailyChallenge);
+const AdminSubsNav = withNavProps(AdminSubmissions);
 
-  async function loadNotificationsCount() {
-    try {
-      const res = await api.getNotifications();
-      setUnreadNotifsCount(res.data?.unreadCount || 0);
-    } catch (error) {
-      console.warn('Failed to load notifications count', error);
-    }
-  }
-
-  const handleSelectProblem = async (questionId) => {
-    const fromPractice = currentView === 'practice' || currentView === 'available';
-    if (fromPractice) {
-      try {
-        await practiceApi.start(questionId);
-      } catch (error) {
-        console.error('Failed to start practice problem:', error);
-      }
-    }
-    setActiveQuestionId(questionId);
-    setCurrentView('solve');
-  };
-
-  const handleOpenAdminDailyModal = async () => {
-    if (!isAdmin) return;
-    try {
-      const res = await api.getQuestions({ limit: 100 });
-      setQuestionsForModal(res.data || []);
-      setIsDailyModalOpen(true);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
+const ProtectedRoute = ({ children, requireAdmin = false }) => {
+  const { user, loading, isAdmin } = useAuth();
+  
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#070B14]">
+      <div className="min-h-screen flex items-center justify-center bg-theme-bg">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-axly-600 flex items-center justify-center shadow-lg">
+          <div className="w-12 h-12 rounded-xl bg-cyan-500 flex items-center justify-center shadow-lg">
             <Terminal className="w-6 h-6 text-white" />
           </div>
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-            <Loader2 className="w-4 h-4 text-axly-400 animate-spin" />
+          <div className="flex items-center gap-2 text-xs font-mono text-theme-text2">
+            <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
             <span>Loading Axly...</span>
           </div>
         </div>
@@ -159,188 +97,99 @@ export default function App() {
   }
 
   if (!user) {
-    const routeName = typeof publicRoute === 'object' ? publicRoute.name : publicRoute;
-    const routeToken = typeof publicRoute === 'object' ? publicRoute.token : '';
-
-    if (routeName === 'login') {
-      return (
-        <Login
-          onNavigate={(target, tok) => navigatePublic(target, tok)}
-          onBackToHome={() => navigatePublic('landing')}
-        />
-      );
-    }
-    if (routeName === 'signup') {
-      return (
-        <Signup
-          onNavigate={(target, tok) => navigatePublic(target, tok)}
-          onBackToHome={() => navigatePublic('landing')}
-        />
-      );
-    }
-    if (routeName === 'forgot-password') {
-      return (
-        <ForgotPassword
-          onNavigate={(target, tok) => navigatePublic(target, tok)}
-          onBackToHome={() => navigatePublic('landing')}
-        />
-      );
-    }
-    if (routeName === 'reset-password') {
-      return (
-        <ResetPassword
-          token={routeToken}
-          onNavigate={(target, tok) => navigatePublic(target, tok)}
-          onBackToHome={() => navigatePublic('landing')}
-        />
-      );
-    }
-    if (routeName === 'verify-email') {
-      return (
-        <VerifyEmail
-          token={routeToken}
-          onNavigate={(target, tok) => navigatePublic(target, tok)}
-          onBackToHome={() => navigatePublic('landing')}
-        />
-      );
-    }
-    return <LandingPage onNavigateToLogin={() => navigatePublic('login')} />;
+    return <Navigate to="/login" replace />;
   }
 
-  const renderView = () => {
-    // Defense-in-depth: never render an admin page for a non-admin user.
-    if (ADMIN_VIEWS.has(currentView) && !isAdmin) {
-      return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} onOpenChallenge={handleSelectProblem} />;
-    }
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
-    // Problem Solving IDE
-    if (currentView === 'solve' && activeQuestionId) {
-      return (
-        <ProblemWorkspace
-          questionId={activeQuestionId}
-          onBack={() => setCurrentView('practice')}
-          onStatusUpdated={loadNotificationsCount}
-        />
-      );
-    }
+  return children;
+};
 
-    // Student Views
-    if (currentView === 'dashboard') {
-      return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} onOpenChallenge={handleSelectProblem} />;
-    }
-    if (currentView === 'practice' || currentView === 'available') {
-      return <AvailableChallenges onSelectProblem={handleSelectProblem} />;
-    }
-    if (currentView === 'daily' || currentView === 'daily-challenge') {
-      return <DailyChallenge onSelectProblem={handleSelectProblem} />;
-    }
-    if (currentView === 'submissions') {
-      return <SubmissionHistory onSelectProblem={handleSelectProblem} />;
-    }
-    if (currentView === 'analytics' || currentView === 'progress') {
-      return <StudentAnalytics onSelectProblem={handleSelectProblem} />;
-    }
-    if (currentView === 'profile') {
-      return <UserProfile onSelectProblem={handleSelectProblem} />;
-    }
-    if (currentView === 'notifications') {
-      return <NotificationsPage onNavigate={setCurrentView} onUnreadChange={setUnreadNotifsCount} />;
-    }
-    if (currentView === 'leaderboard') {
-      return <Leaderboard currentUser={user} />;
-    }
-    if (currentView === 'dsa-ai' || currentView === 'ai-coach') {
-      return (
-        <div className="max-w-4xl mx-auto h-[84vh] p-2">
-          <DsaAiCoachPanel />
-        </div>
-      );
-    }
-    if (currentView === 'learning-path') {
-      return (
-        <div className="max-w-4xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800">
-          <h1 className="text-2xl font-bold text-white">DSA & System Design Mastery Track</h1>
-          <p className="text-sm text-slate-400 mt-2">Structured mastery roadmap from Foundations & Two Pointers to Trees, Graphs, and Dynamic Programming.</p>
-        </div>
-      );
-    }
-    if (currentView === 'settings') {
-      return (
-        <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800">
-          <h1 className="text-lg font-bold text-white">Account & Editor Settings</h1>
-        </div>
-      );
-    }
+export default function App() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
-    // Admin Views
-    if (currentView === 'admin-dashboard') {
-      return <AdminCoreDashboard onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} />;
-    }
-    if (currentView === 'admin-challenges' || currentView === 'admin-questions') {
-      return <AdminQuestions onSelectProblem={handleSelectProblem} />;
-    }
-    if (currentView === 'admin-daily') {
-      return <AdminDailyChallenge onSelectProblem={handleSelectProblem} />;
-    }
-    if (currentView === 'admin-reviews') {
-      return <SubmissionReviewConsole />;
-    }
-    if (currentView === 'admin-users') {
-      return <AdminUsers onSelectStudent={() => setCurrentView('admin-users')} />;
-    }
-    if (currentView === 'admin-progress') {
-      return <AdminProgress />;
-    }
-    if (currentView === 'admin-submissions') {
-      return <AdminSubmissions onSelectProblem={handleSelectProblem} />;
-    }
-    if (currentView === 'admin-audit') {
-      return <AdminAuditLogs />;
-    }
-    if (currentView === 'admin-settings') {
-      return <AdminSettings />;
-    }
-
-    return <UserDashboard user={user} onSelectProblem={handleSelectProblem} onNavigate={setCurrentView} onOpenChallenge={handleSelectProblem} />;
+  // Backward compatibility for public navigation props
+  const handlePublicNav = (route, token = '') => {
+    if (route === 'landing') navigate('/');
+    else if (route === 'reset-password') navigate(token ? `/reset-password/${token}` : '/reset-password');
+    else navigate(`/${route}`);
   };
 
-  return (
-    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-row font-sans">
-      <Sidebar
-        currentView={currentView}
-        setCurrentView={setCurrentView}
-        user={user}
-        onLogout={logout}
-        isCollapsed={isSidebarCollapsed}
-        setIsCollapsed={setIsSidebarCollapsed}
-        unreadCount={unreadNotifsCount}
-      />
-
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
-        <Navbar
-          activeTab={currentView}
-          setActiveTab={setCurrentView}
-          onOpenAdminDailyModal={handleOpenAdminDailyModal}
-          onOpenCreateChallenge={() => setIsCreateChallengeModalOpen(true)}
-          unreadCount={unreadNotifsCount}
-        />
-
-        <div className={`flex-1 overflow-y-auto custom-scrollbar bg-[#070B14] ${currentView === 'solve' ? '' : 'p-4 md:p-6 lg:p-8'}`}>
-          {renderView()}
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-theme-bg">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-cyan-500 flex items-center justify-center shadow-lg">
+            <Terminal className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex items-center gap-2 text-xs font-mono text-theme-text2">
+            <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+            <span>Loading Axly...</span>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {isAdmin && (
-        <>
-          {isCreateChallengeModalOpen && (
-            <AdminQuestionModal
-              isOpen={isCreateChallengeModalOpen}
-              onClose={() => setIsCreateChallengeModalOpen(false)}
-              onSuccess={() => setIsCreateChallengeModalOpen(false)}
-            />
-          )}
-        </>
-      )}
-    </div>
+  return (
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={!user ? <LandingPage onNavigateToLogin={() => navigate('/login')} /> : <Navigate to={user.role === 'admin' ? '/admin-dashboard' : '/dashboard'} replace />} />
+      <Route path="/login" element={!user ? <Login onNavigate={handlePublicNav} onBackToHome={() => navigate('/')} /> : <Navigate to={user.role === 'admin' ? '/admin-dashboard' : '/dashboard'} replace />} />
+      <Route path="/signup" element={!user ? <Signup onNavigate={handlePublicNav} onBackToHome={() => navigate('/')} /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/forgot-password" element={!user ? <ForgotPassword onNavigate={handlePublicNav} onBackToHome={() => navigate('/')} /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/reset-password/:token?" element={!user ? <ResetPassword onNavigate={handlePublicNav} onBackToHome={() => navigate('/')} /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/verify-email/:token?" element={!user ? <VerifyEmail onNavigate={handlePublicNav} onBackToHome={() => navigate('/')} /> : <Navigate to="/dashboard" replace />} />
+
+      {/* Protected Routes inside MainLayout */}
+      <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+        {/* Student Routes */}
+        <Route path="/dashboard" element={<DashboardNav user={user} />} />
+        <Route path="/practice" element={<ChallengesNav />} />
+        <Route path="/available" element={<Navigate to="/practice" replace />} />
+        <Route path="/daily" element={<DailyNav />} />
+        <Route path="/daily-challenge" element={<Navigate to="/daily" replace />} />
+        <Route path="/solve/:id" element={<ProblemWorkspaceWrapper />} />
+        <Route path="/submissions" element={<SubmissionsNav />} />
+        <Route path="/analytics" element={<AnalyticsNav />} />
+        <Route path="/progress" element={<Navigate to="/analytics" replace />} />
+        <Route path="/profile" element={<ProfileNav />} />
+        <Route path="/notifications" element={<NotificationsPage onNavigate={(v) => navigate(`/${v}`)} />} />
+        <Route path="/leaderboard" element={<Leaderboard currentUser={user} />} />
+        <Route path="/ai-coach" element={<div className="max-w-4xl mx-auto h-[84vh] p-2"><DsaAiCoachPanel /></div>} />
+        <Route path="/dsa-ai" element={<Navigate to="/ai-coach" replace />} />
+        
+        {/* Settings placeholders */}
+        <Route path="/learning-path" element={
+          <div className="max-w-4xl mx-auto p-6 rounded-2xl bg-theme-surface border border-theme-border">
+            <h1 className="text-2xl font-bold text-white">DSA & System Design Mastery Track</h1>
+            <p className="text-sm text-theme-text2 mt-2">Structured mastery roadmap from Foundations & Two Pointers to Trees, Graphs, and Dynamic Programming.</p>
+          </div>
+        } />
+        <Route path="/settings" element={
+          <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-theme-surface border border-theme-border">
+            <h1 className="text-lg font-bold text-white">Account & Editor Settings</h1>
+          </div>
+        } />
+
+        {/* Admin Routes */}
+        <Route path="/admin-dashboard" element={<ProtectedRoute requireAdmin><AdminDashNav /></ProtectedRoute>} />
+        <Route path="/admin-challenges" element={<ProtectedRoute requireAdmin><AdminQuestionsNav /></ProtectedRoute>} />
+        <Route path="/admin-questions" element={<Navigate to="/admin-challenges" replace />} />
+        <Route path="/admin-daily" element={<ProtectedRoute requireAdmin><AdminDailyNav /></ProtectedRoute>} />
+        <Route path="/admin-reviews" element={<ProtectedRoute requireAdmin><SubmissionReviewConsole /></ProtectedRoute>} />
+        <Route path="/admin-users" element={<ProtectedRoute requireAdmin><AdminUsers onSelectStudent={() => navigate('/admin-users')} /></ProtectedRoute>} />
+        <Route path="/admin-progress" element={<ProtectedRoute requireAdmin><AdminProgress /></ProtectedRoute>} />
+        <Route path="/admin-submissions" element={<ProtectedRoute requireAdmin><AdminSubsNav /></ProtectedRoute>} />
+        <Route path="/admin-audit" element={<ProtectedRoute requireAdmin><AdminAuditLogs /></ProtectedRoute>} />
+        <Route path="/admin-settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
+      </Route>
+      
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

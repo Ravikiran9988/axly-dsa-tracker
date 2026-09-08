@@ -71,16 +71,16 @@ export default function AdminAuditLogs() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-theme-surface border border-theme-border backdrop-blur-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-rose-400 font-mono text-xs uppercase font-bold tracking-wider">
             <ShieldAlert className="w-4 h-4" />
             <span>Security & Compliance Trail</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-theme-text1 tracking-tight">
             System & Admin Audit Logs
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-theme-text2">
             Immutable tracking of all question lifecycle changes, manual scoring overrides, assignments, and admin operations.
           </p>
         </div>
@@ -88,7 +88,7 @@ export default function AdminAuditLogs() {
         <button
           onClick={loadAuditLogs}
           disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all border border-slate-700"
+          className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold transition-all border border-theme-border"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -96,16 +96,16 @@ export default function AdminAuditLogs() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/60 text-xs">
+      <div className="flex flex-wrap items-center gap-3 p-4 rounded-2xl bg-theme-surface border border-theme-border text-xs">
         <div className="flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-slate-400 font-semibold">Filter:</span>
+          <Filter className="w-3.5 h-3.5 text-theme-text2" />
+          <span className="text-theme-text2 font-semibold">Filter:</span>
         </div>
 
         <select
           value={actionFilter}
           onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
-          className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono text-xs"
+          className="px-3 py-1.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 focus:outline-none focus:border-cyan-500 font-mono text-xs"
         >
           <option value="">All Actions</option>
           <option value="question_create">Question Created</option>
@@ -125,7 +125,7 @@ export default function AdminAuditLogs() {
         <select
           value={resourceFilter}
           onChange={(e) => { setResourceFilter(e.target.value); setPage(1); }}
-          className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono text-xs"
+          className="px-3 py-1.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text1 focus:outline-none focus:border-cyan-500 font-mono text-xs"
         >
           <option value="">All Resources</option>
           <option value="question">Question</option>
@@ -135,29 +135,29 @@ export default function AdminAuditLogs() {
           <option value="ai_question">AI Question</option>
         </select>
 
-        <div className="ml-auto text-xs text-slate-400 font-mono">
+        <div className="ml-auto text-xs text-theme-text2 font-mono">
           Showing <strong>{logs.length}</strong> of <strong>{total}</strong> logged events
         </div>
       </div>
 
       {/* Audit Log Table */}
-      <div className="rounded-3xl bg-slate-900/60 border border-slate-800/80 overflow-hidden">
+      <div className="rounded-3xl bg-theme-surface border border-theme-border overflow-hidden">
         {loading ? (
-          <div className="py-20 text-center text-slate-400 space-y-3">
+          <div className="py-20 text-center text-theme-text2 space-y-3">
             <div className="w-8 h-8 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto" />
             <div className="text-xs font-mono">Loading encrypted audit trail...</div>
           </div>
         ) : error ? (
           <div className="py-16 text-center text-rose-400 text-xs">{error}</div>
         ) : logs.length === 0 ? (
-          <div className="py-20 text-center text-slate-500 text-xs">
+          <div className="py-20 text-center text-theme-text3 text-xs">
             No audit logs match the current criteria.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-semibold font-mono uppercase text-[10px] tracking-wider">
+                <tr className="border-b border-theme-border bg-theme-surface text-theme-text2 font-semibold font-mono uppercase text-[10px] tracking-wider">
                   <th className="py-3.5 px-4">Timestamp (UTC)</th>
                   <th className="py-3.5 px-4">Actor</th>
                   <th className="py-3.5 px-4">Action</th>
@@ -166,44 +166,44 @@ export default function AdminAuditLogs() {
                   <th className="py-3.5 px-4 text-right">Details</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300 text-[11px]">
+              <tbody className="divide-y divide-slate-800/60 font-mono text-theme-text2 text-[11px]">
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-850/50 transition-colors">
-                    <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
+                    <td className="py-3 px-4 text-theme-text2 whitespace-nowrap">
                       {log.created_at}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="font-sans font-medium text-slate-200">
+                      <div className="font-sans font-medium text-theme-text1">
                         {log.actor_name || log.actor_email || 'System'}
                       </div>
                       {log.actor_role && (
-                        <span className="text-[10px] text-slate-400 uppercase">
+                        <span className="text-[10px] text-theme-text2 uppercase">
                           [{log.actor_role}]
                         </span>
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase ${actionColors[log.action] || 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase ${actionColors[log.action] || 'bg-theme-surface2 text-theme-text2 border-theme-border'}`}>
                         {log.action.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-slate-300 uppercase font-semibold">
+                      <span className="text-theme-text2 uppercase font-semibold">
                         {log.resource_type}
                       </span>
                       {log.resource_id && (
-                        <div className="text-[10px] text-slate-400 truncate max-w-[140px]">
+                        <div className="text-[10px] text-theme-text2 truncate max-w-[140px]">
                           {log.resource_id}
                         </div>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-slate-400 truncate max-w-[120px]">
+                    <td className="py-3 px-4 text-theme-text2 truncate max-w-[120px]">
                       {log.ip_address || 'Internal / Local'}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <button
                         onClick={() => setSelectedLog(log)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 text-[11px] font-sans font-medium transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-theme-surface2 hover:bg-slate-700 text-cyan-400 border border-theme-border text-[11px] font-sans font-medium transition-colors"
                       >
                         <Eye className="w-3 h-3" />
                         <span>Inspect</span>
@@ -217,21 +217,21 @@ export default function AdminAuditLogs() {
         )}
 
         {/* Pagination Bar */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 flex items-center justify-between text-xs">
+        <div className="p-4 border-t border-theme-border bg-theme-surface flex items-center justify-between text-xs">
           <button
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page <= 1 || loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text2 hover:bg-theme-surface2 disabled:opacity-50 transition-colors"
           >
             <ChevronLeft className="w-3.5 h-3.5" /> Previous
           </button>
-          <span className="text-slate-400 font-mono">
+          <span className="text-theme-text2 font-mono">
             Page {page} of {totalPages}
           </span>
           <button
             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages || loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text2 hover:bg-theme-surface2 disabled:opacity-50 transition-colors"
           >
             Next <ChevronRight className="w-3.5 h-3.5" />
           </button>
@@ -241,8 +241,8 @@ export default function AdminAuditLogs() {
       {/* Inspect Modal */}
       {selectedLog && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#0A0F1D] border border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="bg-theme-surface border border-theme-border rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-theme-border pb-4">
               <div className="space-y-0.5">
                 <div className="text-xs font-mono font-bold uppercase text-cyan-400">
                   Audit Entry Details
@@ -253,29 +253,29 @@ export default function AdminAuditLogs() {
               </div>
               <button
                 onClick={() => setSelectedLog(null)}
-                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+                className="p-1.5 rounded-xl bg-theme-surface2 text-theme-text2 hover:text-white"
               >
                 ✕
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-xs font-mono">
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                <span className="text-slate-500 block text-[10px]">ACTOR ID:</span>
-                <span className="text-slate-300">{selectedLog.actor_id || 'System'}</span>
+              <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
+                <span className="text-theme-text3 block text-[10px]">ACTOR ID:</span>
+                <span className="text-theme-text2">{selectedLog.actor_id || 'System'}</span>
               </div>
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                <span className="text-slate-500 block text-[10px]">RESOURCE ID:</span>
-                <span className="text-slate-300 truncate block">{selectedLog.resource_id || 'N/A'}</span>
+              <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
+                <span className="text-theme-text3 block text-[10px]">RESOURCE ID:</span>
+                <span className="text-theme-text2 truncate block">{selectedLog.resource_id || 'N/A'}</span>
               </div>
             </div>
 
             {selectedLog.before_data && (
               <div className="space-y-1 text-xs">
-                <span className="font-semibold text-slate-400 font-mono text-[10px] uppercase">
+                <span className="font-semibold text-theme-text2 font-mono text-[10px] uppercase">
                   Before State (Sanitized):
                 </span>
-                <pre className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-cyan-200 font-mono text-[11px] max-h-40 overflow-y-auto">
+                <pre className="p-3 rounded-xl bg-theme-surface border border-theme-border text-cyan-200 font-mono text-[11px] max-h-40 overflow-y-auto">
                   {JSON.stringify(selectedLog.before_data, null, 2)}
                 </pre>
               </div>
@@ -283,10 +283,10 @@ export default function AdminAuditLogs() {
 
             {selectedLog.after_data && (
               <div className="space-y-1 text-xs">
-                <span className="font-semibold text-slate-400 font-mono text-[10px] uppercase">
+                <span className="font-semibold text-theme-text2 font-mono text-[10px] uppercase">
                   After State (Sanitized):
                 </span>
-                <pre className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-emerald-300 font-mono text-[11px] max-h-40 overflow-y-auto">
+                <pre className="p-3 rounded-xl bg-theme-surface border border-theme-border text-emerald-300 font-mono text-[11px] max-h-40 overflow-y-auto">
                   {JSON.stringify(selectedLog.after_data, null, 2)}
                 </pre>
               </div>
@@ -294,10 +294,10 @@ export default function AdminAuditLogs() {
 
             {selectedLog.metadata && (
               <div className="space-y-1 text-xs">
-                <span className="font-semibold text-slate-400 font-mono text-[10px] uppercase">
+                <span className="font-semibold text-theme-text2 font-mono text-[10px] uppercase">
                   Event Metadata:
                 </span>
-                <pre className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[11px] max-h-32 overflow-y-auto">
+                <pre className="p-3 rounded-xl bg-theme-surface border border-theme-border text-theme-text2 font-mono text-[11px] max-h-32 overflow-y-auto">
                   {JSON.stringify(selectedLog.metadata, null, 2)}
                 </pre>
               </div>
@@ -306,7 +306,7 @@ export default function AdminAuditLogs() {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setSelectedLog(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-white text-xs font-semibold"
               >
                 Close Inspector
               </button>

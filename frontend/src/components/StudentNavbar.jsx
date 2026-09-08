@@ -11,7 +11,7 @@ export default function StudentNavbar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#080C14]/90 backdrop-blur-xl transition-all select-none">
+    <header className="sticky top-0 z-40 w-full border-b border-theme-border bg-theme-surface2 backdrop-blur-xl transition-all select-none">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo & Title */}
@@ -33,7 +33,7 @@ export default function StudentNavbar({
                     DSA Practice
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 font-mono hidden sm:block">
+                <p className="text-[10px] text-theme-text2 font-mono hidden sm:block">
                   Practice • Algorithms • Mastery
                 </p>
               </div>
@@ -45,7 +45,7 @@ export default function StudentNavbar({
             {/* Notification Bell */}
             <button
               onClick={() => setActiveTab('notifications')}
-              className="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
+              className="relative p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
@@ -58,22 +58,22 @@ export default function StudentNavbar({
 
             {/* Student Profile & Badge */}
             {user && (
-              <div className="flex items-center space-x-3 pl-3 border-l border-slate-800">
+              <div className="flex items-center space-x-3 pl-3 border-l border-theme-border">
                 <div
                   onClick={() => setActiveTab('profile')}
                   className="flex items-center space-x-2.5 cursor-pointer group"
                 >
                   <div className="relative">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-800 to-slate-700 border border-slate-600 flex items-center justify-center text-xs font-bold text-cyan-300 shadow-sm group-hover:border-cyan-500 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-800 to-slate-700 border border-theme-border flex items-center justify-center text-xs font-bold text-cyan-300 shadow-sm group-hover:border-cyan-500 transition-colors">
                       {(user.name || user.email || 'U').charAt(0).toUpperCase()}
                     </div>
                     <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#080C14] bg-emerald-400" />
                   </div>
                   <div className="hidden md:block text-left">
-                    <p className="text-xs font-semibold text-slate-200 leading-tight group-hover:text-cyan-300 transition-colors">
+                    <p className="text-xs font-semibold text-theme-text1 leading-tight group-hover:text-cyan-300 transition-colors">
                       {user.name || user.email?.split('@')[0]}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">
+                    <p className="text-[10px] text-theme-text2 font-mono truncate max-w-[120px]">
                       {user.email}
                     </p>
                   </div>
@@ -86,7 +86,7 @@ export default function StudentNavbar({
                 <button
                   onClick={logout}
                   title="Log out"
-                  className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800/80 transition-colors"
+                  className="p-2 rounded-xl text-theme-text2 hover:text-rose-400 hover:bg-theme-surface2 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -103,7 +103,7 @@ export default function StudentNavbar({
             )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+              className="p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -113,15 +113,15 @@ export default function StudentNavbar({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="sm:hidden px-4 pt-2 pb-4 border-t border-slate-800 bg-[#080C14] space-y-3">
-          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+        <div className="sm:hidden px-4 pt-2 pb-4 border-t border-theme-border bg-theme-surface2 space-y-3">
+          <div className="flex items-center justify-between pt-2 border-t border-theme-border">
             <div className="flex items-center space-x-2">
-              <div className="w-7 h-7 rounded-full bg-slate-800 text-cyan-300 text-xs font-bold flex items-center justify-center">
+              <div className="w-7 h-7 rounded-full bg-theme-surface2 text-cyan-300 text-xs font-bold flex items-center justify-center">
                 {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
               </div>
               <div>
                 <p className="text-xs font-medium text-white">{user?.name || user?.email}</p>
-                <p className="text-[10px] text-slate-400 font-mono">{user?.email}</p>
+                <p className="text-[10px] text-theme-text2 font-mono">{user?.email}</p>
               </div>
             </div>
             <button

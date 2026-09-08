@@ -153,8 +153,8 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
     system: {
       icon: Info,
       label: 'System',
-      badgeCls: 'text-slate-400 bg-slate-800 border-slate-700',
-      iconBoxCls: 'bg-slate-800/80 text-slate-300 border-slate-700',
+      badgeCls: 'text-theme-text2 bg-theme-surface2 border-theme-border',
+      iconBoxCls: 'bg-theme-surface2 text-theme-text2 border-theme-border',
       dotCls: 'bg-slate-400'
     }
   };
@@ -193,14 +193,14 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
       {/* Header Banner */}
-      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-[#0C1425] via-[#121B35] to-[#0C1425] border border-cyan-900/30 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-6 md:p-8 rounded-3xl bg-theme-surface2 border border-cyan-900/30 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold mb-2">
             <Bell className="w-3.5 h-3.5" />
             <span>Activity Feed</span>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Notifications</h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-xl">
+          <h1 className="text-2xl font-bold text-theme-text1 tracking-tight">Notifications</h1>
+          <p className="text-xs text-theme-text2 mt-1 max-w-xl">
             Stay updated with Daily Challenge releases, practice problem milestones, test submissions, and streak achievements.
           </p>
         </div>
@@ -210,7 +210,7 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
             <button
               onClick={handleMarkAllRead}
               disabled={markingAll}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold border border-slate-700 shadow-md transition-all active:scale-95 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-white text-xs font-semibold border border-theme-border shadow-md transition-all active:scale-95 disabled:opacity-50"
             >
               <ShieldCheck className="w-4 h-4 text-cyan-400" />
               <span>{markingAll ? 'Marking...' : 'Mark All as Read'}</span>
@@ -219,7 +219,7 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
 
           <button
             onClick={loadNotifications}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition-colors"
+            className="p-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text2 hover:text-white border border-theme-border transition-colors"
             title="Refresh notifications"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
@@ -228,7 +228,7 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
       </div>
 
       {/* Category Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar border-b border-slate-800">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar border-b border-theme-border">
         {CATEGORY_TABS.map(tab => {
           const TabIcon = tab.icon;
           const isActive = activeCategory === tab.id;
@@ -241,14 +241,14 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 isActive
                   ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950/50'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  : 'text-theme-text2 hover:text-white hover:bg-theme-surface2'
               }`}
             >
               <TabIcon className="w-3.5 h-3.5" />
               <span>{tab.label}</span>
               {count != null && count > 0 && (
                 <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-full font-mono ${
-                  isActive ? 'bg-white/20 text-white' : tab.id === 'unread' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-400'
+                  isActive ? 'bg-white/20 text-white' : tab.id === 'unread' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-theme-surface2 text-theme-text2'
                 }`}>
                   {count}
                 </span>
@@ -262,11 +262,11 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-24 rounded-2xl bg-slate-900/50 border border-slate-800/80 animate-pulse" />
+            <div key={i} className="h-24 rounded-2xl bg-theme-surface border border-theme-border animate-pulse" />
           ))}
         </div>
       ) : error ? (
-        <div className="p-10 text-center rounded-2xl bg-slate-900/40 border border-rose-900/30 text-rose-400 space-y-3">
+        <div className="p-10 text-center rounded-2xl bg-theme-surface border border-rose-900/30 text-rose-400 space-y-3">
           <Info className="w-8 h-8 mx-auto text-rose-500" />
           <div className="text-sm font-semibold">{error}</div>
           <button onClick={loadNotifications} className="btn-secondary btn-sm inline-flex items-center gap-1.5">
@@ -274,14 +274,14 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
           </button>
         </div>
       ) : notifications.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-slate-900/40 border border-slate-800 text-slate-400 space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-slate-800/60 border border-slate-700 flex items-center justify-center mx-auto text-slate-500">
+        <div className="p-12 text-center rounded-3xl bg-theme-surface border border-theme-border text-theme-text2 space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-theme-surface2 border border-theme-border flex items-center justify-center mx-auto text-theme-text3">
             <Bell className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-bold text-white">
+          <h3 className="text-base font-bold text-theme-text1">
             {EMPTY_MESSAGES[activeCategory]?.title || 'No notifications found'}
           </h3>
-          <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+          <p className="text-xs text-theme-text2 max-w-md mx-auto leading-relaxed">
             {EMPTY_MESSAGES[activeCategory]?.desc || 'No notifications in this category.'}
           </p>
         </div>
@@ -298,8 +298,8 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
                 onClick={() => handleMarkRead(notif.id, notif.link)}
                 className={`p-4 sm:p-5 rounded-2xl border transition-all flex items-start justify-between gap-4 cursor-pointer group ${
                   notif.is_read
-                    ? 'bg-slate-900/40 border-slate-800/60 hover:bg-slate-900/80 opacity-80'
-                    : 'bg-gradient-to-r from-slate-900/95 via-[#0c1424] to-slate-950/95 border-cyan-500/40 shadow-xl shadow-cyan-950/20 hover:border-cyan-400'
+                    ? 'bg-theme-surface border-theme-border hover:bg-theme-surface opacity-80'
+                    : 'bg-theme-surface2 border-cyan-500/40 shadow-xl shadow-cyan-950/20 hover:border-cyan-500'
                 }`}
               >
                 <div className="flex items-start gap-3.5 sm:gap-4 min-w-0">
@@ -314,7 +314,7 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
                       <span className={`text-[10px] uppercase tracking-wider font-mono font-bold px-2 py-0.5 rounded-md border ${style.badgeCls}`}>
                         {style.label}
                       </span>
-                      <h3 className={`text-sm font-bold truncate ${notif.is_read ? 'text-slate-300' : 'text-white'}`}>
+                      <h3 className={`text-sm font-bold truncate ${notif.is_read ? 'text-theme-text2' : 'text-theme-text1'}`}>
                         {notif.title}
                       </h3>
                       {!notif.is_read && (
@@ -322,13 +322,13 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-300 leading-relaxed break-words">
+                    <p className="text-xs text-theme-text2 leading-relaxed break-words">
                       {notif.message}
                     </p>
 
-                    <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-1 font-mono">
+                    <div className="flex items-center gap-3 text-[11px] text-theme-text3 pt-1 font-mono">
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-500" />
+                        <Clock className="w-3 h-3 text-theme-text3" />
                         <span title={new Date(notif.created_at).toLocaleString()}>
                           {formatRelativeTime(notif.created_at)}
                         </span>
@@ -347,7 +347,7 @@ export default function NotificationsPage({ onNavigate, onUnreadChange }) {
                   {!notif.is_read && (
                     <button
                       onClick={(e) => handleMarkRead(notif.id, null, e)}
-                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-cyan-600 text-slate-400 hover:text-white transition-colors"
+                      className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-cyan-600 text-theme-text2 hover:text-white transition-colors"
                       title="Mark as read"
                     >
                       <Check className="w-3.5 h-3.5" />

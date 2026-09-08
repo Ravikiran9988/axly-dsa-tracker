@@ -108,7 +108,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-theme-bg text-theme-text1 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
       {/* Background Glows */}
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[34rem] h-[34rem] bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-10 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -119,7 +119,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
       <div className="w-full max-w-md mb-6 relative z-10">
         <button
           onClick={step === 'otp' ? () => setStep('register') : onBackToHome}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-theme-text2 hover:text-theme-text1 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>{step === 'otp' ? 'Back to Registration' : 'Back to Home'}</span>
@@ -131,7 +131,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 rounded-3xl blur-xl transition-all" />
 
-          <div className="relative rounded-3xl bg-[#0A0F1D] border border-slate-800/90 shadow-2xl p-7 sm:p-9 space-y-6">
+          <div className="relative rounded-3xl bg-theme-surface border border-theme-border shadow-2xl p-7 sm:p-9 space-y-6">
             {step === 'otp' ? (
               /* OTP VERIFICATION VIEW */
               <div className="space-y-6">
@@ -141,9 +141,9 @@ export default function Signup({ onNavigate, onBackToHome }) {
                   </div>
                   <div className="space-y-1">
                     <span className="text-[11px] font-mono font-bold tracking-wider text-cyan-400 uppercase">Verification Code</span>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Enter your OTP</h1>
-                    <p className="text-xs text-slate-400">
-                      We've sent a 6-digit code to <strong className="text-white">{email}</strong> from <span className="text-cyan-400 font-mono text-[11px]">Axly &lt;noreply@axly.in&gt;</span>.
+                    <h1 className="text-2xl font-bold text-theme-text1 tracking-tight">Enter your OTP</h1>
+                    <p className="text-xs text-theme-text2">
+                      We've sent a 6-digit code to <strong className="text-theme-text1">{email}</strong> from <span className="text-cyan-400 font-mono text-[11px]">Axly &lt;noreply@axly.in&gt;</span>.
                     </p>
                   </div>
                 </div>
@@ -158,7 +158,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
 
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300">6-Digit Verification Code</label>
+                    <label className="text-xs font-semibold text-theme-text2">6-Digit Verification Code</label>
                     <input
                       id="otp-input"
                       type="text"
@@ -170,9 +170,9 @@ export default function Signup({ onNavigate, onBackToHome }) {
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                       placeholder="••••••"
-                      className="w-full px-4 py-3 rounded-xl bg-slate-950/80 border border-slate-700 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-center font-mono text-xl tracking-[0.4em] font-bold text-white placeholder-slate-600 transition"
+                      className="w-full px-4 py-3 rounded-xl bg-theme-surface border border-theme-border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-center font-mono text-xl tracking-[0.4em] font-bold text-theme-text1 placeholder-slate-600 transition"
                     />
-                    <p className="text-[11px] text-slate-500 text-center">Code expires in 10 minutes</p>
+                    <p className="text-[11px] text-theme-text3 text-center">Code expires in 10 minutes</p>
                   </div>
 
                   <button
@@ -187,14 +187,14 @@ export default function Signup({ onNavigate, onBackToHome }) {
                 </form>
 
                 {/* Resend OTP Actions */}
-                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Didn't receive code?</span>
+                <div className="pt-2 border-t border-theme-border flex items-center justify-between text-xs">
+                  <span className="text-theme-text2">Didn't receive code?</span>
                   <button
                     id="btn-resend-otp"
                     type="button"
                     onClick={handleResendOtp}
                     disabled={resendTimer > 0 || resendStatus === 'sending'}
-                    className="font-semibold text-cyan-400 hover:text-cyan-300 disabled:text-slate-500 disabled:cursor-not-allowed transition flex items-center gap-1.5"
+                    className="font-semibold text-cyan-400 hover:text-cyan-300 disabled:text-theme-text3 disabled:cursor-not-allowed transition flex items-center gap-1.5"
                   >
                     <RefreshCw className={`w-3 h-3 ${resendStatus === 'sending' ? 'animate-spin' : ''}`} />
                     <span>
@@ -212,11 +212,11 @@ export default function Signup({ onNavigate, onBackToHome }) {
               <>
                 <div className="text-center space-y-2.5">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-xl shadow-cyan-500/25 mx-auto">
-                    <Terminal className="w-6 h-6 text-white" />
+                    <Terminal className="w-6 h-6 text-theme-text1" />
                   </div>
                   <div className="space-y-1">
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Create your Axly account</h1>
-                    <p className="text-xs text-slate-400">Start mastering DSA with structured practice.</p>
+                    <h1 className="text-2xl font-bold text-theme-text1 tracking-tight">Create your Axly account</h1>
+                    <p className="text-xs text-theme-text2">Start mastering DSA with structured practice.</p>
                   </div>
                 </div>
 
@@ -230,7 +230,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
 
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Full Name</label>
+                    <label className="text-xs font-semibold text-theme-text2">Full Name</label>
                     <input
                       id="signup-name-input"
                       type="text"
@@ -238,12 +238,12 @@ export default function Signup({ onNavigate, onBackToHome }) {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Alex Mercer"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-white placeholder-slate-500 transition"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface2 border border-theme-border focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-theme-text1 placeholder-slate-500 transition"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Email Address</label>
+                    <label className="text-xs font-semibold text-theme-text2">Email Address</label>
                     <input
                       id="signup-email-input"
                       type="email"
@@ -251,12 +251,12 @@ export default function Signup({ onNavigate, onBackToHome }) {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-white placeholder-slate-500 transition"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface2 border border-theme-border focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-theme-text1 placeholder-slate-500 transition"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Password</label>
+                    <label className="text-xs font-semibold text-theme-text2">Password</label>
                     <div className="relative">
                       <input
                         id="signup-password-input"
@@ -265,12 +265,12 @@ export default function Signup({ onNavigate, onBackToHome }) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-white placeholder-slate-500 transition"
+                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-theme-surface2 border border-theme-border focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-theme-text1 placeholder-slate-500 transition"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-text3 hover:text-theme-text2"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -278,7 +278,7 @@ export default function Signup({ onNavigate, onBackToHome }) {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Confirm Password</label>
+                    <label className="text-xs font-semibold text-theme-text2">Confirm Password</label>
                     <input
                       id="signup-confirm-password-input"
                       type={showPassword ? 'text' : 'password'}
@@ -286,24 +286,24 @@ export default function Signup({ onNavigate, onBackToHome }) {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-white placeholder-slate-500 transition"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface2 border border-theme-border focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-theme-text1 placeholder-slate-500 transition"
                     />
                   </div>
 
                   {/* Password Requirements Checklist */}
-                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-[11px] space-y-1.5 text-slate-400">
-                    <div className="font-semibold text-slate-300">Password Requirements:</div>
+                  <div className="p-3 rounded-xl bg-theme-surface border border-theme-border text-[11px] space-y-1.5 text-theme-text2">
+                    <div className="font-semibold text-theme-text2">Password Requirements:</div>
                     <div className="grid grid-cols-2 gap-1">
-                      <span className={`flex items-center gap-1.5 ${hasLength ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span className={`flex items-center gap-1.5 ${hasLength ? 'text-emerald-400' : 'text-theme-text3'}`}>
                         <CheckCircle2 className="w-3.5 h-3.5" /> 8+ characters
                       </span>
-                      <span className={`flex items-center gap-1.5 ${hasUpper ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span className={`flex items-center gap-1.5 ${hasUpper ? 'text-emerald-400' : 'text-theme-text3'}`}>
                         <CheckCircle2 className="w-3.5 h-3.5" /> Uppercase letter
                       </span>
-                      <span className={`flex items-center gap-1.5 ${hasLower ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span className={`flex items-center gap-1.5 ${hasLower ? 'text-emerald-400' : 'text-theme-text3'}`}>
                         <CheckCircle2 className="w-3.5 h-3.5" /> Lowercase letter
                       </span>
-                      <span className={`flex items-center gap-1.5 ${hasNumber ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      <span className={`flex items-center gap-1.5 ${hasNumber ? 'text-emerald-400' : 'text-theme-text3'}`}>
                         <CheckCircle2 className="w-3.5 h-3.5" /> At least 1 number
                       </span>
                     </div>
@@ -322,8 +322,8 @@ export default function Signup({ onNavigate, onBackToHome }) {
 
                 {/* OR Divider */}
                 <div className="relative py-1">
-                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800" /></div>
-                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#0A0F1D] px-2 text-slate-500 font-mono text-[10px]">Or continue with</span></div>
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-theme-border" /></div>
+                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-theme-surface px-2 text-theme-text3 font-mono text-[10px]">Or continue with</span></div>
                 </div>
 
                 {/* Google OAuth Button */}
@@ -343,8 +343,8 @@ export default function Signup({ onNavigate, onBackToHome }) {
                 </button>
 
                 {/* Footer Navigation */}
-                <div className="text-center pt-1 border-t border-slate-800/80">
-                  <p className="text-xs text-slate-400">
+                <div className="text-center pt-1 border-t border-theme-border">
+                  <p className="text-xs text-theme-text2">
                     Already have an account?{' '}
                     <button
                       onClick={() => onNavigate('login')}

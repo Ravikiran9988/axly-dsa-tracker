@@ -76,7 +76,7 @@ export default function AdminLayout({ user, onLogout }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-row font-sans">
+    <div className="min-h-screen bg-theme-bg text-theme-text1 flex flex-row font-sans">
       {/* Dedicated Admin Sidebar */}
       <AdminSidebar
         currentView={currentView}
@@ -98,7 +98,7 @@ export default function AdminLayout({ user, onLogout }) {
           unreadCount={unreadNotifsCount}
         />
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-[#070B14]">
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-theme-bg">
           {currentView === 'solve' && activeQuestionId ? (
             <ProblemWorkspace
               questionId={activeQuestionId}

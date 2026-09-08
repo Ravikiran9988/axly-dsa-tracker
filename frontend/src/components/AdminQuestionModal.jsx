@@ -91,16 +91,16 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden flex flex-col my-8">
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+      <div className="w-full max-w-4xl rounded-3xl bg-theme-surface border border-theme-border shadow-2xl overflow-hidden flex flex-col my-8">
+        <div className="p-5 border-b border-theme-border flex items-center justify-between bg-theme-surface">
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <h2 className="text-base font-bold text-theme-text1 flex items-center gap-2">
               <FileCode className="w-4 h-4 text-cyan-400" />
               {currentQuestion ? 'Edit Challenge' : 'Create Coding Challenge'}
             </h2>
-            <p className="text-xs text-slate-400 mt-1">Author manually or generate a complete language-independent draft with AI.</p>
+            <p className="text-xs text-theme-text2 mt-1">Author manually or generate a complete language-independent draft with AI.</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+          <button onClick={onClose} className="p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -115,12 +115,12 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                 value={aiTopic}
                 onChange={e => setAiTopic(e.target.value)}
                 placeholder="Topic e.g. Arrays, Trees, Dynamic Programming"
-                className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-white text-xs"
               />
               <select
                 value={aiDifficulty}
                 onChange={e => setAiDifficulty(e.target.value)}
-                className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs"
+                className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-white text-xs"
               >
                 <option value="easy">easy</option>
                 <option value="medium">medium</option>
@@ -137,27 +137,27 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
               </button>
             </div>
             <div className="mt-2.5 flex items-center gap-3">
-              <label className="text-[11px] text-slate-400">Test cases count</label>
+              <label className="text-[11px] text-theme-text2">Test cases count</label>
               <input
                 type="number"
                 min="2"
                 max="20"
                 value={aiCount}
                 onChange={e => setAiCount(e.target.value)}
-                className="w-20 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-white text-xs"
+                className="w-20 px-2 py-1 rounded-lg bg-theme-surface border border-theme-border text-white text-xs"
               />
               {aiError && <span className="text-[11px] text-rose-400">{aiError}</span>}
             </div>
           </div>
         )}
 
-        <div className="px-5 border-b border-slate-800 flex items-center gap-5 bg-slate-950/40 text-xs">
+        <div className="px-5 border-b border-theme-border flex items-center gap-5 bg-theme-surface text-xs">
           {['basic','coding','testcases'].map((tab,i) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`py-3 font-semibold border-b-2 ${activeTab===tab ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400'}`}
+              className={`py-3 font-semibold border-b-2 ${activeTab===tab ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-theme-text2'}`}
             >
               {i+1}. {tab==='basic' ? 'Problem & Specs' : tab==='coding' ? 'Starter Code' : `Test Cases (${testCases.length})`}
             </button>
@@ -172,7 +172,7 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="Challenge title"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white"
               />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <select
@@ -183,7 +183,7 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                     const pts = val === 'easy' ? 10 : val === 'medium' ? 20 : 30;
                     setPoints(pts);
                   }}
-                  className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-white"
                 >
                   <option value="easy">easy (10 pts)</option>
                   <option value="medium">medium (20 pts)</option>
@@ -192,7 +192,7 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                 <select
                   value={topicId}
                   onChange={e => setTopicId(e.target.value)}
-                  className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-white"
                 >
                   <option value="">Select Topic</option>
                   {topics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -201,7 +201,7 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                   type="number"
                   value={points}
                   onChange={e => setPoints(e.target.value)}
-                  className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-white"
                   placeholder="Points"
                 />
               </div>
@@ -211,7 +211,7 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="Problem description"
-                className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                className="w-full p-3 rounded-xl bg-theme-surface border border-theme-border text-white"
               />
               <div className="grid sm:grid-cols-2 gap-3">
                 <textarea
@@ -219,14 +219,14 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                   value={inputFormat}
                   onChange={e => setInputFormat(e.target.value)}
                   placeholder="Input format"
-                  className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  className="p-3 rounded-xl bg-theme-surface border border-theme-border text-white"
                 />
                 <textarea
                   rows={3}
                   value={outputFormat}
                   onChange={e => setOutputFormat(e.target.value)}
                   placeholder="Output format"
-                  className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  className="p-3 rounded-xl bg-theme-surface border border-theme-border text-white"
                 />
               </div>
               <textarea
@@ -234,21 +234,21 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                 value={constraints}
                 onChange={e => setConstraints(e.target.value)}
                 placeholder="Constraints"
-                className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono"
+                className="w-full p-3 rounded-xl bg-theme-surface border border-theme-border text-white font-mono"
               />
               <textarea
                 rows={2}
                 value={hints}
                 onChange={e => setHints(e.target.value)}
                 placeholder="Hints (optional)"
-                className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                className="w-full p-3 rounded-xl bg-theme-surface border border-theme-border text-white"
               />
               <div className="flex items-center gap-3">
-                <label className="text-slate-400">Publishing status</label>
+                <label className="text-theme-text2">Publishing status</label>
                 <select
                   value={status}
                   onChange={e => setStatus(e.target.value)}
-                  className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white"
+                  className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-white"
                 >
                   <option value="draft">Draft — review before publish</option>
                   <option value="published">Published</option>
@@ -261,21 +261,21 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
           {activeTab==='coding' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">JavaScript / Node.js Template</label>
+                <label className="block text-theme-text2 font-semibold mb-1">JavaScript / Node.js Template</label>
                 <textarea
                   rows={9}
                   value={jsStarter}
                   onChange={e => setJsStarter(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-cyan-200 font-mono"
+                  className="w-full p-3 rounded-xl bg-theme-surface border border-theme-border text-cyan-200 font-mono"
                 />
               </div>
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Python 3 Template</label>
+                <label className="block text-theme-text2 font-semibold mb-1">Python 3 Template</label>
                 <textarea
                   rows={9}
                   value={pyStarter}
                   onChange={e => setPyStarter(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-cyan-200 font-mono"
+                  className="w-full p-3 rounded-xl bg-theme-surface border border-theme-border text-cyan-200 font-mono"
                 />
               </div>
             </div>
@@ -284,7 +284,7 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
           {activeTab==='testcases' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-slate-400">Public cases are visible; hidden cases remain evaluation-only.</p>
+                <p className="text-theme-text2">Public cases are visible; hidden cases remain evaluation-only.</p>
                 <button
                   type="button"
                   onClick={addTest}
@@ -294,7 +294,7 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                 </button>
               </div>
               {testCases.map((tc, i) => (
-                <div key={i} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <div key={i} className="p-4 rounded-2xl bg-theme-surface border border-theme-border space-y-3">
                   <div className="flex justify-between">
                     <b className="text-white">Test Case #{i+1}</b>
                     <div className="flex gap-3 items-center">
@@ -318,14 +318,14 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
                       value={tc.input}
                       onChange={e => changeTest(i, 'input', e.target.value)}
                       placeholder="Input"
-                      className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-cyan-200 font-mono"
+                      className="p-2.5 rounded-xl bg-theme-surface border border-theme-border text-cyan-200 font-mono"
                     />
                     <textarea
                       rows={3}
                       value={tc.expected_output}
                       onChange={e => changeTest(i, 'expected_output', e.target.value)}
                       placeholder="Expected output"
-                      className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-emerald-300 font-mono"
+                      className="p-2.5 rounded-xl bg-theme-surface border border-theme-border text-emerald-300 font-mono"
                     />
                   </div>
                 </div>
@@ -333,8 +333,8 @@ export default function AdminQuestionModal({ isOpen, onClose, questionToEdit, qu
             </div>
           )}
 
-          <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300">Cancel</button>
+          <div className="pt-4 border-t border-theme-border flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl bg-theme-surface2 text-theme-text2">Cancel</button>
             <button type="submit" disabled={saving} className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold disabled:opacity-50">
               {saving ? 'Saving...' : status === 'draft' ? 'Save Draft' : currentQuestion ? 'Update Challenge' : 'Publish Challenge'}
             </button>

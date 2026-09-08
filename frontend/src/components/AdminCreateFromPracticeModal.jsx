@@ -113,25 +113,25 @@ export default function AdminCreateFromPracticeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-slide-up">
+      <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-slide-up">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/50">
+        <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">
+              <h2 className="text-base font-bold text-theme-text1">
                 Create Daily Challenge from Practice Problem
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-theme-text2">
                 Instantiate an independent Daily Challenge record based on an existing Practice problem without altering the original.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -148,7 +148,7 @@ export default function AdminCreateFromPracticeModal({
           {/* Step 1: Select Practice Problem */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+              <label className="text-xs font-bold uppercase tracking-wider text-theme-text2 font-mono">
                 1. Select Source Practice Problem ({filteredQuestions.length})
               </label>
               {selectedQuestion && (
@@ -160,20 +160,20 @@ export default function AdminCreateFromPracticeModal({
 
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-theme-text3" />
                 <input
                   type="text"
                   placeholder="Search practice library by title or topic..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <select
                 value={difficultyFilter}
                 onChange={e => setDifficultyFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                className="px-3 py-2 rounded-xl bg-theme-surface border border-theme-border text-xs text-theme-text2 focus:outline-none focus:border-indigo-500"
               >
                 <option value="">All Difficulties</option>
                 <option value="easy">Easy</option>
@@ -183,11 +183,11 @@ export default function AdminCreateFromPracticeModal({
             </div>
 
             {/* List of Practice Problems */}
-            <div className="max-h-48 overflow-y-auto border border-slate-800 rounded-2xl bg-slate-950/60 divide-y divide-slate-800/60">
+            <div className="max-h-48 overflow-y-auto border border-theme-border rounded-2xl bg-theme-surface divide-y divide-slate-800/60">
               {loadingQuestions ? (
-                <div className="p-6 text-center text-xs text-slate-500">Loading practice bank...</div>
+                <div className="p-6 text-center text-xs text-theme-text3">Loading practice bank...</div>
               ) : filteredQuestions.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-500">No practice problems found.</div>
+                <div className="p-6 text-center text-xs text-theme-text3">No practice problems found.</div>
               ) : (
                 filteredQuestions.map(q => {
                   const isSel = selectedQuestion?.id === q.id;
@@ -199,7 +199,7 @@ export default function AdminCreateFromPracticeModal({
                       className={`w-full p-3 text-left flex items-center justify-between transition-colors ${
                         isSel
                           ? 'bg-indigo-950/40 border-l-4 border-indigo-500'
-                          : 'hover:bg-slate-900/60'
+                          : 'hover:bg-theme-surface'
                       }`}
                     >
                       <div className="min-w-0 pr-3">
@@ -209,7 +209,7 @@ export default function AdminCreateFromPracticeModal({
                             {q.difficulty}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 font-mono">
+                        <div className="text-[11px] text-theme-text3 mt-0.5 flex items-center gap-2 font-mono">
                           <span>{q.id}</span>
                           {q.topic_name && <span>&bull; {q.topic_name}</span>}
                           {q.pattern_id && <span>&bull; {q.pattern_id}</span>}
@@ -222,7 +222,7 @@ export default function AdminCreateFromPracticeModal({
                             Selected
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-500 hover:text-slate-300">
+                          <span className="text-xs text-theme-text3 hover:text-theme-text2">
                             Select &rarr;
                           </span>
                         )}
@@ -236,13 +236,13 @@ export default function AdminCreateFromPracticeModal({
 
           {/* Step 2: Configure Daily Challenge Properties */}
           {selectedQuestion && (
-            <div className="space-y-4 pt-3 border-t border-slate-800 animate-fade-in">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+            <div className="space-y-4 pt-3 border-t border-theme-border animate-fade-in">
+              <label className="block text-xs font-bold uppercase tracking-wider text-theme-text2 font-mono">
                 2. Challenge Configuration & Scheduling
               </label>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5 font-mono">
+                <label className="block text-xs font-bold uppercase text-theme-text2 mb-1.5 font-mono">
                   Challenge Title *
                 </label>
                 <input
@@ -250,46 +250,46 @@ export default function AdminCreateFromPracticeModal({
                   value={customTitle}
                   onChange={e => setCustomTitle(e.target.value)}
                   placeholder="Challenge title..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-amber-400"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white text-xs focus:outline-none focus:border-amber-400"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5 font-mono">
+                  <label className="block text-xs font-bold uppercase text-theme-text2 mb-1.5 font-mono">
                     Points (Streak Reward)
                   </label>
                   <input
                     type="number"
                     value={points}
                     onChange={e => setPoints(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-amber-400 font-bold font-mono text-xs focus:outline-none focus:border-amber-400"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-amber-400 font-bold font-mono text-xs focus:outline-none focus:border-amber-400"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5 font-mono">
+                  <label className="block text-xs font-bold uppercase text-theme-text2 mb-1.5 font-mono">
                     Target Date (Optional)
                   </label>
                   <input
                     type="date"
                     value={scheduledDate}
                     onChange={e => setScheduledDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white font-mono text-xs focus:outline-none focus:border-amber-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5 font-mono">
+                  <label className="block text-xs font-bold uppercase text-theme-text2 mb-1.5 font-mono">
                     Initial Status
                   </label>
                   <select
                     value={status}
                     onChange={e => setStatus(e.target.value)}
                     disabled={Boolean(scheduledDate)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white text-xs focus:outline-none focus:border-amber-400 disabled:opacity-50"
                   >
                     <option value="draft">Draft (Private)</option>
                     <option value="published">Published</option>
@@ -297,9 +297,9 @@ export default function AdminCreateFromPracticeModal({
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800/80 text-xs text-slate-400 space-y-1">
-                <div className="font-bold text-slate-300">Automated Content Extraction:</div>
-                <div className="text-[11px] text-slate-500 leading-relaxed">
+              <div className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border text-xs text-theme-text2 space-y-1">
+                <div className="font-bold text-theme-text2">Automated Content Extraction:</div>
+                <div className="text-[11px] text-theme-text3 leading-relaxed">
                   The problem statement, constraints, example inputs/outputs, starter code, solution approach, 3-step progressive hints, and test cases will be cloned into the new Daily Challenge record automatically. The original Practice problem remains 100% untouched.
                 </div>
               </div>
@@ -307,11 +307,11 @@ export default function AdminCreateFromPracticeModal({
           )}
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+          <div className="pt-4 border-t border-theme-border flex items-center justify-between">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
             >
               Cancel
             </button>

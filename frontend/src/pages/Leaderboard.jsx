@@ -12,7 +12,7 @@ const PERIODS = [
 
 const RANK_MEDALS = {
   1: { cls: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
-  2: { cls: 'text-slate-300', bg: 'bg-slate-500/10 border-slate-500/20' },
+  2: { cls: 'text-theme-text2', bg: 'bg-slate-500/10 border-slate-500/20' },
   3: { cls: 'text-amber-600', bg: 'bg-amber-700/10 border-amber-700/20' },
 };
 
@@ -48,13 +48,13 @@ export default function Leaderboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">Leaderboard</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Competitive ranking based on Daily Challenge points</p>
+          <p className="text-sm text-theme-text2 mt-0.5">Competitive ranking based on Daily Challenge points</p>
         </div>
         {myEntry && (
           <div className="card px-4 py-2.5 flex items-center gap-3 shrink-0">
-            <div className="text-xs text-slate-500">Your Rank</div>
-            <div className="text-lg font-bold text-axly-400">#{entries.indexOf(myEntry) + 1}</div>
-            <div className="h-5 w-px bg-[#1a2540]" />
+            <div className="text-xs text-theme-text3">Your Rank</div>
+            <div className="text-lg font-bold text-cyan-400">#{entries.indexOf(myEntry) + 1}</div>
+            <div className="h-5 w-px bg-theme-surface2" />
             <div className="flex items-center gap-1 text-amber-400 text-sm font-bold" title="Competitive Daily Challenge Points">
               <Zap className="w-4 h-4" /> {myEntry.competitive_points ?? myEntry.points ?? 0} pts
             </div>
@@ -95,7 +95,7 @@ export default function Leaderboard() {
             return (
               <div
                 key={entry.user_id || entry.id}
-                className={`card flex flex-col items-center py-5 px-3 text-center relative transition-colors ${isMe ? 'border-axly-500/40' : ''} ${isFirst ? 'col-start-2 row-start-1' : ''}`}
+                className={`card flex flex-col items-center py-5 px-3 text-center relative transition-colors ${isMe ? 'border-cyan-500/40' : ''} ${isFirst ? 'col-start-2 row-start-1' : ''}`}
               >
                 {isFirst && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -104,17 +104,17 @@ export default function Leaderboard() {
                 )}
                 <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-lg font-bold mb-2 ${
                   isFirst ? 'border-amber-400 text-amber-400 bg-amber-500/10' :
-                  rank === 2 ? 'border-slate-400 text-slate-300 bg-slate-500/10' :
+                  rank === 2 ? 'border-slate-400 text-theme-text2 bg-slate-500/10' :
                   'border-amber-600 text-amber-600 bg-amber-600/10'
                 }`}>
                   {(entry.name || entry.display_name || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div className="text-xs font-semibold text-white truncate max-w-full">
                   {entry.name || entry.display_name || 'Unknown'}
-                  {isMe && <span className="ml-1 text-axly-400">(You)</span>}
+                  {isMe && <span className="ml-1 text-cyan-400">(You)</span>}
                 </div>
                 <div className={`text-sm font-bold mt-1 ${
-                  isFirst ? 'text-amber-400' : rank === 2 ? 'text-slate-300' : 'text-amber-600'
+                  isFirst ? 'text-amber-400' : rank === 2 ? 'text-theme-text2' : 'text-amber-600'
                 }`}>
                   {entry.competitive_points ?? entry.points ?? 0} pts
                 </div>
@@ -166,48 +166,48 @@ export default function Leaderboard() {
                   const medal = RANK_MEDALS[rank];
                   const challengeStreak = entry.dailyChallengeStreak ?? entry.daily_challenge_streak ?? entry.streak ?? 0;
                   return (
-                    <tr key={entry.user_id || entry.id} className={isMe ? 'bg-axly-500/5' : ''}>
+                    <tr key={entry.user_id || entry.id} className={isMe ? 'bg-cyan-500/5' : ''}>
                       <td className="text-center">
                         {medal ? (
                           <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full border text-xs font-bold ${medal.cls} ${medal.bg}`}>
                             {rank}
                           </span>
                         ) : (
-                          <span className="text-slate-600 font-mono text-sm">{rank}</span>
+                          <span className="text-theme-text3 font-mono text-sm">{rank}</span>
                         )}
                       </td>
                       <td>
                         <div className="flex items-center gap-2.5">
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                            isMe ? 'bg-axly-600 text-white' : 'bg-[#1a2540] text-slate-300'
+                            isMe ? 'bg-cyan-500 text-white' : 'bg-theme-surface2 text-theme-text2'
                           }`}>
                             {(entry.name || entry.display_name || 'U').charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className={`text-sm font-medium ${isMe ? 'text-axly-300' : 'text-slate-200'}`}>
+                            <div className={`text-sm font-medium ${isMe ? 'text-cyan-600 dark:text-cyan-300' : 'text-theme-text1'}`}>
                               {entry.name || entry.display_name || 'Unknown'}
-                              {isMe && <span className="ml-1.5 text-[10px] font-semibold text-axly-400 bg-axly-500/10 px-1.5 py-0.5 rounded">You</span>}
+                              {isMe && <span className="ml-1.5 text-[10px] font-semibold text-cyan-500 dark:text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">You</span>}
                             </div>
                             {entry.cohort_name && (
-                              <div className="text-[10px] text-slate-600">{entry.cohort_name}</div>
+                              <div className="text-[10px] text-theme-text3">{entry.cohort_name}</div>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="text-right">
-                        <span className={`font-bold text-sm ${rank <= 3 ? 'text-amber-400' : 'text-slate-200'}`}>
+                        <span className={`font-bold text-sm ${rank <= 3 ? 'text-amber-500 dark:text-amber-400' : 'text-theme-text1'}`}>
                           {(entry.total_points || entry.points || 0).toLocaleString()}
                         </span>
                       </td>
-                      <td className="hidden sm:table-cell text-right text-slate-400 text-sm">
+                      <td className="hidden sm:table-cell text-right text-theme-text2 text-sm">
                         {entry.problems_solved || entry.solved_count || entry.completed_count || '—'}
                       </td>
                       <td className="hidden md:table-cell text-right">
                         {challengeStreak > 0 ? (
-                          <div className="inline-flex items-center gap-1 text-rose-400 text-xs font-semibold justify-end">
-                            <Flame className="w-3.5 h-3.5 fill-rose-400" /> {challengeStreak}d
+                          <div className="inline-flex items-center gap-1 text-rose-500 dark:text-rose-400 text-xs font-semibold justify-end">
+                            <Flame className="w-3.5 h-3.5 fill-rose-500 dark:fill-rose-400" /> {challengeStreak}d
                           </div>
-                        ) : <span className="text-slate-600 text-sm">—</span>}
+                        ) : <span className="text-theme-text3 text-sm">—</span>}
                       </td>
                     </tr>
                   );

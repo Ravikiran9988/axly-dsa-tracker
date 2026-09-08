@@ -206,8 +206,8 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   if (loading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] space-y-3">
-        <div className="w-8 h-8 border-[3px] border-axly-500/20 border-t-axly-500 rounded-full animate-spin" />
-        <div className="text-xs text-slate-500 font-mono">Loading workspace...</div>
+        <div className="w-8 h-8 border-[3px] border-cyan-500/20 border-t-axly-500 rounded-full animate-spin" />
+        <div className="text-xs text-theme-text3 font-mono">Loading workspace...</div>
       </div>
     );
   }
@@ -217,8 +217,8 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
       <div className="p-8 text-center max-w-md mx-auto space-y-4">
         <AlertTriangle className="w-10 h-10 text-rose-400 mx-auto" />
         <div>
-          <h2 className="text-base font-bold text-white mb-1">Failed to load problem</h2>
-          <p className="text-sm text-slate-400">{error || 'Could not load problem statement.'}</p>
+          <h2 className="text-base font-bold text-theme-text1 mb-1">Failed to load problem</h2>
+          <p className="text-sm text-theme-text2">{error || 'Could not load problem statement.'}</p>
         </div>
         <button onClick={onBack} className="btn-secondary inline-flex items-center gap-2">
           <ArrowLeft className="w-4 h-4" /> Back to Practice
@@ -234,30 +234,30 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   const statusCfg = execResult ? STATUS_CONFIG[execResult.status] : null;
 
   return (
-    <div className="flex flex-col bg-[#070B14]" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="flex flex-col bg-theme-bg" style={{ height: 'calc(100vh - 56px)' }}>
       {/* Top header */}
-      <div className="h-12 border-b border-[#1a2540] bg-[#0a1120] px-4 flex items-center gap-3 shrink-0">
+      <div className="h-12 border-b border-theme-border bg-theme-bg px-4 flex items-center gap-3 shrink-0">
         <button onClick={onBack} className="btn-ghost btn-sm inline-flex items-center gap-1.5 shrink-0">
           <ArrowLeft className="w-3.5 h-3.5" /> Practice
         </button>
-        <div className="h-4 w-px bg-[#1a2540] shrink-0" />
-        <h1 className="text-sm font-semibold text-white truncate flex-1 min-w-0">{question.title}</h1>
+        <div className="h-4 w-px bg-theme-surface2 shrink-0" />
+        <h1 className="text-sm font-semibold text-theme-text1 truncate flex-1 min-w-0">{question.title}</h1>
         <span className={`${diffBadge[question.difficulty] || 'badge-neutral'} shrink-0`}>{question.difficulty}</span>
         {isPractice
           ? <span className="hidden sm:inline-flex badge badge-neutral shrink-0">Practice &middot; 0 pts</span>
           : <span className="hidden sm:inline-flex badge badge-prog shrink-0">+{question.points || 20} pts</span>
         }
 
-        <div className="hidden sm:flex bg-[#0d1525] border border-[#1a2540] rounded p-0.5 gap-0.5 shrink-0">
+        <div className="hidden sm:flex bg-theme-surface border border-theme-border rounded p-0.5 gap-0.5 shrink-0">
           <button
             onClick={() => setSubmissionMethod('code')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${submissionMethod === 'code' ? 'bg-axly-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${submissionMethod === 'code' ? 'bg-cyan-500 text-white' : 'text-theme-text2 hover:text-white'}`}
           >
             <Code className="w-3.5 h-3.5" /> Code
           </button>
           <button
             onClick={() => setSubmissionMethod('github')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${submissionMethod === 'github' ? 'bg-axly-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${submissionMethod === 'github' ? 'bg-cyan-500 text-white' : 'text-theme-text2 hover:text-white'}`}
           >
             <Github className="w-3.5 h-3.5" /> GitHub
           </button>
@@ -269,7 +269,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
               id="select-language"
               value={language}
               onChange={e => handleLanguageChange(e.target.value)}
-              className="bg-[#0d1525] border border-[#1a2540] text-slate-200 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-axly-500 shrink-0 font-medium"
+              className="bg-theme-surface border border-theme-border text-theme-text1 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-cyan-500 shrink-0 font-medium"
             >
               <option value="javascript">JavaScript (Node 20)</option>
               <option value="python">Python 3.11</option>
@@ -313,7 +313,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
       {/* Main workspace */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Left: Problem */}
-        <div className="lg:col-span-5 border-r border-[#1a2540] flex flex-col overflow-hidden">
+        <div className="lg:col-span-5 border-r border-theme-border flex flex-col overflow-hidden">
           <div className="tab-bar px-3 shrink-0">
             <button onClick={() => setLeftTab('description')} className={`tab-btn ${leftTab === 'description' ? 'tab-btn-active' : ''}`}>
               <FileCode className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />Description
@@ -339,23 +339,23 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                   {question.description || question.problem_statement || 'No description provided.'}
                 </div>
                 {question.constraints && (
-                  <div className="space-y-2 pt-4 border-t border-[#1a2540]">
-                    <div className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+                  <div className="space-y-2 pt-4 border-t border-theme-border">
+                    <div className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
                       <Zap className="w-3.5 h-3.5" /> Constraints
                     </div>
-                    <pre className="p-3 rounded-md bg-[#0a1120] border border-[#1a2540] text-amber-200/80 font-mono text-[11px] whitespace-pre-line overflow-x-auto">
+                    <pre className="p-3 rounded-md bg-theme-bg border border-theme-border text-amber-700 dark:text-amber-300 font-mono text-[11px] whitespace-pre-line overflow-x-auto">
                       {question.constraints}
                     </pre>
                   </div>
                 )}
                 {sampleTestCases.length > 0 && (
-                  <div className="space-y-3 pt-4 border-t border-[#1a2540]">
-                    <div className="text-xs font-semibold text-slate-300">Examples</div>
+                  <div className="space-y-3 pt-4 border-t border-theme-border">
+                    <div className="text-xs font-semibold text-theme-text2">Examples</div>
                     {sampleTestCases.slice(0, 3).map((tc, idx) => (
-                      <div key={idx} className="p-3 rounded-md bg-[#0a1120] border border-[#1a2540] font-mono text-xs space-y-1.5">
-                        <div className="text-slate-500 font-semibold">Example {idx + 1}</div>
-                        <div><span className="text-slate-500">Input: </span><span className="text-axly-300">{tc.input?.replace(/\n/g, ' ')}</span></div>
-                        <div><span className="text-slate-500">Output: </span><span className="text-emerald-400">{tc.expected_output}</span></div>
+                      <div key={idx} className="p-3 rounded-md bg-theme-bg border border-theme-border font-mono text-xs space-y-1.5">
+                        <div className="text-theme-text3 font-semibold">Example {idx + 1}</div>
+                        <div><span className="text-theme-text3">Input: </span><span className="text-cyan-600 dark:text-cyan-300">{tc.input?.replace(/\n/g, ' ')}</span></div>
+                        <div><span className="text-theme-text3">Output: </span><span className="text-emerald-600 dark:text-emerald-400">{tc.expected_output}</span></div>
                       </div>
                     ))}
                   </div>
@@ -365,30 +365,30 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
             {leftTab === 'hints' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-axly-400 text-xs font-semibold">
+                  <div className="flex items-center gap-2 text-cyan-400 text-xs font-semibold">
                     <HelpCircle className="w-4 h-4" /> Hints
                   </div>
                   {hintsList.length > 0 && (
-                    <span className="text-[11px] text-slate-500 font-medium">
+                    <span className="text-[11px] text-theme-text3 font-medium">
                       {hintsList.length} {hintsList.length === 1 ? 'hint' : 'hints'} available
                     </span>
                   )}
                 </div>
                 {hintsList.length === 0 ? (
-                  <div className="p-6 rounded-lg bg-[#0a1120] border border-[#1a2540] text-center text-slate-400 text-sm">
+                  <div className="p-6 rounded-lg bg-theme-bg border border-theme-border text-center text-theme-text2 text-sm">
                     No hints available for this problem yet.
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {hintsList.map((hint, idx) => (
-                      <div key={idx} className="p-4 rounded-lg bg-[#0a1120] border border-[#1a2540] space-y-2">
-                        <div className="text-xs font-semibold text-axly-300 flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-axly-500/20 text-axly-400 flex items-center justify-center text-[10px] font-bold">
+                      <div key={idx} className="p-4 rounded-lg bg-theme-bg border border-theme-border space-y-2">
+                        <div className="text-xs font-semibold text-cyan-300 flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-[10px] font-bold">
                             {idx + 1}
                           </span>
                           Hint {idx + 1}
                         </div>
-                        <div className="problem-prose text-xs text-slate-300 whitespace-pre-line pl-7">
+                        <div className="problem-prose text-xs text-theme-text2 whitespace-pre-line pl-7">
                           {hint}
                         </div>
                       </div>
@@ -404,7 +404,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
             )}
             {leftTab === 'submissions' && (
               <div className="space-y-3">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Submission History</div>
+                <div className="text-xs font-semibold text-theme-text3 uppercase tracking-wider">Submission History</div>
                 {pastSubmissions.length === 0 ? (
                   <div className="text-center py-8 text-slate-600 text-sm">No submissions yet.</div>
                 ) : (
@@ -412,14 +412,14 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                     const cfg = STATUS_CONFIG[sub.status] || STATUS_CONFIG['Runtime Error'];
                     const StatusIcon = cfg.icon;
                     return (
-                      <div key={sub.id || idx} className="p-3 rounded-md bg-[#0a1120] border border-[#1a2540] space-y-1.5">
+                      <div key={sub.id || idx} className="p-3 rounded-md bg-theme-bg border border-theme-border space-y-1.5">
                         <div className="flex items-center justify-between">
                           <span className={`text-xs font-semibold flex items-center gap-1.5 ${cfg.cls}`}>
                             <StatusIcon className="w-3.5 h-3.5" /> {sub.status}
                           </span>
                           <span className="text-[10px] text-slate-600 font-mono">{sub.created_at || '—'}</span>
                         </div>
-                        <div className="text-xs text-slate-500 flex gap-3">
+                        <div className="text-xs text-theme-text3 flex gap-3">
                           <span>{sub.passed_tests}/{sub.total_tests} passed</span>
                           <span>{sub.execution_time_ms || 0} ms</span>
                         </div>
@@ -432,20 +432,20 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
           </div>
         </div>
 
-        {/* Right: Code editor */}
-        <div className="lg:col-span-7 flex flex-col overflow-hidden bg-[#070B14]">
+        {/* Right: Code editor — always dark like an IDE */}
+        <div className="lg:col-span-7 flex flex-col overflow-hidden" style={{ background: '#0d1117' }}>
           {submissionMethod === 'code' ? (
             <>
-              <div className="h-9 border-b border-[#1a2540] px-3 bg-[#0a1120] flex items-center justify-between shrink-0">
+              <div className="h-9 border-b px-3 flex items-center justify-between shrink-0" style={{ background: '#161b22', borderColor: 'rgba(255,255,255,0.08)' }}>
                 <div className="flex items-center gap-2 text-xs">
-                  <Edit3 className="w-3.5 h-3.5 text-axly-400" />
+                  <Edit3 className="w-3.5 h-3.5 text-cyan-400" />
                   <span className="text-slate-400 font-mono">{currentFileName}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={handleCopyCode} className="btn-ghost btn-sm p-1.5" title="Copy code" aria-label="Copy code">
+                  <button onClick={handleCopyCode} className="p-1.5 rounded hover:bg-white/5 text-slate-400 hover:text-slate-200 transition-colors" title="Copy code" aria-label="Copy code">
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
-                  <button onClick={handleResetCode} className="btn-ghost btn-sm p-1.5 hover:text-rose-400" title="Reset code" aria-label="Reset code">
+                  <button onClick={handleResetCode} className="p-1.5 rounded hover:bg-white/5 text-slate-400 hover:text-rose-400 transition-colors" title="Reset code" aria-label="Reset code">
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -460,12 +460,12 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                   onChange={e => setSourceCode(e.target.value)}
                   spellCheck={false}
                   placeholder="// Write your solution here..."
-                  className="w-full h-full p-4 bg-[#070B14] text-axly-100 code-editor focus:outline-none resize-none custom-scrollbar"
+                  className="w-full h-full p-4 code-editor focus:outline-none resize-none custom-scrollbar"
                 />
               </div>
 
-              <div className="border-t border-[#1a2540] bg-[#0a1120] flex flex-col shrink-0" style={{ height: bottomOpen ? '260px' : '36px' }}>
-                <div className="h-9 border-b border-[#1a2540] px-3 flex items-center gap-3 shrink-0">
+              <div className="border-t flex flex-col shrink-0" style={{ height: bottomOpen ? '260px' : '36px', background: '#0d1117', borderColor: 'rgba(255,255,255,0.08)' }}>
+                <div className="h-9 border-b px-3 flex items-center gap-3 shrink-0" style={{ background: '#161b22', borderColor: 'rgba(255,255,255,0.08)' }}>
                   <div className="flex items-center gap-0 flex-1">
                     <button onClick={() => setBottomTab('testcases')} className={`tab-btn py-1 ${bottomTab === 'testcases' ? 'tab-btn-active' : ''}`}>
                       Test Cases ({sampleTestCases.length})
@@ -478,7 +478,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                       Custom Input
                     </button>
                   </div>
-                  <button onClick={() => setBottomOpen(!bottomOpen)} className="btn-ghost btn-sm p-1" aria-label="Toggle panel">
+                  <button onClick={() => setBottomOpen(!bottomOpen)} className="p-1 rounded hover:bg-white/5 text-slate-400 hover:text-slate-200 transition-colors" aria-label="Toggle panel">
                     {bottomOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
                   </button>
                 </div>
@@ -490,7 +490,8 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                         <div className="flex items-center gap-2">
                           {sampleTestCases.map((_, idx) => (
                             <button key={idx} onClick={() => setSelectedTestCaseTab(idx)}
-                              className={`px-3 py-1 rounded font-mono text-xs transition-colors ${selectedTestCaseTab === idx ? 'bg-axly-600 text-white' : 'bg-[#0d1525] text-slate-400 hover:text-slate-200'}`}>
+                              className={`px-3 py-1 rounded font-mono text-xs transition-colors ${selectedTestCaseTab === idx ? 'bg-cyan-500 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+                              style={selectedTestCaseTab !== idx ? { background: 'rgba(255,255,255,0.06)' } : {}}>
                               Case {idx + 1}
                             </button>
                           ))}
@@ -499,13 +500,13 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                           <div className="grid grid-cols-2 gap-3 pt-1">
                             <div>
                               <div className="text-[10px] text-slate-500 font-semibold mb-1">Input</div>
-                              <pre className="p-2.5 rounded bg-[#0a1120] border border-[#1a2540] text-axly-200 font-mono text-[11px] whitespace-pre-wrap">
+                              <pre className="p-2.5 rounded font-mono text-[11px] whitespace-pre-wrap text-cyan-300" style={{ background: '#161b22', border: '1px solid rgba(255,255,255,0.08)' }}>
                                 {sampleTestCases[selectedTestCaseTab].input}
                               </pre>
                             </div>
                             <div>
                               <div className="text-[10px] text-slate-500 font-semibold mb-1">Expected Output</div>
-                              <pre className="p-2.5 rounded bg-[#0a1120] border border-[#1a2540] text-emerald-300 font-mono text-[11px] whitespace-pre-wrap">
+                              <pre className="p-2.5 rounded font-mono text-[11px] whitespace-pre-wrap text-emerald-400" style={{ background: '#161b22', border: '1px solid rgba(255,255,255,0.08)' }}>
                                 {sampleTestCases[selectedTestCaseTab].expected_output}
                               </pre>
                             </div>
@@ -516,22 +517,22 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                     {bottomTab === 'results' && (
                       <div>
                         {(isRunning || isSubmitting) ? (
-                          <div className="flex items-center gap-2 text-slate-400 py-6 justify-center">
-                            <div className="w-4 h-4 border-2 border-axly-500/20 border-t-axly-500 rounded-full animate-spin" />
+                          <div className="flex items-center gap-2 text-theme-text2 py-6 justify-center">
+                            <div className="w-4 h-4 border-2 border-cyan-500/20 border-t-axly-500 rounded-full animate-spin" />
                             <span>{isRunning ? 'Running tests...' : 'Evaluating submission...'}</span>
                           </div>
                         ) : !execResult ? (
                           <div className="text-center py-8 text-slate-600">
-                            Click <strong className="text-slate-400">Run</strong> or <strong className="text-slate-400">Submit</strong> to see results.
+                            Click <strong className="text-theme-text2">Run</strong> or <strong className="text-theme-text2">Submit</strong> to see results.
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            <div className={`flex items-center justify-between p-3 rounded-md border ${statusCfg?.bg || 'bg-[#0d1525] border-[#1a2540]'}`}>
-                              <div className={`flex items-center gap-2 font-semibold text-sm ${statusCfg?.cls || 'text-slate-300'}`}>
+                            <div className={`flex items-center justify-between p-3 rounded-md border ${statusCfg?.bg || 'bg-theme-surface border-theme-border'}`}>
+                              <div className={`flex items-center gap-2 font-semibold text-sm ${statusCfg?.cls || 'text-theme-text2'}`}>
                                 {statusCfg && <statusCfg.icon className="w-4 h-4" />}
                                 {execResult.status}
                               </div>
-                              <div className="text-xs text-slate-400 flex items-center gap-3">
+                              <div className="text-xs text-theme-text2 flex items-center gap-3">
                                 <span>{execResult.passed_tests}/{execResult.total_tests} tests passed</span>
                                 {execResult.execution_time_ms !== undefined && (
                                   <span className="font-mono">{execResult.execution_time_ms}ms</span>
@@ -539,15 +540,15 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                               </div>
                             </div>
                             {execResult.results?.map((r, i) => (
-                              <div key={i} className="p-2.5 rounded-md bg-[#0a1120] border border-[#1a2540] font-mono text-[11px] space-y-1">
+                              <div key={i} className="p-2.5 rounded-md bg-theme-bg border border-theme-border font-mono text-[11px] space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-slate-400 font-semibold">Test {r.test_index}</span>
+                                  <span className="text-theme-text2 font-semibold">Test {r.test_index}</span>
                                   <span className={`font-bold ${r.status === 'Passed' || r.status === 'Accepted' ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {r.status}
                                   </span>
                                 </div>
                                 {r.input && r.input !== '[Hidden Test Case]' && (
-                                  <div><span className="text-slate-600">In: </span><span className="text-axly-300">{r.input}</span></div>
+                                  <div><span className="text-slate-600">In: </span><span className="text-cyan-300">{r.input}</span></div>
                                 )}
                                 {r.expected_output && r.expected_output !== '[Hidden Output]' && (
                                   <div><span className="text-slate-600">Expected: </span><span className="text-emerald-400">{r.expected_output}</span></div>
@@ -566,7 +567,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                     )}
                     {bottomTab === 'custom' && (
                       <div className="space-y-2">
-                        <label htmlFor="custom-stdin" className="text-[11px] text-slate-400 font-semibold block">Custom stdin:</label>
+                        <label htmlFor="custom-stdin" className="text-[11px] text-theme-text2 font-semibold block">Custom stdin:</label>
                         <textarea
                           id="custom-stdin"
                           rows={4}
@@ -583,12 +584,12 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
             </>
           ) : (
             <div className="flex flex-col items-center justify-center flex-1 p-8 text-center space-y-5 max-w-lg mx-auto">
-              <div className="w-14 h-14 rounded-xl bg-[#0d1525] border border-[#1a2540] flex items-center justify-center">
-                <Github className="w-7 h-7 text-slate-300" />
+              <div className="w-14 h-14 rounded-xl bg-theme-surface border border-theme-border flex items-center justify-center">
+                <Github className="w-7 h-7 text-theme-text2" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-white mb-1">Submit via GitHub</h3>
-                <p className="text-sm text-slate-400">Link to your public repository or solution file for mentor review.</p>
+                <p className="text-sm text-theme-text2">Link to your public repository or solution file for mentor review.</p>
               </div>
               <form onSubmit={handleSubmitGithub} className="w-full space-y-3">
                 <input

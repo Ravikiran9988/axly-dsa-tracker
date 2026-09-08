@@ -60,12 +60,12 @@ export default function StudentSidebar({
 
   return (
     <aside
-      className={`relative flex flex-col h-screen border-r border-slate-800/80 bg-[#080C14] transition-all duration-300 z-30 shrink-0 select-none ${
+      className={`relative flex flex-col h-screen border-r border-theme-border bg-theme-surface2 transition-all duration-300 z-30 shrink-0 select-none ${
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
       {/* Brand Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-800/80">
+      <div className="flex items-center justify-between p-4 border-b border-theme-border">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-cyan-500/20 shrink-0">
             <span className="font-extrabold text-white text-base tracking-wider font-mono">AX</span>
@@ -84,7 +84,7 @@ export default function StudentSidebar({
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="p-1.5 rounded-xl bg-theme-surface border border-theme-border text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -93,7 +93,7 @@ export default function StudentSidebar({
 
       {/* Streak / Points Quick Status Card */}
       {!isCollapsed && (
-        <div className="p-3 mx-3 my-2.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-inner">
+        <div className="p-3 mx-3 my-2.5 rounded-2xl bg-theme-surface border border-theme-border shadow-inner">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 text-amber-400 font-bold font-mono" title="Consecutive days you've logged in to AXLY">
               <Zap className="w-4 h-4" />
@@ -112,7 +112,7 @@ export default function StudentSidebar({
         {studentSections.map((section, sIdx) => (
           <div key={sIdx} className="space-y-1">
             {!isCollapsed && (
-              <div className="px-3 pb-1 text-[10px] font-bold tracking-wider text-slate-500 uppercase font-mono">
+              <div className="px-3 pb-1 text-[10px] font-bold tracking-wider text-theme-text3 uppercase font-mono">
                 {section.title}
               </div>
             )}
@@ -126,13 +126,13 @@ export default function StudentSidebar({
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                     active
                       ? 'bg-gradient-to-r from-cyan-500/20 via-indigo-500/15 to-transparent text-cyan-300 border border-cyan-500/30 shadow-sm shadow-cyan-500/10 font-semibold'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                      : 'text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2'
                   }`}
                   title={isCollapsed ? item.label : undefined}
                 >
                   <Icon
                     className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${
-                      active ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-200'
+                      active ? 'text-cyan-400' : 'text-theme-text2 group-hover:text-white'
                     }`}
                   />
                   {!isCollapsed && <span className="truncate">{item.label}</span>}
@@ -149,7 +149,7 @@ export default function StudentSidebar({
       </div>
 
       {/* Footer User & Logout */}
-      <div className="p-3 border-t border-slate-800/80 bg-slate-950/40">
+      <div className="p-3 border-t border-theme-border bg-theme-surface">
         <div className="flex items-center justify-between gap-2">
           {!isCollapsed && (
             <div className="flex items-center gap-2.5 overflow-hidden">
@@ -157,10 +157,10 @@ export default function StudentSidebar({
                 <img
                   src={user.avatar_url}
                   alt={user.name || 'User'}
-                  className="w-8 h-8 rounded-full border border-slate-700 object-cover shrink-0"
+                  className="w-8 h-8 rounded-full border border-theme-border object-cover shrink-0"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 shrink-0">
+                <div className="w-8 h-8 rounded-full bg-theme-surface2 border border-theme-border flex items-center justify-center text-xs font-bold text-theme-text2 shrink-0">
                   {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
                 </div>
               )}
@@ -168,7 +168,7 @@ export default function StudentSidebar({
                 <span className="text-xs font-semibold text-white truncate">
                   {user?.name || user?.email?.split('@')[0]}
                 </span>
-                <span className="text-[10px] text-slate-500 truncate font-mono">
+                <span className="text-[10px] text-theme-text3 truncate font-mono">
                   {user?.email}
                 </span>
               </div>
@@ -178,7 +178,7 @@ export default function StudentSidebar({
           <button
             id="logout-btn"
             onClick={onLogout}
-            className={`p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all ${
+            className={`p-2 rounded-xl text-theme-text2 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all ${
               isCollapsed ? 'w-full flex justify-center' : ''
             }`}
             title="Log out"

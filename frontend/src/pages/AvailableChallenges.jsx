@@ -8,7 +8,7 @@ import { DifficultyBadge, SkeletonRows, EmptyState } from '../components/ui/inde
 
 const STATUS_DISPLAY = {
   solved:      { icon: CheckCircle2, label: 'Solved',      cls: 'text-emerald-400' },
-  in_progress: { icon: Clock3,       label: 'In Progress', cls: 'text-axly-400' },
+  in_progress: { icon: Clock3,       label: 'In Progress', cls: 'text-cyan-400' },
   abandoned:   { icon: Ban,          label: 'Abandoned',   cls: 'text-amber-400' },
 };
 
@@ -72,22 +72,22 @@ export default function AvailableChallenges({ onSelectProblem }) {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Practice Library</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Self-paced practice &mdash; no competitive points</p>
+          <h1 className="text-xl font-bold text-theme-text1 tracking-tight">Practice Library</h1>
+          <p className="text-sm text-theme-text2 mt-0.5">Self-paced practice &mdash; no competitive points</p>
         </div>
         <div className="flex items-center gap-4 text-sm shrink-0">
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-white">{questions.length}</span>
-            <span className="text-slate-500">problems</span>
+            <span className="font-bold text-theme-text1">{questions.length}</span>
+            <span className="text-theme-text3">problems</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-emerald-400">{solved}</span>
-            <span className="text-slate-500">solved</span>
+            <span className="text-theme-text3">solved</span>
           </div>
           {inProgress > 0 && (
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-axly-400">{inProgress}</span>
-              <span className="text-slate-500">in progress</span>
+              <span className="font-bold text-cyan-400">{inProgress}</span>
+              <span className="text-theme-text3">in progress</span>
             </div>
           )}
         </div>
@@ -97,7 +97,7 @@ export default function AvailableChallenges({ onSelectProblem }) {
       <div className="card p-3 flex flex-wrap items-center gap-2">
         {/* Search */}
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 text-theme-text3 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -106,7 +106,7 @@ export default function AvailableChallenges({ onSelectProblem }) {
             className="input-field pl-9 py-1.5 text-sm h-9"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-theme-text3 hover:text-theme-text2">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
@@ -221,11 +221,11 @@ export default function AvailableChallenges({ onSelectProblem }) {
                       className={`cursor-pointer ${solved ? 'opacity-75' : ''}`}
                       onClick={() => onSelectProblem(q.id)}
                     >
-                      <td className="text-center text-slate-600 font-mono text-xs w-12">
+                      <td className="text-center text-theme-text3 font-mono text-xs w-12">
                         {idx + 1}
                       </td>
                       <td>
-                        <div className="font-medium text-slate-200 hover:text-white transition-colors leading-snug">
+                        <div className="font-medium text-theme-text1 hover:text-theme-text1 transition-colors leading-snug">
                           {q.title}
                         </div>
                         {/* Mobile: show difficulty + status inline */}
@@ -242,13 +242,13 @@ export default function AvailableChallenges({ onSelectProblem }) {
                       <td className="hidden sm:table-cell">
                         <DifficultyBadge difficulty={q.difficulty} />
                       </td>
-                      <td className="hidden md:table-cell text-slate-400 text-xs">
+                      <td className="hidden md:table-cell text-theme-text2 text-xs">
                         {q.topic_name || '—'}
                       </td>
-                      <td className="hidden lg:table-cell text-slate-500 text-xs">
+                      <td className="hidden lg:table-cell text-theme-text3 text-xs">
                         {patternName || '—'}
                       </td>
-                      <td className="hidden lg:table-cell text-slate-500 text-xs font-mono">
+                      <td className="hidden lg:table-cell text-theme-text3 text-xs font-mono">
                         {q.estimated_time || '~30m'}
                       </td>
                       <td className="hidden sm:table-cell">
@@ -258,7 +258,7 @@ export default function AvailableChallenges({ onSelectProblem }) {
                             {statusInfo.label}
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-600">—</span>
+                          <span className="text-xs text-theme-text3">—</span>
                         )}
                       </td>
                       <td className="text-right" onClick={e => e.stopPropagation()}>

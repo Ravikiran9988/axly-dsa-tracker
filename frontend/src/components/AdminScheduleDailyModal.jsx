@@ -40,25 +40,25 @@ export default function AdminScheduleDailyModal({
     easy: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     medium: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     hard: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
-  }[challenge.difficulty?.toLowerCase()] || 'text-slate-400 bg-slate-500/10';
+  }[challenge.difficulty?.toLowerCase()] || 'text-theme-text2 bg-slate-500/10';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-slide-up">
+      <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-slide-up">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/50">
+        <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
               <Calendar className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Schedule Daily Challenge</h3>
-              <p className="text-[11px] text-slate-400">Set active challenge date for students</p>
+              <p className="text-[11px] text-theme-text2">Set active challenge date for students</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -74,7 +74,7 @@ export default function AdminScheduleDailyModal({
           )}
 
           {/* Selected Challenge Card Preview */}
-          <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
+          <div className="p-4 rounded-2xl bg-theme-surface border border-theme-border space-y-2">
             <div className="flex items-center justify-between">
               <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] border ${diffCls}`}>
                 {challenge.difficulty}
@@ -86,33 +86,33 @@ export default function AdminScheduleDailyModal({
             <h4 className="text-sm font-bold text-white leading-snug">
               {challenge.title}
             </h4>
-            <p className="text-[11px] text-slate-400 line-clamp-2">
+            <p className="text-[11px] text-theme-text2 line-clamp-2">
               {challenge.description}
             </p>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
+            <label className="block text-xs font-bold uppercase tracking-wider text-theme-text2 mb-1.5 font-mono">
               Target Challenge Date (UTC) *
             </label>
             <input
               type="date"
               value={targetDate}
               onChange={e => setTargetDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface border border-theme-border text-white font-mono text-xs focus:outline-none focus:border-amber-400"
               required
             />
-            <p className="text-[10px] text-slate-500 mt-1">
+            <p className="text-[10px] text-theme-text3 mt-1">
               On this date, this challenge will be highlighted on student dashboards, awarding streaks and competitive leaderboard points.
             </p>
           </div>
 
           {/* Actions */}
-          <div className="pt-3 border-t border-slate-800 flex justify-end gap-3">
+          <div className="pt-3 border-t border-theme-border flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
             >
               Cancel
             </button>

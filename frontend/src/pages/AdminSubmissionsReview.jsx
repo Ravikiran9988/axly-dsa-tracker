@@ -78,14 +78,14 @@ export default function AdminSubmissionsReview() {
             <span>Mentor Review Hub</span>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Student Submission Reviews</h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-theme-text2 mt-1">
             Review student code submissions and GitHub repositories. Approve solutions or request code optimizations with structured feedback.
           </p>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+      <div className="flex items-center gap-2 border-b border-theme-border pb-3">
         {[
           { id: 'under_review', label: 'Needs Review / Pending' },
           { id: 'changes_requested', label: 'Changes Requested' },
@@ -98,7 +98,7 @@ export default function AdminSubmissionsReview() {
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               statusFilter === tab.id
                 ? 'bg-amber-600 text-white shadow-md shadow-amber-950/40'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                : 'text-theme-text2 hover:text-white hover:bg-theme-surface2'
             }`}
           >
             {tab.label}
@@ -110,28 +110,28 @@ export default function AdminSubmissionsReview() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-28 rounded-2xl bg-slate-900/40 border border-slate-800 animate-pulse" />
+            <div key={i} className="h-28 rounded-2xl bg-theme-surface border border-theme-border animate-pulse" />
           ))}
         </div>
       ) : submissions.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-slate-800 text-slate-400">
+        <div className="p-12 text-center rounded-2xl bg-theme-surface border border-theme-border text-theme-text2">
           <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500/60 mb-3" />
-          <h3 className="text-sm font-semibold text-slate-300">All caught up!</h3>
-          <p className="text-xs text-slate-500 mt-1">No student submissions in this queue.</p>
+          <h3 className="text-sm font-semibold text-theme-text2">All caught up!</h3>
+          <p className="text-xs text-theme-text3 mt-1">No student submissions in this queue.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {submissions.map(sub => (
             <div
               key={sub.id}
-              className="p-5 rounded-2xl bg-gradient-to-r from-slate-900/90 to-slate-950 border border-slate-800 hover:border-slate-700 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg"
+              className="p-5 rounded-2xl bg-gradient-to-r from-slate-900/90 to-slate-950 border border-theme-border hover:border-theme-border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg"
             >
               <div className="space-y-2 flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
                     {sub.review_status || sub.status}
                   </span>
-                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span className="text-[10px] font-semibold text-theme-text2 bg-theme-surface2 px-2 py-0.5 rounded-md flex items-center gap-1">
                     {sub.submission_type === 'github' ? <Github className="w-3 h-3" /> : <Code className="w-3 h-3" />}
                     {sub.submission_type === 'github' ? 'GitHub Link' : `In-Platform (${sub.language || 'JS'})`}
                   </span>
@@ -143,7 +143,7 @@ export default function AdminSubmissionsReview() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white">{sub.question_title}</h3>
-                    <div className="text-xs text-slate-400">{sub.user_name} ({sub.user_email})</div>
+                    <div className="text-xs text-theme-text2">{sub.user_name} ({sub.user_email})</div>
                   </div>
                 </div>
 
@@ -153,7 +153,7 @@ export default function AdminSubmissionsReview() {
                   </p>
                 )}
 
-                <div className="text-[11px] text-slate-400 flex items-center gap-4 pt-1">
+                <div className="text-[11px] text-theme-text2 flex items-center gap-4 pt-1">
                   {sub.submission_type === 'github' ? (
                     <a
                       href={sub.github_url}
@@ -187,23 +187,23 @@ export default function AdminSubmissionsReview() {
       {/* Review Modal */}
       {selectedSub && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="w-full max-w-2xl rounded-3xl bg-theme-surface border border-theme-border shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-theme-border pb-3">
               <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <h2 className="text-base font-bold text-theme-text1 flex items-center gap-2">
                   <GitPullRequest className="w-4 h-4 text-amber-400" /> Review Solution: {selectedSub.question_title}
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Student: {selectedSub.user_name} ({selectedSub.user_email})</p>
+                <p className="text-xs text-theme-text2 mt-0.5">Student: {selectedSub.user_name} ({selectedSub.user_email})</p>
               </div>
-              <button onClick={() => setSelectedSub(null)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setSelectedSub(null)} className="text-theme-text2 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Submission Code / GitHub View */}
             {selectedSub.submission_type === 'github' ? (
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                <div className="text-xs font-semibold text-slate-300 flex items-center gap-2">
+              <div className="p-4 rounded-xl bg-theme-surface border border-theme-border space-y-2">
+                <div className="text-xs font-semibold text-theme-text2 flex items-center gap-2">
                   <Github className="w-4 h-4 text-white" /> Submitted GitHub Repository
                 </div>
                 <a
@@ -217,13 +217,13 @@ export default function AdminSubmissionsReview() {
               </div>
             ) : (
               <div className="space-y-1.5">
-                <div className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <div className="text-xs font-semibold text-theme-text2 flex items-center justify-between">
                   <span>Source Code ({selectedSub.language || 'javascript'})</span>
-                  <span className="text-slate-400 font-mono text-[10px]">
+                  <span className="text-theme-text2 font-mono text-[10px]">
                     {selectedSub.passed_tests || 0}/{selectedSub.total_tests || 0} passed
                   </span>
                 </div>
-                <pre className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-cyan-100 text-xs font-mono max-h-48 overflow-y-auto custom-scrollbar">
+                <pre className="p-3.5 rounded-xl bg-theme-surface border border-theme-border text-cyan-100 text-xs font-mono max-h-48 overflow-y-auto custom-scrollbar">
                   {selectedSub.source_code || '// No source code recorded.'}
                 </pre>
               </div>
@@ -231,24 +231,24 @@ export default function AdminSubmissionsReview() {
 
             {/* Feedback Input */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
-                Mentor Feedback / Instructions <span className="text-slate-400 font-normal">(Required if requesting changes)</span>
+              <label className="block text-xs font-semibold text-theme-text2">
+                Mentor Feedback / Instructions <span className="text-theme-text2 font-normal">(Required if requesting changes)</span>
               </label>
               <textarea
                 rows={3}
                 placeholder="E.g., Great solution! Please optimize space complexity from O(N) to O(1) by reusing pointers..."
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                className="w-full p-3 rounded-xl bg-theme-surface border border-theme-border text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-500"
               />
             </div>
 
             {/* Action Buttons */}
-            <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div className="pt-3 border-t border-theme-border flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setSelectedSub(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-theme-surface2 text-theme-text2 hover:bg-slate-700 text-xs font-semibold"
               >
                 Cancel
               </button>

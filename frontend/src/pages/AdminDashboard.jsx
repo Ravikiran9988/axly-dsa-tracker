@@ -73,7 +73,7 @@ export default function AdminDashboard({
     approved: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     completed: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     attempted: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    pending: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
+    pending: 'text-theme-text2 bg-slate-500/10 border-slate-500/20',
     under_review: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
     changes_requested: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
   };
@@ -81,7 +81,7 @@ export default function AdminDashboard({
   return (
     <div className="space-y-6 max-w-7xl mx-auto select-none">
       {/* Top Banner & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 shadow-xl backdrop-blur-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-7 rounded-3xl bg-theme-surface2 border border-theme-border shadow-xl backdrop-blur-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-rose-400 font-mono text-xs font-bold uppercase tracking-wider">
             <ShieldCheck className="w-4 h-4" />
@@ -90,7 +90,7 @@ export default function AdminDashboard({
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             Admin Dashboard
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-theme-text2">
             Overview of student engagement, problem repository status, active cohorts, and code submissions.
           </p>
         </div>
@@ -106,7 +106,7 @@ export default function AdminDashboard({
 
           <button
             onClick={onOpenDailyModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all active:scale-[0.98]"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 border border-theme-border text-xs font-semibold transition-all active:scale-[0.98]"
           >
             <Calendar className="w-4 h-4 text-amber-400" />
             <span>Create Daily Challenge</span>
@@ -115,7 +115,7 @@ export default function AdminDashboard({
           <button
             onClick={loadStats}
             disabled={loading}
-            className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition-colors"
+            className="p-2.5 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text2 hover:text-white border border-theme-border transition-colors"
             title="Refresh dashboard metrics"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -135,16 +135,16 @@ export default function AdminDashboard({
         {/* 1. Total Students */}
         <div
           onClick={() => onNavigate && onNavigate('admin-users')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+          className="p-5 rounded-2xl bg-theme-surface border border-theme-border hover:border-theme-border transition-all cursor-pointer group space-y-2"
         >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+          <div className="flex items-center justify-between text-theme-text2 text-xs font-medium">
             <span>Students</span>
             <Users className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (students.total ?? 0) : '—')}
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">
+          <div className="text-[11px] text-theme-text2 font-mono">
             {loading ? 'Fetching accounts...' : `${students.active || students.total || 0} active students`}
           </div>
         </div>
@@ -152,16 +152,16 @@ export default function AdminDashboard({
         {/* 2. Practice Questions */}
         <div
           onClick={() => onNavigate && onNavigate('admin-challenges')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+          className="p-5 rounded-2xl bg-theme-surface border border-theme-border hover:border-theme-border transition-all cursor-pointer group space-y-2"
         >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+          <div className="flex items-center justify-between text-theme-text2 text-xs font-medium">
             <span>Practice Questions</span>
             <Code2 className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (questions.total ?? 0) : '—')}
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">
+          <div className="text-[11px] text-theme-text2 font-mono">
             {loading ? 'Fetching repository...' : `${questions.published || questions.total || 0} published • ${questions.draft || 0} drafts`}
           </div>
         </div>
@@ -169,9 +169,9 @@ export default function AdminDashboard({
         {/* 3. Solved Practice Questions */}
         <div
           onClick={() => onNavigate && onNavigate('admin-submissions')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+          className="p-5 rounded-2xl bg-theme-surface border border-theme-border hover:border-theme-border transition-all cursor-pointer group space-y-2"
         >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+          <div className="flex items-center justify-between text-theme-text2 text-xs font-medium">
             <span>Solved Practice Questions</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
           </div>
@@ -186,16 +186,16 @@ export default function AdminDashboard({
         {/* 4. Questions Assigned */}
         <div
           onClick={() => onNavigate && onNavigate('admin-assignments')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+          className="p-5 rounded-2xl bg-theme-surface border border-theme-border hover:border-theme-border transition-all cursor-pointer group space-y-2"
         >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+          <div className="flex items-center justify-between text-theme-text2 text-xs font-medium">
             <span>Questions Assigned</span>
             <Target className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (assignments.active || assignments.total || 0) : '—')}
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">
+          <div className="text-[11px] text-theme-text2 font-mono">
             {loading ? 'Fetching assignments...' : `${assignments.total || 0} total assignments`}
           </div>
         </div>
@@ -203,16 +203,16 @@ export default function AdminDashboard({
         {/* 5. Completion Rate */}
         <div
           onClick={() => onNavigate && onNavigate('admin-assignments')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+          className="p-5 rounded-2xl bg-theme-surface border border-theme-border hover:border-theme-border transition-all cursor-pointer group space-y-2"
         >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+          <div className="flex items-center justify-between text-theme-text2 text-xs font-medium">
             <span>Completion Rate</span>
             <TrendingUp className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? `${assignments.completion_rate || submissions.accuracy_rate || 0}%` : '—')}
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">
+          <div className="text-[11px] text-theme-text2 font-mono">
             {loading ? 'Calculating rate...' : `${assignments.completed || 0} completed`}
           </div>
         </div>
@@ -220,9 +220,9 @@ export default function AdminDashboard({
         {/* 6. Pending Reviews */}
         <div
           onClick={() => onNavigate && onNavigate('admin-reviews')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+          className="p-5 rounded-2xl bg-theme-surface border border-theme-border hover:border-theme-border transition-all cursor-pointer group space-y-2"
         >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+          <div className="flex items-center justify-between text-theme-text2 text-xs font-medium">
             <span>Pending Reviews</span>
             <GitPullRequest className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
           </div>
@@ -237,16 +237,16 @@ export default function AdminDashboard({
         {/* 7. Active Cohorts */}
         <div
           onClick={() => onNavigate && onNavigate('admin-cohorts')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+          className="p-5 rounded-2xl bg-theme-surface border border-theme-border hover:border-theme-border transition-all cursor-pointer group space-y-2"
         >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+          <div className="flex items-center justify-between text-theme-text2 text-xs font-medium">
             <span>Active Cohorts</span>
             <Radio className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (cohorts.active ?? 0) : '—')}
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">
+          <div className="text-[11px] text-theme-text2 font-mono">
             {loading ? 'Fetching cohorts...' : 'Live student batches'}
           </div>
         </div>
@@ -254,85 +254,85 @@ export default function AdminDashboard({
         {/* 8. Total Submissions */}
         <div
           onClick={() => onNavigate && onNavigate('admin-submissions')}
-          className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer group space-y-2"
+          className="p-5 rounded-2xl bg-theme-surface border border-theme-border hover:border-theme-border transition-all cursor-pointer group space-y-2"
         >
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+          <div className="flex items-center justify-between text-theme-text2 text-xs font-medium">
             <span>Submissions</span>
             <History className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             {loading ? <span className="text-slate-600 font-mono text-xl animate-pulse">Loading...</span> : (stats ? (submissions.total ?? 0) : '—')}
           </div>
-          <div className="text-[11px] text-slate-400 font-mono">
+          <div className="text-[11px] text-theme-text2 font-mono">
             {loading ? 'Fetching submissions...' : `${submissions.solved || 0} solved (${submissions.accuracy_rate || 0}%)`}
           </div>
         </div>
       </div>
 
       {/* Useful Admin Quick Actions Panel */}
-      <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 space-y-4">
-        <h2 className="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider">
+      <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
+        <h2 className="text-xs font-bold text-theme-text2 uppercase font-mono tracking-wider">
           Direct Administration Actions
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Add Question */}
           <button
             onClick={onOpenCreateModal}
-            className="p-3.5 rounded-2xl bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-rose-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-rose-500/30 text-left transition-all group"
           >
             <Plus className="w-4 h-4 text-rose-400 mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-bold text-white">Add Question</div>
-            <div className="text-[10px] text-slate-500">Create new challenge</div>
+            <div className="text-[10px] text-theme-text3">Create new challenge</div>
           </button>
 
           {/* Manage Questions */}
           <button
             onClick={() => onNavigate && onNavigate('admin-challenges')}
-            className="p-3.5 rounded-2xl bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-indigo-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-indigo-500/30 text-left transition-all group"
           >
             <Code2 className="w-4 h-4 text-indigo-400 mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-bold text-white">Manage Questions</div>
-            <div className="text-[10px] text-slate-500">Curate test cases</div>
+            <div className="text-[10px] text-theme-text3">Curate test cases</div>
           </button>
 
           {/* Create Daily Challenge */}
           <button
             onClick={onOpenDailyModal}
-            className="p-3.5 rounded-2xl bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-amber-500/30 text-left transition-all group"
           >
             <Calendar className="w-4 h-4 text-amber-400 mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-bold text-white">Daily Challenge</div>
-            <div className="text-[10px] text-slate-500">Schedule featured problem</div>
+            <div className="text-[10px] text-theme-text3">Schedule featured problem</div>
           </button>
 
           {/* Assign Questions */}
           <button
             onClick={onOpenAssignModal}
-            className="p-3.5 rounded-2xl bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-cyan-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-cyan-500/30 text-left transition-all group"
           >
             <Target className="w-4 h-4 text-cyan-400 mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-bold text-white">Assign Questions</div>
-            <div className="text-[10px] text-slate-500">Targeted student tasks</div>
+            <div className="text-[10px] text-theme-text3">Targeted student tasks</div>
           </button>
 
           {/* Manage Cohorts */}
           <button
             onClick={() => onNavigate && onNavigate('admin-cohorts')}
-            className="p-3.5 rounded-2xl bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-purple-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-purple-500/30 text-left transition-all group"
           >
             <Radio className="w-4 h-4 text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-bold text-white">Manage Cohorts</div>
-            <div className="text-[10px] text-slate-500">Batches & live meets</div>
+            <div className="text-[10px] text-theme-text3">Batches & live meets</div>
           </button>
 
           {/* Review Submissions */}
           <button
             onClick={() => onNavigate && onNavigate('admin-reviews')}
-            className="p-3.5 rounded-2xl bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/30 text-left transition-all group"
+            className="p-3.5 rounded-2xl bg-theme-surface hover:bg-slate-850 border border-theme-border hover:border-emerald-500/30 text-left transition-all group"
           >
             <GitPullRequest className="w-4 h-4 text-emerald-400 mb-2 group-hover:scale-110 transition-transform" />
             <div className="text-xs font-bold text-white">Review Solutions</div>
-            <div className="text-[10px] text-slate-500">Manual review & AI check</div>
+            <div className="text-[10px] text-theme-text3">Manual review & AI check</div>
           </button>
         </div>
       </div>
@@ -341,14 +341,14 @@ export default function AdminDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT: Recent Student Activity (8 cols) */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 space-y-4">
+          <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
                   <Activity className="w-4 h-4 text-cyan-400" />
                   <span>Recent Student Activity</span>
                 </h2>
-                <p className="text-[11px] text-slate-400">Live submission stream across all students.</p>
+                <p className="text-[11px] text-theme-text2">Live submission stream across all students.</p>
               </div>
 
               <button
@@ -361,19 +361,19 @@ export default function AdminDashboard({
             </div>
 
             {loading ? (
-              <div className="py-12 text-center text-slate-400 space-y-2">
+              <div className="py-12 text-center text-theme-text2 space-y-2">
                 <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto" />
                 <div className="text-xs font-mono">Loading activity stream...</div>
               </div>
             ) : recentActivity.length === 0 ? (
-              <div className="py-12 text-center text-slate-500 text-xs">
+              <div className="py-12 text-center text-theme-text3 text-xs">
                 No student submissions recorded yet.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-800 text-slate-500 font-mono text-[10px] uppercase">
+                    <tr className="border-b border-theme-border text-theme-text3 font-mono text-[10px] uppercase">
                       <th className="py-2.5 px-3">Student</th>
                       <th className="py-2.5 px-3">Challenge</th>
                       <th className="py-2.5 px-3">Status</th>
@@ -381,19 +381,19 @@ export default function AdminDashboard({
                       <th className="py-2.5 px-3 text-right">Time</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/50 text-slate-300 text-xs">
+                  <tbody className="divide-y divide-slate-800/50 text-theme-text2 text-xs">
                     {recentActivity.map((sub) => (
-                      <tr key={sub.id} className="hover:bg-slate-800/40 transition-colors">
+                      <tr key={sub.id} className="hover:bg-theme-surface2 transition-colors">
                         <td className="py-3 px-3">
                           <div className="font-semibold text-white">
                             {sub.user_name || sub.user_email?.split('@')[0]}
                           </div>
-                          <div className="text-[10px] text-slate-400 font-mono">
+                          <div className="text-[10px] text-theme-text2 font-mono">
                             {sub.user_email}
                           </div>
                         </td>
                         <td className="py-3 px-3">
-                          <div className="font-medium text-slate-200 truncate max-w-[180px]">
+                          <div className="font-medium text-theme-text1 truncate max-w-[180px]">
                             {sub.question_title}
                           </div>
                           {sub.question_difficulty && (
@@ -403,14 +403,14 @@ export default function AdminDashboard({
                           )}
                         </td>
                         <td className="py-3 px-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold uppercase text-[10px] border ${statusColors[sub.status] || 'bg-slate-800 text-slate-300'}`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold uppercase text-[10px] border ${statusColors[sub.status] || 'bg-theme-surface2 text-theme-text2'}`}>
                             {sub.status}
                           </span>
                         </td>
                         <td className="py-3 px-3 font-mono">
                           {sub.final_score !== null && sub.final_score !== undefined ? `${sub.final_score}/100` : '—'}
                         </td>
-                        <td className="py-3 px-3 text-right text-slate-400 font-mono text-[10px] whitespace-nowrap">
+                        <td className="py-3 px-3 text-right text-theme-text2 font-mono text-[10px] whitespace-nowrap">
                           {sub.updated_at ? new Date(sub.updated_at).toLocaleDateString() : 'Recent'}
                         </td>
                       </tr>
@@ -424,17 +424,17 @@ export default function AdminDashboard({
 
         {/* RIGHT: Today's Daily Challenge & Curriculum Breakdown (4 cols) */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 space-y-4">
+          <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-amber-400" />
                 <span>Today's Daily Challenge</span>
               </h2>
-              <span className="text-[10px] text-slate-400 font-mono">UTC Today</span>
+              <span className="text-[10px] text-theme-text2 font-mono">UTC Today</span>
             </div>
 
             {todayChallenge ? (
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="p-4 rounded-2xl bg-theme-surface border border-theme-border space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
                     <span className={`inline-block px-2 py-0.5 rounded-md font-bold uppercase text-[9px] border ${difficultyColors[todayChallenge.difficulty?.toLowerCase()] || ''}`}>
@@ -450,22 +450,22 @@ export default function AdminDashboard({
                 </div>
 
                 {todayChallenge.topic_name && (
-                  <div className="text-xs text-slate-400">
-                    Topic: <span className="text-slate-200 font-medium">{todayChallenge.topic_name}</span>
+                  <div className="text-xs text-theme-text2">
+                    Topic: <span className="text-theme-text1 font-medium">{todayChallenge.topic_name}</span>
                   </div>
                 )}
 
-                <div className="pt-2 flex items-center gap-2 border-t border-slate-800/80">
+                <div className="pt-2 flex items-center gap-2 border-t border-theme-border">
                   <button
                     onClick={() => (onNavigate ? onNavigate('admin-daily') : onOpenDailyModal && onOpenDailyModal())}
-                    className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+                    className="flex-1 py-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-theme-text1 text-xs font-semibold transition-colors"
                   >
                     Manage Daily Challenge
                   </button>
                   {onSelectProblem && (todayChallenge.question_id || todayChallenge.id) && (
                     <button
                       onClick={() => onSelectProblem(todayChallenge.question_id || todayChallenge.id)}
-                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400"
+                      className="p-2 rounded-xl bg-theme-surface2 hover:bg-slate-700 text-cyan-400"
                       title="Preview problem"
                     >
                       <ExternalLink className="w-4 h-4" />
@@ -474,13 +474,13 @@ export default function AdminDashboard({
                 </div>
               </div>
             ) : (
-              <div className="p-6 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 text-center space-y-3">
+              <div className="p-6 rounded-2xl bg-theme-surface border border-dashed border-theme-border text-center space-y-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-400">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-xs font-bold text-white">No Challenge Set For Today</h4>
-                  <p className="text-[11px] text-slate-400">Set today's challenge for learners.</p>
+                  <p className="text-[11px] text-theme-text2">Set today's challenge for learners.</p>
                 </div>
                 <button
                   onClick={onOpenDailyModal}
@@ -493,7 +493,7 @@ export default function AdminDashboard({
           </div>
 
           {/* Questions by Difficulty */}
-          <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 space-y-3">
+          <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-3">
             <h3 className="text-xs font-bold text-white tracking-tight flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-cyan-400" />
               <span>Questions Distribution</span>
@@ -510,10 +510,10 @@ export default function AdminDashboard({
                 return (
                   <div key={diff} className="space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="capitalize font-semibold text-slate-300">{diff}</span>
-                      <span className="text-slate-400 font-mono">{count} ({pct}%)</span>
+                      <span className="capitalize font-semibold text-theme-text2">{diff}</span>
+                      <span className="text-theme-text2 font-mono">{count} ({pct}%)</span>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                    <div className="h-1.5 w-full bg-theme-surface rounded-full overflow-hidden border border-theme-border">
                       <div className={`h-full ${barColors[diff]} rounded-full`} style={{ width: `${Math.max(4, pct)}%` }} />
                     </div>
                   </div>

@@ -1,17 +1,43 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230c8ce9'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Axly DSA Tracker — Master Data Structures & Algorithms</title>
+    <title>Axly DSA Tracker — Master Data Structures &amp; Algorithms</title>
     <meta name="description" content="Track assigned questions, daily practice, difficulty progress, and DSA mastery with the Axly DSA Tracker." />
     <!-- Google Fonts: Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!--
+      FOUC Prevention: Apply the saved theme BEFORE React renders to avoid
+      a flash of the wrong theme on page load.
+      This runs synchronously during HTML parsing.
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('axly-theme');
+          var theme = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.background = '#080C14';
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.background = '#f8fafc';
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.background = '#080C14';
+        }
+      })();
+    </script>
   </head>
-  <body class="bg-[#080C14] text-gray-100 font-sans antialiased min-h-screen selection:bg-axly-500 selection:text-white">
+  <body class="font-sans antialiased min-h-screen selection:bg-axly-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

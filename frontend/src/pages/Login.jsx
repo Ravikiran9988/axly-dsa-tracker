@@ -61,7 +61,7 @@ export default function Login({ onNavigate, onBackToHome }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-theme-bg text-theme-text1 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
       {/* Background Glows */}
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[34rem] h-[34rem] bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-10 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -72,7 +72,7 @@ export default function Login({ onNavigate, onBackToHome }) {
       <div className="w-full max-w-md mb-6 relative z-10">
         <button
           onClick={onBackToHome}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-theme-text2 hover:text-theme-text1 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Home</span>
@@ -84,16 +84,16 @@ export default function Login({ onNavigate, onBackToHome }) {
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 rounded-3xl blur-xl transition-all" />
 
-          <div className="relative rounded-3xl bg-[#0A0F1D] border border-slate-800/90 shadow-2xl p-7 sm:p-9 space-y-6">
+          <div className="relative rounded-3xl bg-theme-surface border border-theme-border shadow-2xl p-7 sm:p-9 space-y-6">
             {/* Brand Header */}
             <div className="text-center space-y-2.5">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-xl shadow-cyan-500/25 mx-auto">
-                <Terminal className="w-6 h-6 text-white" />
+                <Terminal className="w-6 h-6 text-theme-text1" />
               </div>
               <div className="space-y-1">
                 <span className="text-[11px] font-mono font-bold tracking-wider text-cyan-400 uppercase">Axly DSA Tracker</span>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Welcome back</h1>
-                <p className="text-xs text-slate-400">Sign in to continue your DSA journey.</p>
+                <h1 className="text-2xl font-bold text-theme-text1 tracking-tight">Welcome back</h1>
+                <p className="text-xs text-theme-text2">Sign in to continue your DSA journey.</p>
               </div>
             </div>
 
@@ -139,27 +139,27 @@ export default function Login({ onNavigate, onBackToHome }) {
 
               {/* OR Divider */}
               <div className="relative py-1">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800" /></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#0A0F1D] px-2 text-slate-500 font-mono text-[10px]">Or with email</span></div>
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-theme-border" /></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-theme-surface px-2 text-theme-text3 font-mono text-[10px]">Or with email</span></div>
               </div>
 
               {/* Email + Password Form */}
               <form onSubmit={handleEmailLogin} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Email Address</label>
+                  <label className="text-xs font-semibold text-theme-text2">Email Address</label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-white placeholder-slate-500 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-theme-surface2 border border-theme-border focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-theme-text1 placeholder-slate-500 transition"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-300">Password</label>
+                    <label className="text-xs font-semibold text-theme-text2">Password</label>
                     <button
                       type="button"
                       onClick={() => onNavigate('forgot-password')}
@@ -175,12 +175,12 @@ export default function Login({ onNavigate, onBackToHome }) {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-white placeholder-slate-500 transition"
+                      className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-theme-surface2 border border-theme-border focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs text-theme-text1 placeholder-slate-500 transition"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-text3 hover:text-theme-text2"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -199,8 +199,8 @@ export default function Login({ onNavigate, onBackToHome }) {
             </div>
 
             {/* Footer Navigation */}
-            <div className="text-center pt-1 border-t border-slate-800/80">
-              <p className="text-xs text-slate-400">
+            <div className="text-center pt-1 border-t border-theme-border">
+              <p className="text-xs text-theme-text2">
                 Don't have an account?{' '}
                 <button
                   onClick={() => onNavigate('signup')}

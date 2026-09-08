@@ -465,9 +465,9 @@ export default function AdminDailyChallengeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in overflow-y-auto">
-      <div className="bg-[#0B0F19] border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+      <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800/90 flex items-center justify-between bg-slate-900/60 shrink-0">
+        <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
               {creationMode === 'ai' ? <Sparkles className="w-5 h-5" /> : <Flame className="w-5 h-5 fill-amber-400" />}
@@ -481,7 +481,7 @@ export default function AdminDailyChallengeModal({
                   Competitive DSA
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-theme-text2">
                 Independent competitive challenge &middot; never mixed with Practice problems
               </p>
             </div>
@@ -490,14 +490,14 @@ export default function AdminDailyChallengeModal({
           <div className="flex items-center gap-3">
             {/* Mode Switcher (Only when creating new) */}
             {!challengeToEdit && !aiGeneratedData && (
-              <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/50">
+              <div className="flex items-center gap-1 bg-theme-surface p-1 rounded-xl border border-theme-border">
                 <button
                   type="button"
                   onClick={() => setCreationMode('manual')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                     creationMode === 'manual'
                       ? 'bg-slate-700 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      : 'text-theme-text2 hover:text-white'
                   }`}
                 >
                   <Edit3 className="w-4 h-4" /> Manual
@@ -508,7 +508,7 @@ export default function AdminDailyChallengeModal({
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
                     creationMode === 'ai'
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md shadow-purple-500/30'
-                      : 'text-slate-400 hover:text-white'
+                      : 'text-theme-text2 hover:text-white'
                   }`}
                 >
                   <Sparkles className="w-4 h-4" /> Generate with AI
@@ -518,7 +518,7 @@ export default function AdminDailyChallengeModal({
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-xl text-theme-text2 hover:text-white hover:bg-theme-surface2 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -553,19 +553,19 @@ export default function AdminDailyChallengeModal({
                   <span className="text-[10px] font-bold uppercase tracking-wider text-purple-200 bg-purple-500/20 border border-purple-500/30 px-2.5 py-1 rounded-full shadow-sm">
                     Autonomous Validation
                   </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-full shadow-sm">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-theme-text2 bg-theme-surface2 border border-theme-border px-2.5 py-1 rounded-full shadow-sm">
                     Saves as Draft
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-theme-text2 leading-relaxed">
                 Configure topic, difficulty, and requirements. The AI will synthesize an original interview-caliber problem with verified test cases, progressive hints, complexity analysis, and starter code.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <div className="col-span-full sm:col-span-1">
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-300">Primary Topic *</label>
+                    <label className="block text-xs font-semibold text-theme-text2">Primary Topic *</label>
                     <button
                       type="button"
                       onClick={() => handleRecommendTopic(aiConfig.difficulty)}
@@ -597,7 +597,7 @@ export default function AdminDailyChallengeModal({
                 </div>
 
                 <div className="col-span-full sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Difficulty *</label>
+                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Difficulty *</label>
                   <div className="grid grid-cols-3 gap-2">
                     {['easy', 'medium', 'hard'].map((d) => (
                       <button
@@ -615,7 +615,7 @@ export default function AdminDailyChallengeModal({
                               : d === 'medium'
                               ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                               : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                            : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                            : 'bg-theme-surface border-theme-border text-theme-text2 hover:text-white'
                         }`}
                       >
                         {d} ({d === 'hard' ? 150 : d === 'medium' ? 100 : 50}p)
@@ -648,7 +648,7 @@ export default function AdminDailyChallengeModal({
                 )}
 
                 <div className="col-span-full sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Algorithm Pattern (Optional)</label>
+                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Algorithm Pattern (Optional)</label>
                   {aiAvailablePatterns.length > 0 ? (
                     <select
                       value={aiConfig.pattern}
@@ -672,7 +672,7 @@ export default function AdminDailyChallengeModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Reward Points</label>
+                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Reward Points</label>
                   <input
                     type="number"
                     min="10"
@@ -685,7 +685,7 @@ export default function AdminDailyChallengeModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
                   Additional Instructions & Special Requirements (Optional)
                 </label>
                 <textarea
@@ -697,8 +697,8 @@ export default function AdminDailyChallengeModal({
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-between border-t border-slate-800">
-                <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+              <div className="pt-2 flex items-center justify-between border-t border-theme-border">
+                <div className="text-[11px] text-theme-text3 flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   <span>AI content is strictly created in Draft status and never auto-published.</span>
                 </div>
@@ -746,49 +746,49 @@ export default function AdminDailyChallengeModal({
             </div>
 
             {/* Problem Overview Card */}
-            <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+            <div className="p-5 rounded-2xl bg-theme-surface border border-theme-border space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-theme-border">
                 <div>
                   <h3 className="text-lg font-bold text-white">{aiGeneratedData.title}</h3>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-slate-400 font-mono">
+                  <div className="flex items-center gap-2 mt-1 text-xs text-theme-text2 font-mono">
                     <span>Topic: <strong className="text-cyan-400">{aiGeneratedData.topic}</strong></span>
                     {aiGeneratedData.pattern && <span>&middot; Pattern: <strong className="text-amber-400">{aiGeneratedData.pattern}</strong></span>}
                   </div>
                 </div>
-                <div className="badge bg-slate-800 text-slate-300 border-slate-700 text-xs">
+                <div className="badge bg-theme-surface2 text-theme-text2 border-theme-border text-xs">
                   {aiGeneratedData.complexity || 'Time: O(N) | Space: O(1)'}
                 </div>
               </div>
 
               <div>
-                <h5 className="text-xs font-bold uppercase text-slate-400 mb-1 font-mono">Problem Statement</h5>
-                <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-line bg-slate-950 p-3.5 rounded-xl border border-slate-800/80">
+                <h5 className="text-xs font-bold uppercase text-theme-text2 mb-1 font-mono">Problem Statement</h5>
+                <p className="text-xs text-theme-text1 leading-relaxed whitespace-pre-line bg-theme-surface p-3.5 rounded-xl border border-theme-border">
                   {aiGeneratedData.description}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <span className="font-bold text-slate-400 font-mono">Constraints:</span>
-                  <p className="text-slate-300 mt-1 whitespace-pre-line font-mono text-[11px]">{aiGeneratedData.constraints}</p>
+                <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
+                  <span className="font-bold text-theme-text2 font-mono">Constraints:</span>
+                  <p className="text-theme-text2 mt-1 whitespace-pre-line font-mono text-[11px]">{aiGeneratedData.constraints}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <span className="font-bold text-slate-400 font-mono">Input / Output Format:</span>
-                  <p className="text-slate-300 mt-1 text-[11px]">{aiGeneratedData.input_format} &rarr; {aiGeneratedData.output_format}</p>
+                <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
+                  <span className="font-bold text-theme-text2 font-mono">Input / Output Format:</span>
+                  <p className="text-theme-text2 mt-1 text-[11px]">{aiGeneratedData.input_format} &rarr; {aiGeneratedData.output_format}</p>
                 </div>
               </div>
 
               {/* Examples */}
               {aiGeneratedData.examples && aiGeneratedData.examples.length > 0 && (
                 <div className="space-y-2">
-                  <h5 className="text-xs font-bold uppercase text-slate-400 font-mono">Examples ({aiGeneratedData.examples.length})</h5>
+                  <h5 className="text-xs font-bold uppercase text-theme-text2 font-mono">Examples ({aiGeneratedData.examples.length})</h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {aiGeneratedData.examples.map((ex, idx) => (
-                      <div key={idx} className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono space-y-1">
-                        <div className="text-slate-400">Example {idx + 1}:</div>
+                      <div key={idx} className="p-3 rounded-xl bg-theme-surface border border-theme-border text-xs font-mono space-y-1">
+                        <div className="text-theme-text2">Example {idx + 1}:</div>
                         <div><strong className="text-cyan-400">Input:</strong> {ex.input}</div>
                         <div><strong className="text-emerald-400">Output:</strong> {ex.output}</div>
-                        {ex.explanation && <div className="text-slate-400 text-[11px] mt-1 font-sans"><em>{ex.explanation}</em></div>}
+                        {ex.explanation && <div className="text-theme-text2 text-[11px] mt-1 font-sans"><em>{ex.explanation}</em></div>}
                       </div>
                     ))}
                   </div>
@@ -796,14 +796,14 @@ export default function AdminDailyChallengeModal({
               )}
 
               {/* Test cases count & Hints */}
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
+              <div className="flex items-center justify-between text-xs text-theme-text2 pt-2 border-t border-theme-border">
                 <span>{aiGeneratedData.test_cases?.length || 0} Test Cases generated</span>
                 <span>{aiGeneratedData.hints?.length || 0} Progressive Hints included</span>
               </div>
             </div>
 
             {/* AI Preview Action Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-theme-border">
               <button
                 type="button"
                 onClick={handleGenerateAI}
@@ -843,7 +843,7 @@ export default function AdminDailyChallengeModal({
         {creationMode === 'manual' && (
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Sub-tabs */}
-            <div className="flex items-center gap-2 px-6 pt-3 border-b border-slate-800 bg-slate-900/30 shrink-0">
+            <div className="flex items-center gap-2 px-6 pt-3 border-b border-theme-border bg-theme-surface shrink-0">
               {[
                 { id: 'details', label: 'Basic Details', icon: Sliders },
                 { id: 'content', label: 'Statement & Examples', icon: BookOpen },
@@ -857,7 +857,7 @@ export default function AdminDailyChallengeModal({
                   className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
                     activeTab === tab.id
                       ? 'border-amber-400 text-amber-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                      : 'border-transparent text-theme-text2 hover:text-theme-text1'
                   }`}
                 >
                   <tab.icon className="w-3.5 h-3.5" />
@@ -873,7 +873,7 @@ export default function AdminDailyChallengeModal({
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Challenge Title *</label>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Challenge Title *</label>
                       <input
                         type="text"
                         name="title"
@@ -886,7 +886,7 @@ export default function AdminDailyChallengeModal({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Problem Slug (Optional)</label>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Problem Slug (Optional)</label>
                       <input
                         type="text"
                         name="slug"
@@ -898,7 +898,7 @@ export default function AdminDailyChallengeModal({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Difficulty *</label>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Difficulty *</label>
                       <select
                         name="difficulty"
                         value={formData.difficulty}
@@ -913,7 +913,7 @@ export default function AdminDailyChallengeModal({
 
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-semibold text-slate-300">Primary Topic *</label>
+                        <label className="block text-xs font-semibold text-theme-text2">Primary Topic *</label>
                         <button
                           type="button"
                           onClick={() => handleRecommendTopic(formData.difficulty)}
@@ -967,7 +967,7 @@ export default function AdminDailyChallengeModal({
                     )}
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Algorithm Pattern (Optional)</label>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Algorithm Pattern (Optional)</label>
                       {manualAvailablePatterns.length > 0 ? (
                         <select
                           name="pattern_name"
@@ -993,7 +993,7 @@ export default function AdminDailyChallengeModal({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Competitive Points</label>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Competitive Points</label>
                       <input
                         type="number"
                         name="points"
@@ -1006,7 +1006,7 @@ export default function AdminDailyChallengeModal({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Schedule Calendar Date (Optional)</label>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Schedule Calendar Date (Optional)</label>
                       <input
                         type="date"
                         name="scheduled_date"
@@ -1023,7 +1023,7 @@ export default function AdminDailyChallengeModal({
               {activeTab === 'content' && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Problem Description *</label>
+                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Problem Description *</label>
                     <textarea
                       rows={5}
                       name="description"
@@ -1037,7 +1037,7 @@ export default function AdminDailyChallengeModal({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Constraints *</label>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Constraints *</label>
                       <textarea
                         rows={3}
                         name="constraints"
@@ -1048,7 +1048,7 @@ export default function AdminDailyChallengeModal({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">Input & Output Specifications</label>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Input & Output Specifications</label>
                       <textarea
                         rows={3}
                         name="input_format"
@@ -1063,7 +1063,7 @@ export default function AdminDailyChallengeModal({
                   {/* Dynamic Examples Builder */}
                   <div className="space-y-3 pt-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold uppercase text-slate-300 font-mono">
+                      <label className="text-xs font-bold uppercase text-theme-text2 font-mono">
                         Problem Examples ({formData.examples.length})
                       </label>
                       <button
@@ -1076,8 +1076,8 @@ export default function AdminDailyChallengeModal({
                     </div>
 
                     {formData.examples.map((ex, idx) => (
-                      <div key={idx} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
-                        <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+                      <div key={idx} className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border space-y-2.5">
+                        <div className="flex items-center justify-between text-xs font-mono text-theme-text2">
                           <span>Example #{idx + 1}</span>
                           {formData.examples.length > 1 && (
                             <button
@@ -1123,8 +1123,8 @@ export default function AdminDailyChallengeModal({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-xs font-bold uppercase text-slate-300 font-mono">Test Cases & Verification</h4>
-                      <p className="text-[11px] text-slate-400">Provide sample public tests and edge-case hidden evaluation tests.</p>
+                      <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Test Cases & Verification</h4>
+                      <p className="text-[11px] text-theme-text2">Provide sample public tests and edge-case hidden evaluation tests.</p>
                     </div>
                     <button
                       type="button"
@@ -1137,10 +1137,10 @@ export default function AdminDailyChallengeModal({
 
                   <div className="space-y-3">
                     {formData.test_cases.map((tc, idx) => (
-                      <div key={tc.id || idx} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
+                      <div key={tc.id || idx} className="p-4 rounded-2xl bg-theme-surface border border-theme-border space-y-2.5">
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-slate-300">Test Case #{idx + 1}</span>
+                            <span className="font-mono font-bold text-theme-text2">Test Case #{idx + 1}</span>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
                               tc.is_hidden
                                 ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
@@ -1151,12 +1151,12 @@ export default function AdminDailyChallengeModal({
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+                            <label className="flex items-center gap-1.5 text-xs text-theme-text2 cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={tc.is_hidden}
                                 onChange={(e) => handleTestCaseChange(idx, 'is_hidden', e.target.checked)}
-                                className="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0"
+                                className="rounded bg-theme-surface border-theme-border text-amber-500 focus:ring-0"
                               />
                               <span>Hidden Test</span>
                             </label>
@@ -1174,7 +1174,7 @@ export default function AdminDailyChallengeModal({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Standard Input</label>
+                            <label className="block text-[11px] font-semibold text-theme-text2 mb-1">Standard Input</label>
                             <textarea
                               rows={2}
                               value={tc.input}
@@ -1184,7 +1184,7 @@ export default function AdminDailyChallengeModal({
                             />
                           </div>
                           <div>
-                            <label className="block text-[11px] font-semibold text-slate-400 mb-1">Expected Output</label>
+                            <label className="block text-[11px] font-semibold text-theme-text2 mb-1">Expected Output</label>
                             <textarea
                               rows={2}
                               value={tc.expected_output}
@@ -1206,7 +1206,7 @@ export default function AdminDailyChallengeModal({
                   {/* Progressive Hints */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold uppercase text-slate-300 font-mono">
+                      <label className="text-xs font-bold uppercase text-theme-text2 font-mono">
                         Progressive Hints ({formData.hints.length})
                       </label>
                       <button
@@ -1234,7 +1234,7 @@ export default function AdminDailyChallengeModal({
                           <button
                             type="button"
                             onClick={() => removeHint(idx)}
-                            className="p-1.5 text-slate-500 hover:text-rose-400"
+                            className="p-1.5 text-theme-text3 hover:text-rose-400"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1245,7 +1245,7 @@ export default function AdminDailyChallengeModal({
 
                   {/* Solution Approach / Editorial */}
                   <div className="pt-2">
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
                       Editorial / Solution Approach (Visible after completion or to Admins)
                     </label>
                     <textarea
@@ -1260,7 +1260,7 @@ export default function AdminDailyChallengeModal({
 
                   {/* Complexity */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Complexity Analysis</label>
+                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Complexity Analysis</label>
                     <input
                       type="text"
                       name="complexity"
@@ -1275,8 +1275,8 @@ export default function AdminDailyChallengeModal({
             </div>
 
             {/* Footer Buttons */}
-            <div className="px-6 py-4 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 shrink-0">
-              <div className="text-[11px] text-slate-400 flex items-center gap-2">
+            <div className="px-6 py-4 border-t border-theme-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-theme-surface shrink-0">
+              <div className="text-[11px] text-theme-text2 flex items-center gap-2">
                 <span>Status: <strong className="text-amber-400 capitalize">{formData.status}</strong></span>
                 {formData.scheduled_date && <span>&middot; Scheduled: <strong className="text-cyan-400 font-mono">{formData.scheduled_date}</strong></span>}
               </div>

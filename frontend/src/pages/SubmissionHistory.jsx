@@ -48,16 +48,16 @@ export default function SubmissionHistory({ onSelectProblem }) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">Submission History</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Code editor and GitHub link submissions</p>
+          <p className="text-sm text-theme-text2 mt-0.5">Code editor and GitHub link submissions</p>
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <div className="text-center">
             <div className="text-lg font-bold text-white">{submissions.length}</div>
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Total</div>
+            <div className="text-[10px] text-theme-text3 uppercase tracking-wider">Total</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-bold text-emerald-400">{approvedCount}</div>
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Approved</div>
+            <div className="text-[10px] text-theme-text3 uppercase tracking-wider">Approved</div>
           </div>
         </div>
       </div>
@@ -153,17 +153,17 @@ export default function SubmissionHistory({ onSelectProblem }) {
                         onClick={() => isExpandable && setExpanded(expanded === sub.id ? null : sub.id)}
                       >
                         <td>
-                          <div className="font-medium text-slate-200 leading-snug">{sub.question_title}</div>
+                          <div className="font-medium text-theme-text1 leading-snug">{sub.question_title}</div>
                           {/* Mobile extras */}
                           <div className="flex items-center gap-2 mt-1 sm:hidden">
-                            <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                            <span className="text-[10px] text-theme-text3 flex items-center gap-1">
                               {sub.submission_type === 'github' ? <Github className="w-3 h-3" /> : <Code className="w-3 h-3" />}
                               {sub.submission_type === 'github' ? 'GitHub' : sub.language?.toUpperCase() || 'Code'}
                             </span>
                           </div>
                         </td>
                         <td className="hidden sm:table-cell">
-                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                          <div className="flex items-center gap-1.5 text-xs text-theme-text2">
                             {sub.submission_type === 'github'
                               ? <><Github className="w-3.5 h-3.5" /> GitHub</>
                               : <><Code className="w-3.5 h-3.5" /> {sub.language?.toUpperCase() || 'Code'}</>
@@ -179,21 +179,21 @@ export default function SubmissionHistory({ onSelectProblem }) {
                               {score}/100
                             </span>
                           ) : (
-                            <span className="text-xs text-slate-500 font-mono">—</span>
+                            <span className="text-xs text-theme-text3 font-mono">—</span>
                           )}
                         </td>
-                        <td className="hidden md:table-cell text-xs text-slate-400">
+                        <td className="hidden md:table-cell text-xs text-theme-text2">
                           {sub.submission_type === 'github' ? (
                             <a href={sub.github_url} target="_blank" rel="noreferrer"
                               onClick={e => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-axly-400 hover:underline font-mono text-[11px]">
+                              className="inline-flex items-center gap-1 text-cyan-400 hover:underline font-mono text-[11px]">
                               View repo <ExternalLink className="w-3 h-3" />
                             </a>
                           ) : (
                             <span>{sub.passed_tests || 0}/{sub.total_tests || 0} tests · {sub.execution_time_ms || 0}ms</span>
                           )}
                         </td>
-                        <td className="hidden lg:table-cell text-xs text-slate-500 font-mono">
+                        <td className="hidden lg:table-cell text-xs text-theme-text3 font-mono">
                           {sub.updated_at || sub.created_at || '—'}
                         </td>
                         <td className="text-right">

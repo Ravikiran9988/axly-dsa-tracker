@@ -35,7 +35,7 @@ export default function StudentLayout({ user, onLogout }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-row font-sans">
+    <div className="min-h-screen bg-theme-bg text-theme-text1 flex flex-row font-sans">
       {/* Dedicated Student Sidebar */}
       <StudentSidebar
         currentView={currentView}
@@ -55,7 +55,7 @@ export default function StudentLayout({ user, onLogout }) {
           unreadCount={unreadNotifsCount}
         />
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-[#070B14]">
+        <main className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-theme-bg">
           {currentView === 'solve' && activeQuestionId ? (
             <ProblemWorkspace
               questionId={activeQuestionId}
@@ -80,9 +80,9 @@ export default function StudentLayout({ user, onLogout }) {
             <Leaderboard currentUser={user} />
           ) : currentView === 'learning-path' ? (
             <div className="max-w-4xl mx-auto space-y-6">
-              <div className="p-6 rounded-2xl bg-gradient-to-r from-[#0C1425] via-[#121E3E] to-[#0C1425] border border-cyan-900/30">
+              <div className="p-6 rounded-2xl bg-theme-surface2 border border-cyan-900/30">
                 <h1 className="text-2xl font-bold text-white">DSA & System Design Mastery Track</h1>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-theme-text2 mt-1">
                   Step-by-step roadmap from Arrays & Two Pointers to Dynamic Programming and Graph traversals.
                 </p>
               </div>
@@ -92,7 +92,7 @@ export default function StudentLayout({ user, onLogout }) {
           ) : currentView === 'notifications' ? (
             <NotificationsPage onNavigate={setCurrentView} onUnreadChange={setUnreadNotifsCount} />
           ) : currentView === 'settings' ? (
-            <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-slate-900 border border-slate-800">
+            <div className="max-w-2xl mx-auto p-6 rounded-2xl bg-theme-surface border border-theme-border">
               <h1 className="text-lg font-bold text-white">Account Settings</h1>
             </div>
           ) : (

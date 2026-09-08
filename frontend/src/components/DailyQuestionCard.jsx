@@ -17,7 +17,7 @@ export default function DailyQuestionCard({ dailyQuestion, dailyData, onOpenInPl
     return (
       <div className="card p-8 text-center space-y-2">
         <Calendar className="w-8 h-8 text-slate-600 mx-auto" strokeWidth={1.5} />
-        <p className="text-sm font-medium text-slate-400">No daily challenge today</p>
+        <p className="text-sm font-medium text-theme-text2">No daily challenge today</p>
         <p className="text-xs text-slate-600">Challenges are set by your admin each day.</p>
       </div>
     );
@@ -43,11 +43,11 @@ export default function DailyQuestionCard({ dailyQuestion, dailyData, onOpenInPl
           </div>
           <h3
             onClick={onOpenInPlatform}
-            className="text-lg font-bold text-white hover:text-axly-300 transition-colors cursor-pointer truncate"
+            className="text-lg font-bold text-theme-text1 hover:text-cyan-500 transition-colors cursor-pointer truncate"
           >
             {question.title}
           </h3>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5 text-xs text-theme-text3">
             <Calendar className="w-3.5 h-3.5" />
             <span>{displayDate}</span>
             <span className="mx-1">·</span>

@@ -98,23 +98,23 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
 
   return (
     <aside
-      className={`relative flex flex-col h-screen border-r border-[#1a2540] bg-[#070B14] transition-all duration-200 z-30 shrink-0 select-none ${
+      className={`relative flex flex-col h-screen border-r border-theme-border bg-theme-bg transition-all duration-200 z-30 shrink-0 select-none ${
         isCollapsed ? 'w-[52px]' : 'w-56'
       }`}
     >
       {/* Logo */}
-      <div className="flex items-center h-14 px-3 border-b border-[#1a2540] shrink-0">
+      <div className="flex items-center h-14 px-3 border-b border-theme-border shrink-0">
         <div className="flex items-center gap-2.5 overflow-hidden flex-1 min-w-0">
           <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-            isAdmin ? 'bg-amber-600' : 'bg-axly-600'
+            isAdmin ? 'bg-indigo-500' : 'bg-theme-cyan'
           }`}>
-            <Terminal className="w-4 h-4 text-white" />
+            <Terminal className="w-4 h-4 text-theme-text1" />
           </div>
           {!isCollapsed && (
             <div className="flex flex-col min-w-0 leading-none">
-              <span className="font-bold text-white text-sm tracking-tight font-mono truncate">AXLY</span>
+              <span className="font-bold text-theme-text1 text-sm tracking-tight font-mono truncate">AXLY</span>
               <span className={`text-[10px] font-semibold tracking-wide truncate ${
-                isAdmin ? 'text-amber-500' : 'text-axly-400'
+                isAdmin ? 'text-indigo-400' : 'text-theme-cyan'
               }`}>
                 {isAdmin ? 'Admin Portal' : 'DSA Platform'}
               </span>
@@ -123,7 +123,7 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
         </div>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1 rounded text-slate-600 hover:text-slate-300 hover:bg-[#111c2e] transition-colors shrink-0 ml-auto"
+          className="p-1 rounded text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface3 transition-colors shrink-0 ml-auto"
           title={isCollapsed ? 'Expand' : 'Collapse'}
         >
           {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
@@ -132,21 +132,21 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
 
       {/* Stats pill */}
       {!isAdmin && !isCollapsed && (
-        <div className="mx-2.5 my-2 px-3 py-2 rounded-md bg-[#0d1525] border border-[#1a2540] flex items-center justify-between">
+        <div className="mx-2.5 my-2 px-3 py-2 rounded-md bg-theme-surface border border-theme-border flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold" title="Consecutive days you've logged in">
             <Zap className="w-3.5 h-3.5" />
             <span>{user?.individualStreak ?? user?.streak ?? 1}d streak</span>
           </div>
-          <div className="flex items-center gap-1 text-cyan-400 text-xs font-semibold" title="Total Score (Practice + Daily + Streak)">
-            <Trophy className="w-3.5 h-3.5 text-cyan-400" />
+          <div className="flex items-center gap-1 text-theme-cyan text-xs font-semibold" title="Total Score (Practice + Daily + Streak)">
+            <Trophy className="w-3.5 h-3.5 text-theme-cyan" />
             <span>{user?.points || user?.total_score || 0} pts</span>
           </div>
         </div>
       )}
       {isAdmin && !isCollapsed && (
-        <div className="mx-2.5 my-2 px-3 py-2 rounded-md bg-amber-500/5 border border-amber-500/15 flex items-center gap-1.5">
-          <Shield className="w-3.5 h-3.5 text-amber-500" />
-          <span className="text-xs font-semibold text-amber-400">Administrator</span>
+        <div className="mx-2.5 my-2 px-3 py-2 rounded-md bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-1.5">
+          <Shield className="w-3.5 h-3.5 text-indigo-400" />
+          <span className="text-xs font-semibold text-indigo-300">Administrator</span>
         </div>
       )}
 
@@ -155,7 +155,7 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
         {sections.map((section, sIdx) => (
           <div key={sIdx} className="space-y-0.5">
             {!isCollapsed && section.title && (
-              <div className="px-3 pb-1 pt-0.5 text-[10px] font-semibold tracking-widest text-slate-600 uppercase">
+              <div className="px-3 pb-1 pt-0.5 text-[10px] font-semibold tracking-widest text-theme-text2 uppercase">
                 {section.title}
               </div>
             )}
@@ -169,12 +169,12 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
                   title={isCollapsed ? item.label : undefined}
                   className={`nav-item ${active ? 'nav-item-active' : ''} ${isCollapsed ? 'justify-center px-0 w-full' : ''}`}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-axly-400' : 'text-slate-500'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-theme-cyan' : 'text-theme-text3'}`} />
                   {!isCollapsed && (
                     <>
                       <span className="truncate flex-1 text-left">{item.label}</span>
                       {item.badge !== undefined && item.badge > 0 && (
-                        <span className="ml-auto w-5 h-5 rounded-full bg-axly-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                        <span className="ml-auto w-5 h-5 rounded-full bg-theme-cyan text-theme-cyan border border-theme-cyan text-[10px] font-bold flex items-center justify-center shrink-0">
                           {item.badge > 9 ? '9+' : item.badge}
                         </span>
                       )}
@@ -188,21 +188,21 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
       </nav>
 
       {/* User footer */}
-      <div className="border-t border-[#1a2540] p-2 shrink-0">
+      <div className="border-t border-theme-border p-2 shrink-0">
         {!isCollapsed ? (
           <div className="flex items-center gap-2 px-1">
-            <div className="w-7 h-7 rounded-full bg-[#1a2540] border border-[#253556] flex items-center justify-center text-xs font-bold text-axly-300 shrink-0">
+            <div className="w-7 h-7 rounded-full bg-theme-surface2 border border-theme-border flex items-center justify-center text-xs font-bold text-theme-cyan shrink-0">
               {(user?.name || user?.email || 'U').charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-slate-200 truncate leading-none">
+              <div className="text-xs font-semibold text-theme-text1 truncate leading-none">
                 {user?.name || user?.email?.split('@')[0]}
               </div>
-              <div className="text-[10px] text-slate-600 truncate mt-0.5">{user?.email}</div>
+              <div className="text-[10px] text-theme-text2 truncate mt-0.5">{user?.email}</div>
             </div>
             <button
               onClick={onLogout}
-              className="p-1.5 rounded text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
+              className="p-1.5 rounded text-theme-text2 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0"
               title="Sign out"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -211,7 +211,7 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
         ) : (
           <button
             onClick={onLogout}
-            className="w-full flex justify-center p-2 rounded text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+            className="w-full flex justify-center p-2 rounded text-theme-text2 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
             title="Sign out"
           >
             <LogOut className="w-3.5 h-3.5" />
