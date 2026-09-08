@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Plus,
@@ -182,7 +183,7 @@ export default function AdminQuestionModal({
       setDifficulty(aiDifficulty);
       setPoints(DIFF_CONFIG[aiDifficulty]?.pts || 20);
       setDescription(d.description || '');
-      setConstraints(d.constraints || '');
+      setConstraints(Array.isArray(d.constraints) ? d.constraints.join('\n') : (d.constraints || ''));
       setInputFormat(d.input_format || '');
       setOutputFormat(d.output_format || '');
       setHints(Array.isArray(d.hints) ? d.hints.join('\n') : (d.hints || ''));
@@ -236,17 +237,17 @@ export default function AdminQuestionModal({
     setSaving(true);
     try {
       const payload = {
-        title: title.trim(),
+        title: String(title || '').trim(),
         difficulty,
         topic_id: topicId || null,
         points: Number(points) || 10,
-        estimated_time: estimatedTime.trim() || '30 mins',
+        estimated_time: String(estimatedTime || '').trim() || '30 mins',
         status,
-        description: description.trim(),
-        constraints: constraints.trim(),
-        input_format: inputFormat.trim(),
-        output_format: outputFormat.trim(),
-        hints: hints.trim(),
+        description: String(description || '').trim(),
+        constraints: String(constraints || '').trim(),
+        input_format: String(inputFormat || '').trim(),
+        output_format: String(outputFormat || '').trim(),
+        hints: String(hints || '').trim(),
         starter_code: {
           javascript: jsStarter,
           python: pyStarter
@@ -305,7 +306,7 @@ export default function AdminQuestionModal({
   const codeTextareaClasses =
     'w-full p-3 rounded-xl border border-theme-border bg-theme-surface font-mono text-xs text-cyan-500 dark:text-cyan-300 placeholder:text-theme-text3 focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/20 resize-none leading-relaxed';
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden">
       <div 
         ref={modalCardRef}
@@ -864,6 +865,7 @@ export default function AdminQuestionModal({
         </form>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

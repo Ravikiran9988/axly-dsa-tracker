@@ -119,6 +119,22 @@ async function getMyProfile(req, res, next) {
     const scoreBreakdown = await getUserScoreBreakdown(userId);
     const streaks = await getUserStreaks(userId);
 
+    let dynamicRank = Number(user.rank || 1);
+    try {
+      const rankRow = await repo.one(`
+        SELECT rank FROM (
+          SELECT id, ROW_NUMBER() OVER(ORDER BY ${COMPETITIVE_ORDER}) as rank
+          FROM users
+          WHERE role = 'user'
+        ) WHERE id = ?
+      `, [userId]);
+      if (rankRow && rankRow.rank) {
+        dynamicRank = Number(rankRow.rank);
+      }
+    } catch (e) {
+      console.warn("Could not calculate dynamic rank", e);
+    }
+
     return res.status(200).json({
       data: {
         ...user,
@@ -153,7 +169,7 @@ async function getMyProfile(req, res, next) {
           dailyChallengeBestStreak: streaks.dailyChallengeBestStreak,
           streak: streaks.individualStreak,
           longest_streak: streaks.individualBestStreak,
-          rank: Number(user.rank || 1)
+          rank: dynamicRank
         },
         badges,
         cohorts,
