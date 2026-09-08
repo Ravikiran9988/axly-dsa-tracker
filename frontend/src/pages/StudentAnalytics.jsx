@@ -154,7 +154,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
             activeTab === 'practice'
               ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
-              : 'text-theme-text2 hover:text-white hover:bg-theme-surface2'
+              : 'text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2'
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" /> Practice Problem Bank (80 V1)
@@ -165,7 +165,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
             activeTab === 'telemetry'
               ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
-              : 'text-theme-text2 hover:text-white hover:bg-theme-surface2'
+              : 'text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2'
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5" /> Submission Telemetry & Accuracy
@@ -290,7 +290,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
           {/* Overall Practice KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="p-4 rounded-2xl bg-theme-surface border border-theme-border text-center">
-              <div className="text-2xl font-black text-white">{prac.total}</div>
+              <div className="text-2xl font-black text-theme-text1">{prac.total}</div>
               <div className="text-[10px] text-theme-text2 uppercase tracking-wider mt-1">Total Problems</div>
             </div>
             <div className="p-4 rounded-2xl bg-theme-surface border border-theme-border text-center">
@@ -436,41 +436,49 @@ export default function StudentAnalytics({ onSelectProblem }) {
               <div className="text-[11px] text-amber-300/80 font-mono">Personal best</div>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Recommendations Widget */}
-          {recommendations.length > 0 && (
-            <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
-              <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold uppercase">
-                <Sparkles className="w-4 h-4" />
-                <span>Next Recommended Challenges</span>
-              </div>
+      {/* Recommendations Widget (Visible for both Practice and Telemetry) */}
+      {recommendations.length > 0 && (
+        <div className="p-6 rounded-3xl bg-theme-surface border border-theme-border space-y-4">
+          <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold uppercase">
+            <Sparkles className="w-4 h-4" />
+            <span>Next Recommended Challenges</span>
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {recommendations.slice(0, 4).map((rec) => (
-                  <div
-                    key={rec.id}
-                    className="p-4 rounded-2xl bg-theme-surface border border-theme-border hover:border-cyan-500/40 transition-colors space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-white truncate max-w-[200px]">
-                        {rec.title}
-                      </h4>
-                      <button
-                        onClick={() => onSelectProblem && onSelectProblem(rec.id)}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-400 hover:text-cyan-300"
-                      >
-                        <span>Solve</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-theme-text2 line-clamp-1">
-                      {rec.reason}
-                    </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {recommendations.slice(0, 4).map((rec) => (
+              <div
+                key={rec.id}
+                className="p-4 rounded-2xl bg-theme-surface border border-theme-border hover:border-cyan-500/40 transition-colors space-y-1.5 group"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h4 className="text-xs font-bold text-theme-text1 truncate">
+                      {rec.title}
+                    </h4>
+                    {rec.difficulty && (
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border shrink-0 ${difficultyColors[String(rec.difficulty).toLowerCase()] || difficultyColors.easy}`}>
+                        {rec.difficulty}
+                      </span>
+                    )}
                   </div>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => onSelectProblem && onSelectProblem(rec.id)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-500 hover:text-cyan-400 shrink-0 group-hover:translate-x-0.5 transition-transform"
+                  >
+                    <span>Solve</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-theme-text2 line-clamp-1">
+                  {rec.reason || 'Great foundation challenge to maintain momentum'}
+                </p>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       )}
     </div>
