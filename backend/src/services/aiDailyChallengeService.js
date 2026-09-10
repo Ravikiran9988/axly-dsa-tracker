@@ -3,6 +3,7 @@ const { AppError } = require('../middleware/errorHandler');
 const llmRouter = require('./llm/llmRouter');
 const { executeCode, normalizeOutput } = require('./executionService');
 const { getCanonicalUtcDate } = require('../utils/dateUtils');
+const { generateQuestion } = require('./aiQuestionService');
 
 function getRepo() {
   return getRepository();
@@ -1150,6 +1151,14 @@ function validateDailyChallenge(data) {
     return { isValid: false, errors: ['Invalid challenge payload'] };
   }
 
+  if (!data.starter_code || typeof data.starter_code !== 'object' || !data.starter_code.javascript || !data.starter_code.python) {
+    errors.push('starter_code must be a dictionary containing at least javascript and python keys.');
+  }
+
+  if (!data.reference_solution || typeof data.reference_solution !== 'object' || !data.reference_solution.python) {
+    errors.push('reference_solution must be a dictionary containing at least a python key.');
+  }
+
   if (!data.title || String(data.title).trim().length < 4) {
     errors.push('Title must be at least 4 characters long.');
   }
@@ -1315,68 +1324,29 @@ async function generateDailyChallenge(options = {}) {
       ? `\n\nEXCLUSION LIST (DO NOT GENERATE OR CREATE VARIANTS OF THESE):\n${recentTitles.map(t => `- ${t}`).join('\n')}`
       : '';
 
-    const prompt = `You are generating an original, interview-grade competitive programming problem for AXLY DSA Tracker.
-
-CRITICAL UNIQUENESS INSTRUCTIONS:
-- The generated problem MUST be materially and conceptually different from every problem in the exclusion list.
-- Do NOT create variants of existing problems by changing numbers, variable names, constraints, examples, or adding a Variant ID.
-- The underlying algorithmic task and data structures must be genuinely distinct.${exclusionText}
-
-Topic: ${targetTopic}
-Difficulty: ${normDifficulty}
-Pattern: ${targetPattern || 'Appropriate for topic'}
-Target Points: ${finalPoints}
-Instructions: ${instructions || 'Ensure clean specifications, edge cases, progressive hints, and a verified reference solution.'}
-
-Output ONLY valid JSON matching this schema:
-{
-  "title": "Clean Canonical Problem Title",
-  "slug": "clean-canonical-problem-title",
-  "difficulty": "${normDifficulty}",
-  "topic": "${targetTopic}",
-  "pattern": "${targetPattern || 'Pattern Name'}",
-  "description": "Full problem description without variant markers.",
-  "constraints": "1 <= N <= 10^5",
-  "input_format": "Input format specification",
-  "output_format": "Output format specification",
-  "examples": [
-    { "input": "...", "output": "...", "explanation": "..." }
-  ],
-  "starter_code": "function solution(param) {\\n  return 0;\\n}",
-  "reference_solution": "function solution(param) {\\n  return 0;\\n}",
-  "test_cases": [
-    { "input": "sample_input_1", "expected_output": "sample_output_1", "is_hidden": 0 },
-    { "input": "edge_case_input_2", "expected_output": "edge_case_output_2", "is_hidden": 1 }
-  ],
-  "hints": ["Hint 1", "Hint 2"],
-  "editorial": "Approach explanation.",
-  "complexity": "Time: O(N) | Space: O(1)",
-  "points": ${finalPoints}
-}`;
-
-    const llmRes = await llmRouter.generate({
-      prompt,
-      systemPrompt: 'You are a Principal DSA Problem Author. Respond ONLY in valid raw JSON without markdown code fences.',
-      temperature: 0.4,
-      maxTokens: 1600
+    const generatedQuestion = await generateQuestion({
+      topic: targetTopic,
+      difficulty: normDifficulty,
+      count: 4,
+      pattern: targetPattern || 'Appropriate for topic',
+      exclusionText,
+      instructions: instructions || 'Ensure clean specifications, edge cases, progressive hints, and a verified reference solution.'
     });
 
-    if (llmRes && llmRes.text && llmRes.source !== 'fallback') {
-      let cleaned = llmRes.text.trim();
-      if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
-      if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
-      if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
-      cleaned = cleaned.trim();
-
-      const parsed = JSON.parse(cleaned);
-      parsed.title = stripVariantIdentifiers(parsed.title);
-      parsed.slug = generateSlug(parsed.title);
-      parsed.created_via = 'ai';
-      parsed.status = 'draft';
-      parsed.scheduled_date = scheduled_date || null;
-      parsed.points = finalPoints;
-      parsed.topic = targetTopic;
-      parsed.pattern = targetPattern || parsed.pattern;
+    if (generatedQuestion) {
+      const parsed = {
+        ...generatedQuestion,
+        editorial: generatedQuestion.solution_approach,
+        slug: generateSlug(stripVariantIdentifiers(generatedQuestion.title)),
+        title: stripVariantIdentifiers(generatedQuestion.title),
+        created_via: 'ai',
+        status: 'draft',
+        scheduled_date: scheduled_date || null,
+        points: finalPoints,
+        topic: targetTopic,
+        pattern: targetPattern || generatedQuestion.pattern || 'Pattern Name'
+      };
+      
       parsed.problem_concept = extractProblemConcept(parsed.title, parsed.description);
       parsed.problem_signature = generateProblemSignature(parsed);
       if (recommendationReason) parsed.recommendation_reason = recommendationReason;
@@ -1389,15 +1359,16 @@ Output ONLY valid JSON matching this schema:
             const sbResult = await verifyReferenceSolution(parsed);
             parsed.sandbox_verified = sbResult.verified;
             if (sbResult.verified) {
-              return { success: true, data: parsed, source: `llm-${llmRes.provider}` };
+              return { success: true, data: parsed, source: `llm-unified` };
             }
           } else {
-            return { success: true, data: parsed, source: `llm-${llmRes.provider}` };
+            return { success: true, data: parsed, source: `llm-unified` };
           }
         }
       }
     }
-  } catch (_) {
+  } catch (err) {
+    console.error("Unified generation failed, falling through:", err.message);
     // Fall through to rotation synthesizer
   }
 
