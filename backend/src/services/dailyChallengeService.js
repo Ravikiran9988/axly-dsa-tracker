@@ -278,6 +278,8 @@ async function getDailyChallengeById(id, isPrivileged = false) {
     complexity: challenge.complexity || '',
     scheduled_date: challenge.scheduled_date || challenge.active_daily_date || null,
     test_cases: visibleTestCases,
+    starter_code: challenge.starter_code ? safeParseJson(challenge.starter_code) : null,
+    reference_solution: isPrivileged && challenge.reference_solution ? safeParseJson(challenge.reference_solution) : null,
     total_test_cases: testCases.length
   };
 }

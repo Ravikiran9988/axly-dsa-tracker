@@ -176,6 +176,7 @@ async function getQuestionById(id, user = null) {
     hints: parseHints(q.hints),
     is_active: Boolean(q.is_active),
     starter_code: q.starter_code ? safeParseJson(q.starter_code) : null,
+    reference_solution: isAdmin && q.reference_solution ? safeParseJson(q.reference_solution) : null,
     supported_languages: q.supported_languages ? safeParseJson(q.supported_languages) : ['javascript', 'python'],
     tags: q.tags ? safeParseJson(q.tags) : [],
     test_cases: formattedTestCases,

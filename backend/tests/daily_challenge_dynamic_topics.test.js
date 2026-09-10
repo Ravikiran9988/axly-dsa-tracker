@@ -70,7 +70,14 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       test_cases: [
         { input: '[1, 2, 3]', expected_output: '6', is_hidden: false },
         { input: '[0, 0, 0]', expected_output: '0', is_hidden: true }
-      ]
+      ],
+      starter_code: {
+        javascript: 'function solve() {}',
+        python: 'def solve(): pass'
+      },
+      reference_solution: {
+        python: 'def solve(): pass'
+      }
     };
 
     const res = await request(app)
@@ -99,7 +106,14 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       test_cases: [
         { input: '[[1], [0]]', expected_output: '1', is_hidden: false },
         { input: '[[0]]', expected_output: '0', is_hidden: true }
-      ]
+      ],
+      starter_code: {
+        javascript: 'function solve() {}',
+        python: 'def solve(): pass'
+      },
+      reference_solution: {
+        python: 'def solve(): pass'
+      }
     };
 
     const res = await request(app)
@@ -129,7 +143,14 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       test_cases: [
         { input: 'axly', expected_output: '42', is_hidden: false },
         { input: 'test', expected_output: '10', is_hidden: true }
-      ]
+      ],
+      starter_code: {
+        javascript: 'function solve() {}',
+        python: 'def solve(): pass'
+      },
+      reference_solution: {
+        python: 'def solve(): pass'
+      }
     };
 
     const res = await request(app)
@@ -153,6 +174,9 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
         points: 150
       });
 
+    if (res.status === 422) {
+      console.log('Test 5 body:', JSON.stringify(res.body, null, 2));
+    }
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.topic).toBe('Graphs');
@@ -170,6 +194,9 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
         points: 100
       });
 
+    if (res.status === 422) {
+      console.log('Test 6 body:', JSON.stringify(res.body, null, 2));
+    }
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.topic).toBe('Dynamic Programming');

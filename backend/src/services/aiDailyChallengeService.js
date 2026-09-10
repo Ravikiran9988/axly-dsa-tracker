@@ -165,8 +165,12 @@ const PROBLEM_TEMPLATES = [
     examples: [
       { input: '[1, 2, 1, 3, 4]\n2', output: '7', explanation: 'The subarray [1, 2, 1, 3] gives sum 7.' }
     ],
-    starter_code: `function maxSubarraySumBounded(nums, k) {\n  return 0;\n}`,
-    reference_solution: `function maxSubarraySumBounded(nums, k) {
+    starter_code: {
+      javascript: `function maxSubarraySumBounded(nums, k) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function maxSubarraySumBounded(nums, k) {
   if (!nums || nums.length === 0 || k <= 0) return 0;
   let left = 0, currentSum = 0, maxSum = -Infinity;
   const count = new Map();
@@ -186,6 +190,8 @@ const PROBLEM_TEMPLATES = [
   }
   return maxSum === -Infinity ? 0 : maxSum;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -215,8 +221,12 @@ console.log(maxSubarraySumBounded(nums, k));`,
     examples: [
       { input: 'abca\n1', output: 'true', explanation: 'Delete "b" or "c" to obtain palindrome.' }
     ],
-    starter_code: `function isValidPalindromeK(s, k) {\n  return false;\n}`,
-    reference_solution: `function isValidPalindromeK(s, k) {
+    starter_code: {
+      javascript: `function isValidPalindromeK(s, k) {\n  return false;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function isValidPalindromeK(s, k) {
   function check(left, right, kRem) {
     while (left < right) {
       if (s[left] === s[right]) {
@@ -231,6 +241,8 @@ console.log(maxSubarraySumBounded(nums, k));`,
   }
   return check(0, s.length - 1, k);
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -260,8 +272,12 @@ console.log(isValidPalindromeK(s, k));`,
     examples: [
       { input: '[10, 15, 20]', output: '15', explanation: 'Start at index 1 and pay 15.' }
     ],
-    starter_code: `function minCostClimbingSteps(cost) {\n  return 0;\n}`,
-    reference_solution: `function minCostClimbingSteps(cost) {
+    starter_code: {
+      javascript: `function minCostClimbingSteps(cost) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function minCostClimbingSteps(cost) {
   if (!cost || cost.length === 0) return 0;
   let prev2 = 0, prev1 = 0;
   for (let i = 0; i < cost.length; i++) {
@@ -271,6 +287,8 @@ console.log(isValidPalindromeK(s, k));`,
   }
   return Math.min(prev1, prev2);
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -298,8 +316,12 @@ console.log(minCostClimbingSteps(cost));`,
     examples: [
       { input: '[1, 2, 3, 1]', output: '4', explanation: 'Rob house 1 (money = 1) and house 3 (money = 3). Total = 4.' }
     ],
-    starter_code: `function rob(nums) {\n  return 0;\n}`,
-    reference_solution: `function rob(nums) {
+    starter_code: {
+      javascript: `function rob(nums) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function rob(nums) {
   if (!nums || nums.length === 0) return 0;
   if (nums.length === 1) return nums[0];
   let prev2 = 0, prev1 = 0;
@@ -310,6 +332,8 @@ console.log(minCostClimbingSteps(cost));`,
   }
   return prev1;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -337,8 +361,12 @@ console.log(rob(nums));`,
     examples: [
       { input: '[1, 7, 4, 9, 2, 5]', output: '6', explanation: 'The entire sequence alternates: +6, -3, +5, -7, +3.' }
     ],
-    starter_code: `function longestAlternatingSubsequence(nums) {\n  return 0;\n}`,
-    reference_solution: `function longestAlternatingSubsequence(nums) {
+    starter_code: {
+      javascript: `function longestAlternatingSubsequence(nums) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function longestAlternatingSubsequence(nums) {
   if (!nums || nums.length === 0) return 0;
   let up = 1, down = 1;
   for (let i = 1; i < nums.length; i++) {
@@ -347,6 +375,8 @@ console.log(rob(nums));`,
   }
   return Math.max(up, down);
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -374,8 +404,12 @@ console.log(longestAlternatingSubsequence(nums));`,
     examples: [
       { input: '[1, 2, 5]\n11', output: '3', explanation: '11 = 5 + 5 + 1 (3 coins).' }
     ],
-    starter_code: `function coinChangeMin(coins, amount) {\n  return -1;\n}`,
-    reference_solution: `function coinChangeMin(coins, amount) {
+    starter_code: {
+      javascript: `function coinChangeMin(coins, amount) {\n  return -1;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function coinChangeMin(coins, amount) {
   if (amount === 0) return 0;
   const dp = new Array(amount + 1).fill(Infinity);
   dp[0] = 0;
@@ -388,6 +422,8 @@ console.log(longestAlternatingSubsequence(nums));`,
   }
   return dp[amount] === Infinity ? -1 : dp[amount];
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -417,8 +453,12 @@ console.log(coinChangeMin(coins, amount));`,
     examples: [
       { input: '[73, 74, 75, 71, 69, 72, 76, 73]', output: '[1, 1, 4, 2, 1, 1, 0, 0]', explanation: 'Days to wait for warmer temperature.' }
     ],
-    starter_code: `function dailyTemperatures(temperatures) {\n  return [];\n}`,
-    reference_solution: `function dailyTemperatures(temperatures) {
+    starter_code: {
+      javascript: `function dailyTemperatures(temperatures) {\n  return [];\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function dailyTemperatures(temperatures) {
   const n = temperatures.length;
   const ans = new Array(n).fill(0);
   const stack = []; // indices of monotonically decreasing temperatures
@@ -431,6 +471,8 @@ console.log(coinChangeMin(coins, amount));`,
   }
   return ans;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -458,8 +500,12 @@ console.log(dailyTemperatures(temperatures).join(' '));`,
     examples: [
       { input: '[3, 9, 20, null, null, 15, 7]', output: '[[3], [20, 9], [15, 7]]', explanation: 'Level 1: 3, Level 2: 20 -> 9, Level 3: 15 -> 7.' }
     ],
-    starter_code: `function zigzagLevelOrder(rootArr) {\n  return [];\n}`,
-    reference_solution: `function zigzagLevelOrder(rootArr) {
+    starter_code: {
+      javascript: `function zigzagLevelOrder(rootArr) {\n  return [];\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function zigzagLevelOrder(rootArr) {
   if (!rootArr || rootArr.length === 0 || rootArr[0] === null) return [];
   function TreeNode(val) { this.val = val; this.left = this.right = null; }
   const root = new TreeNode(rootArr[0]);
@@ -496,6 +542,8 @@ console.log(dailyTemperatures(temperatures).join(' '));`,
   }
   return result;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -524,8 +572,12 @@ console.log(JSON.stringify(zigzagLevelOrder(rootArr)));`,
       { input: '2\n[[1, 0]]', output: 'true', explanation: 'Course 0 then course 1.' },
       { input: '2\n[[1, 0], [0, 1]]', output: 'false', explanation: 'Cycle exists.' }
     ],
-    starter_code: `function canFinishCourses(numCourses, prerequisites) {\n  return false;\n}`,
-    reference_solution: `function canFinishCourses(numCourses, prerequisites) {
+    starter_code: {
+      javascript: `function canFinishCourses(numCourses, prerequisites) {\n  return false;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function canFinishCourses(numCourses, prerequisites) {
   const inDegree = new Array(numCourses).fill(0);
   const adj = Array.from({ length: numCourses }, () => []);
   for (const [course, pre] of prerequisites) {
@@ -547,6 +599,8 @@ console.log(JSON.stringify(zigzagLevelOrder(rootArr)));`,
   }
   return visited === numCourses;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -576,8 +630,12 @@ console.log(canFinishCourses(numCourses, prerequisites));`,
     examples: [
       { input: '["eat", "tea", "tan", "ate", "nat", "bat"]', output: '[["bat"], ["eat", "tea", "ate"], ["tan", "nat"]]', explanation: 'Grouped anagram sets.' }
     ],
-    starter_code: `function groupAnagrams(strs) {\n  return [];\n}`,
-    reference_solution: `function groupAnagrams(strs) {
+    starter_code: {
+      javascript: `function groupAnagrams(strs) {\n  return [];\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function groupAnagrams(strs) {
   const map = new Map();
   for (const s of strs) {
     const key = s.split('').sort().join('');
@@ -588,6 +646,8 @@ console.log(canFinishCourses(numCourses, prerequisites));`,
   groups.sort((a, b) => a[0].localeCompare(b[0]));
   return groups;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -615,8 +675,12 @@ console.log(JSON.stringify(groupAnagrams(strs)));`,
     examples: [
       { input: '[4, 5, 6, 7, 0, 1, 2]\n0', output: '4', explanation: 'Element 0 is at index 4.' }
     ],
-    starter_code: `function searchRotated(nums, target) {\n  return -1;\n}`,
-    reference_solution: `function searchRotated(nums, target) {
+    starter_code: {
+      javascript: `function searchRotated(nums, target) {\n  return -1;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function searchRotated(nums, target) {
   let left = 0, right = nums.length - 1;
   while (left <= right) {
     const mid = Math.floor((left + right) / 2);
@@ -631,6 +695,8 @@ console.log(JSON.stringify(groupAnagrams(strs)));`,
   }
   return -1;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -660,8 +726,12 @@ console.log(searchRotated(nums, target));`,
     examples: [
       { input: '[1, 8, 6, 2, 5, 4, 8, 3, 7]', output: '49', explanation: 'Max area between index 1 and 8 is 7 * 7 = 49.' }
     ],
-    starter_code: `function maxWaterArea(height) {\n  return 0;\n}`,
-    reference_solution: `function maxWaterArea(height) {
+    starter_code: {
+      javascript: `function maxWaterArea(height) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function maxWaterArea(height) {
   let left = 0, right = height.length - 1, maxArea = 0;
   while (left < right) {
     const h = Math.min(height[left], height[right]);
@@ -672,6 +742,8 @@ console.log(searchRotated(nums, target));`,
   }
   return maxArea;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -699,11 +771,17 @@ console.log(maxWaterArea(height));`,
     examples: [
       { input: '[3, 2, 1, 5, 6, 4]\n2', output: '5', explanation: 'The 2nd largest is 5.' }
     ],
-    starter_code: `function findKthLargest(nums, k) {\n  return 0;\n}`,
-    reference_solution: `function findKthLargest(nums, k) {
+    starter_code: {
+      javascript: `function findKthLargest(nums, k) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function findKthLargest(nums, k) {
   nums.sort((a, b) => b - a);
   return nums[k - 1];
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -733,8 +811,12 @@ console.log(findKthLargest(nums, k));`,
     examples: [
       { input: '()[]{}', output: 'true', explanation: 'All brackets match.' }
     ],
-    starter_code: `function isValidParentheses(s) {\n  return false;\n}`,
-    reference_solution: `function isValidParentheses(s) {
+    starter_code: {
+      javascript: `function isValidParentheses(s) {\n  return false;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function isValidParentheses(s) {
   const stack = [];
   const map = { ')': '(', '}': '{', ']': '[' };
   for (const ch of s) {
@@ -746,6 +828,8 @@ console.log(findKthLargest(nums, k));`,
   }
   return stack.length === 0;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -772,8 +856,12 @@ console.log(isValidParentheses(raw));`,
     examples: [
       { input: 'horse\nros', output: '3', explanation: 'horse -> rorse -> rose -> ros (3 steps).' }
     ],
-    starter_code: `function minDistance(word1, word2) {\n  return 0;\n}`,
-    reference_solution: `function minDistance(word1, word2) {
+    starter_code: {
+      javascript: `function minDistance(word1, word2) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function minDistance(word1, word2) {
   const m = word1.length, n = word2.length;
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
   for (let i = 0; i <= m; i++) dp[i][0] = i;
@@ -786,6 +874,8 @@ console.log(isValidParentheses(raw));`,
   }
   return dp[m][n];
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -815,8 +905,12 @@ console.log(minDistance(word1, word2));`,
     examples: [
       { input: '[4, 2, 7, 1, 3, 6, 9]', output: '[4, 7, 2, 9, 6, 3, 1]', explanation: 'Left and right subtrees swapped.' }
     ],
-    starter_code: `function invertTree(root) {\n  return [];\n}`,
-    reference_solution: `function invertTree(rootArr) {
+    starter_code: {
+      javascript: `function invertTree(root) {\n  return [];\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function invertTree(rootArr) {
   if (!rootArr || rootArr.length === 0 || rootArr[0] === null) return [];
   function TreeNode(val) { this.val = val; this.left = this.right = null; }
   const root = new TreeNode(rootArr[0]);
@@ -858,6 +952,8 @@ console.log(minDistance(word1, word2));`,
   while (out.length > 0 && out[out.length - 1] === null) out.pop();
   return out;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -884,8 +980,12 @@ console.log(JSON.stringify(invertTree(rootArr)));`,
     examples: [
       { input: 'leetcode', output: '0', explanation: 'Character l appears once.' }
     ],
-    starter_code: `function firstUniqChar(s) {\n  return -1;\n}`,
-    reference_solution: `function firstUniqChar(s) {
+    starter_code: {
+      javascript: `function firstUniqChar(s) {\n  return -1;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function firstUniqChar(s) {
   const count = new Map();
   for (const ch of s) count.set(ch, (count.get(ch) || 0) + 1);
   for (let i = 0; i < s.length; i++) {
@@ -893,6 +993,8 @@ console.log(JSON.stringify(invertTree(rootArr)));`,
   }
   return -1;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -918,8 +1020,12 @@ console.log(firstUniqChar(raw));`,
     examples: [
       { input: '[1, 2, 3, 1]', output: '2', explanation: 'Index 2 is 3, which is greater than 2 and 1.' }
     ],
-    starter_code: `function findPeakElement(nums) {\n  return 0;\n}`,
-    reference_solution: `function findPeakElement(nums) {
+    starter_code: {
+      javascript: `function findPeakElement(nums) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function findPeakElement(nums) {
   let left = 0, right = nums.length - 1;
   while (left < right) {
     const mid = Math.floor((left + right) / 2);
@@ -928,6 +1034,8 @@ console.log(firstUniqChar(raw));`,
   }
   return left;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);
@@ -954,8 +1062,12 @@ console.log(findPeakElement(nums));`,
     examples: [
       { input: '[10, 5, 2, 6]\n100', output: '8', explanation: '8 subarrays have product < 100.' }
     ],
-    starter_code: `function numSubarrayProductLessThanK(nums, k) {\n  return 0;\n}`,
-    reference_solution: `function numSubarrayProductLessThanK(nums, k) {
+    starter_code: {
+      javascript: `function numSubarrayProductLessThanK(nums, k) {\n  return 0;\n}`,
+      python: `def solve(): pass`
+    },
+    reference_solution: {
+      javascript: `function numSubarrayProductLessThanK(nums, k) {
   if (k <= 1) return 0;
   let prod = 1, left = 0, total = 0;
   for (let right = 0; right < nums.length; right++) {
@@ -968,6 +1080,8 @@ console.log(findPeakElement(nums));`,
   }
   return total;
 }`,
+      python: `def solve(): pass`
+    },
     driver_code: `const fs = require('fs');
 const raw = fs.readFileSync(0, 'utf-8').trim();
 if (!raw) process.exit(0);

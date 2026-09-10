@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import AdminQuestionModal from '../components/AdminQuestionModal';
+import AdminQuestionPreview from '../components/AdminQuestionPreview';
 import { DifficultyBadge } from '../components/ui/index.jsx';
 import {
   Code2,
@@ -515,52 +516,11 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
 
       {/* Preview Modal */}
       {previewQuestion && (
-        <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-theme-surface border border-theme-border shadow-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-theme-border">
-              <div>
-                <h3 className="text-base font-bold text-theme-text1">{previewQuestion.title}</h3>
-                <div className="text-xs text-theme-text2 font-mono mt-0.5">{previewQuestion.id} · {previewQuestion.difficulty}</div>
-              </div>
-              <button
-                onClick={() => setPreviewQuestion(null)}
-                className="p-1.5 rounded-xl bg-theme-surface2 text-theme-text2 hover:text-theme-text1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs text-theme-text2">
-              <div>
-                <div className="font-bold text-theme-text2 uppercase text-[10px] mb-1">Description</div>
-                <p className="whitespace-pre-line leading-relaxed bg-theme-surface p-3 rounded-xl border border-theme-border">{previewQuestion.description || 'No description provided.'}</p>
-              </div>
-
-              {previewQuestion.constraints && (
-                <div>
-                  <div className="font-bold text-theme-text2 uppercase text-[10px] mb-1">Constraints</div>
-                  <pre className="whitespace-pre-line bg-theme-surface p-3 rounded-xl border border-theme-border font-mono text-[11px]">{previewQuestion.constraints}</pre>
-                </div>
-              )}
-
-              {previewQuestion.solution_approach && (
-                <div>
-                  <div className="font-bold text-cyan-400 uppercase text-[10px] mb-1">Solution Approach</div>
-                  <p className="whitespace-pre-line bg-cyan-950/20 p-3 rounded-xl border border-cyan-900/30 text-cyan-700 dark:text-cyan-200">{previewQuestion.solution_approach}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-theme-border">
-              <button
-                onClick={() => setPreviewQuestion(null)}
-                className="px-4 py-2 rounded-xl bg-theme-surface2 text-theme-text1 text-xs font-semibold"
-              >
-                Close Preview
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminQuestionPreview 
+          itemId={previewQuestion.id} 
+          type="question" 
+          onClose={() => setPreviewQuestion(null)} 
+        />
       )}
     </div>
   );
