@@ -44,7 +44,7 @@ The application features a modern, responsive, component-driven UI utilizing Tai
 
 | **Desktop View** | **Mobile View** |
 |:---:|:---:|
-| **Landing Page**<br><img src="docs/screenshots/landing-light-desktop.png" width="400" alt="Landing Page Desktop" /> | |
+| **Landing Page**<br><img src="docs/screenshots/landing-light-desktop.png" width="400" alt="Landing Page Desktop" /> | **Landing Page (Mobile)**<br><img src="docs/screenshots/landing-light-mobile.png" width="400" alt="Landing Page Mobile" /> |
 | **Learner Dashboard**<br><img src="docs/screenshots/student-dashboard-light-desktop.png" width="400" alt="Dashboard Desktop" /> | **Learner Dashboard (Mobile)**<br><img src="docs/screenshots/student-dashboard-light-mobile.png" width="400" alt="Dashboard Mobile" /> |
 | **Practice Library**<br><img src="docs/screenshots/practice-light-desktop.png" width="400" alt="Practice Library" /> | **Practice Library (Mobile)**<br><img src="docs/screenshots/practice-light-mobile.png" width="400" alt="Practice Library Mobile" /> |
 | **Problem Workspace**<br><img src="docs/screenshots/problem-workspace-light-desktop.png" width="400" alt="Problem Workspace" /> | **Problem Workspace (Mobile)**<br><img src="docs/screenshots/problem-workspace-light-mobile.png" width="400" alt="Workspace Mobile" /> |
