@@ -160,9 +160,38 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
         </div>
       )}
       {isAdmin && !isCollapsed && (
-        <div className="mx-2.5 my-2 px-3 py-2 rounded-md bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-1.5">
-          <Shield className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="text-xs font-semibold text-indigo-300">Administrator</span>
+        <div className="flex flex-col gap-2 mx-2.5 my-2">
+          <div className="px-3 py-2 rounded-md bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="text-xs font-semibold text-indigo-300">Administrator</span>
+          </div>
+          
+          {/* Mobile Portal Switcher */}
+          <div className="md:hidden">
+            {currentView.startsWith('admin') ? (
+              <button
+                onClick={() => {
+                  setCurrentView('dashboard');
+                  if (setIsMobileMenuOpen) setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-theme-cyan text-theme-bg font-bold shadow-sm transition-all"
+              >
+                <User className="w-4 h-4" />
+                Switch to Practice
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setCurrentView('admin-dashboard');
+                  if (setIsMobileMenuOpen) setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-indigo-500 text-white font-bold shadow-sm transition-all"
+              >
+                <Shield className="w-4 h-4" />
+                Switch to Admin
+              </button>
+            )}
+          </div>
         </div>
       )}
 
