@@ -13,7 +13,7 @@ module.exports = defineConfig({
   use: {
     // Main CI runs against isolated local services. Set PLAYWRIGHT_BASE_URL
     // explicitly when running a separate production smoke test.
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -34,7 +34,7 @@ module.exports = defineConfig({
     {
       command: 'npm run dev -- --host',
       cwd: './frontend',
-      port: 5174,
+      port: 5173,
       reuseExistingServer: !process.env.CI,
       timeout: 30000
     }

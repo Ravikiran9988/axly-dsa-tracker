@@ -211,8 +211,10 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     localStorage.removeItem('axly_auth_token');
     if (supabase) await supabase.auth.signOut().catch(() => {});
-    if (typeof window !== 'undefined') window.history.replaceState({}, '', '/');
     setUser(null);
+    // Use a real browser navigation so logout reliably reaches the public
+    // landing page and clears any protected SPA state.
+    if (typeof window !== 'undefined') window.location.replace('/');
   };
 
   return (
