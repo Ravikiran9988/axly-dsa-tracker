@@ -12,7 +12,7 @@ module.exports = defineConfig({
   use: {
     // Main CI runs against isolated local services. Set PLAYWRIGHT_BASE_URL
     // explicitly when running a separate production smoke test.
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
