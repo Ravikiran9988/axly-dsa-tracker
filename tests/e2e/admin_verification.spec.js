@@ -158,7 +158,7 @@ test.describe('Admin E2E Verification & Feature Testing', () => {
 
     // EDIT – find row and click edit button
     const row = page.locator(`tr:has-text("${testTitle}")`).first();
-    await row.locator('button[title="Edit"]').first().click();
+    await row.locator('button[title*="Edit"]').first().click();
 
     const editModal = page.locator('.fixed.inset-0').last();
     await expect(editModal).toBeVisible({ timeout: 10000 });
