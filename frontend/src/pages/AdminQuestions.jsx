@@ -20,7 +20,8 @@ import {
   X,
   Layers,
   Sparkles,
-  BookOpen
+  BookOpen,
+  Play
 } from 'lucide-react';
 
 export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
@@ -305,7 +306,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                       {/* Title */}
                       <td>
                         <div
-                          onClick={() => onSelectProblem && onSelectProblem(q.id)}
+                          onClick={(e) => { e.stopPropagation(); setPreviewQuestion(q); }}
                           className="font-medium text-theme-text1 group-hover:text-cyan-500 transition-colors leading-snug cursor-pointer"
                         >
                           {q.title}
@@ -342,16 +343,28 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                         <div className="inline-flex items-center gap-1 justify-end">
                           {/* View Preview */}
                           <button
-                            onClick={() => setPreviewQuestion(q)}
+                            onClick={(e) => { e.stopPropagation(); setPreviewQuestion(q); }}
                             className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-cyan-400 hover:bg-theme-surface2 transition-colors"
                             title="Preview question"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
 
+                          {/* Solve */}
+                          {onSelectProblem && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onSelectProblem(q.id); }}
+                              className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-emerald-400 hover:bg-theme-surface2 transition-colors"
+                              title="Solve in coding workspace"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
                           {/* Edit */}
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setEditingQuestion(q);
                               setIsEditModalOpen(true);
                             }}
@@ -363,7 +376,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
 
                           {/* Publish / Unpublish Toggle */}
                           <button
-                            onClick={() => handleTogglePublish(q)}
+                            onClick={(e) => { e.stopPropagation(); handleTogglePublish(q); }}
                             className={`p-1.5 rounded-lg border transition-colors ${
                               q.status === 'published'
                                 ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
@@ -377,7 +390,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                           {/* Archive */}
                           {q.status !== 'archived' && (
                             <button
-                              onClick={() => handleArchive(q.id)}
+                              onClick={(e) => { e.stopPropagation(); handleArchive(q.id); }}
                               className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
                               title="Archive question"
                             >
@@ -402,7 +415,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div 
-                        onClick={() => onSelectProblem && onSelectProblem(q.id)}
+                        onClick={(e) => { e.stopPropagation(); setPreviewQuestion(q); }}
                         className="font-medium text-theme-text1 hover:text-cyan-500 transition-colors leading-snug cursor-pointer truncate"
                       >
                         {q.title}
@@ -424,14 +437,24 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
 
                   <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-theme-border">
                     <button
-                      onClick={() => setPreviewQuestion(q)}
+                      onClick={(e) => { e.stopPropagation(); setPreviewQuestion(q); }}
                       className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-cyan-400 hover:bg-theme-surface2 transition-colors"
                       title="Preview question"
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
+                    {onSelectProblem && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSelectProblem(q.id); }}
+                        className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-emerald-400 hover:bg-theme-surface2 transition-colors"
+                        title="Solve in coding workspace"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setEditingQuestion(q);
                         setIsEditModalOpen(true);
                       }}
@@ -441,7 +464,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => handleTogglePublish(q)}
+                      onClick={(e) => { e.stopPropagation(); handleTogglePublish(q); }}
                       className={`p-1.5 rounded-lg border transition-colors ${
                         q.status === 'published'
                           ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
@@ -453,7 +476,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                     </button>
                     {q.status !== 'archived' && (
                       <button
-                        onClick={() => handleArchive(q.id)}
+                        onClick={(e) => { e.stopPropagation(); handleArchive(q.id); }}
                         className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
                         title="Archive question"
                       >

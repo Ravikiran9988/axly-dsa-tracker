@@ -1336,7 +1336,11 @@ async function verifyReferenceSolution(challengeData) {
     return { verified: false, reason: 'No test cases provided for sandbox execution' };
   }
 
-  const codeToRun = reference_solution || starter_code;
+  let codeToRun = reference_solution || starter_code;
+  if (codeToRun && typeof codeToRun === 'object') {
+    codeToRun = codeToRun.javascript || codeToRun.python || codeToRun.java;
+  }
+
   if (!codeToRun || typeof codeToRun !== 'string' || codeToRun.trim().length === 0) {
     return { verified: false, reason: 'No reference solution or starter code provided for verification' };
   }

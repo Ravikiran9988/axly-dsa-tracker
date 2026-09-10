@@ -14,9 +14,11 @@ import {
   X,
   Compass,
   RefreshCw,
-  Eye
+  Eye,
+  Play
 } from 'lucide-react';
 import AdminQuestionModal from '../components/AdminQuestionModal';
+import AdminQuestionPreview from '../components/AdminQuestionPreview';
 import { DifficultyBadge, SkeletonRows, EmptyState } from '../components/ui/index.jsx';
 
 export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
@@ -36,6 +38,7 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
   const [error, setError] = useState('');
   const [questionModal, setQuestionModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [previewQuestion, setPreviewQuestion] = useState(null);
 
   const hasFilters = Boolean(search || difficulty || topicId || patternId || status);
 
@@ -415,7 +418,7 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
                       {/* Problem Title */}
                       <td>
                         <div
-                          onClick={() => onSelectProblem && onSelectProblem(q.id)}
+                          onClick={(e) => { e.stopPropagation(); setPreviewQuestion(q); }}
                           className="font-medium text-theme-text1 group-hover:text-cyan-500 transition-colors leading-snug cursor-pointer"
                         >
                           {q.title}
@@ -462,34 +465,24 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => onSelectProblem && onSelectProblem(q.id)}
-                            className="btn-primary btn-sm inline-flex items-center gap-1"
-                            title="Solve / Test problem in workspace"
+                            onClick={(e) => { e.stopPropagation(); setPreviewQuestion(q); }}
+                            className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-cyan-400 hover:bg-theme-surface2 transition-colors"
+                            title="View question details"
                           >
-                            <span>Solve</span>
-                            <ArrowRight className="w-3 h-3" />
+                            <Eye className="w-3.5 h-3.5" />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditing(q);
-                              setQuestionModal(true);
-                            }}
-                            className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
-                            title="Edit challenge details"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => remove(q)}
-                            className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
-                            title="Deactivate challenge"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {onSelectProblem && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onSelectProblem(q.id); }}
+                              className="btn-primary btn-sm inline-flex items-center gap-1"
+                              title="Solve / Test problem in workspace"
+                            >
+                              <span>Solve</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -514,7 +507,7 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div 
-                        onClick={() => onSelectProblem && onSelectProblem(q.id)}
+                        onClick={(e) => { e.stopPropagation(); setPreviewQuestion(q); }}
                         className="font-medium text-theme-text1 hover:text-cyan-500 transition-colors leading-snug cursor-pointer truncate"
                       >
                         {q.title}
@@ -538,31 +531,22 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
                   <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-theme-border">
                     <button
                       type="button"
-                      onClick={() => onSelectProblem && onSelectProblem(q.id)}
-                      className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); setPreviewQuestion(q); }}
+                      className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-cyan-400 hover:bg-theme-surface2 transition-colors"
                       title="Preview"
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditing(q);
-                        setQuestionModal(true);
-                      }}
-                      className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-indigo-400 hover:bg-theme-surface2 transition-colors"
-                      title="Edit details"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(q)}
-                      className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
-                      title="Deactivate challenge"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {onSelectProblem && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onSelectProblem(q.id); }}
+                        className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-emerald-400 hover:bg-theme-surface2 transition-colors"
+                        title="Solve"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -585,6 +569,15 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
           }}
           onSuccess={save}
           onSaved={save}
+        />
+      )}
+
+      {/* Preview Modal */}
+      {previewQuestion && (
+        <AdminQuestionPreview
+          itemId={previewQuestion.id}
+          type="question"
+          onClose={() => setPreviewQuestion(null)}
         />
       )}
     </div>

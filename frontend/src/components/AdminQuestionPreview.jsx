@@ -22,6 +22,20 @@ export default function AdminQuestionPreview({ itemId, type, onClose }) {
         const fetched = res.data;
         setData(fetched);
         
+        // Ensure JSON fields are parsed (helpful for newly AI-generated questions)
+        ['test_cases', 'examples', 'hints', 'starter_code', 'reference_solution'].forEach(key => {
+          if (typeof fetched[key] === 'string') {
+            try {
+              fetched[key] = JSON.parse(fetched[key]);
+            } catch(e) {
+              // If it's a raw string and not JSON (e.g. just raw text for hints), leave it as is or wrap it.
+              if (key === 'hints') {
+                fetched[key] = [fetched[key]];
+              }
+            }
+          }
+        });
+
         // Setup initial language if starter code exists
         if (fetched.starter_code && typeof fetched.starter_code === 'object') {
           const langs = Object.keys(fetched.starter_code);
@@ -48,27 +62,27 @@ export default function AdminQuestionPreview({ itemId, type, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
       <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl">
         
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between p-5 border-b border-theme-border">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 min-w-0 flex-1 mr-4">
             {loading ? (
               <div className="h-6 w-48 bg-theme-surface2 rounded animate-pulse" />
             ) : data ? (
-              <div className="flex items-center gap-3">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${difficultyColors[data.difficulty?.toLowerCase()] || ''}`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${difficultyColors[data.difficulty?.toLowerCase()] || ''}`}>
                   {data.difficulty}
                 </span>
-                <h3 className="text-lg font-bold text-theme-text1">{data.title}</h3>
-                <span className="text-xs text-theme-text3 font-mono">({type === 'daily' ? 'Daily' : 'Bank'})</span>
+                <h3 className="text-lg font-bold text-theme-text1 truncate" title={data.title}>{data.title}</h3>
+                <span className="shrink-0 text-xs text-theme-text3 font-mono">({type === 'daily' ? 'Daily' : 'Bank'})</span>
               </div>
             ) : (
               <h3 className="text-lg font-bold text-theme-text1">Loading Preview...</h3>
             )}
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors">
+          <button onClick={onClose} className="shrink-0 p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -126,6 +140,14 @@ export default function AdminQuestionPreview({ itemId, type, onClose }) {
                       <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
                         <div className="text-[10px] uppercase text-theme-text3 font-bold mb-1">Pattern</div>
                         <div className="text-sm font-semibold text-theme-text1">{data.pattern_name || data.pattern_id || '—'}</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
+                        <div className="text-[10px] uppercase text-theme-text3 font-bold mb-1">Est. Time</div>
+                        <div className="text-sm font-semibold text-theme-text1">{data.estimated_time || '15 mins'}</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
+                        <div className="text-[10px] uppercase text-theme-text3 font-bold mb-1">Status</div>
+                        <div className="text-sm font-semibold text-theme-text1 capitalize">{data.status || 'published'}</div>
                       </div>
                     </div>
 
