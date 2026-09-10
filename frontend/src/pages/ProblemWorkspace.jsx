@@ -15,14 +15,27 @@ const FILE_EXTENSIONS = {
 
 export function getStarterCodeForQuestion(question, language) {
   const lang = String(language || 'javascript').toLowerCase();
+  
   if (question?.starter_code) {
-    try {
-      const sc = typeof question.starter_code === 'string'
-        ? JSON.parse(question.starter_code)
-        : question.starter_code;
-      if (sc && sc[lang] && typeof sc[lang] === 'string' && sc[lang].trim()) return sc[lang];
-    } catch {}
+    if (typeof question.starter_code === 'object') {
+      if (question.starter_code[lang] && typeof question.starter_code[lang] === 'string' && question.starter_code[lang].trim()) {
+        return question.starter_code[lang];
+      }
+    } else if (typeof question.starter_code === 'string') {
+      try {
+        const sc = JSON.parse(question.starter_code);
+        if (sc && typeof sc === 'object' && sc[lang] && typeof sc[lang] === 'string' && sc[lang].trim()) {
+          return sc[lang];
+        }
+      } catch {
+        // Fallback for old single-string starter code
+        if (question.starter_code.trim()) {
+          return question.starter_code;
+        }
+      }
+    }
   }
+
   const title = question?.title || 'Coding Challenge';
   const templates = {
     javascript: `// Problem: ${title}\nconst fs = require('fs');\nfunction solve(input) {\n  // TODO: Implement your solution\n  return input;\n}\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif (raw) {\n  const result = solve(raw);\n  console.log(typeof result === 'object' ? JSON.stringify(result) : result);\n}\n`,
