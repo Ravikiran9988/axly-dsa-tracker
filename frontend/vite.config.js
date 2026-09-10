@@ -11,8 +11,8 @@ function dailyChallengeAiAuthoringPlugin() {
         code = code.replace(/\r\n/g, '\n');
         if (code.includes('handleGenerateAiTestCases')) return null;
 
-        const stateMarker = "  const [recReason, setRecReason] = useState('');\n";
-        const stateInsert = `${stateMarker}  const [aiTestCaseLoading, setAiTestCaseLoading] = useState(false);\n  const [aiHintLoading, setAiHintLoading] = useState(false);\n`;
+        const stateMarker = "  const [recReason, setRecReason] = useState('');";
+        const stateInsert = `${stateMarker}\n  const [aiTestCaseLoading, setAiTestCaseLoading] = useState(false);\n  const [aiHintLoading, setAiHintLoading] = useState(false);`;
         if (!code.includes(stateMarker)) throw new Error('Daily Challenge modal state marker not found');
         code = code.replace(stateMarker, stateInsert);
 
