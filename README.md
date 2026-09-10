@@ -44,20 +44,21 @@ The application features a modern, responsive, component-driven UI utilizing Tai
 
 | **Desktop View** | **Mobile View** |
 |:---:|:---:|
-| **Landing Page**<br><img src="docs/screenshots/landing-desktop.png" width="400" alt="Landing Page Desktop" /> | |
-| **Learner Dashboard**<br><img src="docs/screenshots/student-dashboard-desktop.png" width="400" alt="Dashboard Desktop" /> | **Learner Dashboard (Mobile)**<br><img src="docs/screenshots/student-dashboard-mobile.png" width="400" alt="Dashboard Mobile" /> |
-| **Practice Library**<br><img src="docs/screenshots/practice-desktop.png" width="400" alt="Practice Library" /> | |
-| **Problem Workspace**<br><img src="docs/screenshots/problem-workspace-desktop.png" width="400" alt="Problem Workspace" /> | **Problem Workspace (Mobile)**<br><img src="docs/screenshots/problem-workspace-mobile.png" width="400" alt="Workspace Mobile" /> |
-| **Leaderboard**<br><img src="docs/screenshots/leaderboard-desktop.png" width="400" alt="Leaderboard" /> | |
+| **Landing Page**<br><img src="docs/screenshots/landing-light-desktop.png" width="400" alt="Landing Page Desktop" /> | |
+| **Learner Dashboard**<br><img src="docs/screenshots/student-dashboard-light-desktop.png" width="400" alt="Dashboard Desktop" /> | **Learner Dashboard (Mobile)**<br><img src="docs/screenshots/student-dashboard-light-mobile.png" width="400" alt="Dashboard Mobile" /> |
+| **Practice Library**<br><img src="docs/screenshots/practice-light-desktop.png" width="400" alt="Practice Library" /> | **Practice Library (Mobile)**<br><img src="docs/screenshots/practice-light-mobile.png" width="400" alt="Practice Library Mobile" /> |
+| **Problem Workspace**<br><img src="docs/screenshots/problem-workspace-light-desktop.png" width="400" alt="Problem Workspace" /> | **Problem Workspace (Mobile)**<br><img src="docs/screenshots/problem-workspace-light-mobile.png" width="400" alt="Workspace Mobile" /> |
+| **Leaderboard**<br><img src="docs/screenshots/leaderboard-light-desktop.png" width="400" alt="Leaderboard" /> | **Leaderboard (Mobile)**<br><img src="docs/screenshots/leaderboard-light-mobile.png" width="400" alt="Leaderboard Mobile" /> |
+| **Daily Challenge**<br><img src="docs/screenshots/daily-challenge-light-desktop.png" width="400" alt="Daily Challenge" /> | **Daily Challenge (Mobile)**<br><img src="docs/screenshots/daily-challenge-light-mobile.png" width="400" alt="Daily Challenge Mobile" /> |
 
 ### 👨‍💼 Admin & Mentor Experience
 
 | **Desktop View** | **Mobile View** |
 |:---:|:---:|
-| **Admin Dashboard**<br><img src="docs/screenshots/admin-dashboard-desktop.png" width="400" alt="Admin Dashboard" /> | |
-| **Admin Progress & Analytics**<br><img src="docs/screenshots/admin-progress-desktop.png" width="400" alt="Admin Progress" /> | |
-| **Submission Reviews**<br><img src="docs/screenshots/admin-reviews-desktop.png" width="400" alt="Submission Reviews" /> | **Submission Reviews (Mobile)**<br><img src="docs/screenshots/admin-reviews-mobile.png" width="400" alt="Submission Reviews Mobile" /> |
-| **Question Bank**<br><img src="docs/screenshots/admin-questions-desktop.png" width="400" alt="Question Bank" /> | |
+| **Admin Dashboard**<br><img src="docs/screenshots/admin-dashboard-light-desktop.png" width="400" alt="Admin Dashboard" /> | **Admin Dashboard (Mobile)**<br><img src="docs/screenshots/admin-dashboard-light-mobile.png" width="400" alt="Admin Dashboard Mobile" /> |
+| **Admin Progress & Analytics**<br><img src="docs/screenshots/admin-progress-light-desktop.png" width="400" alt="Admin Progress" /> | **Admin Progress (Mobile)**<br><img src="docs/screenshots/admin-progress-light-mobile.png" width="400" alt="Admin Progress Mobile" /> |
+| **Submission Reviews**<br><img src="docs/screenshots/admin-reviews-light-desktop.png" width="400" alt="Submission Reviews" /> | **Submission Reviews (Mobile)**<br><img src="docs/screenshots/admin-reviews-light-mobile.png" width="400" alt="Submission Reviews Mobile" /> |
+| **Question Bank**<br><img src="docs/screenshots/admin-questions-light-desktop.png" width="400" alt="Question Bank" /> | **Question Bank (Mobile)**<br><img src="docs/screenshots/admin-questions-light-mobile.png" width="400" alt="Question Bank Mobile" /> |
 
 </div>
 

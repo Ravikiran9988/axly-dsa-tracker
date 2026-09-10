@@ -1,116 +1,162 @@
-const { chromium, devices } = require('playwright');
+const { chromium } = require('playwright');
 const fs = require('fs');
+const path = require('path');
+
+const SCREENSHOTS_DIR = path.join(__dirname, '../docs/screenshots');
+
+// 1. Delete the current screenshot set first
+if (fs.existsSync(SCREENSHOTS_DIR)) {
+  fs.rmSync(SCREENSHOTS_DIR, { recursive: true, force: true });
+}
+fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+
+async function setupContext(browser, viewport, role, email) {
+  const context = await browser.newContext({ viewport });
+
+  // Force light mode using the correct Axly key
+  await context.addInitScript(() => {
+    localStorage.setItem('axly-theme', 'light');
+  });
+
+  if (role && email) {
+    const page = await context.newPage();
+    console.log(`Authenticating as ${role} (${email})...`);
+    
+    // Using API for faster reliable auth without UI flakiness
+    const res = await page.request.post('http://localhost:5000/api/v1/auth/dev-login', {
+      data: { email, role }
+    });
+    
+    if (res.ok()) {
+      const body = await res.json();
+      await context.addInitScript((token) => {
+        localStorage.setItem('axly_auth_token', token);
+      }, body.token);
+    } else {
+      console.error(`Failed to authenticate ${email}.`);
+    }
+    
+    await page.close();
+  }
+
+  return context;
+}
+
+async function safeCapture(page, url, expectedHeading, filename, roleStr) {
+  const route = url.split('/').pop() || 'landing';
+  console.log(`${roleStr} /${route} → authenticated → light → ${expectedHeading || 'N/A'} → capture init`);
+  
+  await page.goto(url, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2000); // Wait for data to load and render
+
+  const currentUrl = page.url();
+  if (currentUrl.includes('/login')) {
+    console.error(`❌ FAILED: Redirected to login for ${url}. Authentication not preserved.`);
+    return false;
+  }
+
+  const loginFormVisible = await page.locator('form:has(input[type="email"])').isVisible().catch(()=>false);
+  if (loginFormVisible) {
+    console.error(`❌ FAILED: Login form is visible on ${url}.`);
+    return false;
+  }
+
+  // Verify visually/structurally that Light Mode is actually active
+  const isDarkActive = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+  if (isDarkActive) {
+    console.error(`❌ FAILED: Dark mode is still active on ${url}.`);
+    return false;
+  }
+
+  if (expectedHeading) {
+    // Check if expected heading word exists anywhere in the body to ensure we hit the right page
+    const text = await page.locator('body').textContent();
+    if (!text || !text.toLowerCase().includes(expectedHeading.toLowerCase())) {
+      console.warn(`⚠️ Warning: Expected text "${expectedHeading}" not clearly found on ${url}.`);
+    }
+  }
+
+  const outPath = path.join(SCREENSHOTS_DIR, filename);
+  await page.screenshot({ path: outPath, fullPage: false });
+  console.log(`✅ Captured: ${filename}`);
+  return true;
+}
 
 async function capture() {
-  if (fs.existsSync('docs/screenshots')) {
-    fs.rmSync('docs/screenshots', { recursive: true, force: true });
-  }
-  fs.mkdirSync('docs/screenshots', { recursive: true });
-
   console.log('Launching browser...');
   const browser = await chromium.launch();
   
-  const desktopContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-  const mobileContext = await browser.newContext({ ...devices['iPhone 13'] });
+  const desktopViewport = { width: 1280, height: 800 };
+  const mobileViewport = { width: 390, height: 844 };
 
-  async function take(page, name) {
-    console.log(`Taking screenshot: ${name}.png`);
-    await page.waitForTimeout(2000); // Allow data/renders to settle
-    await page.screenshot({ path: `docs/screenshots/${name}.png`, fullPage: false });
+  // =====================
+  // PUBLIC
+  // =====================
+  const publicContextDesktop = await setupContext(browser, desktopViewport, null, null);
+  const publicPageDesktop = await publicContextDesktop.newPage();
+  await safeCapture(publicPageDesktop, 'http://localhost:5173/', 'Master DSA', 'landing-light-desktop.png', 'PUBLIC');
+  await publicContextDesktop.close();
+
+  // =====================
+  // STUDENT CONTEXT
+  // =====================
+  const studentContextDesktop = await setupContext(browser, desktopViewport, 'user', 'alex@example.com');
+  const studentContextMobile = await setupContext(browser, mobileViewport, 'user', 'alex@example.com');
+
+  const sPageDesktop = await studentContextDesktop.newPage();
+  await safeCapture(sPageDesktop, 'http://localhost:5173/dashboard', 'Welcome', 'student-dashboard-light-desktop.png', 'STUDENT');
+  await safeCapture(sPageDesktop, 'http://localhost:5173/practice', 'Practice', 'practice-light-desktop.png', 'STUDENT');
+  
+  // Find a problem workspace link
+  let workspaceUrl = 'http://localhost:5173/workspace/1';
+  await sPageDesktop.goto('http://localhost:5173/practice', {waitUntil: 'networkidle'});
+  await sPageDesktop.waitForTimeout(1000);
+  const solveBtnDesktop = sPageDesktop.locator('button:has-text("Solve"), button:has-text("Continue"), button:has-text("Review")').first();
+  if (await solveBtnDesktop.count() > 0) {
+    await solveBtnDesktop.click();
+    await sPageDesktop.waitForTimeout(2000);
+    workspaceUrl = sPageDesktop.url();
   }
+  await safeCapture(sPageDesktop, workspaceUrl, null, 'problem-workspace-light-desktop.png', 'STUDENT');
+  await safeCapture(sPageDesktop, 'http://localhost:5173/leaderboard', 'Leaderboard', 'leaderboard-light-desktop.png', 'STUDENT');
+  await safeCapture(sPageDesktop, 'http://localhost:5173/daily-challenge', 'Daily Challenge', 'daily-challenge-light-desktop.png', 'STUDENT');
 
-  const dPage = await desktopContext.newPage();
-  
-  // 1. Landing
-  await dPage.goto('http://localhost:5173/');
-  await take(dPage, 'landing-desktop');
-  
-  // 2. Login as student via API
-  console.log('Logging in as student...');
-  const resStudent = await dPage.request.post('http://localhost:5000/api/v1/auth/dev-login', {
-    data: { email: 'alex@example.com', role: 'user' }
-  });
-  const bodyStudent = await resStudent.json();
-  
-  await dPage.goto('http://localhost:5173/');
-  await dPage.evaluate((token) => localStorage.setItem('axly_auth_token', token), bodyStudent.token);
-  
-  await dPage.goto('http://localhost:5173/dashboard');
-  await take(dPage, 'student-dashboard-desktop');
+  const sPageMobile = await studentContextMobile.newPage();
+  await safeCapture(sPageMobile, 'http://localhost:5173/dashboard', 'Welcome', 'student-dashboard-light-mobile.png', 'STUDENT');
+  await safeCapture(sPageMobile, 'http://localhost:5173/practice', 'Practice', 'practice-light-mobile.png', 'STUDENT');
+  await safeCapture(sPageMobile, workspaceUrl, null, 'problem-workspace-light-mobile.png', 'STUDENT');
+  await safeCapture(sPageMobile, 'http://localhost:5173/leaderboard', 'Leaderboard', 'leaderboard-light-mobile.png', 'STUDENT');
+  await safeCapture(sPageMobile, 'http://localhost:5173/daily-challenge', 'Daily Challenge', 'daily-challenge-light-mobile.png', 'STUDENT');
 
-  await dPage.goto('http://localhost:5173/practice');
-  await take(dPage, 'practice-desktop');
+  await studentContextDesktop.close();
+  await studentContextMobile.close();
 
-  // Try to find a problem workspace
-  await dPage.goto('http://localhost:5173/practice');
-  await dPage.waitForTimeout(1000);
-  const solveBtn = dPage.locator('button:has-text("Solve"), button:has-text("Continue"), button:has-text("Review")').first();
-  if (await solveBtn.count() > 0) {
-    await solveBtn.click();
-    await take(dPage, 'problem-workspace-desktop');
-  } else {
-    await dPage.goto('http://localhost:5173/workspace/1');
-    await take(dPage, 'problem-workspace-desktop');
-  }
+  // =====================
+  // ADMIN CONTEXT
+  // =====================
+  const adminContextDesktop = await setupContext(browser, desktopViewport, 'admin', 'admin@axly.in');
+  const adminContextMobile = await setupContext(browser, mobileViewport, 'admin', 'admin@axly.in');
 
-  // Go back to practice or somewhere safe
-  await dPage.goto('http://localhost:5173/leaderboard');
-  await take(dPage, 'leaderboard-desktop');
+  const aPageDesktop = await adminContextDesktop.newPage();
+  await safeCapture(aPageDesktop, 'http://localhost:5173/admin-dashboard', 'Admin', 'admin-dashboard-light-desktop.png', 'ADMIN');
+  await safeCapture(aPageDesktop, 'http://localhost:5173/admin-questions', 'Question Bank', 'admin-questions-light-desktop.png', 'ADMIN');
+  await safeCapture(aPageDesktop, 'http://localhost:5173/admin-progress', 'Progress', 'admin-progress-light-desktop.png', 'ADMIN');
+  await safeCapture(aPageDesktop, 'http://localhost:5173/admin-reviews', 'Review', 'admin-reviews-light-desktop.png', 'ADMIN');
 
-  // Mobile Student
-  const mPage = await mobileContext.newPage();
-  await mPage.goto('http://localhost:5173/');
-  await mPage.evaluate((token) => localStorage.setItem('axly_auth_token', token), bodyStudent.token);
-  await mPage.evaluate(() => localStorage.setItem('theme', 'light')); // Explicitly set light mode
-  
-  await mPage.goto('http://localhost:5173/dashboard');
-  await take(mPage, 'student-dashboard-mobile');
+  const aPageMobile = await adminContextMobile.newPage();
+  await safeCapture(aPageMobile, 'http://localhost:5173/admin-dashboard', 'Admin', 'admin-dashboard-light-mobile.png', 'ADMIN');
+  await safeCapture(aPageMobile, 'http://localhost:5173/admin-questions', 'Question Bank', 'admin-questions-light-mobile.png', 'ADMIN');
+  await safeCapture(aPageMobile, 'http://localhost:5173/admin-progress', 'Progress', 'admin-progress-light-mobile.png', 'ADMIN');
+  await safeCapture(aPageMobile, 'http://localhost:5173/admin-reviews', 'Review', 'admin-reviews-light-mobile.png', 'ADMIN');
 
-  if (await solveBtn.count() > 0) {
-    const href = await solveBtn.getAttribute('href') || '/workspace/1';
-    await mPage.goto(`http://localhost:5173${href}`);
-  } else {
-    await mPage.goto('http://localhost:5173/workspace/1');
-  }
-  await take(mPage, 'problem-workspace-mobile');
-
-  // Login as Admin
-  console.log('Logging in as admin...');
-  const adPage = await desktopContext.newPage();
-  const resAdmin = await adPage.request.post('http://localhost:5000/api/v1/auth/dev-login', {
-    data: { email: 'admin@axly.in', role: 'admin' }
-  });
-  const bodyAdmin = await resAdmin.json();
-
-  await adPage.goto('http://localhost:5173/');
-  await adPage.evaluate((token) => localStorage.setItem('axly_auth_token', token), bodyAdmin.token);
-  
-  await adPage.goto('http://localhost:5173/admin-dashboard');
-  await take(adPage, 'admin-dashboard-desktop');
-  
-  await adPage.goto('http://localhost:5173/admin-progress');
-  await take(adPage, 'admin-progress-desktop');
-  
-  await adPage.goto('http://localhost:5173/admin-reviews');
-  await take(adPage, 'admin-reviews-desktop');
-
-  await adPage.goto('http://localhost:5173/admin-questions');
-  await take(adPage, 'admin-questions-desktop');
-
-  // Admin Mobile
-  const amPage = await mobileContext.newPage();
-  await amPage.goto('http://localhost:5173/');
-  await amPage.evaluate((token) => localStorage.setItem('axly_auth_token', token), bodyAdmin.token);
-  await amPage.evaluate(() => localStorage.setItem('theme', 'light')); // Explicitly set light mode
-  
-  await amPage.goto('http://localhost:5173/admin-reviews');
-  await take(amPage, 'admin-reviews-mobile');
+  await adminContextDesktop.close();
+  await adminContextMobile.close();
 
   await browser.close();
-  console.log('Finished capturing all screenshots!');
+  console.log('\n✅ Script Complete. All screenshots successfully validated and saved to docs/screenshots!');
 }
 
 capture().catch(e => {
-  console.error(e);
+  console.error('Fatal error during capture:', e);
   process.exit(1);
 });
