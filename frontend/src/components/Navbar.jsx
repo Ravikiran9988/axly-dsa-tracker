@@ -36,10 +36,27 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAdminDailyModal,
 
   return (
     <header className="sticky top-0 z-40 h-14 w-full border-b border-theme-border bg-theme-bg backdrop-blur-sm flex items-center px-4 sm:px-6 gap-4">
-      {/* Page title */}
-      <div className="flex-1 min-w-0">
+      {/* Mobile: Hamburger + Brand (Left side) */}
+      <div className="flex items-center gap-1 sm:hidden shrink-0">
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-1 -ml-1 rounded-md text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface3 transition-colors"
+          aria-label="Toggle menu"
+        >
+          {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+        <h2 className="text-sm font-bold tracking-tight text-theme-text1 font-mono">
+          AXLY
+        </h2>
+      </div>
+
+      {/* Page title (Desktop only) */}
+      <div className="hidden sm:block flex-1 min-w-0">
         <h2 className="text-sm font-semibold text-theme-text1 truncate">{pageTitle}</h2>
       </div>
+
+      {/* Spacer for mobile to push actions to the right */}
+      <div className="flex-1 sm:hidden"></div>
 
       {/* Desktop actions */}
       <div className="hidden sm:flex items-center gap-2">
@@ -126,11 +143,39 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAdminDailyModal,
         )}
       </div>
 
-      {/* Mobile: hamburger + notifications */}
+      {/* Mobile: actions (Right side) */}
       <div className="flex items-center gap-1 sm:hidden">
+        {/* Mobile Portal Switcher */}
+        {isAdmin && (
+          <button
+            onClick={() => setActiveTab(activeTab.startsWith('admin') ? 'dashboard' : 'admin-dashboard')}
+            className={`mr-1 flex items-center gap-1.5 h-[32px] px-2.5 rounded-md text-[10px] font-bold uppercase tracking-wide transition-colors ${
+              activeTab.startsWith('admin')
+                ? 'bg-theme-cyan text-theme-bg shadow-sm'
+                : 'bg-indigo-500 text-white shadow-sm'
+            }`}
+          >
+            {activeTab.startsWith('admin') ? (
+              <>
+                <span>Practice</span>
+              </>
+            ) : (
+              <>
+                <span>Admin</span>
+              </>
+            )}
+          </button>
+        )}
+        <button
+          onClick={toggleTheme}
+          className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-md text-theme-text3 hover:text-theme-text1"
+          aria-label="Toggle theme"
+        >
+          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
         <button
           onClick={() => setActiveTab('notifications')}
-          className="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-theme-text3 hover:text-theme-text1"
+          className="relative p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-md text-theme-text3 hover:text-theme-text1"
           aria-label="Notifications"
         >
           <Bell className="w-4 h-4" />
@@ -139,20 +184,6 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAdminDailyModal,
               {unreadCount}
             </span>
           )}
-        </button>
-        <button
-          onClick={toggleTheme}
-          className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-theme-text3 hover:text-theme-text1 hover:bg-theme-surface3"
-          aria-label="Toggle theme"
-        >
-          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button>
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-theme-text3 hover:text-theme-text1 hover:bg-theme-surface3"
-          aria-label="Toggle menu"
-        >
-          {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
         </button>
       </div>
     </header>
