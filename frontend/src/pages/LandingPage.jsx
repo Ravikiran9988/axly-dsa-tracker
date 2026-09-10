@@ -178,7 +178,7 @@ export default function LandingPage({ onNavigateToLogin }) {
 
   const diffColor = (d) => d === "Easy" ? "green" : d === "Medium" ? "amber" : "rose"
 
-  const navLinks = ["Features", "How It Works", "Curriculum", "Practice", "AI Coach", "Challenges"]
+  const navLinks = ["Features", "How It Works", "Curriculum", "Practice", "AI Coach", "Daily Challenges"]
 
   // ── Dark editor chrome (always dark regardless of page theme) ────────────
   const EditorChrome = ({ url }) => (
@@ -291,7 +291,7 @@ export default function LandingPage({ onNavigateToLogin }) {
 
       <main>
         {/* ══ HERO ════════════════════════════════════════════════════════ */}
-        <section id="features" className="relative overflow-hidden" aria-labelledby="hero-heading">
+        <section id="hero" className="relative overflow-hidden" aria-labelledby="hero-heading">
           {/* Ambient */}
           <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
             <div className="absolute top-0 left-1/4 w-[500px] h-[400px] rounded-full blur-3xl" style={{ background: "var(--cyan-bright)", opacity: isDark ? 0.08 : 0.06 }} />
@@ -353,9 +353,9 @@ export default function LandingPage({ onNavigateToLogin }) {
                   role="img" aria-label="Axly coding workspace showing Two Sum II problem with code editor and AI Coach panel">
                   <EditorChrome url="app.axly.dev/workspace/two-sum-ii" />
 
-                  <div className="grid grid-cols-5 text-xs" style={{ minHeight: 360 }}>
+                  <div className="flex flex-col lg:grid lg:grid-cols-5 text-xs" style={{ minHeight: 360 }}>
                     {/* Problem */}
-                    <div className="col-span-2 border-r p-4" style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0D1117" }}>
+                    <div className="lg:col-span-2 border-b lg:border-b-0 lg:border-r p-4" style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0D1117" }}>
                       <p className="text-white font-semibold mb-2">Two Sum II</p>
                       <div className="flex gap-1.5 mb-3">
                         <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Medium</span>
@@ -385,7 +385,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                     </div>
 
                     {/* Editor */}
-                    <div className="col-span-2 border-r flex flex-col" style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0D1117" }}>
+                    <div className="lg:col-span-2 border-b lg:border-b-0 lg:border-r flex flex-col" style={{ borderColor: "rgba(255,255,255,0.06)", background: "#0D1117" }}>
                       <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)", background: "#161B22" }}>
                         <span className="text-[10px] text-theme-text2 font-mono px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)" }}>solution.py</span>
                         <div className="ml-auto flex items-center gap-1.5 text-[10px] text-theme-text3">
@@ -403,7 +403,7 @@ export default function LandingPage({ onNavigateToLogin }) {
                     </div>
 
                     {/* AI Coach */}
-                    <div className="col-span-1 p-3 flex flex-col" style={{ background: "#080D18" }}>
+                    <div className="lg:col-span-1 p-3 flex flex-col" style={{ background: "#080D18" }}>
                       <div className="flex items-center gap-1.5 mb-3">
                         <div className="w-4 h-4 rounded flex items-center justify-center" style={{ background: "rgba(129,140,248,0.2)", color: "#818CF8" }}>
                           <BotIcon size={10} />
@@ -438,18 +438,20 @@ export default function LandingPage({ onNavigateToLogin }) {
         </section>
 
         {/* ══ CORE FEATURES ════════════════════════════════════════════════ */}
-        <section id="features-detail" className="py-20 lg:py-28" aria-labelledby="features-heading">
+        <section id="features" className="py-20 lg:py-28" aria-labelledby="features-heading">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <SectionHeader
               headline={<span id="features-heading">Everything You Need to Master DSA</span>}
-              sub="Built to maximize pattern recognition, conceptual clarity, and problem-solving speed — not to pad a problem count."
+              sub="Practice smarter with structured learning, real coding workflows, AI guidance, daily challenges, and progress tracking — all in one place."
             />
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {([
-                { icon: <TargetIcon />, color: "cyan", title: "Pattern-First Learning", desc: "Problems organized around recognizable algorithmic patterns. You learn strategies that transfer, not solutions to memorize." },
-                { icon: <BookIcon />, color: "indigo", title: "Curated Practice", desc: "80 hand-picked problems across essential DSA topics. Every problem is there for a reason — filtered by pattern and difficulty." },
-                { icon: <BotIcon />, color: "indigo", title: "DSA AI Coach", desc: "Stuck? Get progressive hints, pattern guidance, and debugging help — without the answer being handed to you." },
-                { icon: <FlameIcon />, color: "amber", title: "Daily Challenge", desc: "One focused problem every day. Build the habit, maintain your streak, earn points, and develop real consistency." },
+                { icon: <TargetIcon />, color: "cyan", title: "Pattern-First DSA Practice", desc: "Learn important DSA patterns through curated problems. Emphasize structured problem-solving rather than random practice." },
+                { icon: <ZapIcon />, color: "indigo", title: "Real Coding Workspace", desc: "Write, run, test, and submit solutions in an interactive coding environment." },
+                { icon: <BotIcon />, color: "indigo", title: "AI Coach", desc: "Get hints, explanations, and guidance when you are stuck. Does not solve everything automatically." },
+                { icon: <FlameIcon />, color: "amber", title: "Daily Challenges", desc: "Solve daily problems and maintain consistent practice." },
+                { icon: <ClockIcon />, color: "cyan", title: "Progress & Analytics", desc: "Track solved problems, patterns, submissions, and learning progress." },
+                { icon: <CheckIcon size={24} />, color: "indigo", title: "Leaderboard", desc: "Compare progress and performance with other learners." },
               ]).map(f => (
                 <Card key={f.title} className="p-6 transition-transform hover:-translate-y-1 hover:shadow-md cursor-pointer">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 shadow-sm"
@@ -743,7 +745,7 @@ export default function LandingPage({ onNavigateToLogin }) {
         </section>
 
         {/* ══ PRACTICE VS CHALLENGE ════════════════════════════════════════ */}
-        <section id="challenges" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-2)" }} aria-labelledby="pvc-heading">
+        <section id="daily-challenges" className="py-20 lg:py-28 border-y" style={{ borderColor: "var(--border-subtle)", background: "var(--surface-2)" }} aria-labelledby="pvc-heading">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <SectionHeader
               headline={<span id="pvc-heading">Practice Deep. Challenge Daily.</span>}
@@ -1051,7 +1053,7 @@ export default function LandingPage({ onNavigateToLogin }) {
               <p className="text-sm font-medium" style={T.t3}>Pattern-first DSA practice for serious learners.</p>
             </div>
             <nav className="flex flex-wrap gap-x-8 gap-y-4" aria-label="Footer navigation">
-              {["Features", "How It Works", "Curriculum", "Practice", "Challenges", "Sign In"].map(l => (
+              {["Features", "How It Works", "Curriculum", "Practice", "Daily Challenges", "Sign In"].map(l => (
                 <a key={l} href="#" className="text-sm font-semibold transition-colors hover:text-cyan-500" style={{ ...T.t2, textDecoration: "none" }}>{l}</a>
               ))}
             </nav>
