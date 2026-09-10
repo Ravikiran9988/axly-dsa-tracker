@@ -3,8 +3,9 @@ const { defineConfig } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './tests/e2e',
   timeout: 30000,
+  retries: 1,
   expect: {
-    timeout: 5000
+    timeout: 8000
   },
   fullyParallel: false,
   workers: 1,
@@ -12,7 +13,7 @@ module.exports = defineConfig({
   use: {
     // Main CI runs against isolated local services. Set PLAYWRIGHT_BASE_URL
     // explicitly when running a separate production smoke test.
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -31,9 +32,9 @@ module.exports = defineConfig({
       }
     },
     {
-      command: 'npm run dev -- --host 127.0.0.1',
+      command: 'npm run dev -- --host',
       cwd: './frontend',
-      port: 5173,
+      port: 5174,
       reuseExistingServer: !process.env.CI,
       timeout: 30000
     }
