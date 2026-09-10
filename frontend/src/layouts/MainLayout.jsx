@@ -12,6 +12,7 @@ export default function MainLayout() {
   const navigate = useNavigate();
   
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [isDailyModalOpen, setIsDailyModalOpen] = useState(false);
   const [isCreateChallengeModalOpen, setIsCreateChallengeModalOpen] = useState(false);
@@ -25,6 +26,11 @@ export default function MainLayout() {
     }
   }, [user]);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
   async function loadNotificationsCount() {
     try {
       const res = await api.getNotifications();
@@ -36,6 +42,7 @@ export default function MainLayout() {
 
   const handleSetCurrentView = (view) => {
     navigate(`/${view}`);
+    setIsMobileMenuOpen(false);
   };
 
   const handleOpenAdminDailyModal = async () => {
@@ -44,7 +51,7 @@ export default function MainLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-theme-bg text-theme-text1 flex flex-row font-sans">
+    <div className="min-h-[100dvh] bg-theme-bg text-theme-text1 flex flex-row font-sans">
       <Sidebar
         currentView={currentView}
         setCurrentView={handleSetCurrentView}
@@ -53,15 +60,19 @@ export default function MainLayout() {
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
         unreadCount={unreadNotifsCount}
+        isMobileMenuOpen={isMobileMenuOpen}
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-[100dvh] relative">
         <Navbar
           activeTab={currentView}
           setActiveTab={handleSetCurrentView}
           onOpenAdminDailyModal={handleOpenAdminDailyModal}
           onOpenCreateChallenge={() => setIsCreateChallengeModalOpen(true)}
           unreadCount={unreadNotifsCount}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
 
         <div className={`flex-1 overflow-y-auto custom-scrollbar bg-theme-bg ${currentView === 'solve' ? '' : 'p-4 md:p-6 lg:p-8'}`}>

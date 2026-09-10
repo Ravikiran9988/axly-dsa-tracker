@@ -76,7 +76,7 @@ export default function AdminLayout({ user, onLogout }) {
   };
 
   return (
-    <div className="min-h-screen bg-theme-bg text-theme-text1 flex flex-row font-sans">
+    <div className="min-h-[100dvh] bg-theme-bg text-theme-text1 flex flex-row font-sans">
       {/* Dedicated Admin Sidebar */}
       <AdminSidebar
         currentView={currentView}
@@ -89,7 +89,7 @@ export default function AdminLayout({ user, onLogout }) {
       />
 
       {/* Main Content Area with Dedicated Admin Top Navbar */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-[100dvh]">
         <AdminNavbar
           activeTab={currentView}
           setActiveTab={setCurrentView}

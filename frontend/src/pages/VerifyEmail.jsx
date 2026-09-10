@@ -57,7 +57,7 @@ export default function VerifyEmail({ token: propToken, onNavigate, onBackToHome
   };
 
   return (
-    <div className="min-h-screen bg-theme-bg text-theme-text1 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="min-h-[100dvh] bg-theme-bg text-theme-text1 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
       {/* Background Glows */}
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[34rem] h-[34rem] bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed bottom-10 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />

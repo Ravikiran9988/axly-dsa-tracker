@@ -61,7 +61,7 @@ export default function Login({ onNavigate, onBackToHome }) {
   };
 
   return (
-    <div className="min-h-screen bg-theme-bg text-theme-text1 flex flex-col justify-center items-center px-4 sm:px-6 py-12 relative overflow-y-auto overflow-x-hidden font-sans">
+    <div className="min-h-[100dvh] bg-theme-bg text-theme-text1 flex flex-col justify-center items-center px-4 sm:px-6 py-12 relative overflow-y-auto overflow-x-hidden font-sans">
       {/* Ambient Background - Subtle */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-[400px] bg-cyan-500/5 rounded-full blur-3xl pointer-events-none opacity-50 dark:opacity-30" />
       <div className="fixed inset-0 bg-[linear-gradient(to_right,#1f293d08_1px,transparent_1px),linear-gradient(to_bottom,#1f293d08_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none dark:opacity-50" />

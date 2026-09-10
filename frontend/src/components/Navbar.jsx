@@ -28,10 +28,9 @@ const PAGE_TITLES = {
   solve: 'Problem Workspace',
 };
 
-export default function Navbar({ activeTab, setActiveTab, onOpenAdminDailyModal, onOpenCreateChallenge, unreadCount = 0 }) {
+export default function Navbar({ activeTab, setActiveTab, onOpenAdminDailyModal, onOpenCreateChallenge, unreadCount = 0, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const { user, isAdmin, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const pageTitle = PAGE_TITLES[activeTab] || 'Axly DSA Platform';
 
@@ -131,7 +130,7 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAdminDailyModal,
       <div className="flex items-center gap-1 sm:hidden">
         <button
           onClick={() => setActiveTab('notifications')}
-          className="relative p-2 rounded-md text-theme-text3 hover:text-theme-text1"
+          className="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-theme-text3 hover:text-theme-text1"
           aria-label="Notifications"
         >
           <Bell className="w-4 h-4" />
@@ -143,64 +142,19 @@ export default function Navbar({ activeTab, setActiveTab, onOpenAdminDailyModal,
         </button>
         <button
           onClick={toggleTheme}
-          className="p-2 rounded-md text-theme-text3 hover:text-theme-text1 hover:bg-theme-surface3"
+          className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-theme-text3 hover:text-theme-text1 hover:bg-theme-surface3"
           aria-label="Toggle theme"
         >
           {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
         <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-md text-theme-text3 hover:text-theme-text1 hover:bg-theme-surface3"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md text-theme-text3 hover:text-theme-text1 hover:bg-theme-surface3"
           aria-label="Toggle menu"
         >
-          {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
         </button>
       </div>
-
-      {/* Mobile dropdown */}
-      {mobileMenuOpen && (
-        <div className="absolute top-14 left-0 right-0 bg-theme-bg border-b border-theme-border px-4 py-3 space-y-2 sm:hidden z-50">
-          {isAdmin && (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold ${
-                  !activeTab.startsWith('admin') ? 'bg-theme-cyan text-theme-text1' : 'bg-theme-surface text-theme-text1'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" /> Practice
-              </button>
-              <button
-                onClick={() => { setActiveTab('admin-dashboard'); setMobileMenuOpen(false); }}
-                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold ${
-                  activeTab.startsWith('admin') ? 'bg-indigo-500 text-white' : 'bg-theme-surface text-white'
-                }`}
-              >
-                <Shield className="w-3.5 h-3.5" /> Admin
-              </button>
-            </div>
-          )}
-          {user && (
-            <div className="flex items-center justify-between pt-2 border-t border-theme-border">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-theme-surface2 flex items-center justify-center text-xs font-bold text-theme-cyan">
-                  {(user.name || 'U')[0].toUpperCase()}
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-theme-text1">{user.name}</div>
-                  <div className="text-[10px] text-theme-text3">{user.email}</div>
-                </div>
-              </div>
-              <button
-                onClick={() => { logout(); setMobileMenuOpen(false); }}
-                className="flex items-center gap-1.5 text-xs text-rose-400 bg-rose-500/10 px-3 py-1.5 rounded-md font-semibold"
-              >
-                <LogOut className="w-3.5 h-3.5" /> Sign out
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </header>
   );
 }

@@ -142,7 +142,8 @@ export default function AdminUsers({ onOpenAssignModal }) {
             No registered users found matching the current search criteria.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-theme-border bg-theme-surface text-theme-text2 font-semibold font-mono uppercase text-[10px] tracking-wider">
@@ -262,6 +263,53 @@ export default function AdminUsers({ onOpenAssignModal }) {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile List View */}
+          <div className="md:hidden flex flex-col divide-y divide-theme-border">
+            {users.map((u) => (
+              <div key={u.id} className="p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {u.avatar_url ? (
+                      <img src={u.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover border border-theme-border" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-theme-surface2 border border-theme-border flex items-center justify-center font-bold text-theme-text2 text-xs">
+                        {(u.name || u.email || 'U').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-bold text-theme-text1 truncate">{u.name || u.email?.split('@')[0]}</div>
+                      <div className="text-[10px] text-theme-text3 font-mono truncate">{u.email}</div>
+                    </div>
+                  </div>
+                  <span className={`inline-block px-2 py-0.5 rounded font-bold uppercase text-[9px] border shrink-0 ${u.role === 'admin' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'}`}>
+                    {u.role}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center text-[10px] border border-theme-border rounded-xl p-2 bg-theme-surface2/30">
+                  <div><div className="font-mono font-bold text-emerald-400">{u.completed_count || 0}</div><div className="text-theme-text3 uppercase mt-0.5">Completed</div></div>
+                  <div><div className="font-mono font-bold text-amber-400">{u.pending_count || 0}</div><div className="text-theme-text3 uppercase mt-0.5">Pending</div></div>
+                  <div><div className="font-mono font-bold text-theme-text2">{u.assigned_count || 0}</div><div className="text-theme-text3 uppercase mt-0.5">Assigned</div></div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center gap-2 text-[10px]">
+                    {u.cohort_name && <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">{u.cohort_name}</span>}
+                    {u.institution && <span className="text-theme-text2 max-w-[120px] truncate">{u.institution}</span>}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button onClick={() => handleOpenStudentDetails(u)} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-cyan-400 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => onOpenAssignModal && onOpenAssignModal(u)} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-indigo-400 transition-colors"><Send className="w-3.5 h-3.5" /></button>
+                    {u.role !== 'admin' && (
+                      <button onClick={() => handlePromoteToAdmin(u.id)} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-rose-400 transition-colors" title="Promote to admin"><Shield className="w-3.5 h-3.5" /></button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </div>
 

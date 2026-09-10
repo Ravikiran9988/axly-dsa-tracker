@@ -370,7 +370,8 @@ export default function AdminDashboard({
                 No student submissions recorded yet.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-theme-border text-theme-text3 font-mono text-[10px] uppercase">
@@ -418,6 +419,48 @@ export default function AdminDashboard({
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile View */}
+              <div className="md:hidden flex flex-col divide-y divide-theme-border text-xs">
+                {recentActivity.map((sub) => (
+                  <div key={sub.id} className="p-4 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-theme-text1 truncate">
+                          {sub.user_name || sub.user_email?.split('@')[0]}
+                        </div>
+                        <div className="text-[10px] text-theme-text2 font-mono truncate">
+                          {sub.user_email}
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold uppercase text-[9px] border shrink-0 ${statusColors[sub.status] || 'bg-theme-surface2 text-theme-text2'}`}>
+                        {sub.status}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-theme-surface2/30 border border-theme-border">
+                      <div className="font-medium text-theme-text1 text-xs truncate">
+                        {sub.question_title}
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        {sub.question_difficulty && (
+                          <span className={`inline-block px-1.5 py-0.5 rounded font-bold uppercase text-[8px] border ${difficultyColors[sub.question_difficulty?.toLowerCase()] || ''}`}>
+                            {sub.question_difficulty}
+                          </span>
+                        )}
+                        <span className="font-mono font-bold text-cyan-400">
+                          {sub.final_score !== null && sub.final_score !== undefined ? `${sub.final_score}/100` : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right text-theme-text2 font-mono text-[10px] pt-1">
+                      {sub.updated_at ? new Date(sub.updated_at).toLocaleDateString() : 'Recent'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              </>
             )}
           </div>
         </div>

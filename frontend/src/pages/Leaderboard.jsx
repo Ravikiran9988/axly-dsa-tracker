@@ -129,9 +129,10 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {/* Full ranking table */}
+      {/* Full ranking table & Mobile list */}
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -215,6 +216,58 @@ export default function Leaderboard() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile List View */}
+        <div className="sm:hidden flex flex-col divide-y divide-theme-border">
+          {loading ? (
+             <div className="p-4 flex justify-center"><Skeleton className="h-6 w-1/2" /></div>
+          ) : entries.length === 0 ? (
+             <div className="p-4">
+                <EmptyState icon={Trophy} title="No rankings yet" description="Complete Daily Challenges to earn points and appear here." />
+             </div>
+          ) : (
+            entries.map((entry, idx) => {
+              const rank = idx + 1;
+              const isMe = entry.user_id === user?.id || entry.id === user?.id;
+              const medal = RANK_MEDALS[rank];
+              const challengeStreak = entry.dailyChallengeStreak ?? entry.daily_challenge_streak ?? entry.streak ?? 0;
+              const initials = (entry.name || entry.display_name || 'U').charAt(0).toUpperCase();
+              
+              return (
+                <div key={entry.user_id || entry.id} className={`p-4 flex items-center justify-between gap-3 ${isMe ? 'bg-cyan-500/5' : ''}`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="shrink-0 w-8 text-center font-bold text-sm">
+                      {medal ? (
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full border text-xs font-bold ${medal.cls} ${medal.bg}`}>{rank}</span>
+                      ) : (
+                        <span className="text-theme-text3">{rank}</span>
+                      )}
+                    </div>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isMe ? 'bg-cyan-500 text-white' : 'bg-theme-surface2 text-theme-text2'}`}>
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`text-sm font-medium truncate ${isMe ? 'text-cyan-600 dark:text-cyan-300' : 'text-theme-text1'}`}>
+                        {entry.name || entry.display_name || 'Unknown'} {isMe && <span className="text-[10px] bg-cyan-500/10 px-1 py-0.5 rounded text-cyan-500 ml-1">You</span>}
+                      </div>
+                      {entry.cohort_name && <div className="text-[10px] text-theme-text3 truncate">{entry.cohort_name}</div>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={`font-bold text-sm ${rank <= 3 ? 'text-amber-500 dark:text-amber-400' : 'text-theme-text1'}`}>
+                      {(entry.total_points || entry.points || 0).toLocaleString()} <span className="text-[10px] font-normal text-theme-text3">pts</span>
+                    </div>
+                    {challengeStreak > 0 && (
+                      <div className="flex items-center justify-end gap-1 mt-0.5 text-[10px] text-rose-500 font-semibold">
+                        <Flame className="w-3 h-3 fill-rose-500" /> {challengeStreak}d
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

@@ -147,7 +147,7 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             onClick={() => onNavigate && onNavigate('admin-daily')}
             className="btn-secondary btn-sm h-9 flex items-center gap-1.5"
@@ -352,7 +352,8 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <>
+          <div className="hidden md:block overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -498,6 +499,77 @@ export default function AdminCoreDashboard({ onSelectProblem, onNavigate }) {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile View */}
+        <div className="md:hidden flex flex-col divide-y divide-theme-border text-xs">
+          {loading ? (
+            <div className="p-4 text-center text-theme-text3">Loading...</div>
+          ) : filteredQuestions.length === 0 ? (
+            <div className="p-4 text-center text-theme-text3">No questions match your filters</div>
+          ) : (
+            filteredQuestions.map((q) => {
+              const topicName = topics.find((t) => t.id === q.topic_id)?.name || q.topic_name || '—';
+              return (
+                <div key={q.id} className="p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div 
+                        onClick={() => onSelectProblem && onSelectProblem(q.id)}
+                        className="font-medium text-theme-text1 hover:text-cyan-500 transition-colors leading-snug cursor-pointer truncate"
+                      >
+                        {q.title}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <DifficultyBadge difficulty={q.difficulty} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-theme-text2 font-mono">
+                    <span className={`px-2 py-0.5 rounded font-bold uppercase ${q.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : q.status === 'draft' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                      {q.status}
+                    </span>
+                    <span>&bull;</span>
+                    <span className="truncate">{topicName}</span>
+                    <span>&bull;</span>
+                    <span>{q.estimated_time || '15 mins'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-theme-border">
+                    <button
+                      type="button"
+                      onClick={() => onSelectProblem && onSelectProblem(q.id)}
+                      className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
+                      title="Preview"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(q);
+                        setQuestionModal(true);
+                      }}
+                      className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-indigo-400 hover:bg-theme-surface2 transition-colors"
+                      title="Edit details"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(q)}
+                      className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                      title="Deactivate challenge"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        </>
       </div>
 
       {/* Add / Edit Question Modal */}

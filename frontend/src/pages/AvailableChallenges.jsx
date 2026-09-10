@@ -171,9 +171,10 @@ export default function AvailableChallenges({ onSelectProblem }) {
         )}
       </div>
 
-      {/* Table */}
+      {/* Table & Mobile Cards */}
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -289,6 +290,67 @@ export default function AvailableChallenges({ onSelectProblem }) {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="sm:hidden flex flex-col divide-y divide-theme-border">
+          {loading ? (
+            <div className="p-4 space-y-4">
+              <SkeletonRows count={3} cols={1} />
+            </div>
+          ) : questions.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                icon={Compass}
+                title="No problems match your filters"
+                description="Try adjusting your search or clearing the filters."
+                action={hasFilters && <button onClick={clearFilters} className="btn-primary btn-sm mt-1">Clear filters</button>}
+              />
+            </div>
+          ) : (
+            questions.map((q, idx) => {
+              const solved = q.practice_status === 'solved';
+              const inProg = q.practice_status === 'in_progress';
+              const abandoned = q.practice_status === 'abandoned';
+              const statusInfo = STATUS_DISPLAY[q.practice_status];
+
+              return (
+                <div
+                  key={q.id}
+                  className={`p-4 flex flex-col gap-3 hover:bg-theme-surface2 transition-colors cursor-pointer ${solved ? 'opacity-75' : ''}`}
+                  onClick={() => onSelectProblem(q.id)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-bold text-sm text-theme-text1 leading-tight">{idx + 1}. {q.title}</div>
+                    <div className="shrink-0"><DifficultyBadge difficulty={q.difficulty} /></div>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    {q.topic_name && <span className="bg-theme-surface2 text-theme-text2 px-1.5 py-0.5 rounded font-medium">{q.topic_name}</span>}
+                    {statusInfo && (
+                      <span className={`flex items-center gap-1 font-semibold ${statusInfo.cls}`}>
+                        <statusInfo.icon className="w-3.5 h-3.5" /> {statusInfo.label}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-theme-text3 font-mono">{q.estimated_time || '~30m'}</span>
+                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                      {inProg && !solved && (
+                        <button disabled={busy === q.id} onClick={e => abandon(q.id, e)} className="p-1.5 rounded bg-theme-surface2 text-theme-text3 hover:text-rose-400">
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button onClick={() => onSelectProblem(q.id)} className="btn-primary px-3 py-1.5 text-xs font-semibold rounded-md flex items-center gap-1.5">
+                        {solved ? 'Review' : inProg ? 'Continue' : abandoned ? 'Restart' : 'Solve'} <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

@@ -180,7 +180,8 @@ export default function AdminAssignments({ onOpenAssignModal, onSelectProblem })
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-theme-border bg-theme-surface text-theme-text2 font-semibold font-mono uppercase text-[10px] tracking-wider">
@@ -270,6 +271,60 @@ export default function AdminAssignments({ onOpenAssignModal, onSelectProblem })
               </tbody>
             </table>
           </div>
+
+          {/* Mobile List View */}
+          <div className="md:hidden flex flex-col divide-y divide-theme-border text-xs">
+            {filteredAssignments.map((asgn) => (
+              <div key={asgn.id} className="p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-theme-text1 truncate">
+                      {asgn.user_name || asgn.user_email?.split('@')[0]}
+                    </div>
+                    <div className="text-[10px] text-theme-text2 font-mono truncate">
+                      {asgn.user_email}
+                    </div>
+                  </div>
+                  <span className={`inline-block px-2 py-0.5 rounded font-bold uppercase text-[9px] border shrink-0 ${statusColors[asgn.status] || statusColors.assigned}`}>
+                    {asgn.status || 'assigned'}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-theme-surface2/30 border border-theme-border">
+                  <div className="font-medium text-theme-text1 text-xs truncate">
+                    {asgn.question_title}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {asgn.question_difficulty && (
+                      <span className="text-[9px] text-theme-text3 uppercase font-mono">
+                        [{asgn.question_difficulty}]
+                      </span>
+                    )}
+                    <span className={`inline-block px-1.5 py-0.5 rounded font-bold uppercase text-[8px] border ${priorityColors[asgn.priority] || priorityColors.Medium}`}>
+                      {asgn.priority || 'Medium'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-theme-text2 font-mono pt-1">
+                  <div>Assigned: {asgn.assigned_at ? new Date(asgn.assigned_at).toLocaleDateString() : 'Recent'}</div>
+                  <div className={asgn.due_date ? 'text-amber-400' : ''}>Due: {asgn.due_date || 'None'}</div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-theme-border mt-1">
+                  {onSelectProblem && asgn.question_id && (
+                    <button onClick={() => onSelectProblem(asgn.question_id)} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-cyan-400 transition-colors" title="Preview question">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button onClick={() => handleUnassign(asgn.id)} disabled={unassigningId === asgn.id} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-rose-500/10 text-rose-400 transition-colors" title="Remove assignment">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
       </div>
     </div>

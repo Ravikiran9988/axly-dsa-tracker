@@ -481,7 +481,7 @@ export default function AdminDailyChallengeModal({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto overflow-x-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto overflow-x-hidden">
       <div 
         ref={modalCardRef}
         onScroll={(e) => {
@@ -489,7 +489,7 @@ export default function AdminDailyChallengeModal({
             e.currentTarget.scrollLeft = 0;
           }
         }}
-        className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden overflow-x-hidden animate-slide-up relative min-w-0"
+        className="bg-theme-surface border-0 sm:border border-theme-border rounded-none sm:rounded-3xl w-full max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden overflow-x-hidden animate-slide-up relative min-w-0 sm:m-auto"
       >
         {/* Header */}
         <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface shrink-0 min-w-0 w-full">

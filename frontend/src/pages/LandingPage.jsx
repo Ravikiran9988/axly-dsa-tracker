@@ -195,7 +195,7 @@ export default function LandingPage({ onNavigateToLogin }) {
   )
 
   return (
-    <div style={T.bg} className="min-h-screen font-sans">
+    <div style={T.bg} className="min-h-[100dvh] font-sans">
 
       {/* ══ NAVBAR ══════════════════════════════════════════════════════════ */}
       <header>
