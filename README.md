@@ -15,9 +15,11 @@
 
 ---
 
-## 📚 Overview
+## 📚 Overview & Why Axly
 
-Axly DSA Tracker is a full-stack platform for learning and practicing Data Structures and Algorithms through a combination of:
+Axly DSA Tracker is a full-stack platform for learning and practicing Data Structures and Algorithms. Unlike traditional platforms that mix all points into a single leaderboard, Axly carefully separates **personal learning progress** from **competitive performance**.
+
+Axly was built to provide a modern, highly responsive, and robust coding environment. The platform offers:
 
 - **Practice Mode** for structured, self-paced problem solving.
 - **Daily Challenges** for competitive daily problem solving, streaks, and the global leaderboard.
@@ -26,7 +28,38 @@ Axly DSA Tracker is a full-stack platform for learning and practicing Data Struc
 - **Online code execution** with an isolated Docker-based runner.
 - **Admin and mentor workflows** for question curation, assignments, cohorts, moderation, audit logs, and review.
 
-The application is split into a React frontend, Express API, repository/data layer, PostgreSQL production database, and a separate execution service.
+The application architecture is explicitly decoupled: a React frontend, Express API, repository/data layer, PostgreSQL production database, and a completely isolated separate execution service for safety.
+
+---
+
+## 🖥️ UI Preview
+
+The application features a modern, responsive, component-driven UI utilizing Tailwind CSS and React Router, including centralized Light/Dark mode theming and adaptive mobile navigation (e.g. navigation drawers and context-aware portal switches).
+
+> All screenshots reflect the current redesigned application and are stored in `docs/screenshots/`.
+
+<div align="center">
+
+### 👨‍🎓 Student Experience
+
+| **Desktop View** | **Mobile View** |
+|:---:|:---:|
+| **Landing Page**<br><img src="docs/screenshots/landing-desktop.png" width="400" alt="Landing Page Desktop" /> | |
+| **Learner Dashboard**<br><img src="docs/screenshots/student-dashboard-desktop.png" width="400" alt="Dashboard Desktop" /> | **Learner Dashboard (Mobile)**<br><img src="docs/screenshots/student-dashboard-mobile.png" width="400" alt="Dashboard Mobile" /> |
+| **Practice Library**<br><img src="docs/screenshots/practice-desktop.png" width="400" alt="Practice Library" /> | |
+| **Problem Workspace**<br><img src="docs/screenshots/problem-workspace-desktop.png" width="400" alt="Problem Workspace" /> | **Problem Workspace (Mobile)**<br><img src="docs/screenshots/problem-workspace-mobile.png" width="400" alt="Workspace Mobile" /> |
+| **Leaderboard**<br><img src="docs/screenshots/leaderboard-desktop.png" width="400" alt="Leaderboard" /> | |
+
+### 👨‍💼 Admin & Mentor Experience
+
+| **Desktop View** | **Mobile View** |
+|:---:|:---:|
+| **Admin Dashboard**<br><img src="docs/screenshots/admin-dashboard-desktop.png" width="400" alt="Admin Dashboard" /> | |
+| **Admin Progress & Analytics**<br><img src="docs/screenshots/admin-progress-desktop.png" width="400" alt="Admin Progress" /> | |
+| **Submission Reviews**<br><img src="docs/screenshots/admin-reviews-desktop.png" width="400" alt="Submission Reviews" /> | **Submission Reviews (Mobile)**<br><img src="docs/screenshots/admin-reviews-mobile.png" width="400" alt="Submission Reviews Mobile" /> |
+| **Question Bank**<br><img src="docs/screenshots/admin-questions-desktop.png" width="400" alt="Question Bank" /> | |
+
+</div>
 
 ---
 
@@ -125,7 +158,7 @@ Execution is designed around a separate Docker-based runner with resource limits
 
 ```text
                            ┌────────────────────────┐
-                           │      React + Vite       │
+                           │      React + Vite      │
                            │       Frontend         │
                            └────────────┬───────────┘
                                         │ HTTPS / REST
@@ -238,37 +271,6 @@ The code runner should be deployed separately from the public API so untrusted s
 - Heroku-compatible Node API deployment with release migrations
 - Docker-based code runner
 - Oracle Cloud or another dedicated host for runner workloads
-
----
-
-## 🖥️ UI Preview
-
-> Screenshots are stored under `docs/screenshots/` when available.
-
-<div align="center">
-
-### Landing Page
-<img src="docs/screenshots/landing.png" width="800" alt="Axly landing page" />
-
-### Learner Dashboard
-<img src="docs/screenshots/dashboard.png" width="800" alt="Axly learner dashboard" />
-
-### Problem Workspace & Code Editor
-<img src="docs/screenshots/code-editor.png" width="800" alt="Axly problem workspace and code editor" />
-
-### Question Bank
-<img src="docs/screenshots/question-bank.png" width="800" alt="Axly question bank" />
-
-### Submission History
-<img src="docs/screenshots/submission-history.png" width="800" alt="Axly submission history" />
-
-### Admin Dashboard
-<img src="docs/screenshots/admin-dashboard.png" width="800" alt="Axly admin dashboard" />
-
-### Admin Questions
-<img src="docs/screenshots/admin-questions.png" width="800" alt="Axly admin questions management" />
-
-</div>
 
 ---
 
@@ -670,6 +672,8 @@ axly-dsa-tracker/
 │   └── src/
 ├── database/
 ├── docs/
+├── scripts/
+│   └── capture-screenshots.js
 ├── playwright.config.js
 ├── Procfile
 ├── package.json
@@ -799,24 +803,4 @@ Before deploying a production change:
 
 ## 🤝 Contributing
 
-1. Create a feature branch.
-2. Make the smallest focused change possible.
-3. Add or update tests for behavioral changes.
-4. Run the backend suite and frontend build locally.
-5. Open a pull request against `main`.
-6. Wait for GitHub Actions CI to complete before merging.
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
-
-<div align="center">
-
-**Axly DSA Tracker**  
-*Practice consistently. Solve smarter. Compete fairly.*
-
-</div>
+Contributions are welcome! Please ensure any code changes include accompanying tests where possible, and do not bypass existing architecture (such as running code outside the isolated runner or skipping authorization checks).
