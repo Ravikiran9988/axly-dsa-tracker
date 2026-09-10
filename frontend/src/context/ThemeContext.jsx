@@ -2,7 +2,7 @@
  * ThemeContext — Single global theme source of truth.
  *
  * Reads from / writes to localStorage key "axly-theme".
- * Default: "dark".
+ * Default: "light".
  *
  * Apply this Provider once at the root (main.jsx or App.jsx wrapper).
  * All components consume via useTheme().
@@ -10,7 +10,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const STORAGE_KEY = 'axly-theme';
-const DEFAULT_THEME = 'dark';
+const DEFAULT_THEME = 'light';
 
 /**
  * Reads the stored theme and applies it synchronously to document.documentElement.
