@@ -81,12 +81,12 @@ export default function DailyChallenge({ onSelectProblem }) {
   return (
     <div className="max-w-2xl mx-auto space-y-5 animate-fade-in">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-theme-text1 tracking-tight">Daily Challenge</h1>
           <p className="text-sm text-theme-text2 mt-0.5">Competitive &middot; earn points &middot; build your challenge streak</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="badge text-cyan-400 bg-cyan-500/10 border-cyan-500/20">
             <Zap className="w-3.5 h-3.5" /> +{displayPoints} pts
           </div>
@@ -137,7 +137,7 @@ export default function DailyChallenge({ onSelectProblem }) {
                 <CheckCircle2 className="w-4 h-4" />
                 <span>✓ Challenge Solved</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-theme-text2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-theme-text2">
                 <div>+ {displayPoints} Daily Challenge Points</div>
                 <div>+ 20 Streak Bonus</div>
                 <div className="text-cyan-400 font-bold">Total Score: {totalScore} pts</div>
@@ -151,7 +151,7 @@ export default function DailyChallenge({ onSelectProblem }) {
             <button
               id="btn-start-daily-challenge"
               onClick={() => onSelectProblem(daily.id)}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all hover:-translate-y-0.5 ${
+              className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all hover:-translate-y-0.5 w-full sm:w-auto ${
                 solved
                   ? 'bg-theme-surface3 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10'
                   : 'bg-gradient-to-r from-theme-cyan to-theme-indigo hover:from-cyan-400 hover:to-indigo-500 text-white border-0 shadow-cyan-500/20'

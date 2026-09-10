@@ -44,8 +44,8 @@ export default function AdminScheduleDailyModal({
   }[challenge.difficulty?.toLowerCase()] || 'text-theme-text2 bg-slate-500/10';
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-slide-up">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto overflow-x-hidden">
+      <div className="bg-theme-surface border-0 sm:border border-theme-border rounded-none sm:rounded-3xl w-full max-w-lg h-[100dvh] sm:h-auto overflow-y-auto shadow-2xl animate-slide-up sm:m-auto flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface">
           <div className="flex items-center gap-2.5">

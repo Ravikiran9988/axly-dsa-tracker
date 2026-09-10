@@ -307,7 +307,7 @@ export default function AdminQuestionModal({
     'w-full p-3 rounded-xl border border-theme-border bg-theme-surface font-mono text-xs text-cyan-500 dark:text-cyan-300 placeholder:text-theme-text3 focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/20 resize-none leading-relaxed';
 
   return createPortal(
-    <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden">
+    <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden">
       <div 
         ref={modalCardRef}
         onScroll={(e) => {
@@ -315,7 +315,7 @@ export default function AdminQuestionModal({
             e.currentTarget.scrollLeft = 0;
           }
         }}
-        className="relative w-full max-w-4xl max-h-[92vh] rounded-2xl md:rounded-3xl border border-theme-border bg-theme-surface shadow-2xl overflow-hidden overflow-x-hidden flex flex-col my-auto animate-in fade-in zoom-in-95 duration-200 min-w-0"
+        className="relative w-full max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-2xl md:rounded-3xl border-0 sm:border border-theme-border bg-theme-surface shadow-2xl overflow-hidden overflow-x-hidden flex flex-col sm:my-auto animate-in fade-in zoom-in-95 duration-200 min-w-0"
       >
         
         {/* Header */}

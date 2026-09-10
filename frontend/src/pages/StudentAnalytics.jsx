@@ -109,7 +109,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-theme-surface2 border border-theme-border shadow-2xl backdrop-blur-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-8 rounded-3xl bg-theme-surface2 border border-theme-border shadow-2xl backdrop-blur-xl">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 text-cyan-400 font-mono text-xs font-bold uppercase tracking-wider">
             <BookOpen className="w-4 h-4" />
@@ -123,22 +123,22 @@ export default function StudentAnalytics({ onSelectProblem }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center shrink-0 flex-1 min-w-[100px]">
             <div className="text-base font-black text-emerald-400 flex items-center justify-center gap-1">
               <CheckCircle2 className="w-4 h-4" /> {prac.solved} / {prac.total}
             </div>
             <div className="text-[10px] text-emerald-300/80 uppercase font-mono mt-0.5">{prac.completionPercent}% Solved</div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center shrink-0" title="Consecutive days you've logged in">
+          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center shrink-0 flex-1 min-w-[100px]" title="Consecutive days you've logged in">
             <div className="text-base font-black text-amber-400 flex items-center justify-center gap-1">
               <Zap className="w-4 h-4" /> {summary.individual_streak || summary.individualStreak || 1}d
             </div>
             <div className="text-[10px] text-amber-300/80 uppercase font-mono mt-0.5">Activity Streak</div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center shrink-0" title="Consecutive days you've completed Daily Challenge">
+          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-center shrink-0 flex-1 min-w-[100px]" title="Consecutive days you've completed Daily Challenge">
             <div className="text-base font-black text-rose-400 flex items-center justify-center gap-1">
               <Flame className="w-4 h-4 fill-rose-400" /> {summary.daily_challenge_streak || summary.dailyChallengeStreak || 0}d
             </div>
@@ -399,7 +399,7 @@ export default function StudentAnalytics({ onSelectProblem }) {
       ) : (
         /* Telemetry Tab */
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="p-5 rounded-2xl bg-theme-surface border border-theme-border space-y-1">
               <div className="text-theme-text2 text-xs font-medium">Daily Solved</div>
               <div className="text-2xl font-black text-theme-text1">

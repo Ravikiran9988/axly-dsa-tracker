@@ -8,6 +8,7 @@ function dailyChallengeAiAuthoringPlugin() {
     enforce: 'pre',
     transform(code, id) {
       if (id.endsWith('/AdminDailyChallengeModal.jsx')) {
+        code = code.replace(/\r\n/g, '\n');
         if (code.includes('handleGenerateAiTestCases')) return null;
 
         const stateMarker = "  const [recReason, setRecReason] = useState('');\n";

@@ -275,7 +275,8 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden md:block overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
@@ -390,6 +391,80 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile List View */}
+          <div className="md:hidden flex flex-col divide-y divide-theme-border">
+            {questions.map((q) => {
+              const topicName = topics.find(t => t.id === q.topic_id)?.name || q.topic_name || q.topic_id || '—';
+              return (
+                <div key={q.id} className="p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div 
+                        onClick={() => onSelectProblem && onSelectProblem(q.id)}
+                        className="font-medium text-theme-text1 hover:text-cyan-500 transition-colors leading-snug cursor-pointer truncate"
+                      >
+                        {q.title}
+                      </div>
+                      <div className="text-[10px] text-theme-text3 font-mono mt-0.5 truncate">{q.id}</div>
+                    </div>
+                    <div className="shrink-0">
+                      <DifficultyBadge difficulty={q.difficulty} />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-[10px] text-theme-text2">
+                    <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${q.status === 'published' ? 'bg-emerald-500/10 text-emerald-400' : q.status === 'draft' ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-500/10 text-slate-400'}`}>
+                      {q.status}
+                    </span>
+                    <span>•</span>
+                    <span className="truncate">{topicName}</span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-theme-border">
+                    <button
+                      onClick={() => setPreviewQuestion(q)}
+                      className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-cyan-400 hover:bg-theme-surface2 transition-colors"
+                      title="Preview question"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingQuestion(q);
+                        setIsEditModalOpen(true);
+                      }}
+                      className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-indigo-400 hover:bg-theme-surface2 transition-colors"
+                      title="Edit question details"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleTogglePublish(q)}
+                      className={`p-1.5 rounded-lg border transition-colors ${
+                        q.status === 'published'
+                          ? 'bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20'
+                          : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20'
+                      }`}
+                      title={q.status === 'published' ? 'Unpublish to Draft' : 'Publish Question'}
+                    >
+                      {q.status === 'published' ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                    </button>
+                    {q.status !== 'archived' && (
+                      <button
+                        onClick={() => handleArchive(q.id)}
+                        className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                        title="Archive question"
+                      >
+                        <Archive className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         )}
 
         {/* Pagination Footer */}

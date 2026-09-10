@@ -22,7 +22,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
-export default function Sidebar({ currentView, setCurrentView, user, onLogout, isCollapsed, setIsCollapsed, unreadCount = 0 }) {
+export default function Sidebar({ currentView, setCurrentView, user, onLogout, isCollapsed, setIsCollapsed, unreadCount = 0, isMobileMenuOpen, setIsMobileMenuOpen }) {
   const isAdmin = user?.role === 'admin';
 
   const adminSections = [
@@ -97,11 +97,20 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
   }
 
   return (
-    <aside
-      className={`relative flex flex-col h-screen border-r border-theme-border bg-theme-bg transition-all duration-200 z-30 shrink-0 select-none ${
-        isCollapsed ? 'w-[52px]' : 'w-56'
-      }`}
-    >
+    <>
+      {/* Mobile Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen && setIsMobileMenuOpen(false)}
+        />
+      )}
+      
+      <aside
+        className={`fixed md:relative top-0 left-0 flex flex-col h-screen border-r border-theme-border bg-theme-bg transition-transform duration-300 z-50 shrink-0 select-none ${
+          isCollapsed ? 'w-[52px]' : 'w-64 md:w-56'
+        } ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+      >
       {/* Logo */}
       <div className="flex items-center h-14 px-3 border-b border-theme-border shrink-0">
         <div className="flex items-center gap-2.5 overflow-hidden flex-1 min-w-0">
@@ -123,10 +132,17 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
         </div>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1 rounded text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface3 transition-colors shrink-0 ml-auto"
+          className="p-1 rounded text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface3 transition-colors shrink-0 ml-auto hidden md:block"
           title={isCollapsed ? 'Expand' : 'Collapse'}
         >
           {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          onClick={() => setIsMobileMenuOpen && setIsMobileMenuOpen(false)}
+          className="p-1 rounded text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface3 transition-colors shrink-0 ml-auto md:hidden"
+          title="Close Menu"
+        >
+          <ChevronLeft className="w-5 h-5" />
         </button>
       </div>
 
@@ -219,5 +235,6 @@ export default function Sidebar({ currentView, setCurrentView, user, onLogout, i
         )}
       </div>
     </aside>
+    </>
   );
 }

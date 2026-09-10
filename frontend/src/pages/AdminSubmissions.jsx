@@ -150,7 +150,8 @@ export default function AdminSubmissions({ onSelectProblem }) {
             No submissions found matching criteria.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-theme-border bg-theme-surface text-theme-text2 font-semibold font-mono uppercase text-[10px] tracking-wider">
@@ -228,6 +229,58 @@ export default function AdminSubmissions({ onSelectProblem }) {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile List View */}
+          <div className="md:hidden flex flex-col divide-y divide-theme-border text-xs">
+            {submissions.map((sub) => (
+              <div key={sub.id} className="p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-theme-text1 truncate">
+                      {sub.user_name || sub.user_email?.split('@')[0]}
+                    </div>
+                    <div className="text-[10px] text-theme-text2 font-mono truncate">
+                      {sub.user_email}
+                    </div>
+                  </div>
+                  <span className={`inline-block px-2 py-0.5 rounded font-bold uppercase text-[9px] border shrink-0 ${statusColors[sub.status] || 'bg-theme-surface2 text-theme-text2'}`}>
+                    {sub.status}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-theme-surface2/30 border border-theme-border">
+                  <div className="font-medium text-theme-text1 text-xs truncate">
+                    {sub.question_title}
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block px-1.5 py-0.5 rounded font-bold uppercase text-[8px] border ${difficultyColors[sub.question_difficulty?.toLowerCase()] || ''}`}>
+                        {sub.question_difficulty || 'easy'}
+                      </span>
+                      <span className="text-[9px] font-mono text-theme-text3">{sub.language || 'javascript'}</span>
+                    </div>
+                    <div className="font-mono font-bold text-cyan-400">
+                      {sub.final_score !== null && sub.final_score !== undefined ? `${sub.final_score}/100` : (sub.manual_score ? `${sub.manual_score}/100` : '—')}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="font-mono text-theme-text2 text-[10px]">
+                    {sub.updated_at ? new Date(sub.updated_at).toLocaleString() : 'Recent'}
+                  </div>
+                  <button
+                    onClick={() => setSelectedSubmission(sub)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-rose-400 text-xs font-semibold transition-colors"
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>Inspect</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
 
         {/* Pagination */}

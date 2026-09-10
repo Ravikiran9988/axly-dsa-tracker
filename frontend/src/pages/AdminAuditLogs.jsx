@@ -154,7 +154,8 @@ export default function AdminAuditLogs() {
             No audit logs match the current criteria.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-theme-border bg-theme-surface text-theme-text2 font-semibold font-mono uppercase text-[10px] tracking-wider">
@@ -214,6 +215,59 @@ export default function AdminAuditLogs() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile List View */}
+          <div className="md:hidden flex flex-col divide-y divide-theme-border">
+            {logs.map((log) => (
+              <div key={log.id} className="p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-sans font-medium text-theme-text1 truncate">
+                      {log.actor_name || log.actor_email || 'System'}
+                    </div>
+                    {log.actor_role && (
+                      <div className="text-[10px] text-theme-text2 uppercase">
+                        [{log.actor_role}]
+                      </div>
+                    )}
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase shrink-0 ${actionColors[log.action] || 'bg-theme-surface2 text-theme-text2 border-theme-border'}`}>
+                    {log.action.replace(/_/g, ' ')}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-theme-surface2/30 border border-theme-border flex flex-col gap-1">
+                  <div className="flex justify-between items-start">
+                    <span className="text-theme-text2 uppercase font-semibold text-[10px]">
+                      {log.resource_type}
+                    </span>
+                    <span className="text-[10px] text-theme-text2 font-mono truncate max-w-[120px]">
+                      {log.ip_address || 'Internal / Local'}
+                    </span>
+                  </div>
+                  {log.resource_id && (
+                    <div className="text-[10px] text-theme-text2 font-mono truncate">
+                      ID: {log.resource_id}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="text-[10px] text-theme-text2 font-mono">
+                    {log.created_at}
+                  </div>
+                  <button
+                    onClick={() => setSelectedLog(log)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-cyan-400 border border-theme-border text-[10px] font-sans font-medium transition-colors"
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>Inspect</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
 
         {/* Pagination Bar */}
@@ -240,8 +294,8 @@ export default function AdminAuditLogs() {
 
       {/* Inspect Modal */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-theme-surface border border-theme-border rounded-3xl p-6 max-w-2xl w-full space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
+          <div className="bg-theme-surface border-0 sm:border border-theme-border rounded-none sm:rounded-3xl p-6 max-w-2xl w-full h-[100dvh] sm:h-auto overflow-y-auto space-y-5 shadow-2xl animate-in fade-in zoom-in-95 sm:m-auto">
             <div className="flex items-center justify-between border-b border-theme-border pb-4">
               <div className="space-y-0.5">
                 <div className="text-xs font-mono font-bold uppercase text-cyan-400">

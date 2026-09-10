@@ -118,7 +118,8 @@ export default function AdminProgress({ onSelectStudent }) {
             No learner progress data found.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-theme-border bg-theme-surface text-theme-text2 font-semibold font-mono uppercase text-[10px] tracking-wider">
@@ -176,6 +177,59 @@ export default function AdminProgress({ onSelectStudent }) {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile List View */}
+          <div className="md:hidden flex flex-col divide-y divide-theme-border text-xs">
+            {progressData.map((p) => (
+              <div key={p.user_id} className="p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-theme-text1 truncate">
+                      {p.name || p.email?.split('@')[0]}
+                    </div>
+                    <div className="text-[10px] text-theme-text2 font-mono truncate">
+                      {p.email}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] text-theme-text3 uppercase font-mono">Completion</div>
+                    <div className="font-bold text-cyan-400">{p.completion_percentage}%</div>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-theme-surface2/30 border border-theme-border flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-full h-1.5 bg-theme-surface rounded-full overflow-hidden border border-theme-border">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-full"
+                        style={{ width: `${Math.max(4, p.completion_percentage)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                    <div>
+                      <div className="font-mono font-bold text-emerald-400">{p.solved_count}</div>
+                      <div className="text-theme-text3 uppercase mt-0.5">Solved</div>
+                    </div>
+                    <div>
+                      <div className="font-mono font-bold text-amber-400">{p.pending_count}</div>
+                      <div className="text-theme-text3 uppercase mt-0.5">Pending</div>
+                    </div>
+                    <div>
+                      <div className="font-mono font-bold text-theme-text2">{p.assigned_count}</div>
+                      <div className="text-theme-text3 uppercase mt-0.5">Active</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] pt-1">
+                  <span className="text-theme-text3">Lifetime Solved:</span>
+                  <span className="font-mono text-cyan-400 font-bold">{p.historical_solved_count || p.solved_count}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
 
         {/* Pagination */}

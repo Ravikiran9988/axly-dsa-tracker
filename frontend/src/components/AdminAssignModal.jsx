@@ -36,8 +36,8 @@ export default function AdminAssignModal({ isOpen, onClose, onSuccess, initialUs
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm">
-      <div className="w-full max-w-lg bg-theme-surface border border-theme-border rounded-3xl p-6 shadow-2xl space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-theme-surface border-0 sm:border border-theme-border rounded-none sm:rounded-3xl p-6 shadow-2xl space-y-5 h-[100dvh] sm:h-auto overflow-y-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-theme-text1">Assign Problem to Student</h2>
           <button onClick={onClose} className="p-1 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2">

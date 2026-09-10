@@ -39,7 +39,7 @@ const AdminSettings = React.lazy(() => import('./pages/AdminSettings'));
 const SubmissionReviewConsole = React.lazy(() => import('./pages/SubmissionReviewConsole'));
 
 const LoadingFallback = () => (
-  <div className="min-h-screen flex items-center justify-center bg-theme-bg">
+  <div className="min-h-[100dvh] flex items-center justify-center bg-theme-bg">
     <div className="flex flex-col items-center gap-4">
       <div className="w-12 h-12 rounded-xl bg-cyan-500 flex items-center justify-center shadow-lg">
         <Terminal className="w-6 h-6 text-white" />
@@ -97,7 +97,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-theme-bg">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-theme-bg">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-cyan-500 flex items-center justify-center shadow-lg">
             <Terminal className="w-6 h-6 text-white" />
@@ -135,7 +135,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-theme-bg">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-theme-bg">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-cyan-500 flex items-center justify-center shadow-lg">
             <Terminal className="w-6 h-6 text-white" />
@@ -177,7 +177,7 @@ export default function App() {
         <Route path="/profile" element={<ProfileNav />} />
         <Route path="/notifications" element={<NotificationsPage onNavigate={(v) => navigate(`/${v}`)} />} />
         <Route path="/leaderboard" element={<Leaderboard currentUser={user} />} />
-        <Route path="/ai-coach" element={<div className="max-w-4xl mx-auto h-[84vh] p-2"><DsaAiCoachPanel /></div>} />
+        <Route path="/ai-coach" element={<div className="max-w-4xl mx-auto h-[calc(100dvh-72px)] p-2"><DsaAiCoachPanel /></div>} />
         <Route path="/dsa-ai" element={<Navigate to="/ai-coach" replace />} />
         
         {/* Settings placeholders */}

@@ -65,6 +65,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   const [bottomOpen, setBottomOpen] = useState(true);
   const [submissionBanner, setSubmissionBanner] = useState(null);
   const [expandedSubId, setExpandedSubId] = useState(null);
+  const [mobileMode, setMobileMode] = useState('problem');
   const editorRef = useRef(null);
 
   useEffect(() => { loadProblemData(); }, [questionId]);
@@ -255,7 +256,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   const statusCfg = execResult ? STATUS_CONFIG[execResult.status] : null;
 
   return (
-    <div className="flex flex-col bg-theme-bg" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="flex flex-col bg-theme-bg" style={{ height: 'calc(100dvh - 56px)' }}>
       {/* Top header */}
       <div className="min-h-[48px] py-2 border-b border-theme-border bg-theme-bg px-4 flex flex-wrap items-center gap-3 shrink-0">
         <button onClick={onBack} className="btn-ghost btn-sm inline-flex items-center gap-1.5 shrink-0">
@@ -361,10 +362,26 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
         </div>
       )}
 
+      {/* Mobile Tab Switcher */}
+      <div className="lg:hidden flex border-b border-theme-border bg-theme-surface shrink-0">
+        <button
+          onClick={() => setMobileMode('problem')}
+          className={`flex-1 py-2.5 text-xs font-bold text-center transition-colors ${mobileMode === 'problem' ? 'border-b-2 border-cyan-500 text-cyan-400 bg-theme-surface2' : 'text-theme-text2 border-b-2 border-transparent hover:text-theme-text1'}`}
+        >
+          Problem
+        </button>
+        <button
+          onClick={() => setMobileMode('code')}
+          className={`flex-1 py-2.5 text-xs font-bold text-center transition-colors ${mobileMode === 'code' ? 'border-b-2 border-cyan-500 text-cyan-400 bg-theme-surface2' : 'text-theme-text2 border-b-2 border-transparent hover:text-theme-text1'}`}
+        >
+          Code
+        </button>
+      </div>
+
       {/* Main workspace */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Left: Problem */}
-        <div className="lg:col-span-5 border-r border-theme-border flex flex-col overflow-hidden min-w-0">
+        <div className={`lg:col-span-5 border-r border-theme-border flex-col overflow-hidden min-w-0 ${mobileMode === 'code' ? 'hidden lg:flex' : 'flex'}`}>
           <div className="tab-bar px-2 sm:px-3 shrink-0">
             <button
               onClick={() => setLeftTab('description')}
@@ -556,7 +573,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
         </div>
 
         {/* Right: Code editor — always dark like an IDE */}
-        <div className="lg:col-span-7 flex flex-col overflow-hidden min-w-0" style={{ background: '#0d1117' }}>
+        <div className={`lg:col-span-7 flex-col overflow-hidden min-w-0 ${mobileMode === 'problem' ? 'hidden lg:flex' : 'flex'}`} style={{ background: '#0d1117' }}>
           {submissionMethod === 'code' ? (
             <>
               <div className="h-9 border-b px-3 flex items-center justify-between shrink-0" style={{ background: '#161b22', borderColor: 'rgba(255,255,255,0.08)' }}>

@@ -74,14 +74,14 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
             <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             Active Session
           </div>
-          <h1 className="text-3xl font-extrabold text-theme-text1 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-theme-text1 tracking-tight">
             Welcome back, {user?.name?.split(' ')[0] || 'Learner'}!
           </h1>
           <p className="text-sm text-theme-text2 mt-1">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <Button onClick={() => onNavigate('available')} variant="outline" className="gap-2 border-theme-border bg-transparent hover:bg-theme-surface3 text-theme-text1">
             <Compass className="w-4 h-4" /> Practice Library
           </Button>
@@ -92,7 +92,7 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
       </div>
 
       {/* 2. Key Progress Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         {[
           { label: 'Problems Solved', value: totalSolved, icon: CheckCircle2, color: 'var(--emerald-400)', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
           { label: 'Individual Streak', value: `${individualStreak}d`, icon: Zap, color: 'var(--amber-400)', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
@@ -131,7 +131,7 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
                   <p className="text-xs text-theme-text2 font-medium">One focused problem. Build the habit.</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => onNavigate('daily')} className="text-theme-text2 hover:text-theme-text1">
+              <Button variant="ghost" size="sm" onClick={() => onNavigate('daily')} className="text-theme-text2 hover:text-theme-text1 shrink-0">
                 View Past <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
@@ -183,7 +183,7 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
                       {rec.title}
                     </h3>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <DifficultyBadge difficulty={rec.difficulty} />
                         {rec.topic && <span className="text-[10px] px-2 py-0.5 rounded-md bg-theme-surface2 text-theme-text2 font-medium">{rec.topic}</span>}
                       </div>

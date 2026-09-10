@@ -866,7 +866,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
       </div>
 
       {/* ─── Bottom Input Form ─── */}
-      <form onSubmit={handleCustomSubmit} className="p-3 bg-theme-bg border-t border-theme-border flex gap-2 shrink-0">
+      <form onSubmit={handleCustomSubmit} className="p-3 sm:pb-3 pb-6 bg-theme-bg border-t border-theme-border flex gap-2 shrink-0">
         <input
           id="input-dsa-ai-query"
           ref={inputRef}
