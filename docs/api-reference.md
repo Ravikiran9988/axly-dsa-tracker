@@ -4,390 +4,200 @@
 > **Auth Header:** `Authorization: Bearer <jwt>`
 > **Content-Type:** `application/json`
 
-All successful responses: `{ "data": { ... } }`
-All error responses: `{ "error": { "code": "ERROR_CODE", "message": "..." } }`
+All successful responses wrap data in a `data` object: `{ "data": { ... } }`
+All error responses provide an error object: `{ "error": { "code": "ERROR_CODE", "message": "..." } }`
 
 ---
 
 ## 1. Authentication — `/api/v1/auth`
+Rate limiting: `authRateLimiter` applies to all endpoints in this group.
 
-### `POST /auth/login`
-Authenticate and receive a JWT.
-```json
-// Request
-{ "email": "alex@example.com", "password": "secret" }
-
-// Response 200
-{ "token": "eyJhbGci...", "user": { "id": "usr-alex", "name": "Alex", "role": "user" } }
-```
-
-### `POST /auth/verify`
-Re-validate session token and return the resolved user profile.
-Auth: Bearer required.
-
-### `POST /auth/signup`
-Register a new student. Request: `{ name, email, password }`. Response 201: `{ token, user }`.
-
-### `POST /auth/forgot-password` / `POST /auth/reset-password`
-Initiate and complete password reset via email token.
-
-### `POST /auth/logout`
-Auth: Required. Response 200: `{ "message": "Logged out successfully" }`.
+- **`POST /signup`**: Register a new student user.
+- **`POST /login`**: Authenticate with email/password and receive a JWT.
+- **`POST /dev-login`**: Fast login for development without password (accepts `email`, `role`).
+- **`POST /verify-email`**: Submit an email for verification.
+- **`POST /resend-verification`**: Resend email verification code.
+- **`POST /verify-otp`**: Verify the emailed One Time Password.
+- **`POST /resend-otp`**: Resend OTP.
+- **`POST /forgot-password`**: Initiate password reset.
+- **`POST /reset-password`**: Complete password reset.
+- **`GET /verify` / `POST /verify`**: Re-validate the current session token (requires `authenticate` middleware).
 
 ---
 
-## 2. Practice Problem Bank — `/api/v1/practice`
+## 2. Practice — `/api/v1/practice`
+*Requires `authenticate` middleware.*
 
-### `GET /practice/problems`
-Browse the 80-problem practice bank with multi-dimensional filtering.
-
-| Query Param | Values |
-|-------------|--------|
-| `topic` | `arrays`, `strings`, `hashing`, `two-pointers-sliding-window`, `stack`, `binary-search`, `trees`, `dynamic-programming` |
-| `pattern` | e.g. `two-pointers`, `sliding-window`, `hash-map-lookup`, `1d-dp` |
-| `difficulty` | `easy` \| `medium` \| `hard` |
-| `status` | `not_started` \| `in_progress` \| `solved` \| `abandoned` |
-| `search` | Free-text |
-| `page` / `limit` | Default: 1 / 20; max limit: 100 |
-
-### `GET /practice/problems/:id` (alias: `GET /practice/:id`)
-Full problem specification, public test cases, hints, starter code for all 6 languages.
-Auth: Required.
-
-### `POST /practice/problems/:id/start`
-Transitions status to `in_progress`, records start timestamp.
-Auth: Required.
-
-### `POST /practice/problems/:id/abandon`
-Marks problem as `abandoned`.
-Auth: Required.
-
-### `POST /practice/problems/:id/submission`
-Records a practice attempt. **Awards 0 competitive points** (invariant).
-Auth: Required.
-```json
-// Request
-{ "status": "solved", "code": "...", "language": "javascript" }
-```
-
-### `GET /practice/progress`
-Personal progress summary.
-```json
-// Response 200
-{
-  "data": {
-    "problems_solved": 12, "problems_total": 80,
-    "easy_solved": 5, "easy_total": 28,
-    "medium_solved": 6, "medium_total": 36,
-    "hard_solved": 1, "hard_total": 16,
-    "topic_breakdown": [{ "topic": "arrays", "solved": 4, "total": 12 }]
-  }
-}
-```
-
-### `GET /practice/topics`
-All 8 core topics with problem counts.
-
-### `GET /practice/patterns`
-All 14 approved algorithmic patterns.
+- **`GET /progress`**: Fetch personal practice progress statistics.
+- **`GET /topics`**: List all practice topics.
+- **`GET /patterns`**: List all practice algorithmic patterns.
+- **`GET /problems`**: Browse the practice problem bank (paginated/filterable).
+- **`GET /problems/:id`**: Get full problem details for the workspace.
+- **`POST /problems/:id/start`**: Transition a problem status to `in_progress`.
+- **`POST /problems/:id/abandon`**: Mark a problem as abandoned.
+- **`POST /problems/:id/submission`**: Record a practice solve attempt (awards practice gamification points only).
+- *(Note: Route aliases exist directly under `/practice/:id` for backward compatibility).*
 
 ---
 
-## 3. Code Execution — `/api/v1/code`
+## 3. Daily Challenges — `/api/v1/daily-challenges`
+*Requires `authenticate` middleware.*
 
-### `POST /code/run`
-Execute code against public test cases or custom stdin. Does not update progress.
+- **`GET /today`**: Fetch today's active Daily Challenge.
+- **`GET /topics`**: List available topics for challenges.
+- **`GET /`**: List all Daily Challenges.
+- **`GET /:id`**: Fetch a specific Daily Challenge by ID.
 
-Auth: Required. Rate limit: 30 req/min.
-Supported languages: `javascript`, `python`, `typescript`, `java`, `cpp`, `c`
-```json
-// Request
-{
-  "question_id": "arr-001",
-  "language": "javascript",
-  "source_code": "const fs = require('fs');\n...",
-  "custom_input": "optional stdin"
-}
+### Admin-Only Routes (`requireRole('admin')`)
+- **`POST /recommend-topic`**: Recommend a topic for the next daily challenge based on history.
+- **`POST /`**: Create a Daily Challenge manually.
+- **`PUT /:id`**: Update an existing challenge.
+- **`POST /from-practice`**: Promote a practice problem into a Daily Challenge.
+- **`POST /:id/schedule`**: Schedule a challenge for a specific date.
+- **`POST /:id/publish`**: Publish a scheduled challenge.
+- **`POST /:id/publish-now`**: Immediately publish a challenge.
+- **`POST /:id/unpublish` / `PATCH /:id/unpublish`**: Unpublish a challenge.
+- **`POST /:id/archive`**: Archive a challenge.
+- **`DELETE /:id` / `DELETE /:id/permanent`**: Soft or hard delete a challenge.
+- **`POST /generate-ai`**: Use LLM to generate a complete challenge specification.
+- **`POST /generate-ai/test-cases`**: Generate test cases for a challenge.
+- **`POST /generate-ai/hints`**: Generate hints for a challenge.
+- **`POST /validate-duplicate`**: Ensure generated content is not a duplicate of existing questions.
 
-// Response 200
-{
-  "data": {
-    "status": "Accepted",
-    "passed_tests": 2, "total_tests": 2,
-    "execution_time_ms": 42,
-    "results": [
-      { "test_index": 1, "status": "Accepted", "input": "...", "expected_output": "...", "actual_output": "..." }
-    ]
-  }
-}
-```
-
-Status values: `Accepted` | `Wrong Answer` | `Runtime Error` | `Time Limit Exceeded` | `Compilation Error` | `Output Limit Exceeded`
-
-### `POST /code/submit`
-Submit against ALL test cases (including hidden). Updates practice/challenge progress.
-
-Auth: Required. Rate limit: 15 req/min.
-```json
-// Request
-{ "question_id": "arr-001", "language": "javascript", "source_code": "..." }
-```
-Response includes: full test results, submission status, points awarded (Daily Challenge only), and scoring breakdown.
-
-### `GET /code/submissions/:question_id`
-Past code submissions for the authenticated user on the given problem (last 50).
+### Daily Challenge Automation (Admin-Only)
+- **`GET /automation/status`**: View the cron scheduler state.
+- **`PATCH /automation/settings`**: Configure daily automated generation logic.
+- **`POST /automation/run-now`**: Trigger the generation script immediately.
+- **`GET /automation/logs`**: View automated generation logs.
 
 ---
 
-## 4. Daily Challenge — `/api/v1/daily-challenges`
+## 4. Code Execution & Submissions
 
-### `GET /daily-challenges/today` ← SINGLE SOURCE OF TRUTH
-Returns today's active Daily Challenge. **Both Dashboard and Daily Challenge page must use this endpoint.**
+### Code Execution — `/api/v1/code`
+*Requires `authenticate` middleware.*
 
-Auth: Required.
-```json
-// Response 200
-{
-  "data": {
-    "id": "dc-20260829",
-    "title": "Maximum Subarray",
-    "difficulty": "Medium",
-    "points": 100,
-    "date": "2026-08-29",
-    "topic_name": "Arrays",
-    "pattern_name": "Kadane's Algorithm",
-    "description": "Given an integer array...",
-    "submission_status": "not_started",
-    "dailyChallengeStreak": 3
-  }
-}
-```
+- **`POST /run`**: Execute code against public test cases or custom stdin (Rate limited).
+- **`POST /submit`**: Submit code against ALL test cases (including hidden). Updates practice/challenge progress based on the context.
+- **`GET /submissions/:question_id`**: Fetch previous code execution history for a specific question.
 
-### `GET /daily-challenges`
-List all challenges. Query: `status`, `difficulty`, `date`, `page`, `limit`. Auth: Required.
+### Submissions Management — `/api/v1/submissions`
+*Requires `authenticate` middleware.*
 
-### `GET /daily-challenges/:id`
-Single challenge by ID.
-
-### `POST /daily-challenges` — Admin only
-Create a new Daily Challenge.
-
-### `PUT /daily-challenges/:id` — Admin only
-Update challenge metadata.
-
-### `POST /daily-challenges/:id/schedule` — Admin only
-Schedule for a specific UTC date.
-
-### `POST /daily-challenges/:id/publish` / `unpublish` / `archive` — Admin only
-Lifecycle state transitions.
-
-### `POST /daily-challenges/generate-ai` — Admin only
-Generate challenge spec via LLM.
-
-### `POST /daily-challenges/from-practice` — Admin only
-Promote a practice problem to a Daily Challenge.
+- **`GET /`**: List historical submissions.
+- **`POST /`**: Upsert a question submission.
+- **`POST /toggle`**: Toggle submission status.
+- **`PATCH /:id`**: Update a specific submission.
+- **`POST /:id/abandon`**: Mark a specific submission as abandoned.
+- **`POST /github`**: Sync submission directly from/to GitHub.
+- **Admin/Mentor Routes**:
+  - **`POST /:id/review`**: Manually review a submission.
+  - **`POST /:id/ai-review`**: Request an AI code review for a submission.
 
 ---
 
 ## 5. Question Bank — `/api/v1/questions`
+*Requires `authenticate` middleware.*
 
-### `GET /questions`
-Paginated list. Query: `difficulty`, `topic_id`, `search`, `page`, `limit`.
+- **`GET /`**: Paginated list of questions.
+- **`GET /topics`**: List all question topics.
+- **`GET /:id`**: Get a specific question's details.
 
-### `GET /questions/:id`
-Full question record with test cases and version info.
-
-### `POST /questions` — Admin only
-Create a question. Schema: `{ title, difficulty, topic_id, description, constraints, hints, starter_code, test_cases }`.
-
-### `PATCH /questions/:id` — Admin only
-Update question. Creates an audited version record automatically.
-
-### `DELETE /questions/:id` — Admin only
-Soft-delete (archive). Returns `409` if question is today's active Daily Challenge.
-
-### `GET /questions/:id/versions`
-Version history for a question.
-
-### `POST /questions/:id/versions/:version/restore` — Admin only
-Restore a previous version.
+### Admin-Only Routes (`requireRole('admin')`)
+- **`POST /`**: Create a new question.
+- **`PUT /:id` / `PATCH /:id`**: Update an existing question (creates a version history record).
+- **`DELETE /:id`**: Delete a question.
+- **`POST /:id/validate`**: Validate question structure.
+- **`GET /:id/versions`**: Fetch version history for a question.
+- **`GET /:id/versions/:version`**: Fetch a specific historical version.
+- **`GET /:id/versions/compare`**: Compare two versions of a question.
+- **`POST /:id/versions/:version/restore`**: Rollback to a specific version.
 
 ---
 
-## 6. DSA AI Coach — `/api/v1/dsa-ai`
+## 6. AI Features — `/api/v1/dsa-ai` & `/api/v1/ai-questions`
 
-### `POST /dsa-ai/coach`
-Main coach endpoint. Supports all 9 actions with deterministic-first + LLM fallback.
+### DSA Coach (`/api/v1/dsa-ai`)
+*Requires `authenticate` and `dsaAiLimiter`.*
 
-Auth: Required. Rate limit: 100 req/15min.
+- **`POST /analyze`**: Phase 1 deterministic analysis (intent parsing, context gathering).
+- **`POST /generate`**: Phase 2 LLM-backed guidance (hints, explanation, debugging).
+- **`POST /coach`**: Unified coach endpoint that handles both analysis and generation transparently.
+- **`POST /verify`**: Sandbox code verification with bounded LLM self-correction.
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `question` | ✅ | User query text |
-| `problemId` | Optional | Practice problem ID for context grounding |
-| `action` | Optional | `HINT`, `EXPLAIN`, `APPROACH`, `SOLUTION`, `COMPLEXITY`, `CODE_REVIEW`, `DEBUG`, `TEST_CASE`, `CONCEPT` |
-| `language` | Optional | Default: `javascript` |
-| `code` | Optional | Student code for review or debug |
-| `hintIndex` | Optional | Progressive hint level (0, 1, 2, ...) |
-| `verify` | Optional | `true` runs sandbox verification on generated solution |
+### AI Question Generation (`/api/v1/ai-questions`)
+*Requires `authenticate`, `requireRole('admin')`, and `aiRateLimiter`.*
 
-```json
-// Request
-{
-  "question": "How do I approach Two Sum?",
-  "problemId": "q-two-sum",
-  "action": "HINT",
-  "language": "javascript",
-  "hintIndex": 0
-}
-
-// Response 200
-{
-  "data": {
-    "intent": "HINT",
-    "source": "database",
-    "topic": "Arrays",
-    "pattern": "Hash Map Lookup",
-    "answer": "Hint 1 of 2: Use a hash table to check for target complements in O(1) time.",
-    "code": null,
-    "complexity": { "time": "O(N)", "space": "O(N)" },
-    "verification": null
-  }
-}
-```
-
-`source` values: `database` (0 LLM tokens) | `llm` (Groq) | `fallback` (all providers down)
-
-### `POST /dsa-ai/analyze`
-Phase 1 deterministic analysis. No LLM call.
-Request: `{ question, problemId }`.
-Response: `{ intent, matchedProblem, topic, pattern, context }`.
-
-### `POST /dsa-ai/generate`
-Phase 2 LLM-backed guidance with Groq multi-key failover.
-Request: `{ question, problemId, code }`.
-
-### `POST /dsa-ai/verify`
-Sandbox code verification with bounded self-correction (max 2 attempts).
-Request: `{ problemId, language, code }`.
-```json
-// Response 200
-{
-  "data": {
-    "verified": true,
-    "status": "Accepted",
-    "passed_tests": 5,
-    "total_tests": 5,
-    "execution_time_ms": 43,
-    "correctionsMade": 0
-  }
-}
-```
+- **`POST /generate`**: Generate language-independent problem specifications.
 
 ---
 
 ## 7. Users & Leaderboard — `/api/v1/users`
+*Requires `authenticate` middleware.*
 
-### `GET /users/leaderboard`
-Auth: Required. Query: `period` = `all` | `weekly` | `monthly`.
+- **`GET /profile/me`**: Get current authenticated user profile.
+- **`PATCH /profile/me`**: Update current user profile.
+- **`GET /leaderboard`**: Get the global competitive leaderboard (Daily Challenge scores only).
 
-Ordering (all-time): `points DESC → streak DESC → longest_streak DESC → name ASC → id ASC`
-Ordering (period): `period_points DESC → earliest_qualifying_submit ASC → id ASC`
-
-### `GET /users/profile/me`
-Authenticated user's full profile with stats.
-
-### `PATCH /users/profile/me`
-Update name or avatar.
-
-### `GET /users` — Admin only
-Paginated user list. Query: `search`, `role`, `page`, `limit`.
-
-### `PATCH /users/:id/role` — Admin only
-Change user role: `user` | `admin`.
+### Admin-Only Routes (`requireRole('admin')`)
+- **`GET /`**: List all users.
+- **`GET /:id`**: Get specific user details.
+- **`PATCH /:id/role`**: Change user role (e.g. from `user` to `admin`).
 
 ---
 
-## 8. Analytics — `/api/v1/analytics`
+## 8. Analytics & Progress
 
-### `GET /analytics/me`
-Personal analytics summary.
-```json
-{
-  "data": {
-    "rank": 5,
-    "total_score": 1200,
-    "leaderboard_score": 800,
-    "problems_solved": 24,
-    "daily_challenges_completed": 8,
-    "streak": 5,
-    "summary": {
-      "dailyChallengeStreak": 5,
-      "individualStreak": 12,
-      "solved_submissions": 24
-    }
-  }
-}
-```
+### Analytics (`/api/v1/analytics`)
+*Requires `authenticate` middleware.*
+- **`GET /me`**: Fetch personal analytics (score, rank, problems solved, etc.).
+- **`GET /admin/stats`**: Fetch platform-wide statistics (Admin only).
 
-### `GET /analytics/admin/stats` — Admin only
-Platform-wide stats: active users, submissions, pending reviews, question counts.
+### Progress (`/api/v1/progress`)
+*Requires `authenticate` middleware.*
+- **`GET /me`**: Fetch detailed personal progress.
+- **`GET /admin`**: Fetch progress reports for users (Admin only).
+- **`GET /stats`**: Alias for platform-wide stats (Admin only).
 
 ---
 
-## 9. Notifications — `/api/v1/notifications`
+## 9. System Domains
 
-### `GET /notifications`
-Auth: Required. Query: `category`, `unreadOnly`, `page`, `limit`.
+### Notifications (`/api/v1/notifications`)
+*Requires `authenticate` middleware.*
+- **`GET /`**: List notifications for the user.
+- **`PATCH /:id/read`**: Mark specific notification as read.
+- **`POST /read-all`**: Mark all notifications as read.
 
-### `PATCH /notifications/:id/read`
-Mark a single notification as read.
+### Audit Logs (`/api/v1/admin/audit-logs`)
+*Requires `authenticate` and `requireRole('admin')`.*
+- **`GET /`**: Fetch immutable audit logs of admin operations.
 
-### `POST /notifications/read-all`
-Mark all as read. Optional body: `{ "category": "submission" }`.
-
----
-
-## 10. Admin — Audit Logs
-
-### `GET /admin/audit-logs` — Admin only
-Immutable audit log of all admin operations.
-
-Query: `action`, `resource_type`, `actor_id`, `from_date`, `to_date`, `page`, `limit`.
+### Deprecated Domains
+- **`/api/v1/assignments`**: Returns HTTP `410 Gone`. Assignments are removed in favor of Practice/Daily Challenge.
+- **`/api/v1/cohorts`**: Returns HTTP `410 Gone`. Cohorts are no longer part of the core product.
 
 ---
 
-## 11. AI Question Generation — `/api/v1/ai-questions`
+## 10. System Error Codes & Rate Limits
 
-### `POST /ai-questions/generate` — Admin only
-Generate language-independent problem specs via LLM.
-```json
-// Request
-{ "topic": "arrays", "difficulty": "medium", "count": 3 }
-```
-Generated specs require admin review before publishing.
-
----
-
-## Error Codes
-
+### Error Codes
 | Code | HTTP | Description |
 |------|------|-------------|
-| `VALIDATION_ERROR` | 400 | Missing or invalid request fields |
-| `UNAUTHORIZED` | 401 | Missing or invalid JWT |
-| `FORBIDDEN` | 403 | Insufficient role |
-| `NOT_FOUND` | 404 | Resource does not exist |
-| `CONFLICT` | 409 | Duplicate resource |
-| `RATE_LIMITED` | 429 | Too many requests |
-| `INTERNAL_ERROR` | 500 | Unexpected server error |
+| `VALIDATION_ERROR` | 400 | Missing or invalid request fields. |
+| `UNAUTHORIZED` | 401 | Missing or invalid JWT. |
+| `FORBIDDEN` | 403 | Insufficient role (e.g., requires `admin`). |
+| `NOT_FOUND` | 404 | Resource does not exist. |
+| `CONFLICT` | 409 | Duplicate resource or state conflict. |
+| `FEATURE_REMOVED` | 410 | Route explicitly deprecated (Assignments, Cohorts). |
+| `RATE_LIMITED` | 429 | Too many requests. |
+| `INTERNAL_ERROR` | 500 | Unexpected server error. |
 
----
-
-## Rate Limits
-
+### Rate Limits
 | Scope | Limit |
 |-------|-------|
-| Global `/api/v1` | 500 req / 15 min (production) |
-| `POST /code/run` | 30 req / min |
-| `POST /code/submit` | 15 req / min |
-| `POST /dsa-ai/*` | 100 req / 15 min |
+| Global `/api/v1` | 500 req / 15 min (production) / 5000 (dev) |
+| `POST /auth/*` | 20 req / 15 min (via `authRateLimiter`) |
+| `POST /code/run` | 30 req / min (via `executionRateLimiter`) |
+| `POST /code/submit` | 15 req / min (via `submissionRateLimiter`) |
+| `POST /dsa-ai/*` | 100 req / 15 min (via `dsaAiLimiter`) |
