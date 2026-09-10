@@ -395,9 +395,9 @@ export default function LandingPage({ onNavigateToLogin }) {
                       <pre className="flex-1 p-3 text-[11px] leading-[1.65] font-mono overflow-hidden" style={{ color: "#E2E8F0" }}
                         dangerouslySetInnerHTML={{ __html: HERO_CODE }} />
                       <div className="flex gap-2 px-3 pb-3">
-                        <button className="px-3 py-1.5 rounded text-xs font-semibold transition-opacity hover:opacity-80 border"
+                        <button onClick={() => onNavigateToLogin('login')} className="px-3 py-1.5 rounded text-xs font-semibold transition-opacity hover:opacity-80 border"
                           style={{ background: "rgba(34,211,238,0.15)", color: "#22D3EE", borderColor: "rgba(34,211,238,0.3)" }}>▶ Run</button>
-                        <button className="px-3 py-1.5 rounded text-xs font-bold text-white transition-opacity hover:opacity-80"
+                        <button onClick={() => onNavigateToLogin('login')} className="px-3 py-1.5 rounded text-xs font-bold text-white transition-opacity hover:opacity-80"
                           style={{ background: "linear-gradient(135deg, #06B6D4, #6366F1)" }}>Submit</button>
                       </div>
                     </div>
@@ -1053,13 +1053,20 @@ export default function LandingPage({ onNavigateToLogin }) {
               <p className="text-sm font-medium" style={T.t3}>Pattern-first DSA practice for serious learners.</p>
             </div>
             <nav className="flex flex-wrap gap-x-8 gap-y-4" aria-label="Footer navigation">
-              {["Features", "How It Works", "Curriculum", "Practice", "Daily Challenges", "Sign In"].map(l => (
-                <a key={l} href="#" className="text-sm font-semibold transition-colors hover:text-cyan-500" style={{ ...T.t2, textDecoration: "none" }}>{l}</a>
+              {["Features", "How It Works", "Curriculum", "Practice", "AI Coach", "Daily Challenges", "Sign In"].map(l => (
+                <a key={l} 
+                   href={l === "Sign In" ? "#" : `#${l.toLowerCase().replace(/ /g, "-")}`}
+                   onClick={l === "Sign In" ? (e) => { e.preventDefault(); onNavigateToLogin('login'); } : undefined}
+                   className="text-sm font-semibold transition-colors hover:text-cyan-500" 
+                   style={{ ...T.t2, textDecoration: "none" }}>{l}</a>
               ))}
             </nav>
           </div>
           <div className="mt-12 pt-8 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6" style={{ borderColor: "var(--border-subtle)" }}>
-            <p className="text-sm font-medium" style={T.t3}>© 2026 Axly. All rights reserved.</p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-6">
+              <p className="text-sm font-medium" style={T.t3}>© 2026 Axly. All rights reserved.</p>
+              <a href="mailto:support@axly.in" className="text-sm font-medium transition-colors hover:text-cyan-500" style={T.t3}>support@axly.in</a>
+            </div>
             <button onClick={toggle}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all hover:bg-theme-surface2 active:scale-95"
               style={{ ...T.border, ...T.t2 }}
