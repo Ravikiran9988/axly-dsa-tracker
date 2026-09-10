@@ -20,7 +20,7 @@
       (function () {
         try {
           var saved = localStorage.getItem('axly-theme');
-          var theme = (saved === 'light' || saved === 'dark') ? saved : 'dark';
+          var theme = (saved === 'light' || saved === 'dark') ? saved : 'light';
           if (theme === 'dark') {
             document.documentElement.classList.add('dark');
             document.documentElement.style.background = '#080C14';
@@ -31,8 +31,10 @@
             document.documentElement.style.colorScheme = 'light';
           }
         } catch (e) {
-          document.documentElement.classList.add('dark');
-          document.documentElement.style.background = '#080C14';
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('light');
+          document.documentElement.style.background = '#f8fafc';
+          document.documentElement.style.colorScheme = 'light';
         }
       })();
     </script>
