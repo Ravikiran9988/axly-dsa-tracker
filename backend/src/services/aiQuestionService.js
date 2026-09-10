@@ -40,13 +40,16 @@ async function validateGeneratedQuestionAsync(text, expectedCount) {
     return { valid: false, reason: 'function_signature must be an object containing at least a name string' };
   }
 
+  const normalize = (s) => String(s || '').replace(/_/g, '').toLowerCase();
+  const normalizedName = normalize(question.function_signature.name);
+
   const languages = ['javascript', 'typescript', 'python', 'java', 'cpp', 'c'];
   for (const lang of languages) {
     if (typeof question.starter_code[lang] !== 'string' || !question.starter_code[lang].trim()) {
       return { valid: false, reason: `starter_code is missing or invalid for language: ${lang}` };
     }
-    // Signature matching check
-    if (!question.starter_code[lang].includes(question.function_signature.name)) {
+    // Signature matching check (normalized to handle snake_case vs camelCase)
+    if (!normalize(question.starter_code[lang]).includes(normalizedName)) {
       return { valid: false, reason: `starter_code for ${lang} does not contain the function signature name '${question.function_signature.name}'` };
     }
   }
@@ -55,7 +58,7 @@ async function validateGeneratedQuestionAsync(text, expectedCount) {
     return { valid: false, reason: 'reference_solution must be an object containing a valid python solution' };
   }
   
-  if (!question.reference_solution.python.includes(question.function_signature.name)) {
+  if (!normalize(question.reference_solution.python).includes(normalizedName)) {
     return { valid: false, reason: `reference_solution for python does not contain the function signature name '${question.function_signature.name}'` };
   }
 
