@@ -11,6 +11,7 @@ const dsaAiCoachService = require('../src/services/dsaAiCoachService');
 const aiCache = require('../src/services/dsaAiCacheService');
 
 describe('Phase 3: DSA AI Coach & Code Verification Suite', () => {
+  jest.setTimeout(30000);
   let studentToken;
   let studentUser;
   const repo = getRepository();

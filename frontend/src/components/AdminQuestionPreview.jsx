@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Code2, AlertCircle, Play, CheckCircle2, FlaskConical, Beaker, FileCode } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -61,7 +62,7 @@ export default function AdminQuestionPreview({ itemId, type, onClose }) {
     hard: 'text-rose-400 border-rose-400/30 bg-rose-400/10',
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
       <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl">
         
@@ -340,4 +341,6 @@ export default function AdminQuestionPreview({ itemId, type, onClose }) {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

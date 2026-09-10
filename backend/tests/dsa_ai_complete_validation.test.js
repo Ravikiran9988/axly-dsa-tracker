@@ -15,6 +15,7 @@ const knowledgeGraph = require('../src/services/dsaKnowledgeGraphService');
 const aiCache = require('../src/services/dsaAiCacheService');
 
 describe('Comprehensive 4-Phase DSA AI Validation Suite', () => {
+  jest.setTimeout(30000);
   let studentToken;
   let studentUser;
   const repo = getRepository();

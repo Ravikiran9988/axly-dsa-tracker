@@ -1,0 +1,105 @@
+{
+  "total": 3,
+  "success": 1,
+  "failed": 2,
+  "details": [
+    {
+      "topic": "Arrays",
+      "diff": "Easy",
+      "status": "PASS",
+      "id": {
+        "id": "5c56eb77-0e67-4fd4-9c2e-e2b44e476b5c",
+        "title": "Array Sum Even",
+        "difficulty": "easy",
+        "topic_id": null,
+        "url": "https://dsatracker.axly.in/questions/5c56eb77-0e67-4fd4-9c2e-e2b44e476b5c",
+        "description": "Given an array of integers `nums`, return the sum of all even integers in the array.",
+        "problem_statement": null,
+        "constraints": "1 <= nums.length <= 10^5\n-10^4 <= nums[i] <= 10^4",
+        "input_format": "First line: JSON array `nums`.",
+        "output_format": "A single integer representing the sum.",
+        "example_input": null,
+        "example_output": null,
+        "hints": [
+          "Iterate through the array and check if each number is divisible by 2."
+        ],
+        "tags": [],
+        "estimated_time": "30 mins",
+        "points": 20,
+        "assigned_date": null,
+        "due_date": null,
+        "status": "published",
+        "supported_languages": [
+          "javascript",
+          "python"
+        ],
+        "starter_code": {
+          "javascript": "const fs = require('fs');\n\nfunction sumEven(nums) {\n  return 0;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif(raw) {\n  const nums = JSON.parse(raw);\n  console.log(sumEven(nums));\n}",
+          "typescript": "import * as fs from 'fs';\n\nfunction sumEven(nums: number[]): number {\n  return 0;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif(raw) {\n  const nums = JSON.parse(raw);\n  console.log(sumEven(nums));\n}",
+          "python": "import sys\nimport json\n\ndef sumEven(nums):\n    pass\n\nif __name__ == '__main__':\n    raw = sys.stdin.read().strip()\n    if raw:\n        nums = json.loads(raw)\n        print(sumEven(nums))",
+          "java": "import java.util.*;\n\npublic class Solution {\n    public static int sumEven(int[] nums) {\n        return 0;\n    }\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (sc.hasNextLine()) {\n            String line = sc.nextLine();\n            // simple parsing placeholder\n            System.out.println(0);\n        }\n    }\n}",
+          "cpp": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    int sumEven(vector<int>& nums) {\n        return 0;\n    }\n};\n\nint main() {\n    // simple parsing placeholder\n    cout << 0 << endl;\n    return 0;\n}",
+          "c": "#include <stdio.h>\n\nint sumEven(int* nums, int numsSize) {\n    return 0;\n}\n\nint main() {\n    printf(\"0\\n\");\n    return 0;\n}"
+        },
+        "is_active": true,
+        "created_at": "2026-09-10 20:39:56",
+        "current_version": 1,
+        "is_practice": 0,
+        "slug": null,
+        "pattern_id": null,
+        "secondary_topics": "[]",
+        "prerequisites": "[]",
+        "solution_approach": null,
+        "topic_name": null,
+        "is_daily_challenge": false,
+        "reference_solution": null,
+        "test_cases": [
+          {
+            "id": "18bbdca1-a0dd-46ac-b2b7-921920bd1307",
+            "input": "[1, 2, 3, 4]",
+            "expected_output": "6",
+            "is_hidden": false
+          },
+          {
+            "id": "1cdb2e40-c83b-43b8-bde7-740b281ce02f",
+            "input": "[1, 3, 5]",
+            "expected_output": "0",
+            "is_hidden": false
+          },
+          {
+            "id": "adc9bdb5-33d8-4b2c-9e0d-0aaafbb38543",
+            "input": "[2, 2, 2]",
+            "expected_output": "6",
+            "is_hidden": true
+          },
+          {
+            "id": "e292b51e-0ca7-4926-9b6e-00b02032dc25",
+            "input": "[-2, 4, 3]",
+            "expected_output": "2",
+            "is_hidden": true
+          }
+        ],
+        "submission_status": "not_started"
+      },
+      "title": "Array Sum Even"
+    },
+    {
+      "topic": "Linked Lists",
+      "diff": "Medium",
+      "status": "FAIL",
+      "reason": "A question with title \"Array Sum Even\" already exists."
+    },
+    {
+      "topic": "Dynamic Programming",
+      "diff": "Hard",
+      "status": "FAIL",
+      "reason": "A question with title \"Array Sum Even\" already exists."
+    },
+    {
+      "topic": "Strings (Fallback)",
+      "diff": "Easy",
+      "status": "FAIL",
+      "reason": "Expected exactly 2 test cases, received 4"
+    }
+  ]
+}

@@ -152,7 +152,7 @@ function computeSemanticSimilarity(textA, textB) {
  * Curated Library of 18+ Distinct, Verified DSA Problem Archetypes
  * (Zero artificial variants; 100% verified sandbox drivers)
  */
-const PROBLEM_TEMPLATES = [
+const FALLBACK_TEMPLATES = [
   {
     topic: 'Arrays',
     pattern: 'Sliding Window',
@@ -1492,7 +1492,7 @@ async function generateDailyChallenge(options = {}) {
 
   // 2. Curated Library Rotation (Filter out any templates that collide with existing problems)
   const availableTemplates = [];
-  for (const tpl of PROBLEM_TEMPLATES) {
+  for (const tpl of FALLBACK_TEMPLATES) {
     const cleanTplTitle = stripVariantIdentifiers(tpl.title);
     const candidateData = {
       title: cleanTplTitle,
@@ -1527,7 +1527,7 @@ async function generateDailyChallenge(options = {}) {
       ? topicFallbackTemplates[Math.floor(Math.random() * topicFallbackTemplates.length)]
       : (diffFallbackTemplates.length > 0
         ? diffFallbackTemplates[Math.floor(Math.random() * diffFallbackTemplates.length)]
-        : (availableTemplates[0] || PROBLEM_TEMPLATES[0])));
+        : (availableTemplates[0] || FALLBACK_TEMPLATES[0])));
 
   const cleanTitle = stripVariantIdentifiers(matched.title);
   const synthesizedSlug = generateSlug(cleanTitle);
@@ -1604,5 +1604,5 @@ module.exports = {
   stripVariantIdentifiers,
   computeSemanticSimilarity,
   TOPIC_NAMES,
-  PROBLEM_TEMPLATES
+  FALLBACK_TEMPLATES
 };
