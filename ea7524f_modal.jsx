@@ -45,7 +45,6 @@ export default function AdminDailyChallengeModal({
   const [error, setError] = useState(null);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [sectionLoading, setSectionLoading] = useState(null);
 
   // Manual Form State
   const [formData, setFormData] = useState({
@@ -270,54 +269,6 @@ export default function AdminDailyChallengeModal({
     }
   }, [isOpen, challengeToEdit, topics]);
 
-  const handleSectionRecommend = async (section) => {
-    if (!formData.title.trim() || !formData.difficulty) {
-      setError('Enter at least a Challenge Title and Difficulty before generating recommendations.');
-      return;
-    }
-    
-    setSectionLoading(section);
-    setError(null);
-    try {
-      const payload = {
-        title: formData.title,
-        difficulty: formData.difficulty,
-        topic: formData.topic_name || '',
-        pattern: formData.pattern_name || '',
-        description: formData.description || formData.problem_statement || '',
-        constraints: formData.constraints || ''
-      };
-      const res = await api.generateDailyChallengeAI(payload);
-      if (!res.data) throw new Error('Failed to fetch recommendation.');
-      
-      if (section === 'statement') {
-        setFormData(prev => ({
-          ...prev,
-          description: res.data.description || prev.description,
-          problem_statement: res.data.problem_statement || res.data.description || prev.problem_statement,
-          constraints: res.data.constraints || prev.constraints,
-          input_format: res.data.input_format || prev.input_format,
-          output_format: res.data.output_format || prev.output_format,
-          examples: res.data.examples || prev.examples,
-        }));
-      } else if (section === 'startercode') {
-        setFormData(prev => ({
-          ...prev,
-          starter_code: res.data.starter_code || prev.starter_code
-        }));
-      } else if (section === 'referencesolution') {
-        setFormData(prev => ({
-          ...prev,
-          reference_solution: res.data.reference_solution || prev.reference_solution
-        }));
-      }
-    } catch (err) {
-      setError(err.message || `Failed to generate recommendation.`);
-    } finally {
-      setSectionLoading(null);
-    }
-  };
-
   // Manual Form Handlers
   const handleStarterCodeChange = (lang, value) => {
     setFormData(prev => ({
@@ -414,22 +365,22 @@ export default function AdminDailyChallengeModal({
       const cleanTestCases = formData.test_cases.filter(tc => tc.input !== '' && tc.expected_output !== '');
 
       if (targetStatus !== 'draft') {
-        if (!String(formData.title || '').trim()) { setActiveTab('details'); throw new Error('Challenge Title is required'); }
+        if (!formData.title.trim()) { setActiveTab('details'); throw new Error('Challenge Title is required'); }
         if (!formData.difficulty) { setActiveTab('details'); throw new Error('Difficulty is required'); }
         if (!formData.topic_id) { setActiveTab('details'); throw new Error('Primary Topic is required'); }
         if (!formData.points) { setActiveTab('details'); throw new Error('Competitive Points is required'); }
-        if (!String(formData.description || '').trim()) { setActiveTab('content'); throw new Error('Problem Description is required'); }
-        if (!String(formData.constraints || '').trim()) { setActiveTab('content'); throw new Error('Constraints are required'); }
-        if (!String(formData.input_format || '').trim()) { setActiveTab('content'); throw new Error('Input Format is required'); }
-        if (!String(formData.output_format || '').trim()) { setActiveTab('content'); throw new Error('Output Format is required'); }
+        if (!formData.description.trim()) { setActiveTab('content'); throw new Error('Problem Description is required'); }
+        if (!formData.constraints.trim()) { setActiveTab('content'); throw new Error('Constraints are required'); }
+        if (!formData.input_format.trim()) { setActiveTab('content'); throw new Error('Input Format is required'); }
+        if (!formData.output_format.trim()) { setActiveTab('content'); throw new Error('Output Format is required'); }
         
-        const completeExamples = formData.examples.filter(ex => String(ex.input || '').trim() && String(ex.output || '').trim());
+        const completeExamples = formData.examples.filter(ex => ex.input.trim() && ex.output.trim());
         if (completeExamples.length === 0) {
           setActiveTab('content');
           throw new Error('At least 1 complete Example (with Input and Output) is required');
         }
 
-        const missingStarterCode = formData.supported_languages.find(lang => !formData.starter_code[lang] || !String(formData.starter_code[lang]).trim());
+        const missingStarterCode = formData.supported_languages.find(lang => !formData.starter_code[lang] || !formData.starter_code[lang].trim());
         if (missingStarterCode) {
           setActiveTab('startercode');
           throw new Error(`Starter Code for ${missingStarterCode} is missing`);
@@ -714,13 +665,7 @@ export default function AdminDailyChallengeModal({
               {activeTab === 'content' && (
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-theme-text2">Problem Description *</label>
-                      <button type="button" onClick={() => handleSectionRecommend('statement')} disabled={sectionLoading === 'statement'} className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-semibold transition-all">
-                        {sectionLoading === 'statement' ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-500" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
-                        {sectionLoading === 'statement' ? 'Analyzing...' : 'AI Recommend'}
-                      </button>
-                    </div>
+                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Problem Description *</label>
                     <textarea
                       rows={5}
                       name="description"
@@ -831,15 +776,9 @@ export default function AdminDailyChallengeModal({
               {/* TAB 3: STARTER CODE */}
               {activeTab === 'startercode' && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Starter Code</h4>
-                      <p className="text-[11px] text-theme-text2">Required starting code snippet for each supported language. Must be syntactically valid.</p>
-                    </div>
-                    <button type="button" onClick={() => handleSectionRecommend('startercode')} disabled={sectionLoading === 'startercode'} className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-semibold transition-all">
-                      {sectionLoading === 'startercode' ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-500" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
-                      {sectionLoading === 'startercode' ? 'Analyzing...' : 'AI Recommend'}
-                    </button>
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Starter Code</h4>
+                    <p className="text-[11px] text-theme-text2">Required starting code snippet for each supported language. Must be syntactically valid.</p>
                   </div>
                   {formData.supported_languages.map(lang => (
                     <div key={lang} className="p-4 rounded-2xl bg-theme-surface border border-theme-border">
@@ -861,15 +800,9 @@ export default function AdminDailyChallengeModal({
               {/* TAB 4: REFERENCE SOLUTION */}
               {activeTab === 'referencesolution' && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Reference Solution (Optional)</h4>
-                      <p className="text-[11px] text-theme-text2">Working solution. Securely stored, never exposed to students.</p>
-                    </div>
-                    <button type="button" onClick={() => handleSectionRecommend('referencesolution')} disabled={sectionLoading === 'referencesolution'} className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-semibold transition-all">
-                      {sectionLoading === 'referencesolution' ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-500" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
-                      {sectionLoading === 'referencesolution' ? 'Analyzing...' : 'AI Recommend'}
-                    </button>
+                  <div className="mb-4">
+                    <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Reference Solution (Optional)</h4>
+                    <p className="text-[11px] text-theme-text2">Working solution. Securely stored, never exposed to students.</p>
                   </div>
                   {formData.supported_languages.map(lang => (
                     <div key={lang} className="p-4 rounded-2xl bg-theme-surface border border-theme-border">

@@ -283,9 +283,7 @@ export default function AdminDailyChallengeModal({
         title: formData.title,
         difficulty: formData.difficulty,
         topic: formData.topic_name || '',
-        pattern: formData.pattern_name || '',
-        description: formData.description || formData.problem_statement || '',
-        constraints: formData.constraints || ''
+        pattern: formData.pattern_name || ''
       };
       const res = await api.generateDailyChallengeAI(payload);
       if (!res.data) throw new Error('Failed to fetch recommendation.');
@@ -414,22 +412,22 @@ export default function AdminDailyChallengeModal({
       const cleanTestCases = formData.test_cases.filter(tc => tc.input !== '' && tc.expected_output !== '');
 
       if (targetStatus !== 'draft') {
-        if (!String(formData.title || '').trim()) { setActiveTab('details'); throw new Error('Challenge Title is required'); }
+        if (!formData.title.trim()) { setActiveTab('details'); throw new Error('Challenge Title is required'); }
         if (!formData.difficulty) { setActiveTab('details'); throw new Error('Difficulty is required'); }
         if (!formData.topic_id) { setActiveTab('details'); throw new Error('Primary Topic is required'); }
         if (!formData.points) { setActiveTab('details'); throw new Error('Competitive Points is required'); }
-        if (!String(formData.description || '').trim()) { setActiveTab('content'); throw new Error('Problem Description is required'); }
-        if (!String(formData.constraints || '').trim()) { setActiveTab('content'); throw new Error('Constraints are required'); }
-        if (!String(formData.input_format || '').trim()) { setActiveTab('content'); throw new Error('Input Format is required'); }
-        if (!String(formData.output_format || '').trim()) { setActiveTab('content'); throw new Error('Output Format is required'); }
+        if (!formData.description.trim()) { setActiveTab('content'); throw new Error('Problem Description is required'); }
+        if (!formData.constraints.trim()) { setActiveTab('content'); throw new Error('Constraints are required'); }
+        if (!formData.input_format.trim()) { setActiveTab('content'); throw new Error('Input Format is required'); }
+        if (!formData.output_format.trim()) { setActiveTab('content'); throw new Error('Output Format is required'); }
         
-        const completeExamples = formData.examples.filter(ex => String(ex.input || '').trim() && String(ex.output || '').trim());
+        const completeExamples = formData.examples.filter(ex => ex.input.trim() && ex.output.trim());
         if (completeExamples.length === 0) {
           setActiveTab('content');
           throw new Error('At least 1 complete Example (with Input and Output) is required');
         }
 
-        const missingStarterCode = formData.supported_languages.find(lang => !formData.starter_code[lang] || !String(formData.starter_code[lang]).trim());
+        const missingStarterCode = formData.supported_languages.find(lang => !formData.starter_code[lang] || !formData.starter_code[lang].trim());
         if (missingStarterCode) {
           setActiveTab('startercode');
           throw new Error(`Starter Code for ${missingStarterCode} is missing`);

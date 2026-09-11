@@ -1,0 +1,765 @@
+commit b89ef7df9a65e5fdb544f26c04eb02052ec986ee
+Author: Medicharla Ravi Kiran <vk889692@gmail.com>
+Date:   Fri Sep 11 20:16:25 2026 +0530
+
+    feat: implement admin dashboard for daily challenge management and automation configuration
+
+diff --git a/frontend/src/components/AdminDailyChallengeModal.jsx b/frontend/src/components/AdminDailyChallengeModal.jsx
+index ab65e7a..5df1162 100644
+--- a/frontend/src/components/AdminDailyChallengeModal.jsx
++++ b/frontend/src/components/AdminDailyChallengeModal.jsx
+@@ -34,13 +34,13 @@ export default function AdminDailyChallengeModal({
+   isOpen,
+   onClose,
+   challengeToEdit = null,
+-  initialMode = 'manual', // 'manual' | 'ai'
++
+   topics = [],
+   patterns = [],
+   onSaved
+ }) {
+-  const [creationMode, setCreationMode] = useState('manual'); // 'manual' | 'ai'
+-  const [activeTab, setActiveTab] = useState('details'); // 'details' | 'content' | 'testcases' | 'hints_editorial'
++    const [activeTab, setActiveTab] = useState('details'); // 'details' | 'content' | 'testcases' | 'hints_editorial'
++    console.log("AdminDailyChallengeModal loaded - HMR triggered");
+ 
+   // Manual Form State
+   const [formData, setFormData] = useState({
+@@ -61,7 +61,16 @@ export default function AdminDailyChallengeModal({
+     examples: [
+       { input: '', output: '', explanation: '' }
+     ],
+-    starter_code: `function solution(input) {\n  // Write your competitive solution here\n  return null;\n}`,
++    starter_code: {
++      javascript: `function solution(input) {\n  // Write your competitive solution here\n  return null;\n}`,
++      python: `def solution(input):\n    # Write your competitive solution here\n    return None`,
++      typescript: `function solution(input: any): any {\n  // Write your competitive solution here\n  return null;\n}`,
++      java: `class Solution {\n    public Object solution(Object input) {\n        // Write your competitive solution here\n        return null;\n    }\n}`,
++      cpp: `class Solution {\npublic:\n    void solution() {\n        // Write your competitive solution here\n    }\n};`
++    },
++    reference_solution: {
++      javascript: '', python: '', typescript: '', java: '', cpp: ''
++    },
+     supported_languages: ['javascript', 'python', 'typescript', 'java', 'cpp'],
+     hints: ['', '', ''],
+     editorial: '',
+@@ -76,25 +85,6 @@ export default function AdminDailyChallengeModal({
+     ]
+   });
+ 
+-  // AI Generation Form State
+-  const [aiConfig, setAiConfig] = useState({
+-    topic: 'Arrays',
+-    difficulty: 'medium',
+-    pattern: '',
+-    points: 100,
+-    instructions: '',
+-    scheduled_date: ''
+-  });
+-
+-  // AI State
+-  const [aiGenerating, setAiGenerating] = useState(false);
+-  const [aiGeneratedData, setAiGeneratedData] = useState(null);
+-  const [aiValidationErrors, setAiValidationErrors] = useState([]);
+-  const [duplicateWarning, setDuplicateWarning] = useState(null);
+-
+-  const [loading, setLoading] = useState(false);
+-  const [error, setError] = useState(null);
+-
+   // Dynamic Topics & Pattern Taxonomy State
+   const [modalTopics, setModalTopics] = useState(topics || []);
+   const [recLoading, setRecLoading] = useState(false);
+@@ -126,11 +116,6 @@ export default function AdminDailyChallengeModal({
+       const res = await api.recommendDailyChallengeTopic({ difficulty: targetDifficulty });
+       if (res && res.data) {
+         const rec = res.data;
+-        setAiConfig(prev => ({
+-          ...prev,
+-          topic: rec.topic_name || rec.topic_id,
+-          pattern: rec.pattern_name || prev.pattern
+-        }));
+         setFormData(prev => ({
+           ...prev,
+           topic_id: rec.topic_id,
+@@ -167,13 +152,6 @@ export default function AdminDailyChallengeModal({
+     return map;
+   }, [modalTopics]);
+ 
+-  const aiAvailablePatterns = useMemo(() => {
+-    if (!aiConfig.topic) return [];
+-    const matched = modalTopics.find(t =>
+-      t.id === aiConfig.topic || t.name?.toLowerCase() === String(aiConfig.topic).toLowerCase()
+-    );
+-    return matched?.patterns || [];
+-  }, [modalTopics, aiConfig.topic]);
+ 
+   const manualAvailablePatterns = useMemo(() => {
+     if (!formData.topic_id && !formData.topic_name) return [];
+@@ -186,8 +164,7 @@ export default function AdminDailyChallengeModal({
+   useEffect(() => {
+     if (isOpen) {
+       if (challengeToEdit) {
+-        setCreationMode('manual');
+-        const hintsArr = Array.isArray(challengeToEdit.hints)
++                const hintsArr = Array.isArray(challengeToEdit.hints)
+           ? challengeToEdit.hints
+           : typeof challengeToEdit.hints === 'string'
+           ? [challengeToEdit.hints]
+@@ -217,8 +194,11 @@ export default function AdminDailyChallengeModal({
+           output_format: challengeToEdit.output_format || '',
+           examples: exArr,
+           starter_code: typeof challengeToEdit.starter_code === 'object'
+-            ? JSON.stringify(challengeToEdit.starter_code, null, 2)
+-            : (challengeToEdit.starter_code || `function solution(input) {\n  return null;\n}`),
++            ? { ...challengeToEdit.starter_code }
++            : { javascript: challengeToEdit.starter_code || `function solution(input) {\n  return null;\n}` },
++          reference_solution: typeof challengeToEdit.reference_solution === 'object'
++            ? { ...challengeToEdit.reference_solution }
++            : { javascript: challengeToEdit.reference_solution || '' },
+           supported_languages: Array.isArray(challengeToEdit.supported_languages)
+             ? challengeToEdit.supported_languages
+             : ['javascript', 'python', 'typescript', 'java', 'cpp'],
+@@ -242,9 +222,7 @@ export default function AdminDailyChallengeModal({
+               ]
+         });
+       } else {
+-        setCreationMode(initialMode || 'manual');
+-        setAiGeneratedData(null);
+-        setFormData({
++                setFormData({
+           title: '',
+           slug: '',
+           difficulty: 'medium',
+@@ -260,7 +238,14 @@ export default function AdminDailyChallengeModal({
+           input_format: 'Standard array and parameter inputs.',
+           output_format: 'Single calculated output.',
+           examples: [{ input: 'nums = [1, 2, 3]', output: '6', explanation: 'Sum of all elements is 6.' }],
+-          starter_code: `function solution(nums) {\n  // Write your competitive solution here\n  return 0;\n}`,
++          starter_code: {
++            javascript: `function solution(nums) {\n  // Write your competitive solution here\n  return 0;\n}`,
++            python: `def solution(nums):\n    return 0`,
++            typescript: `function solution(nums: any[]): number {\n  return 0;\n}`,
++            java: `class Solution {\n    public int solution(int[] nums) {\n        return 0;\n    }\n}`,
++            cpp: `class Solution {\npublic:\n    int solution(vector<int>& nums) {\n        return 0;\n    }\n};`,
++          },
++          reference_solution: { javascript: '', python: '', typescript: '', java: '', cpp: '' },
+           supported_languages: ['javascript', 'python', 'typescript', 'java', 'cpp'],
+           hints: ['', '', ''],
+           editorial: '',
+@@ -280,72 +265,21 @@ export default function AdminDailyChallengeModal({
+     }
+   }, [isOpen, challengeToEdit, initialMode, topics]);
+ 
+-  // Handle AI Challenge Generation
+-  const handleGenerateAI = async () => {
+-    setAiGenerating(true);
+-    setError(null);
+-    setDuplicateWarning(null);
+-    setAiValidationErrors([]);
+-
+-    try {
+-      const payload = {
+-        ...aiConfig,
+-        topic: aiConfig.topic === 'Other' ? (aiConfig.custom_topic || 'Other') : aiConfig.topic
+-      };
+-      const res = await api.generateDailyChallengeAI(payload);
+-      if (res.data) {
+-        setAiGeneratedData(res.data);
+-        if (res.data.recommendation_reason) {
+-          setRecReason(res.data.recommendation_reason);
+-        }
+-      }
+-    } catch (err) {
+-      setError(err.message || 'AI generation failed. Please try again or refine instructions.');
+-    } finally {
+-      setAiGenerating(false);
+-    }
+-  };
+-
+-  // Convert AI generated data into active manual editor
+-  const handleEditAiInManual = () => {
+-    if (!aiGeneratedData) return;
+-    setFormData({
+-      ...formData,
+-      ...aiGeneratedData,
+-      created_via: 'ai',
+-      status: 'draft',
+-      hints: Array.isArray(aiGeneratedData.hints) ? aiGeneratedData.hints : ['', '', ''],
+-      examples: Array.isArray(aiGeneratedData.examples) ? aiGeneratedData.examples : [{ input: '', output: '', explanation: '' }],
+-      test_cases: Array.isArray(aiGeneratedData.test_cases) ? aiGeneratedData.test_cases : formData.test_cases
+-    });
+-    setAiGeneratedData(null);
+-    setCreationMode('manual');
+-    setActiveTab('details');
++  // Manual Form Handlers
++  const handleStarterCodeChange = (lang, value) => {
++    setFormData(prev => ({
++      ...prev,
++      starter_code: { ...prev.starter_code, [lang]: value }
++    }));
+   };
+ 
+-  // Save AI Generated challenge directly as Draft
+-  const handleSaveAiAsDraft = async () => {
+-    if (!aiGeneratedData) return;
+-    setLoading(true);
+-    setError(null);
+-
+-    try {
+-      const payload = {
+-        ...aiGeneratedData,
+-        created_via: 'ai',
+-        status: 'draft'
+-      };
+-      await api.createDailyChallenge(payload);
+-      if (onSaved) onSaved();
+-      onClose();
+-    } catch (err) {
+-      setError(err.message || 'Failed to save AI challenge');
+-    } finally {
+-      setLoading(false);
+-    }
++  const handleReferenceSolutionChange = (lang, value) => {
++    setFormData(prev => ({
++      ...prev,
++      reference_solution: { ...prev.reference_solution, [lang]: value }
++    }));
+   };
+ 
+-  // Manual Form Handlers
+   const handleFormChange = (e) => {
+     const { name, value } = e.target;
+     setFormData(prev => ({
+@@ -422,22 +356,36 @@ export default function AdminDailyChallengeModal({
+     setLoading(true);
+ 
+     try {
+-      if (!formData.title.trim()) {
+-        setActiveTab('details');
+-        throw new Error('Challenge Title is required');
+-      }
+-      if (!formData.description.trim()) {
+-        setActiveTab('content');
+-        throw new Error('Problem Description is required (see Statement & Examples tab)');
+-      }
+-
+       const targetStatus = overrideStatus || formData.status || 'draft';
+       const cleanHints = formData.hints.filter(h => h && h.trim());
+       const cleanTestCases = formData.test_cases.filter(tc => tc.input !== '' && tc.expected_output !== '');
+ 
+-      if (cleanTestCases.length < 2) {
+-        setActiveTab('testcases');
+-        throw new Error('At least 2 test cases (public and hidden) are required (see Test Cases tab).');
++      if (targetStatus !== 'draft') {
++        if (!formData.title.trim()) { setActiveTab('details'); throw new Error('Challenge Title is required'); }
++        if (!formData.difficulty) { setActiveTab('details'); throw new Error('Difficulty is required'); }
++        if (!formData.topic_id) { setActiveTab('details'); throw new Error('Primary Topic is required'); }
++        if (!formData.points) { setActiveTab('details'); throw new Error('Competitive Points is required'); }
++        if (!formData.description.trim()) { setActiveTab('content'); throw new Error('Problem Description is required'); }
++        if (!formData.constraints.trim()) { setActiveTab('content'); throw new Error('Constraints are required'); }
++        if (!formData.input_format.trim()) { setActiveTab('content'); throw new Error('Input Format is required'); }
++        if (!formData.output_format.trim()) { setActiveTab('content'); throw new Error('Output Format is required'); }
++        
++        const completeExamples = formData.examples.filter(ex => ex.input.trim() && ex.output.trim());
++        if (completeExamples.length === 0) {
++          setActiveTab('content');
++          throw new Error('At least 1 complete Example (with Input and Output) is required');
++        }
++
++        const missingStarterCode = formData.supported_languages.find(lang => !formData.starter_code[lang] || !formData.starter_code[lang].trim());
++        if (missingStarterCode) {
++          setActiveTab('startercode');
++          throw new Error(`Starter Code for ${missingStarterCode} is missing`);
++        }
++
++        if (cleanTestCases.length < 1) {
++          setActiveTab('testcases');
++          throw new Error('At least 1 valid Test Case (with Input and Expected Output) is required');
++        }
+       }
+ 
+       const payload = {
+@@ -450,7 +398,9 @@ export default function AdminDailyChallengeModal({
+         scheduled_date: formData.scheduled_date && String(formData.scheduled_date).trim() ? formData.scheduled_date.trim() : null,
+         points: Number(formData.points) || 100,
+         estimated_time: Number(formData.estimated_time) || 30,
+-        created_via: challengeToEdit ? (formData.created_via || 'manual') : (creationMode === 'ai' ? 'ai' : 'manual'),
++        created_via: challengeToEdit ? (formData.created_via || 'manual') : 'manual',
++        starter_code: formData.starter_code,
++        reference_solution: formData.reference_solution,
+         editorial: formData.editorial || formData.solution_approach,
+         solution_approach: formData.editorial || formData.solution_approach
+       };
+@@ -495,7 +445,7 @@ export default function AdminDailyChallengeModal({
+         <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface shrink-0 min-w-0 w-full">
+           <div className="flex items-center gap-3">
+             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
+-              {creationMode === 'ai' ? <Sparkles className="w-5 h-5" /> : <Flame className="w-5 h-5 fill-amber-400 text-amber-500" />}
++              <Flame className="w-5 h-5 fill-amber-400 text-amber-500" />
+             </div>
+             <div>
+               <div className="flex items-center gap-2">
+@@ -513,33 +463,7 @@ export default function AdminDailyChallengeModal({
+           </div>
+ 
+           <div className="flex items-center gap-3">
+-            {/* Mode Switcher (Only when creating new) */}
+-            {!challengeToEdit && !aiGeneratedData && (
+-              <div className="flex items-center gap-1 bg-theme-surface2 p-1 rounded-xl border border-theme-border">
+-                <button
+-                  type="button"
+-                  onClick={() => setCreationMode('manual')}
+-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+-                    creationMode === 'manual'
+-                      ? 'bg-theme-surface text-theme-text1 shadow-sm border border-theme-border'
+-                      : 'text-theme-text2 hover:text-theme-text1'
+-                  }`}
+-                >
+-                  <Edit3 className="w-4 h-4" /> Manual
+-                </button>
+-                <button
+-                  type="button"
+-                  onClick={() => setCreationMode('ai')}
+-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+-                    creationMode === 'ai'
+-                      ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md shadow-cyan-500/25'
+-                      : 'text-theme-text2 hover:text-theme-text1'
+-                  }`}
+-                >
+-                  <Sparkles className="w-4 h-4" /> Generate with AI
+-                </button>
+-              </div>
+-            )}
++
+ 
+             <button
+               onClick={onClose}
+@@ -563,315 +487,15 @@ export default function AdminDailyChallengeModal({
+           </div>
+         )}
+ 
+-        {/* ============================================================ */}
+-        {/* MODE 1: AI GENERATION VIEW */}
+-        {/* ============================================================ */}
+-        {creationMode === 'ai' && !aiGeneratedData && (
+-          <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
+-            <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-500/5 via-theme-surface2 to-indigo-500/5 border border-cyan-500/20 dark:border-cyan-500/30 space-y-4">
+-              <div className="flex items-center justify-between mb-2">
+-                <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 font-bold text-sm">
+-                  <Sparkles className="w-5 h-5 text-cyan-500" />
+-                  <span className="tracking-wide">AI Daily Challenge Generator</span>
+-                </div>
+-                <div className="flex items-center gap-2">
+-                  <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/25 px-2.5 py-1 rounded-full shadow-sm">
+-                    Autonomous Validation
+-                  </span>
+-                  <span className="text-[10px] font-bold uppercase tracking-wider text-theme-text2 bg-theme-surface border border-theme-border px-2.5 py-1 rounded-full shadow-sm">
+-                    Saves as Draft
+-                  </span>
+-                </div>
+-              </div>
+-              <p className="text-xs text-theme-text2 leading-relaxed">
+-                Configure topic, difficulty, and requirements. The AI will synthesize an original interview-caliber problem with verified test cases, progressive hints, complexity analysis, and starter code.
+-              </p>
+-
+-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+-                <div className="col-span-full sm:col-span-1">
+-                  <div className="flex items-center justify-between mb-1.5">
+-                    <label className="block text-xs font-semibold text-theme-text2">Primary Topic *</label>
+-                    <button
+-                      type="button"
+-                      onClick={() => handleRecommendTopic(aiConfig.difficulty)}
+-                      disabled={recLoading}
+-                      className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 rounded-lg text-[11px] font-semibold transition-all"
+-                    >
+-                      <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+-                      {recLoading ? 'Analyzing...' : 'AI Recommend Topic'}
+-                    </button>
+-                  </div>
+-                  <select
+-                    value={aiConfig.topic}
+-                    onChange={(e) => {
+-                      setAiConfig(prev => ({ ...prev, topic: e.target.value }));
+-                      setRecReason('');
+-                    }}
+-                    className="input-field w-full text-xs"
+-                  >
+-                    <option value="Surprise Me">🚀 Surprise Me (AI Select Optimal Topic)</option>
+-                    {Object.entries(groupedTopics).map(([category, items]) => items.length > 0 && (
+-                      <optgroup key={category} label={category}>
+-                        {items.map(t => (
+-                          <option key={t.id} value={t.name}>{t.name}</option>
+-                        ))}
+-                      </optgroup>
+-                    ))}
+-                    <option value="Other">Other (Custom Topic)</option>
+-                  </select>
+-                </div>
+-
+-                <div className="col-span-full sm:col-span-1">
+-                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Difficulty *</label>
+-                  <div className="grid grid-cols-3 gap-2">
+-                    {['easy', 'medium', 'hard'].map((d) => (
+-                      <button
+-                        key={d}
+-                        type="button"
+-                        onClick={() => setAiConfig(prev => ({
+-                          ...prev,
+-                          difficulty: d,
+-                          points: d === 'hard' ? 150 : d === 'medium' ? 100 : 50
+-                        }))}
+-                        className={`py-2 rounded-xl text-xs font-bold uppercase transition-all border ${
+-                          aiConfig.difficulty === d
+-                            ? d === 'easy'
+-                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/30'
+-                              : d === 'medium'
+-                              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 shadow-sm ring-1 ring-amber-500/30'
+-                              : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/40 shadow-sm ring-1 ring-rose-500/30'
+-                            : 'bg-theme-surface border-theme-border text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2'
+-                        }`}
+-                      >
+-                        {d} ({d === 'hard' ? 150 : d === 'medium' ? 100 : 50}p)
+-                      </button>
+-                    ))}
+-                  </div>
+-                </div>
+-
+-                {aiConfig.topic === 'Other' && (
+-                  <div className="col-span-full">
+-                    <label className="block text-xs font-semibold text-amber-600 dark:text-amber-300 mb-1.5">Custom Topic Name *</label>
+-                    <input
+-                      type="text"
+-                      placeholder="e.g. Quantum Sorting, Trie Hashing"
+-                      value={aiConfig.custom_topic || ''}
+-                      onChange={(e) => setAiConfig(prev => ({ ...prev, custom_topic: e.target.value }))}
+-                      className="input-field w-full text-xs border-amber-500/40 text-theme-text1"
+-                    />
+-                  </div>
+-                )}
+-
+-                {recReason && (
+-                  <div className="col-span-full p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs text-theme-text1 flex items-start gap-2 animate-fadeIn">
+-                    <Sparkles className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
+-                    <div>
+-                      <span className="font-bold text-cyan-600 dark:text-cyan-400">Topic Diversity Recommendation: </span>
+-                      <span className="text-theme-text2">{recReason}</span>
+-                    </div>
+-                  </div>
+-                )}
+-
+-                <div className="col-span-full sm:col-span-1">
+-                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Algorithm Pattern (Optional)</label>
+-                  {aiAvailablePatterns.length > 0 ? (
+-                    <select
+-                      value={aiConfig.pattern}
+-                      onChange={(e) => setAiConfig(prev => ({ ...prev, pattern: e.target.value }))}
+-                      className="input-field w-full text-xs"
+-                    >
+-                      <option value="">Auto / Any Pattern for Topic</option>
+-                      {aiAvailablePatterns.map(p => (
+-                        <option key={p.id} value={p.name}>{p.name}</option>
+-                      ))}
+-                    </select>
+-                  ) : (
+-                    <input
+-                      type="text"
+-                      placeholder="e.g. Sliding Window, Two Pointers, Monotonic Stack, BFS"
+-                      value={aiConfig.pattern}
+-                      onChange={(e) => setAiConfig(prev => ({ ...prev, pattern: e.target.value }))}
+-                      className="input-field w-full text-xs"
+-                    />
+-                  )}
+-                </div>
+-
+-                <div>
+-                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Reward Points</label>
+-                  <input
+-                    type="number"
+-                    min="10"
+-                    max="500"
+-                    value={aiConfig.points}
+-                    onChange={(e) => setAiConfig(prev => ({ ...prev, points: Number(e.target.value) }))}
+-                    className="input-field w-full text-xs"
+-                  />
+-                </div>
+-              </div>
+-
+-              <div>
+-                <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
+-                  Additional Instructions & Special Requirements (Optional)
+-                </label>
+-                <textarea
+-                  rows={3}
+-                  placeholder="e.g., 'Create a realistic FAANG-style problem focusing on memory constraints. Ensure no duplicate elements in test cases.'"
+-                  value={aiConfig.instructions}
+-                  onChange={(e) => setAiConfig(prev => ({ ...prev, instructions: e.target.value }))}
+-                  className="input-field w-full text-xs resize-none"
+-                />
+-              </div>
+-
+-              <div className="pt-2 flex items-center justify-between border-t border-theme-border">
+-                <div className="text-[11px] text-theme-text3 flex items-center gap-1.5">
+-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+-                  <span>AI content is strictly created in Draft status and never auto-published.</span>
+-                </div>
+-                <button
+-                  type="button"
+-                  disabled={aiGenerating}
+-                  onClick={handleGenerateAI}
+-                  className="btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-cyan-500/25 active:scale-95 transition-all text-white"
+-                >
+-                  {aiGenerating ? (
+-                    <>
+-                      <RefreshCw className="w-4 h-4 animate-spin" />
+-                      <span>Synthesizing Challenge...</span>
+-                    </>
+-                  ) : (
+-                    <>
+-                      <Sparkles className="w-4 h-4" />
+-                      <span>Generate Challenge</span>
+-                    </>
+-                  )}
+-                </button>
+-              </div>
+-            </div>
+-          </div>
+-        )}
+-
+-        {/* ============================================================ */}
+-        {/* MODE 1.5: AI PREVIEW & REVIEW SCREEN */}
+-        {/* ============================================================ */}
+-        {creationMode === 'ai' && aiGeneratedData && (
+-          <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+-            <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between">
+-              <div className="flex items-center gap-2.5">
+-                <Sparkles className="w-5 h-5 text-cyan-500" />
+-                <div>
+-                  <h4 className="text-sm font-bold text-theme-text1">AI Challenge Synthesized Successfully</h4>
+-                  <p className="text-[11px] text-theme-text2">
+-                    Review the generated problem statement, test cases, and editorial below before saving.
+-                  </p>
+-                </div>
+-              </div>
+-              <span className="text-xs px-2.5 py-1 rounded-full font-mono bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 font-bold">
+-                {aiGeneratedData.difficulty?.toUpperCase()} &middot; {aiGeneratedData.points} pts
+-              </span>
+-            </div>
+-
+-            {/* Problem Overview Card */}
+-            <div className="p-5 rounded-2xl bg-theme-surface border border-theme-border space-y-4">
+-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-theme-border">
+-                <div>
+-                  <h3 className="text-lg font-bold text-theme-text1">{aiGeneratedData.title}</h3>
+-                  <div className="flex items-center gap-2 mt-1 text-xs text-theme-text2 font-mono">
+-                    <span>Topic: <strong className="text-cyan-400">{aiGeneratedData.topic}</strong></span>
+-                    {aiGeneratedData.pattern && <span>&middot; Pattern: <strong className="text-amber-400">{aiGeneratedData.pattern}</strong></span>}
+-                  </div>
+-                </div>
+-                <div className="badge bg-theme-surface2 text-theme-text2 border-theme-border text-xs">
+-                  {aiGeneratedData.complexity || 'Time: O(N) | Space: O(1)'}
+-                </div>
+-              </div>
+-
+-              <div>
+-                <h5 className="text-xs font-bold uppercase text-theme-text2 mb-1 font-mono">Problem Statement</h5>
+-                <p className="text-xs text-theme-text1 leading-relaxed whitespace-pre-line bg-theme-surface p-3.5 rounded-xl border border-theme-border">
+-                  {aiGeneratedData.description}
+-                </p>
+-              </div>
+-
+-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+-                <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
+-                  <span className="font-bold text-theme-text2 font-mono">Constraints:</span>
+-                  <p className="text-theme-text2 mt-1 whitespace-pre-line font-mono text-[11px]">{aiGeneratedData.constraints}</p>
+-                </div>
+-                <div className="p-3 rounded-xl bg-theme-surface border border-theme-border">
+-                  <span className="font-bold text-theme-text2 font-mono">Input / Output Format:</span>
+-                  <p className="text-theme-text2 mt-1 text-[11px]">{aiGeneratedData.input_format} &rarr; {aiGeneratedData.output_format}</p>
+-                </div>
+-              </div>
+-
+-              {/* Examples */}
+-              {aiGeneratedData.examples && aiGeneratedData.examples.length > 0 && (
+-                <div className="space-y-2">
+-                  <h5 className="text-xs font-bold uppercase text-theme-text2 font-mono">Examples ({aiGeneratedData.examples.length})</h5>
+-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+-                    {aiGeneratedData.examples.map((ex, idx) => (
+-                      <div key={idx} className="p-3 rounded-xl bg-theme-surface border border-theme-border text-xs font-mono space-y-1">
+-                        <div className="text-theme-text2">Example {idx + 1}:</div>
+-                        <div><strong className="text-cyan-400">Input:</strong> {ex.input}</div>
+-                        <div><strong className="text-emerald-400">Output:</strong> {ex.output}</div>
+-                        {ex.explanation && <div className="text-theme-text2 text-[11px] mt-1 font-sans"><em>{ex.explanation}</em></div>}
+-                      </div>
+-                    ))}
+-                  </div>
+-                </div>
+-              )}
+-
+-              {/* Test cases count & Hints */}
+-              <div className="flex items-center justify-between text-xs text-theme-text2 pt-2 border-t border-theme-border">
+-                <span>{aiGeneratedData.test_cases?.length || 0} Test Cases generated</span>
+-                <span>{aiGeneratedData.hints?.length || 0} Progressive Hints included</span>
+-              </div>
+-            </div>
+-
+-            {/* AI Preview Action Toolbar */}
+-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-theme-border">
+-              <button
+-                type="button"
+-                onClick={handleGenerateAI}
+-                disabled={aiGenerating}
+-                className="btn-secondary text-xs inline-flex items-center gap-1.5"
+-              >
+-                <RefreshCw className={`w-3.5 h-3.5 ${aiGenerating ? 'animate-spin' : ''}`} />
+-                <span>Regenerate</span>
+-              </button>
+-
+-              <div className="flex items-center gap-2">
+-                <button
+-                  type="button"
+-                  onClick={handleEditAiInManual}
+-                  className="btn-secondary text-xs inline-flex items-center gap-1.5"
+-                >
+-                  <Edit3 className="w-3.5 h-3.5" />
+-                  <span>Edit in Manual Form</span>
+-                </button>
+-                <button
+-                  type="button"
+-                  disabled={loading}
+-                  onClick={handleSaveAiAsDraft}
+-                  className="btn-primary text-xs inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold"
+-                >
+-                  <Save className="w-3.5 h-3.5" />
+-                  <span>Save as Draft</span>
+-                </button>
+-              </div>
+-            </div>
+-          </div>
+-        )}
+-
+-        {/* ============================================================ */}
+-        {/* MODE 2: MANUAL AUTHORING FORM */}
+-        {/* ============================================================ */}
+-        {creationMode === 'manual' && (
++        
+           <div className="flex-1 flex flex-col overflow-hidden overflow-x-hidden min-w-0 w-full">
+             {/* Sub-tabs */}
+             <div className="flex items-center gap-2 px-6 pt-3 border-b border-theme-border bg-theme-surface shrink-0 overflow-x-auto custom-scrollbar min-w-0 w-full">
+               {[
+                 { id: 'details', label: 'Basic Details', icon: Sliders },
+                 { id: 'content', label: 'Statement & Examples', icon: BookOpen },
++                { id: 'startercode', label: 'Starter Code', icon: FileCode2 },
++                { id: 'referencesolution', label: 'Reference Solution', icon: Code2 },
+                 { id: 'testcases', label: `Test Cases (${formData.test_cases.length})`, icon: CheckCircle2 },
+                 { id: 'hints_editorial', label: 'Hints & Editorial', icon: Lightbulb }
+               ].map(tab => (
+@@ -1072,16 +696,29 @@ export default function AdminDailyChallengeModal({
+                         className="input-field w-full text-xs font-mono resize-none"
+                       />
+                     </div>
+-                    <div>
+-                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Input & Output Specifications</label>
+-                      <textarea
+-                        rows={3}
+-                        name="input_format"
+-                        placeholder="Input format & expected return value..."
+-                        value={formData.input_format}
+-                        onChange={handleFormChange}
+-                        className="input-field w-full text-xs font-mono resize-none"
+-                      />
++                    <div className="space-y-4">
++                      <div>
++                        <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Input Format *</label>
++                        <textarea
++                          rows={2}
++                          name="input_format"
++                          placeholder="Describe the standard input format..."
++                          value={formData.input_format}
++                          onChange={handleFormChange}
++                          className="input-field w-full text-xs font-mono resize-none"
++                        />
++                      </div>
++                      <div>
++                        <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Output Format *</label>
++                        <textarea
++                          rows={2}
++                          name="output_format"
++                          placeholder="Describe the expected output format..."
++                          value={formData.output_format}
++                          onChange={handleFormChange}
++                          className="input-field w-full text-xs font-mono resize-none"
++                        />
++                      </div>
+                     </div>
+                   </div>
+ 
+@@ -1143,7 +780,55 @@ export default function AdminDailyChallengeModal({
+                 </div>
+               )}
+ 
+-              {/* TAB 3: TEST CASES */}
++              {/* TAB 3: STARTER CODE */}
++              {activeTab === 'startercode' && (
++                <div className="space-y-4">
++                  <div className="mb-4">
++                    <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Starter Code</h4>
++                    <p className="text-[11px] text-theme-text2">Required starting code snippet for each supported language. Must be syntactically valid.</p>
++                  </div>
++                  {formData.supported_languages.map(lang => (
++                    <div key={lang} className="p-4 rounded-2xl bg-theme-surface border border-theme-border">
++                      <div className="flex items-center gap-2 mb-2 text-xs font-bold capitalize text-amber-500">
++                        <FileCode2 className="w-4 h-4" /> {lang} *
++                      </div>
++                      <textarea
++                        rows={6}
++                        value={formData.starter_code[lang] || ''}
++                        onChange={(e) => handleStarterCodeChange(lang, e.target.value)}
++                        placeholder={`// Starter code for ${lang}`}
++                        className="input-field w-full text-xs font-mono bg-theme-surface2 border-0 focus:ring-1 focus:ring-amber-500/50 resize-y"
++                      />
++                    </div>
++                  ))}
++                </div>
++              )}
++
++              {/* TAB 4: REFERENCE SOLUTION */}
++              {activeTab === 'referencesolution' && (
++                <div className="space-y-4">
++                  <div className="mb-4">
++                    <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Reference Solution (Optional)</h4>
++                    <p className="text-[11px] text-theme-text2">Working solution. Securely stored, never exposed to students.</p>
++                  </div>
++                  {formData.supported_languages.map(lang => (
++                    <div key={lang} className="p-4 rounded-2xl bg-theme-surface border border-theme-border">
++                      <div className="flex items-center gap-2 mb-2 text-xs font-bold capitalize text-emerald-500">
++                        <Code2 className="w-4 h-4" /> {lang} (Optional)
++                      </div>
++                      <textarea
++                        rows={6}
++                        value={formData.reference_solution?.[lang] || ''}
++                        onChange={(e) => handleReferenceSolutionChange(lang, e.target.value)}
++                        placeholder={`// Complete working solution for ${lang} (optional)`}
++                        className="input-field w-full text-xs font-mono bg-emerald-500/5 border-emerald-500/20 focus:ring-1 focus:ring-emerald-500/50 resize-y"
++                      />
++                    </div>
++                  ))}
++                </div>
++              )}
++
++              {/* TAB 5: TEST CASES */}
+               {activeTab === 'testcases' && (
+                 <div className="space-y-4">
+                   <div className="flex items-center justify-between">
+@@ -1333,9 +1018,8 @@ export default function AdminDailyChallengeModal({
+               </div>
+             </div>
+           </div>
+-        )}
+-      </div>
+-    </div>,
+-    document.body
++        </div>
++      </div>,
++      document.body
+   );
+ }

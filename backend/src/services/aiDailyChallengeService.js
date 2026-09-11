@@ -1336,9 +1336,22 @@ async function verifyReferenceSolution(challengeData) {
     return { verified: false, reason: 'No test cases provided for sandbox execution' };
   }
 
-  let codeToRun = reference_solution || starter_code;
-  if (codeToRun && typeof codeToRun === 'object') {
-    codeToRun = codeToRun.javascript || codeToRun.python || codeToRun.java;
+  let codeToRun = null;
+  let lang = 'javascript';
+  const codeSrc = reference_solution || starter_code;
+  if (codeSrc && typeof codeSrc === 'object') {
+    if (codeSrc.javascript) {
+      codeToRun = codeSrc.javascript;
+      lang = 'javascript';
+    } else if (codeSrc.python) {
+      codeToRun = codeSrc.python;
+      lang = 'python';
+    } else if (codeSrc.java) {
+      codeToRun = codeSrc.java;
+      lang = 'java';
+    }
+  } else {
+    codeToRun = codeSrc;
   }
 
   if (!codeToRun || typeof codeToRun !== 'string' || codeToRun.trim().length === 0) {
@@ -1351,7 +1364,7 @@ async function verifyReferenceSolution(challengeData) {
 
   try {
     const execResult = await executeCode({
-      language: 'javascript',
+      language: lang,
       sourceCode: fullCode,
       testCases: test_cases
     });
@@ -1454,7 +1467,9 @@ async function generateDailyChallenge(options = {}) {
       count: 4,
       pattern: targetPattern || 'Appropriate for topic',
       exclusionText,
-      instructions: instructions || 'Ensure clean specifications, edge cases, progressive hints, and a verified reference solution.'
+      instructions: instructions || 'Ensure clean specifications, edge cases, progressive hints, and a verified reference solution.',
+      skipSandbox,
+      is_fallback_allowed: !title // Pass this to aiQuestionService
     });
 
     if (generatedQuestion) {
@@ -1476,25 +1491,34 @@ async function generateDailyChallenge(options = {}) {
       if (recommendationReason) parsed.recommendation_reason = recommendationReason;
 
       const val = validateDailyChallenge(parsed);
-      if (val.isValid) {
-        const dupCheck = await checkDuplicateChallenge(parsed);
-        if (!dupCheck.isDuplicate) {
-          if (!skipSandbox && parsed.reference_solution) {
-            const sbResult = await verifyReferenceSolution(parsed);
-            parsed.sandbox_verified = sbResult.verified;
-            if (sbResult.verified) {
-              return { success: true, data: parsed, source: `llm-unified` };
-            }
-          } else {
-            return { success: true, data: parsed, source: `llm-unified` };
-          }
+      if (!val.isValid) {
+        throw new AppError(`INVALID_STRUCTURE: ${val.errors.join(', ')}`, 422, 'AI_VALIDATION_ERROR');
+      }
+
+      const dupCheck = await checkDuplicateChallenge(parsed);
+      if (dupCheck.isDuplicate) {
+        throw new AppError(`DUPLICATE_PROBLEM: ${dupCheck.reason}`, 409, 'DUPLICATE_COLLISION');
+      }
+
+      if (!skipSandbox && parsed.reference_solution) {
+        const sbResult = await verifyReferenceSolution(parsed);
+        parsed.sandbox_verified = sbResult.verified;
+        if (!sbResult.verified) {
+          throw new AppError(`SANDBOX_VERIFICATION_FAILED: ${sbResult.reason}`, 422, 'SANDBOX_VERIFICATION_FAILED');
         }
       }
+      
+      return { success: true, data: parsed, source: `llm-unified` };
+    }
+    
+    if (title) {
+      throw new Error("AI generated problem failed structure validation, duplication check, or sandbox verification.");
     }
   } catch (err) {
     console.error("Unified generation failed, falling through:", err.message);
     if (title) {
-      throw Object.assign(new Error(`AI Generation failed for requested title: ${err.message}`), { statusCode: 500 });
+      // Re-throw the exact granular error from the pipeline if a title was explicitly requested
+      throw Object.assign(new Error(`AI Generation failed for requested title: ${err.message}`), { statusCode: err.statusCode || 500 });
     }
     // Fall through to rotation synthesizer
   }
