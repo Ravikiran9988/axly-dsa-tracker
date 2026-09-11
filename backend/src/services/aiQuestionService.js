@@ -13,7 +13,7 @@ function extractJson(content) {
   }
 }
 
-async function validateGeneratedQuestionAsync(text, expectedCount) {
+async function validateGeneratedQuestionAsync(text, expectedCount, context = {}) {
   let data;
   try {
     data = extractJson(text);
@@ -24,6 +24,15 @@ async function validateGeneratedQuestionAsync(text, expectedCount) {
   const question = Array.isArray(data) ? data[0] : data;
   if (!question || typeof question !== 'object') {
     return { valid: false, reason: 'Generated question must be a JSON object' };
+  }
+
+  if (context.title) {
+    const normalizeStr = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const reqTitle = normalizeStr(context.title);
+    const genTitle = normalizeStr(question.title);
+    if (!genTitle.includes(reqTitle) && !reqTitle.includes(genTitle)) {
+      return { valid: false, reason: `INVALID_GENERATION: Conflicting problem definition. Expected title resembling '${context.title}', but generated '${question.title}'` };
+    }
   }
 
   const required = ['title', 'difficulty', 'description', 'constraints', 'input_format', 'output_format', 'examples', 'solution_approach', 'complexity', 'test_cases', 'time_limit_ms', 'memory_limit_mb', 'function_signature', 'starter_code', 'reference_solution'];
@@ -125,7 +134,7 @@ async function validateGeneratedQuestionAsync(text, expectedCount) {
   return { valid: true, candidate: question };
 }
 
-async function generateQuestion({ topic, difficulty, count = 8, pattern, exclusionText, instructions }) {
+async function generateQuestion({ title, description, constraints, topic, difficulty, count = 8, pattern, exclusionText, instructions }) {
   const safeCount = Math.min(Math.max(Number(count) || 8, 1), 12);
   const systemPrompt = 'You generate reliable, original algorithmic programming problems for a production DSA platform. Return strict JSON only. Never return markdown fences or commentary.';
   
@@ -133,8 +142,12 @@ async function generateQuestion({ topic, difficulty, count = 8, pattern, exclusi
 Topic: ${topic}
 Difficulty: ${difficulty}`;
 
+  if (title) prompt += `\\nTitle: ${title}\\nCRITICAL INSTRUCTION: You MUST generate the problem for EXACTLY this Title. Do NOT invent a different problem.`;
+  if (description) prompt += `\\nProblem Statement: ${description}`;
+  if (constraints) prompt += `\\nConstraints: ${constraints}\\nCRITICAL INSTRUCTION: Ensure the constraints exactly match these provided constraints.`;
+
   if (pattern) prompt += `\\nPattern: ${pattern}`;
-  if (exclusionText) prompt += `\\n\\nCRITICAL UNIQUENESS INSTRUCTIONS:\\n- The generated problem MUST be materially and conceptually different from every problem in the exclusion list.\\n- Do NOT create variants of existing problems by changing numbers, variable names, constraints, examples, or adding a Variant ID.\\n- The underlying algorithmic task and data structures must be genuinely distinct.${exclusionText}`;
+  if (exclusionText) prompt += `\\n\\nCRITICAL UNIQUENESS INSTRUCTIONS:\\n- The generated problem MUST be materially and conceptually different from every problem in the exclusion list unless you are explicitly given a Title that matches.\\n- Do NOT create variants of existing problems by changing numbers, variable names, constraints, examples, or adding a Variant ID.\\n- The underlying algorithmic task and data structures must be genuinely distinct.${exclusionText}`;
   if (instructions) prompt += `\\n\\nExtra Instructions: ${instructions}`;
 
   prompt += `\\n\\nGenerate exactly ${safeCount} test cases, with at least 2 public and 2 hidden cases.
@@ -164,7 +177,7 @@ Make every expected output deterministic and internally consistent with the prob
     maxTokens: Math.max(3500, safeCount * 450),
     temperature: 0.2,
     timeoutMs: 30000,
-    validateResponse: async (text) => validateGeneratedQuestionAsync(text, safeCount)
+    validateResponse: async (text) => validateGeneratedQuestionAsync(text, safeCount, { title })
   });
 
   if (!result || (!result.text && result.source !== 'fallback')) {

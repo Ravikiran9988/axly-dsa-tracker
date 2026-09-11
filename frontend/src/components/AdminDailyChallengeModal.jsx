@@ -283,7 +283,9 @@ export default function AdminDailyChallengeModal({
         title: formData.title,
         difficulty: formData.difficulty,
         topic: formData.topic_name || '',
-        pattern: formData.pattern_name || ''
+        pattern: formData.pattern_name || '',
+        description: formData.description || formData.problem_statement || '',
+        constraints: formData.constraints || ''
       };
       const res = await api.generateDailyChallengeAI(payload);
       if (!res.data) throw new Error('Failed to fetch recommendation.');

@@ -1405,6 +1405,9 @@ async function getRecentTaxonomyHistory(limit = 15) {
  */
 async function generateDailyChallenge(options = {}) {
   const {
+    title = null,
+    description = null,
+    constraints = null,
     topic = null,
     difficulty = 'medium',
     pattern = null,
@@ -1443,6 +1446,9 @@ async function generateDailyChallenge(options = {}) {
       : '';
 
     const generatedQuestion = await generateQuestion({
+      title,
+      description,
+      constraints,
       topic: targetTopic,
       difficulty: normDifficulty,
       count: 4,
@@ -1487,6 +1493,9 @@ async function generateDailyChallenge(options = {}) {
     }
   } catch (err) {
     console.error("Unified generation failed, falling through:", err.message);
+    if (title) {
+      throw Object.assign(new Error(`AI Generation failed for requested title: ${err.message}`), { statusCode: 500 });
+    }
     // Fall through to rotation synthesizer
   }
 
