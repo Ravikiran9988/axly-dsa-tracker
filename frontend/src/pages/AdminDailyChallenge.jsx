@@ -187,9 +187,6 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
           </p>
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
-          <button id="btn-admin-ai-generate" onClick={() => { setCreateModalInitialMode('ai'); setIsCreateModalOpen(true); }} className="btn-secondary btn-sm inline-flex items-center gap-1.5 border-purple-500/30 text-purple-300 hover:bg-purple-500/10">
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" /><span>AI Generate</span>
-          </button>
           <button id="btn-admin-create-challenge" onClick={() => { setCreateModalInitialMode('manual'); setIsCreateModalOpen(true); }} className="btn-primary btn-sm inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold shadow-lg shadow-amber-500/20">
             <Plus className="w-4 h-4" /><span>Create Challenge</span>
           </button>
