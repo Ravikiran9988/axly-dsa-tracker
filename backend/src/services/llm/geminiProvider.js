@@ -26,7 +26,7 @@ class GeminiProvider extends BaseLLMProvider {
     } = options;
 
     const url = `${this.baseUrl}/${this.model}:generateContent?key=${this.apiKey}`;
-    const isDailyChallenge = /Principal DSA Problem Author/i.test(systemPrompt || '');
+    const isJsonRequested = /JSON/i.test(systemPrompt || '');
 
     const contents = [];
     if (systemPrompt) {
@@ -35,15 +35,12 @@ class GeminiProvider extends BaseLLMProvider {
     contents.push({ role: 'user', parts: [{ text: prompt }] });
 
     const generationConfig = {
-      maxOutputTokens: maxTokens
+      maxOutputTokens: maxTokens,
+      temperature
     };
 
-    // Gemini structured output is important for Daily Challenge generation:
-    // it eliminates markdown fences and greatly reduces malformed JSON.
-    if (isDailyChallenge) {
+    if (isJsonRequested) {
       generationConfig.responseMimeType = 'application/json';
-    } else {
-      generationConfig.temperature = temperature;
     }
 
     const payload = {

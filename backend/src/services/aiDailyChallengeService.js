@@ -1576,7 +1576,13 @@ async function generateDailyChallenge(options = {}) {
   // Duplicate check before sandbox
   const dupCheck = await checkDuplicateChallenge(synthesized);
   if (dupCheck.isDuplicate) {
-    throw new AppError(`Duplicate collision detected: ${dupCheck.reason}`, 409, 'DUPLICATE_COLLISION');
+    if (availableTemplates.length === 0) {
+      const randHex = Math.floor(Math.random() * 16777215).toString(16);
+      synthesized.slug = `${synthesized.slug}-${randHex}`;
+      synthesized.title = `${synthesized.title} (${randHex})`;
+    } else {
+      throw new AppError(`Duplicate collision detected: ${dupCheck.reason}`, 409, 'DUPLICATE_COLLISION');
+    }
   }
 
   if (!skipSandbox) {
