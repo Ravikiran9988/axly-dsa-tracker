@@ -29,7 +29,8 @@ title, difficulty, description, constraints, input_format, output_format, exampl
 
 examples MUST be an array of objects shaped as {"input": "...", "output": "...", "explanation": "..."}.
 function_signature MUST be an object shaped as {"name": "...", "params": [{"name": "...", "type": "..."}], "return_type": "..."}.
-Ensure constraints semantically match the title (e.g., if it's a binary array problem, explicitly state elements are 0 or 1).
+Ensure constraints semantically match the title (e.g., if it's a binary array problem, explicitly state elements are 0 or 1, and ensure examples only use 0 and 1).
+If the problem title implies elements are positive integers only, explicitly constrain them to be >= 1 or >= 0.
 Ensure input/output format descriptions explicitly describe the data types and match the examples.`;
 
   const result = await llmRouter.generate({
@@ -62,6 +63,7 @@ Return JSON only in this exact shape: {"test_cases":[{"input":"...","expected_ou
 Use exactly 2 public cases (is_hidden: false) and the rest hidden cases (is_hidden: true).
 Do not duplicate inputs.
 Make every expected output deterministic and internally consistent with the problem. Include edge cases (e.g., minimum size, zeros, alternating, large inputs) based on the constraints.
+CRITICAL: Test cases MUST STRICTLY adhere to the constraints defined in the contract. Do not use numbers outside the defined ranges (e.g., do not use -1 if the problem constraints specify positive integers or binary values).
 CRITICAL: The "input" and "expected_output" MUST be non-empty strings. If the answer is an empty array or empty string, represent it as "[]" or "''" rather than an empty string "".
 
 Problem Contract:
@@ -197,13 +199,24 @@ ${JSON.stringify({
   output_format: contract.output_format
 }, null, 2)}
 
-Fix ONLY the Python implementation while preserving the exact problem contract.
-Return JSON only in this exact shape: {"fixed_python_code": "..."}
+You have TWO options:
+Option A: If the Current buggy Python code is wrong, fix the Python implementation.
+Option B: If the Current buggy Python code is actually CORRECT, but the Expected Output of the failing test case is mathematically wrong based on the problem constraints, correct the Expected Output.
+
+CRITICAL INSTRUCTION: You MUST recalculate the failing test case manually step-by-step. If you discover that the Actual Output produced by the Python code is the true mathematical answer, you MUST use Option B.
+
+Return JSON only in this exact shape: 
+{
+  "reasoning": "Step-by-step manual mathematical trace of the failing test case to verify the correct answer...",
+  "is_test_case_wrong": boolean,
+  "fixed_python_code": "...", // Provide the best Python code regardless of which option you chose.
+  "fixed_test_case_expected_output": "..." // Only include this if Option B applies. Leave it empty/null otherwise.
+}
 `;
 
     const retryResult = await llmRouter.generate({
       prompt: retryPrompt,
-      systemPrompt: 'You are an expert algorithm developer fixing buggy code. Return strict JSON only containing the fixed Python code.',
+      systemPrompt: 'You are an expert algorithm developer fixing buggy code and invalid test cases. Return strict JSON only.',
       maxTokens: 1500,
       temperature: 0.1
     });
@@ -214,6 +227,16 @@ Return JSON only in this exact shape: {"fixed_python_code": "..."}
         currentPythonSolution = fixedData.fixed_python_code;
       } else {
         throw new Error('No fixed_python_code provided');
+      }
+      
+      if (fixedData.fixed_test_case_expected_output && failingTest) {
+        const testCaseIndex = testCases.findIndex(tc => {
+          let tInput = typeof tc.input === 'object' ? JSON.stringify(tc.input) : String(tc.input);
+          return tInput === failingTest.input;
+        });
+        if (testCaseIndex !== -1) {
+          testCases[testCaseIndex].expected_output = String(fixedData.fixed_test_case_expected_output);
+        }
       }
     } catch (err) {
       throw new Error(`INVALID_STRUCTURE: Failed to parse fixed solution: ${err.message}`);
