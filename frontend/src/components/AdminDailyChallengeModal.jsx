@@ -42,6 +42,10 @@ export default function AdminDailyChallengeModal({
     const [activeTab, setActiveTab] = useState('details'); // 'details' | 'content' | 'testcases' | 'hints_editorial'
     console.log("AdminDailyChallengeModal loaded - HMR triggered");
 
+  const [error, setError] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
+  const [loading, setLoading] = useState(false);
+
   // Manual Form State
   const [formData, setFormData] = useState({
     title: '',
@@ -263,7 +267,7 @@ export default function AdminDailyChallengeModal({
       setError(null);
       setDuplicateWarning(null);
     }
-  }, [isOpen, challengeToEdit, initialMode, topics]);
+  }, [isOpen, challengeToEdit, topics]);
 
   // Manual Form Handlers
   const handleStarterCodeChange = (lang, value) => {
@@ -426,7 +430,7 @@ export default function AdminDailyChallengeModal({
     if (modalCardRef.current) {
       modalCardRef.current.scrollLeft = 0;
     }
-  }, [isOpen, creationMode, activeTab]);
+  }, [isOpen, activeTab]);
 
   if (!isOpen) return null;
 
@@ -561,18 +565,7 @@ export default function AdminDailyChallengeModal({
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-semibold text-theme-text2">Primary Topic *</label>
-                        <button
-                          type="button"
-                          onClick={() => handleRecommendTopic(formData.difficulty)}
-                          disabled={recLoading}
-                          className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-semibold transition-all"
-                        >
-                          <Sparkles className="w-3 h-3 text-amber-500" />
-                          {recLoading ? 'Analyzing...' : 'AI Recommend'}
-                        </button>
-                      </div>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Primary Topic *</label>
                       <select
                         name="topic_id"
                         value={formData.topic_id}
