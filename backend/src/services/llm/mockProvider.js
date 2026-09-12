@@ -23,7 +23,7 @@ class MockProvider extends BaseLLMProvider {
     }
 
     if (this.behavior === 'timeout') {
-      const err = new Error(`[${this.name}] Request timed out after ${options.timeoutMs || 8000}ms`);
+      const err = new Error(`[${this.name}] Request timed out after ${options.timeoutMs || 20000}ms`);
       err.isTimeout = true;
       err.provider = this.name;
       throw err;

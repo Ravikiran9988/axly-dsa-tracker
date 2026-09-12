@@ -149,7 +149,7 @@ class LLMRouter {
       systemPrompt,
       maxTokens = 800,
       temperature = 0.4,
-      timeoutMs = 8000,
+      timeoutMs = 20000,
       validateResponse = null
     } = options;
 

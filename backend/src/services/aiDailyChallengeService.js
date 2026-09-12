@@ -1469,7 +1469,7 @@ async function generateDailyChallenge(options = {}) {
       exclusionText,
       instructions: instructions || 'Ensure clean specifications, edge cases, progressive hints, and a verified reference solution.',
       skipSandbox,
-      is_fallback_allowed: !title // Pass this to aiQuestionService
+      is_fallback_allowed: false
     });
 
     if (generatedQuestion) {
@@ -1510,127 +1510,11 @@ async function generateDailyChallenge(options = {}) {
       
       return { success: true, data: parsed, source: `llm-unified` };
     }
-    
-    if (title) {
-      throw new Error("AI generated problem failed structure validation, duplication check, or sandbox verification.");
-    }
+    throw new Error("AI generated problem failed structure validation, duplication check, or sandbox verification.");
   } catch (err) {
-    console.error("Unified generation failed, falling through:", err.message);
-    if (title) {
-      // Re-throw the exact granular error from the pipeline if a title was explicitly requested
-      throw Object.assign(new Error(`AI Generation failed for requested title: ${err.message}`), { statusCode: err.statusCode || 500 });
-    }
-    // Fall through to rotation synthesizer
+    console.error("AI Generation pipeline explicitly rejected the problem:", err.message);
+    throw Object.assign(new Error(`AI Generation validation failed: ${err.message}`), { statusCode: err.statusCode || 422, code: err.code || 'AI_VALIDATION_ERROR' });
   }
-
-  // 2. Curated Library Rotation (Filter out any templates that collide with existing problems)
-  const availableTemplates = [];
-  for (const tpl of FALLBACK_TEMPLATES) {
-    const cleanTplTitle = stripVariantIdentifiers(tpl.title);
-    const candidateData = {
-      title: cleanTplTitle,
-      description: tpl.description,
-      topic_id: tpl.topic_id,
-      topic: tpl.topic,
-      pattern_id: tpl.pattern_id,
-      pattern: tpl.pattern
-    };
-    const dupCheck = await checkDuplicateChallenge(candidateData);
-    if (!dupCheck.isDuplicate) {
-      availableTemplates.push(tpl);
-    }
-  }
-
-  const matchingTemplates = availableTemplates.filter(
-    t => (targetTopic ? t.topic.toLowerCase() === targetTopic.toLowerCase() : true)
-      && (normDifficulty ? t.difficulty === normDifficulty : true)
-  );
-
-  const topicFallbackTemplates = availableTemplates.filter(
-    t => targetTopic ? t.topic.toLowerCase() === targetTopic.toLowerCase() : true
-  );
-
-  const diffFallbackTemplates = availableTemplates.filter(
-    t => normDifficulty ? t.difficulty === normDifficulty : true
-  );
-
-  const matched = matchingTemplates.length > 0
-    ? matchingTemplates[Math.floor(Math.random() * matchingTemplates.length)]
-    : (topicFallbackTemplates.length > 0
-      ? topicFallbackTemplates[Math.floor(Math.random() * topicFallbackTemplates.length)]
-      : (diffFallbackTemplates.length > 0
-        ? diffFallbackTemplates[Math.floor(Math.random() * diffFallbackTemplates.length)]
-        : (availableTemplates[0] || FALLBACK_TEMPLATES[0])));
-
-  const cleanTitle = stripVariantIdentifiers(matched.title);
-  const synthesizedSlug = generateSlug(cleanTitle);
-
-  const synthesized = {
-    title: cleanTitle,
-    slug: synthesizedSlug,
-    difficulty: matched.difficulty || normDifficulty,
-    topic: matched.topic,
-    pattern: matched.pattern,
-    description: matched.description + (instructions ? `\n\n*Note*: Tailored for ${instructions}.` : ''),
-    problem_statement: matched.description,
-    constraints: matched.constraints,
-    input_format: matched.input_format,
-    output_format: matched.output_format,
-    examples: matched.examples,
-    example_input: matched.examples[0]?.input || '',
-    example_output: matched.examples[0]?.output || '',
-    starter_code: matched.starter_code,
-    reference_solution: matched.reference_solution,
-    driver_code: matched.driver_code,
-    supported_languages: ['javascript', 'python', 'typescript', 'java', 'cpp'],
-    test_cases: matched.test_cases,
-    hints: matched.hints,
-    editorial: matched.editorial,
-    solution_approach: matched.editorial,
-    complexity: matched.complexity,
-    points: finalPoints,
-    status: 'draft',
-    created_via: 'ai',
-    scheduled_date: scheduled_date || null
-  };
-
-  synthesized.problem_concept = extractProblemConcept(synthesized.title, synthesized.description);
-  synthesized.problem_signature = generateProblemSignature(synthesized);
-
-  if (recommendationReason) {
-    synthesized.recommendation_reason = recommendationReason;
-  }
-
-  const validation = validateDailyChallenge(synthesized);
-  if (!validation.isValid) {
-    throw new AppError(`Validation failed for AI generation: ${validation.errors.join(', ')}`, 422, 'AI_VALIDATION_ERROR');
-  }
-
-  // Duplicate check before sandbox
-  const dupCheck = await checkDuplicateChallenge(synthesized);
-  if (dupCheck.isDuplicate) {
-    if (availableTemplates.length === 0) {
-      const randHex = Math.floor(Math.random() * 16777215).toString(16);
-      synthesized.slug = `${synthesized.slug}-${randHex}`;
-      synthesized.title = `${synthesized.title} (${randHex})`;
-    } else {
-      throw new AppError(`Duplicate collision detected: ${dupCheck.reason}`, 409, 'DUPLICATE_COLLISION');
-    }
-  }
-
-  if (!skipSandbox) {
-    const sbResult = await verifyReferenceSolution(synthesized);
-    synthesized.sandbox_verified = sbResult.verified;
-    if (!sbResult.verified) {
-      throw new AppError(`Sandbox verification failed: ${sbResult.reason}`, 422, 'SANDBOX_VERIFICATION_FAILED');
-    }
-  }
-
-  return {
-    success: true,
-    data: synthesized,
-    source: 'synthesizer-ai'
-  };
 }
 
 module.exports = {

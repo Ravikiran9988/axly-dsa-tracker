@@ -31,7 +31,8 @@ examples MUST be an array of objects shaped as {"input": "...", "output": "...",
 function_signature MUST be an object shaped as {"name": "...", "params": [{"name": "...", "type": "..."}], "return_type": "..."}.
 Ensure constraints semantically match the title (e.g., if it's a binary array problem, explicitly state elements are 0 or 1, and ensure examples only use 0 and 1).
 If the problem title implies elements are positive integers only, explicitly constrain them to be >= 1 or >= 0.
-Ensure input/output format descriptions explicitly describe the data types and match the examples. For complex structures like Trees or Linked Lists, explicitly state that the input is a flat array/string representation (e.g., level-order traversal for trees) that must be parsed.`;
+CRITICAL FORMAT RULE: The input_format MUST strictly describe plain text tokens (space or newline separated), NOT JSON, NOT key-value pairs, and NOT labeled arrays. For example: "The first line contains N. The second line contains N integers." NOT "parents: [1, 2, 3]". 
+The examples MUST strictly match this exact plain text format without any labels like 'Input:' or 'parents:'. For complex structures like Trees or Linked Lists, explicitly state that the input is a flat space-separated array (e.g., level-order traversal).`;
 
   const result = await llmRouter.generate({
     prompt,
@@ -41,6 +42,7 @@ Ensure input/output format descriptions explicitly describe the data types and m
   });
 
   if (!result || !result.text) throw new Error('Failed to generate problem contract.');
+  if (result.error) throw new Error(`LLM_ROUTER_ERROR: ${result.error}. Details: ${JSON.stringify(result.providerErrors || [])}`);
   
   const data = extractJson(result.text);
   
@@ -69,6 +71,7 @@ Do not duplicate inputs.
 Make every expected output deterministic and internally consistent with the problem. Include edge cases (e.g., minimum size, zeros, alternating, large inputs) based on the constraints.
 CRITICAL: Test cases MUST STRICTLY adhere to the constraints defined in the contract. Do not use numbers outside the defined ranges (e.g., do not use -1 if the problem constraints specify positive integers or binary values).
 CRITICAL: The "input" and "expected_output" MUST be non-empty strings. If the answer is an empty array or empty string, represent it as "[]" or "''" rather than an empty string "".
+CRITICAL FORMAT RULE: The "input" string MUST exactly match the problem's input_format as raw space/newline separated text. DO NOT use display labels (like "parents: " or "delays: "), and DO NOT use array brackets or JSON formatting for the input. Just provide the raw tokens (e.g., "3\\n-1 0 0\\n0 5 5").
 
 Problem Contract:
 ${JSON.stringify({
@@ -87,6 +90,8 @@ ${JSON.stringify({
   });
 
   if (!result || !result.text) throw new Error('Failed to generate test cases.');
+  if (result.error) throw new Error(`LLM_ROUTER_ERROR: ${result.error}. Details: ${JSON.stringify(result.providerErrors || [])}`);
+  
   const data = extractJson(result.text);
   if (data.testCases && !data.test_cases) data.test_cases = data.testCases;
   if (!data.test_cases || data.test_cases.length !== count) {
@@ -108,7 +113,7 @@ async function generateSolutionsForContract(contract) {
 Return JSON only in this exact shape:
 {
   "starter_code": { "javascript": "...", "typescript": "...", "python": "...", "java": "...", "cpp": "...", "c": "..." },
-  "reference_solution": { "python": "..." },
+  "reference_solution": { "javascript": "...", "typescript": "...", "python": "...", "java": "...", "cpp": "...", "c": "..." },
   "solution_approach": "...",
   "complexity": "..."
 }
@@ -123,7 +128,8 @@ The starter code MUST:
 - NEVER implement the algorithm logic in the starter code.
 - ONLY include imports strictly necessary for reading/parsing the I/O boilerplate. Do NOT include unused algorithmic imports (e.g., 'from collections import deque').
 
-The reference_solution.python MUST be the complete working python code that solves the problem AND includes the EXACT same driver code (reading from stdin and printing to stdout) as the python starter_code. It will be run in a sandbox against test cases. It MUST handle all edge cases described in constraints: ${contract.constraints}.
+For EACH language in reference_solution, you MUST provide the complete working code that solves the problem AND includes the EXACT same driver code (reading from stdin and printing to stdout) as the corresponding starter_code. It will be run in a sandbox against test cases. It MUST handle all edge cases described in constraints: ${contract.constraints}.
+Make absolutely sure you include all required imports for your algorithmic logic (e.g., 'from collections import deque' in Python if using a queue, or '#include <queue>' in C++). Do not use functions or classes without importing them!
 
 Problem Contract:
 ${JSON.stringify({ 
@@ -142,6 +148,8 @@ ${JSON.stringify({
   });
   
   if (!result || !result.text) throw new Error('Failed to generate solutions.');
+  if (result.error) throw new Error(`LLM_ROUTER_ERROR: ${result.error}. Details: ${JSON.stringify(result.providerErrors || [])}`);
+  
   const data = extractJson(result.text);
   
   if (data.starterCode && !data.starter_code) data.starter_code = data.starterCode;
@@ -154,108 +162,130 @@ ${JSON.stringify({
   return data;
 }
 
-async function verifyAndFixSolution(contract, testCases, solutions, maxRetries = 3) {
-  let currentPythonSolution = solutions.reference_solution.python;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const unhiddenTestCases = testCases.map(tc => ({ ...tc, is_hidden: false }));
-    let execResult;
+function validatePythonAst(code) {
+  return new Promise((resolve) => {
+    const { spawn } = require('child_process');
+    const pyCode = `
+import ast
+import sys
+
+try:
+    code = sys.stdin.read()
+    tree = ast.parse(code)
+    
+    uses_deque = False
+    imports_deque = False
+    
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id == 'deque':
+            uses_deque = True
+        elif isinstance(node, ast.ImportFrom) and getattr(node, 'module', None) == 'collections':
+            if any(n.name == 'deque' for n in node.names):
+                imports_deque = True
+                
+    if uses_deque and not imports_deque:
+        print("NameError: 'deque' is used but not imported from collections", file=sys.stderr)
+        sys.exit(1)
+        
+    sys.exit(0)
+except SyntaxError as e:
+    print(f"SyntaxError: {e}", file=sys.stderr)
+    sys.exit(1)
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
+`;
+
+    const proc = spawn('python', ['-c', pyCode]);
+    let stderr = '';
+    
+    proc.stderr.on('data', data => { stderr += data.toString(); });
+    
+    proc.on('close', code => {
+      if (code !== 0) {
+        resolve({ valid: false, error: stderr.trim() });
+      } else {
+        resolve({ valid: true });
+      }
+    });
+
+    proc.stdin.write(code);
+    proc.stdin.end();
+  });
+}
+
+async function validateAllSolutions(contract, testCases, solutions) {
+  const languages = ['javascript', 'typescript', 'python', 'java', 'cpp', 'c'];
+  const errors = [];
+  const unhiddenTestCases = testCases.map(tc => ({ ...tc, is_hidden: false }));
+
+  for (const lang of languages) {
+    const starter = solutions.starter_code?.[lang];
+    const ref = solutions.reference_solution?.[lang];
+
+    if (!starter) {
+      errors.push(`[${lang}] Missing starter_code`);
+      continue;
+    }
+    if (!ref) {
+      errors.push(`[${lang}] Missing reference_solution`);
+      continue;
+    }
+
+    if (!starter.includes('TODO:')) {
+      errors.push(`[${lang}] Starter code missing 'TODO:' instruction`);
+    }
+
+    if (lang === 'python') {
+      const astCheck = await validatePythonAst(ref);
+      if (!astCheck.valid) {
+        errors.push(`[python] AST Validation Failed: ${astCheck.error}`);
+      }
+    }
+
     try {
-       execResult = await executeCode({
-        language: 'python',
-        sourceCode: currentPythonSolution,
+      const starterExec = await executeCode({
+        language: lang,
+        sourceCode: starter,
+        testCases: [unhiddenTestCases[0]],
+        isSubmit: false
+      });
+      if (starterExec.status === 'Compile Error') {
+        errors.push(`[${lang}] Starter code failed to compile: ${starterExec.results[0]?.stderr || 'Compile Error'}`);
+      } else if (starterExec.status === 'Runtime Error') {
+         errors.push(`[${lang}] Starter code Runtime Error (invalid wrapper/syntax?): ${starterExec.results[0]?.stderr || 'Runtime Error'}`);
+      }
+    } catch (err) {
+      errors.push(`[${lang}] Starter code execution service error: ${err.message}`);
+    }
+
+    try {
+      const refExec = await executeCode({
+        language: lang,
+        sourceCode: ref,
         testCases: unhiddenTestCases,
         isSubmit: false
       });
-    } catch (err) {
-      throw new Error(`SANDBOX_ERROR: Execution service failed: ${err.message}`);
-    }
 
-    if (execResult.status === 'Accepted') {
-      solutions.reference_solution.python = currentPythonSolution;
-      return solutions;
-    }
-    
-    const failingTest = execResult.results.find(r => r.status !== 'Passed');
-    
-    if (attempt === maxRetries) {
-      const errorMsg = failingTest 
-        ? `${failingTest.status} on test index ${failingTest.test_index}. Input: ${failingTest.input}, Expected: ${failingTest.expected_output}, Actual: ${failingTest.actual_output}, Stderr: ${failingTest.stderr || 'None'}`
-        : execResult.status;
-      const statusCode = execResult.status === 'Runtime Error' ? 'SANDBOX_RUNTIME_ERROR' : 'SANDBOX_WRONG_ANSWER';
-      throw new Error(`${statusCode}: Reference solution failed verification after ${maxRetries} attempts. Reason: ${errorMsg}`);
-    }
-    
-    const retryPrompt = `Your previous reference solution failed sandbox verification.
-Status: ${execResult.status}
-Passed tests: ${execResult.passed_tests}/${execResult.total_tests}
-
-${failingTest ? `First failing test case details:
-Test Index: ${failingTest.test_index}
-Status: ${failingTest.status}
-Input: ${failingTest.input}
-Expected Output: ${failingTest.expected_output}
-Actual Output: ${failingTest.actual_output}
-Stderr: ${failingTest.stderr || 'None'}
-` : ''}
-
-Current buggy Python code:
-\`\`\`python
-${currentPythonSolution}
-\`\`\`
-
-Problem Contract:
-${JSON.stringify({
-  title: contract.title,
-  description: contract.description,
-  constraints: contract.constraints,
-  input_format: contract.input_format,
-  output_format: contract.output_format
-}, null, 2)}
-
-You have TWO options:
-Option A: If the Current buggy Python code is wrong, fix the Python implementation.
-Option B: If the Current buggy Python code is actually CORRECT, but the Expected Output of the failing test case is mathematically wrong based on the problem constraints, correct the Expected Output.
-
-CRITICAL INSTRUCTION: You MUST recalculate the failing test case manually step-by-step. If you discover that the Actual Output produced by the Python code is the true mathematical answer, you MUST use Option B.
-
-Return JSON only in this exact shape: 
-{
-  "reasoning": "Step-by-step manual mathematical trace of the failing test case to verify the correct answer...",
-  "is_test_case_wrong": boolean,
-  "fixed_python_code": "...", // Provide the best Python code regardless of which option you chose.
-  "fixed_test_case_expected_output": "..." // Only include this if Option B applies. Leave it empty/null otherwise.
-}
-`;
-
-    const retryResult = await llmRouter.generate({
-      prompt: retryPrompt,
-      systemPrompt: 'You are an expert algorithm developer fixing buggy code and invalid test cases. Return strict JSON only.',
-      maxTokens: 1500,
-      temperature: 0.1
-    });
-
-    try {
-      const fixedData = extractJson(retryResult.text);
-      if (fixedData.fixed_python_code) {
-        currentPythonSolution = fixedData.fixed_python_code;
-      } else {
-        throw new Error('No fixed_python_code provided');
-      }
-      
-      if (fixedData.fixed_test_case_expected_output && failingTest) {
-        const testCaseIndex = testCases.findIndex(tc => {
-          let tInput = typeof tc.input === 'object' ? JSON.stringify(tc.input) : String(tc.input);
-          return tInput === failingTest.input;
-        });
-        if (testCaseIndex !== -1) {
-          testCases[testCaseIndex].expected_output = String(fixedData.fixed_test_case_expected_output);
-        }
+      if (refExec.status !== 'Accepted') {
+        const failingTest = refExec.results.find(r => r.status !== 'Passed');
+        const errorMsg = failingTest 
+          ? `Status: ${failingTest.status} on test ${failingTest.test_index}. Input: ${failingTest.input}, Expected: ${failingTest.expected_output}, Actual: ${failingTest.actual_output}, Stderr: ${failingTest.stderr || 'None'}`
+          : refExec.status;
+        errors.push(`[${lang}] Reference solution failed verification. ${errorMsg}`);
       }
     } catch (err) {
-      throw new Error(`INVALID_STRUCTURE: Failed to parse fixed solution: ${err.message}`);
+      errors.push(`[${lang}] Reference solution execution service error: ${err.message}`);
     }
   }
+
+  if (errors.length > 0) {
+    const err = new Error(`AI_VALIDATION_ERROR: Generation rejected due to validation failures:\n${errors.join('\n')}`);
+    err.code = 'AI_VALIDATION_ERROR';
+    throw err;
+  }
+
+  return solutions;
 }
 
 async function generateHintsForContract(contract) {
@@ -276,6 +306,8 @@ ${JSON.stringify({ title: contract.title, description: contract.description }, n
         maxTokens: 500,
         temperature: 0.2
       });
+      if (!result || !result.text) throw new Error('Failed to generate hints.');
+      if (result.error) throw new Error(`LLM_ROUTER_ERROR: ${result.error}. Details: ${JSON.stringify(result.providerErrors || [])}`);
       
       const data = extractJson(result.text);
       if (!data.hints || data.hints.length !== 3) throw new Error('Need exactly 3 hints');
@@ -302,7 +334,7 @@ async function generateQuestion(options) {
     let solutions = await generateSolutionsForContract(contract);
     
     if (!skipSandbox) {
-      solutions = await verifyAndFixSolution(contract, testCases, solutions, 3);
+      solutions = await validateAllSolutions(contract, testCases, solutions);
     }
     
     let hints = [];

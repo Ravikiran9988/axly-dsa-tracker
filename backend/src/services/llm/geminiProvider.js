@@ -22,7 +22,7 @@ class GeminiProvider extends BaseLLMProvider {
       systemPrompt,
       maxTokens = 800,
       temperature = 0.4,
-      timeoutMs = 8000
+      timeoutMs = 20000
     } = options;
 
     const url = `${this.baseUrl}/${this.model}:generateContent?key=${this.apiKey}`;
