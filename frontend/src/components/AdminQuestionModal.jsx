@@ -310,6 +310,24 @@ export default function AdminQuestionModal({
           ...prev,
           reference_solution: res.data.reference_solution || prev.reference_solution
         }));
+      } else if (section === 'testcases') {
+        setFormData(prev => ({
+          ...prev,
+          test_cases: (res.data.test_cases && res.data.test_cases.length > 0) ? res.data.test_cases.map((tc, i) => ({
+            id: `tc-ai-${Date.now()}-${i}`,
+            input: tc.input || tc.input_data || '',
+            expected_output: tc.expected_output || tc.output || '',
+            is_hidden: tc.is_hidden || false
+          })) : prev.test_cases
+        }));
+      } else if (section === 'hintseditorial') {
+        setFormData(prev => ({
+          ...prev,
+          hints: res.data.hints || prev.hints,
+          editorial: res.data.editorial || res.data.solution_approach || prev.editorial,
+          solution_approach: res.data.solution_approach || res.data.editorial || prev.solution_approach,
+          complexity: res.data.complexity || prev.complexity
+        }));
       }
     } catch (err) {
       setError(err.message || `Failed to generate recommendation.`);
@@ -896,13 +914,23 @@ export default function AdminQuestionModal({
                       <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Test Cases & Verification</h4>
                       <p className="text-[11px] text-theme-text2">Provide sample public tests and edge-case hidden evaluation tests.</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={addTestCase}
-                      className="btn-secondary btn-sm text-[11px] inline-flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" /> Add Test Case
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSectionRecommend('testcases')}
+                        disabled={sectionLoading === 'testcases'}
+                        className="btn-secondary btn-sm text-[11px] inline-flex items-center gap-1 bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20"
+                      >
+                        {sectionLoading === 'testcases' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI Generate Test Cases
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addTestCase}
+                        className="btn-secondary btn-sm text-[11px] inline-flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add Test Case
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
@@ -979,6 +1007,15 @@ export default function AdminQuestionModal({
                       <label className="text-xs font-bold uppercase text-theme-text2 font-mono">
                         Progressive Hints ({formData.hints.length})
                       </label>
+                      <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSectionRecommend('hintseditorial')}
+                        disabled={sectionLoading === 'hintseditorial'}
+                        className="btn-secondary btn-sm text-[11px] inline-flex items-center gap-1 bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20"
+                      >
+                        {sectionLoading === 'hintseditorial' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} AI Generate Hints
+                      </button>
                       <button
                         type="button"
                         onClick={addHint}
@@ -986,6 +1023,7 @@ export default function AdminQuestionModal({
                       >
                         <Plus className="w-3 h-3" /> Add Hint
                       </button>
+                    </div>
                     </div>
 
                     {formData.hints.map((hint, idx) => (

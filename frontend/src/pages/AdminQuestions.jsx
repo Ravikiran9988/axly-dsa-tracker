@@ -516,15 +516,13 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                           </button>
 
                           {/* Delete */}
-                          {q.status !== 'archived' && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
-                              className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
-                              title="Delete question"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
+                            className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                            title="Delete question"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -602,15 +600,14 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                     >
                       {q.status === 'published' ? <X className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
                     </button>
-                    {q.status !== 'archived' && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
-                        className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
-                        title="Delete question"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                    {/* Delete */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
+                      className="p-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                      title="Delete question"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               );
