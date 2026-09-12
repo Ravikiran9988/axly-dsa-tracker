@@ -256,7 +256,7 @@ async function getDailyChallengeById(id, isPrivileged = false) {
     SELECT id, input, expected_output, is_hidden
     FROM daily_challenge_test_cases
     WHERE challenge_id = ?
-    ORDER BY is_hidden ASC, id ASC
+    ORDER BY is_hidden ASC, created_at ASC, id ASC
   `, [id]);
 
   const visibleTestCases = isPrivileged

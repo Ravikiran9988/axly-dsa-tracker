@@ -36,8 +36,8 @@ async function runCode(req, res, next) {
       testCasesToRun = [{ id: 'custom', input: custom_input, expected_output: '', is_hidden: 0 }];
     } else {
       const tcSql = isDailyChallenge
-        ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND is_hidden = FALSE ORDER BY created_at ASC'
-        : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC';
+        ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC'
+        : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC';
       testCasesToRun = await repo.many(tcSql, [question_id]);
       if (testCasesToRun.length === 0 && question.example_input) {
         testCasesToRun = [{ id: 'example-1', input: question.example_input, expected_output: question.example_output || '', is_hidden: 0 }];
@@ -92,8 +92,8 @@ async function submitSolution(req, res, next) {
     }
 
     const allTcSql = isDailyChallenge
-      ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC'
-      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC';
+      ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC'
+      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC';
 
     let allTestCases = await repo.many(allTcSql, [question_id]);
     if (allTestCases.length === 0 && question.example_input) {
