@@ -12,7 +12,12 @@ class SqliteRepository extends RepositoryContract {
   }
 
   _mapParams(params) {
-    return params.map(p => typeof p === 'boolean' ? (p ? 1 : 0) : p);
+    return params.map(p => {
+      if (typeof p === 'boolean') return p ? 1 : 0;
+      if (Array.isArray(p)) return JSON.stringify(p);
+      if (p !== null && typeof p === 'object' && !(p instanceof Date)) return JSON.stringify(p);
+      return p;
+    });
   }
 
   async query(sql, params = []) {
@@ -34,12 +39,17 @@ class SqliteRepository extends RepositoryContract {
 
   async execute(sql, params = []) {
     const statement = this.db.prepare(sql);
-    const result = statement.run(...this._mapParams(params));
-    return {
-      rowCount: result.changes,
-      changes: result.changes,
-      lastInsertRowid: result.lastInsertRowid
-    };
+    try {
+      const result = statement.run(...this._mapParams(params));
+      return {
+        rowCount: result.changes,
+        changes: result.changes,
+        lastInsertRowid: result.lastInsertRowid
+      };
+    } catch (err) {
+      require('fs').appendFileSync('sql_debug.log', `Error: ${err.message}\nSQL placeholders: ${(sql.match(/\\?/g) || []).length}\nParams length: ${params.length}\n`);
+      throw err;
+    }
   }
 
   async transaction(callback) {

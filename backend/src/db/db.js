@@ -455,9 +455,11 @@ function initSchema() {
   addColumnIfNotExists('daily_challenge_problems', 'examples', "TEXT DEFAULT '[]'");
   addColumnIfNotExists('daily_challenge_problems', 'source_question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
   try {
+    const info = db.prepare('PRAGMA table_info(daily_questions)').all();
+    const qidCol = info.find(c => c.name === 'question_id');
     const fks = db.prepare('PRAGMA foreign_key_list(daily_questions)').all();
     const hasQuestionFk = fks.some(f => f.table === 'questions');
-    if (hasQuestionFk) {
+    if (hasQuestionFk || (qidCol && qidCol.notnull === 1)) {
       db.pragma('foreign_keys = OFF');
       db.exec(`
         CREATE TABLE IF NOT EXISTS daily_questions_new (

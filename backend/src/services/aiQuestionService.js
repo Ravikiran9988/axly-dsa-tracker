@@ -36,14 +36,18 @@ Ensure input/output format descriptions explicitly describe the data types and m
   const result = await llmRouter.generate({
     prompt,
     systemPrompt: 'You generate reliable, original algorithmic programming problem definitions. Return strict JSON only. Never return markdown fences or commentary.',
-    maxTokens: 1500,
+    maxTokens: 4000,
     temperature: 0.2
   });
 
   if (!result || !result.text) throw new Error('Failed to generate problem contract.');
   
   const data = extractJson(result.text);
+  
+  if (data.functionSignature && !data.function_signature) data.function_signature = data.functionSignature;
+  
   if (!data.title || !data.description || !data.constraints || !data.function_signature) {
+    console.error('INVALID_STRUCTURE returned by LLM:', JSON.stringify(data, null, 2));
     throw new Error('INVALID_STRUCTURE: Contract missing required fields');
   }
   
@@ -84,6 +88,7 @@ ${JSON.stringify({
 
   if (!result || !result.text) throw new Error('Failed to generate test cases.');
   const data = extractJson(result.text);
+  if (data.testCases && !data.test_cases) data.test_cases = data.testCases;
   if (!data.test_cases || data.test_cases.length !== count) {
     throw new Error('INVALID_STRUCTURE: Test cases generation failed or returned wrong count.');
   }
@@ -128,13 +133,18 @@ ${JSON.stringify({
   const result = await llmRouter.generate({
     prompt,
     systemPrompt: 'You are an expert algorithm developer. Generate clean, bug-free reference solutions and starter code templates. Return strict JSON only.',
-    maxTokens: 2500,
+    maxTokens: 8192,
     temperature: 0.1
   });
   
   if (!result || !result.text) throw new Error('Failed to generate solutions.');
   const data = extractJson(result.text);
+  
+  if (data.starterCode && !data.starter_code) data.starter_code = data.starterCode;
+  if (data.referenceSolution && !data.reference_solution) data.reference_solution = data.referenceSolution;
+  
   if (!data.starter_code || !data.starter_code.javascript || !data.starter_code.python || !data.reference_solution || !data.reference_solution.python) {
+    console.error('INVALID_STRUCTURE returned by LLM:', JSON.stringify(data, null, 2));
     throw new Error('INVALID_STRUCTURE: Missing starter code or reference solution');
   }
   return data;
