@@ -410,7 +410,7 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
   const difficultyColor = DIFFICULTY_COLORS[difficultyKey] || DIFFICULTY_COLORS.medium;
 
   return (
-    <div className="flex flex-col h-full bg-theme-surface rounded-2xl border border-theme-border overflow-hidden shadow-2xl">
+    <div className="flex flex-col h-full bg-theme-surface sm:rounded-2xl sm:border border-theme-border overflow-hidden sm:shadow-2xl">
       {/* ─── Top Header Bar ─── */}
       <div className="p-3.5 border-b border-theme-border bg-theme-bg flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -418,8 +418,8 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
             <Sparkles className="w-4 h-4 text-theme-text1 animate-pulse" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-theme-text1 tracking-wide">DSA AI Coach</h3>
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="text-sm font-bold text-theme-text1 tracking-wide truncate">DSA AI Coach</h3>
               <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 shrink-0">
                 v2.0
               </span>
@@ -438,24 +438,25 @@ export default function DsaAiCoachPanel({ problem, currentCode = '', language = 
               type="button"
               onClick={handleClearChat}
               title="Clear conversation"
-              className="text-xs px-2.5 py-1.5 rounded-lg border bg-theme-surface2 border-theme-border text-theme-text2 hover:text-rose-300 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all flex items-center gap-1.5"
+              className="text-xs px-2.5 py-1.5 sm:px-2.5 sm:py-1.5 p-2 rounded-lg border bg-theme-surface2 border-theme-border text-theme-text2 hover:text-rose-300 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all flex items-center gap-1.5"
             >
-              <Trash2 className="w-3 h-3" />
-              Clear
+              <Trash2 className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+              <span className="hidden sm:inline">Clear</span>
             </button>
           )}
           <button
             id="btn-dsa-ai-attach-code"
             type="button"
             onClick={() => setShowCodeEditor(!showCodeEditor)}
-            className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium transition-all flex items-center gap-1.5 ${
+            title={showCodeEditor ? 'Hide Code' : 'Attach Code'}
+            className={`text-xs px-2.5 py-1.5 sm:px-2.5 sm:py-1.5 p-2 rounded-lg border font-medium transition-all flex items-center gap-1.5 ${
               showCodeEditor
                 ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
                 : 'bg-theme-surface2 border-theme-border text-theme-text2 hover:text-white'
             }`}
           >
-            <Terminal className="w-3 h-3" />
-            {showCodeEditor ? 'Hide Code' : 'Attach Code'}
+            <Terminal className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+            <span className="hidden sm:inline">{showCodeEditor ? 'Hide Code' : 'Attach Code'}</span>
           </button>
         </div>
       </div>

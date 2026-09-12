@@ -35,7 +35,7 @@ export default function StudentLayout({ user, onLogout }) {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-theme-bg text-theme-text1 flex flex-row font-sans">
+    <div className="min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-theme-bg text-theme-text1 flex flex-row font-sans">
       {/* Dedicated Student Sidebar */}
       <StudentSidebar
         currentView={currentView}

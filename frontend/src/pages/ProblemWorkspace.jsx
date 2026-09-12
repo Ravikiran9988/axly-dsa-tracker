@@ -271,11 +271,11 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
   return (
     <div className="flex flex-col bg-theme-bg" style={{ height: 'calc(100dvh - 56px)' }}>
       {/* Top header */}
-      <div className="min-h-[48px] py-2 border-b border-theme-border bg-theme-bg px-4 flex flex-wrap items-center gap-3 shrink-0">
-        <button onClick={onBack} className="btn-ghost btn-sm inline-flex items-center gap-1.5 shrink-0">
-          <ArrowLeft className="w-3.5 h-3.5" /> Practice
+      <div className="min-h-[48px] py-2 border-b border-theme-border bg-theme-bg px-2 sm:px-4 flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+        <button onClick={onBack} className="btn-ghost btn-sm inline-flex items-center gap-1 sm:gap-1.5 shrink-0 px-1.5 sm:px-3">
+          <ArrowLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Practice</span>
         </button>
-        <div className="h-4 w-px bg-theme-surface2 shrink-0" />
+        <div className="h-4 w-px bg-theme-surface2 shrink-0 hidden sm:block" />
         <h1 className="text-sm font-semibold text-theme-text1 truncate flex-1 min-w-0">{question.title}</h1>
         <span className={`${diffBadge[question.difficulty] || 'badge-neutral'} shrink-0`}>{question.difficulty}</span>
         {isPractice
@@ -299,12 +299,12 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
         </div>
 
         {submissionMethod === 'code' && (
-          <>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
             <select
               id="select-language"
               value={language}
               onChange={e => handleLanguageChange(e.target.value)}
-              className="bg-theme-surface border border-theme-border text-theme-text1 text-xs rounded px-2.5 py-1 focus:outline-none focus:border-cyan-500 shrink-0 font-medium"
+              className="bg-theme-surface border border-theme-border text-theme-text1 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-cyan-500 font-medium w-full sm:w-auto shrink-0"
             >
               <option value="javascript">JavaScript (Node 20)</option>
               <option value="python">Python 3.11</option>
@@ -313,35 +313,38 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
               <option value="cpp">C++ 20</option>
               <option value="c">C (GCC 13)</option>
             </select>
-            <button
-              onClick={() => setLeftTab('ai-coach')}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20 transition-all shrink-0"
-              title="Open DSA AI Coach for Hints, Explanations and Code Review"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 animate-pulse" />
-              Ask AI
-            </button>
-            <button
-              id="btn-run-code"
-              onClick={handleRunCode}
-              disabled={isRunning || isSubmitting}
-              title="Run (Ctrl+Enter)"
-              className="btn-secondary btn-sm inline-flex items-center gap-1.5 shrink-0 disabled:opacity-50"
-            >
-              <Play className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-              {isRunning ? 'Running...' : 'Run'}
-            </button>
-            <button
-              id="btn-submit-code"
-              onClick={handleSubmitSolution}
-              disabled={isRunning || isSubmitting}
-              title="Submit (Ctrl+Shift+Enter)"
-              className="btn-primary btn-sm inline-flex items-center gap-1.5 shrink-0 disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {isSubmitting ? 'Submitting...' : 'Submit'}
-            </button>
-          </>
+            
+            <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 w-full sm:w-auto shrink-0">
+              <button
+                onClick={() => setLeftTab('ai-coach')}
+                className="flex flex-row items-center justify-center gap-1.5 py-2 sm:px-3 sm:py-1 rounded-md text-[10px] sm:text-xs font-semibold bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20 transition-all w-full"
+                title="Open DSA AI Coach for Hints, Explanations and Code Review"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 animate-pulse shrink-0" />
+                <span className="truncate">Ask AI</span>
+              </button>
+              <button
+                id="btn-run-code"
+                onClick={handleRunCode}
+                disabled={isRunning || isSubmitting}
+                title="Run (Ctrl+Enter)"
+                className="btn-secondary py-2 sm:px-3 sm:py-1 flex flex-row items-center justify-center gap-1.5 disabled:opacity-50 w-full text-[10px] sm:text-xs !h-auto"
+              >
+                <Play className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                <span className="truncate">{isRunning ? 'Running' : 'Run'}</span>
+              </button>
+              <button
+                id="btn-submit-code"
+                onClick={handleSubmitSolution}
+                disabled={isRunning || isSubmitting}
+                title="Submit (Ctrl+Shift+Enter)"
+                className="btn-primary py-2 sm:px-3 sm:py-1 flex flex-row items-center justify-center gap-1.5 disabled:opacity-50 w-full text-[10px] sm:text-xs !h-auto"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{isSubmitting ? 'Submitting' : 'Submit'}</span>
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -409,13 +412,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
               <HelpCircle className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
               Hints{hintsList.length > 0 ? ` (${hintsList.length})` : ''}
             </button>
-            <button
-              onClick={() => setLeftTab('ai-coach')}
-              className={`tab-btn px-2.5 sm:px-3 py-2 text-xs shrink-0 ${leftTab === 'ai-coach' ? 'tab-btn-active !text-cyan-600 dark:!text-cyan-300 !border-b-cyan-500' : ''}`}
-            >
-              <Sparkles className="w-3.5 h-3.5 inline mr-1 -mt-0.5 text-cyan-500 dark:text-cyan-400" />
-              Ask AI
-            </button>
+
             <button
               onClick={() => setLeftTab('submissions')}
               className={`tab-btn px-2.5 sm:px-3 py-2 text-xs shrink-0 ${leftTab === 'submissions' ? 'tab-btn-active' : ''}`}
@@ -425,9 +422,9 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-5">
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
             {leftTab === 'description' && (
-              <>
+              <div className="p-3 sm:p-5 space-y-5">
                 <div className="problem-prose whitespace-pre-line">
                   {question.description || question.problem_statement || 'No description provided.'}
                 </div>
@@ -453,10 +450,10 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
                     ))}
                   </div>
                 )}
-              </>
+              </div>
             )}
             {leftTab === 'hints' && (
-              <div className="space-y-4">
+              <div className="p-3 sm:p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 text-xs font-semibold">
                     <HelpCircle className="w-4 h-4" /> Hints
@@ -491,12 +488,12 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
               </div>
             )}
             {leftTab === 'ai-coach' && (
-              <div className="h-full -m-5">
+              <div className="h-full w-full">
                 <DsaAiCoachPanel problem={question} currentCode={sourceCode} language={language} />
               </div>
             )}
             {leftTab === 'submissions' && (
-              <div className="space-y-3">
+              <div className="p-3 sm:p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold text-theme-text3 uppercase tracking-wider">
                     Submission History ({pastSubmissions.length})

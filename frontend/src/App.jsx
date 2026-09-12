@@ -177,7 +177,7 @@ export default function App() {
         <Route path="/profile" element={<ProfileNav />} />
         <Route path="/notifications" element={<NotificationsPage onNavigate={(v) => navigate(`/${v}`)} />} />
         <Route path="/leaderboard" element={<Leaderboard currentUser={user} />} />
-        <Route path="/ai-coach" element={<div className="max-w-4xl mx-auto h-[calc(100dvh-72px)] p-2"><DsaAiCoachPanel /></div>} />
+        <Route path="/ai-coach" element={<div className="max-w-4xl mx-auto h-full sm:p-4 lg:p-6"><DsaAiCoachPanel /></div>} />
         <Route path="/dsa-ai" element={<Navigate to="/ai-coach" replace />} />
         
         {/* Settings placeholders */}
