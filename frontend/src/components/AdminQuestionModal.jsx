@@ -1,313 +1,490 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { api } from '../services/api';
 import {
   X,
   Plus,
   Trash2,
-  FileCode,
-  Sparkles,
-  Loader2,
-  Code2,
-  FlaskConical,
-  ChevronDown,
-  Check,
+  AlertCircle,
+  Save,
+  CheckCircle2,
+  Calendar,
+  Flame,
+  Zap,
   HelpCircle,
+  Code2,
+  Sparkles,
+  RefreshCw,
+  Edit3,
+  BookOpen,
+  Layers,
+  Check,
+  Eye,
+  Send,
+  Sliders,
+  FileCode2,
+  ListOrdered,
+  Lightbulb,
   Clock,
-  Award
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
-import { api } from '../services/api';
-
-const DIFF_CONFIG = {
-  easy: {
-    label: 'Easy',
-    pts: 10,
-    color: 'text-emerald-500 dark:text-emerald-400',
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/30'
-  },
-  medium: {
-    label: 'Medium',
-    pts: 20,
-    color: 'text-amber-500 dark:text-amber-400',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/30'
-  },
-  hard: {
-    label: 'Hard',
-    pts: 30,
-    color: 'text-rose-500 dark:text-rose-400',
-    bg: 'bg-rose-500/10',
-    border: 'border-rose-500/30'
-  }
-};
-
-const DEFAULT_JS_STARTER = `const fs = require('fs');
-
-function solve(input) {
-  // your solution here
-  return input;
-}
-
-const input = fs.readFileSync(0, 'utf-8').trim();
-console.log(solve(input));`;
-
-const DEFAULT_PY_STARTER = `import sys
-
-def solve(raw):
-    # your solution here
-    return raw
-
-if __name__ == '__main__':
-    print(solve(sys.stdin.read().strip()))`;
 
 export default function AdminQuestionModal({
   isOpen,
   onClose,
-  questionToEdit,
-  question,
-  onSaved,
-  onSave,
-  onSuccess,
-  topics: topicsProp
+  questionToEdit = null,
+
+  topics = [],
+  patterns = [],
+  onSaved
 }) {
-  const currentQuestion = questionToEdit || question || null;
-  const notifySaved = onSaved || onSave || onSuccess || (() => {});
+    const [activeTab, setActiveTab] = useState('details'); // 'details' | 'content' | 'testcases' | 'hints_editorial'
+    console.log("AdminQuestionModal loaded - HMR triggered");
 
-  const [activeTab, setActiveTab] = useState('basic');
-  const [title, setTitle] = useState('');
-  const [difficulty, setDifficulty] = useState('easy');
-  const [topicId, setTopicId] = useState('');
-  const [points, setPoints] = useState(10);
-  const [estimatedTime, setEstimatedTime] = useState('30 mins');
-  const [status, setStatus] = useState('published');
-  const [description, setDescription] = useState('');
-  const [constraints, setConstraints] = useState('');
-  const [inputFormat, setInputFormat] = useState('');
-  const [outputFormat, setOutputFormat] = useState('');
-  const [hints, setHints] = useState('');
-  const [jsStarter, setJsStarter] = useState('');
-  const [pyStarter, setPyStarter] = useState('');
-  const [testCases, setTestCases] = useState([{ input: '', expected_output: '', is_hidden: false }]);
-  const [topics, setTopics] = useState(topicsProp || []);
-  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [sectionLoading, setSectionLoading] = useState(null);
 
-  // AI Generator state
-  const [aiTopic, setAiTopic] = useState('');
-  const [aiDifficulty, setAiDifficulty] = useState('medium');
-  const [aiCount, setAiCount] = useState(5);
-  const [generating, setGenerating] = useState(false);
-  const [aiError, setAiError] = useState('');
-  const [aiSuccess, setAiSuccess] = useState(false);
+  // Manual Form State
+  const [formData, setFormData] = useState({
+    title: '',
+    slug: '',
+    difficulty: 'medium',
+    topic_id: '',
+    pattern_id: '',
+    topic_name: 'Arrays',
+    pattern_name: '',
+    points: 100,
+    estimated_time: 30,
+    description: 'Given the problem parameters, design an optimal algorithm to compute the solution.',
+    problem_statement: 'Given the problem parameters, design an optimal algorithm to compute the solution.',
+    constraints: '',
+    input_format: '',
+    output_format: '',
+    examples: [
+      { input: '', output: '', explanation: '' }
+    ],
+    starter_code: {
+      javascript: `function solution(input) {\n  // Write your competitive solution here\n  return null;\n}`,
+      python: `def solution(input):\n    # Write your competitive solution here\n    return None`,
+      typescript: `function solution(input: any): any {\n  // Write your competitive solution here\n  return null;\n}`,
+      java: `class Solution {\n    public Object solution(Object input) {\n        // Write your competitive solution here\n        return null;\n    }\n}`,
+      cpp: `class Solution {\npublic:\n    void solution() {\n        // Write your competitive solution here\n    }\n};`
+    },
+    reference_solution: {
+      javascript: '', python: '', typescript: '', java: '', cpp: ''
+    },
+    supported_languages: ['javascript', 'python', 'typescript', 'java', 'cpp'],
+    hints: ['', '', ''],
+    editorial: '',
+    solution_approach: '',
+    complexity: '',
+    status: 'draft',
+    assigned_date: '',
+    created_via: 'manual',
+    test_cases: [
+      { id: 'tc-1', input: '[1, 2, 3]', expected_output: '6', is_hidden: false },
+      { id: 'tc-2', input: '[4, 5, 6]', expected_output: '15', is_hidden: true }
+    ]
+  });
+
+  // Dynamic Topics & Pattern Taxonomy State
+  const [modalTopics, setModalTopics] = useState(topics || []);
+  const [recLoading, setRecLoading] = useState(false);
+  const [recReason, setRecReason] = useState('');
 
   useEffect(() => {
-    if (topicsProp && topicsProp.length > 0) {
-      setTopics(topicsProp);
+    if (isOpen) {
+      fetchDailyTopics();
     }
-  }, [topicsProp]);
+  }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    api.getTopics()
-      .then((r) => {
-        if (r.data?.length) setTopics(r.data);
-      })
-      .catch(() => {});
-
-    if (currentQuestion) {
-      setTitle(currentQuestion.title || '');
-      setDifficulty(currentQuestion.difficulty || 'easy');
-      setTopicId(currentQuestion.topic_id || '');
-      setPoints(currentQuestion.points || DIFF_CONFIG[currentQuestion.difficulty]?.pts || 20);
-      setEstimatedTime(currentQuestion.estimated_time || '30 mins');
-      setStatus(currentQuestion.status || 'published');
-      setDescription(currentQuestion.description || '');
-      setConstraints(currentQuestion.constraints || '');
-      setInputFormat(currentQuestion.input_format || '');
-      setOutputFormat(currentQuestion.output_format || '');
-      setHints(Array.isArray(currentQuestion.hints) ? currentQuestion.hints.join('\n') : (currentQuestion.hints || ''));
-
-      const sc = currentQuestion.starter_code && typeof currentQuestion.starter_code === 'object'
-        ? currentQuestion.starter_code
-        : {};
-      setJsStarter(sc.javascript || DEFAULT_JS_STARTER);
-      setPyStarter(sc.python || DEFAULT_PY_STARTER);
-
-      api.getQuestionById(currentQuestion.id)
-        .then((r) => {
-          if (r.data?.test_cases?.length) {
-            setTestCases(r.data.test_cases);
-          }
-        })
-        .catch(() => {});
-    } else {
-      setTitle('');
-      setDifficulty('easy');
-      setTopicId('');
-      setPoints(10);
-      setEstimatedTime('30 mins');
-      setStatus('published');
-      setDescription('');
-      setConstraints('');
-      setInputFormat('');
-      setOutputFormat('');
-      setHints('');
-      setJsStarter(DEFAULT_JS_STARTER);
-      setPyStarter(DEFAULT_PY_STARTER);
-      setTestCases([{ input: '', expected_output: '', is_hidden: false }]);
-    }
-
-    setActiveTab('basic');
-    setAiError('');
-    setAiSuccess(false);
-  }, [isOpen, currentQuestion?.id]);
-
-  async function generateWithAI() {
-    if (!aiTopic.trim()) {
-      setAiError('Please enter a topic or concept name first.');
-      return;
-    }
-    setGenerating(true);
-    setAiError('');
-    setAiSuccess(false);
-
+  async function fetchDailyTopics() {
     try {
-      const r = await api.generateAIQuestion({
-        topic: aiTopic.trim(),
-        difficulty: aiDifficulty,
-        count: Number(aiCount) || 5
-      });
-      const d = r.data || {};
-
-      setTitle(d.title || '');
-      setDifficulty(aiDifficulty);
-      setPoints(DIFF_CONFIG[aiDifficulty]?.pts || 20);
-      setDescription(d.description || '');
-      setConstraints(Array.isArray(d.constraints) ? d.constraints.join('\n') : (d.constraints || ''));
-      setInputFormat(d.input_format || '');
-      setOutputFormat(d.output_format || '');
-      setHints(Array.isArray(d.hints) ? d.hints.join('\n') : (d.hints || ''));
-      setStatus('draft');
-
-      if (d.starter_code && typeof d.starter_code === 'object') {
-        setJsStarter(d.starter_code.javascript || DEFAULT_JS_STARTER);
-        setPyStarter(d.starter_code.python || DEFAULT_PY_STARTER);
+      const res = await api.getDailyChallengeTopics();
+      if (res && res.data && Array.isArray(res.data.topics)) {
+        setModalTopics(res.data.topics);
+      } else if (topics && topics.length > 0) {
+        setModalTopics(topics);
       }
-
-      if (Array.isArray(d.test_cases) && d.test_cases.length > 0) {
-        setTestCases(
-          d.test_cases.map((tc) => ({
-            input: String(tc.input ?? ''),
-            expected_output: String(tc.expected_output ?? ''),
-            is_hidden: Boolean(tc.is_hidden)
-          }))
-        );
-      }
-
-      if (d.time_limit_ms) {
-        setEstimatedTime(`${Math.max(1, Math.round(Number(d.time_limit_ms) / 60000))} mins`);
-      }
-
-      const matching = topics.find(
-        (t) => t.name?.toLowerCase() === aiTopic.trim().toLowerCase()
-      );
-      if (matching) setTopicId(matching.id);
-
-      setAiSuccess(true);
-      setActiveTab('basic');
-      setTimeout(() => setAiSuccess(false), 4000);
-    } catch (e) {
-      setAiError(e.message || 'AI generation failed. Please try again.');
-    } finally {
-      setGenerating(false);
+    } catch {
+      if (topics && topics.length > 0) setModalTopics(topics);
     }
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!title.trim()) {
-      alert('Please enter a question title.');
-      return;
+  const handleRecommendTopic = async (targetDifficulty) => {
+    setRecLoading(true);
+    setRecReason('');
+    try {
+      const res = await api.recommendDailyChallengeTopic({ difficulty: targetDifficulty });
+      if (res && res.data) {
+        const rec = res.data;
+        setFormData(prev => ({
+          ...prev,
+          topic_id: rec.topic_id,
+          topic_name: rec.topic_name,
+          pattern_name: rec.pattern_name || prev.pattern_name
+        }));
+        if (rec.reason) {
+          setRecReason(rec.reason);
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to fetch topic recommendation.');
+    } finally {
+      setRecLoading(false);
     }
-    if (!description.trim()) {
-      alert('Please enter a question description.');
-      return;
-    }
+  };
 
-    setSaving(true);
+  const groupedTopics = useMemo(() => {
+    const map = {
+      'Core': [],
+      'Trees': [],
+      'Graphs': [],
+      'Advanced': [],
+      'Other': []
+    };
+
+    if (!modalTopics || modalTopics.length === 0) return map;
+
+    modalTopics.forEach(t => {
+      const cat = map[t.category] ? t.category : 'Other';
+      map[cat].push(t);
+    });
+
+    return map;
+  }, [modalTopics]);
+
+
+  const manualAvailablePatterns = useMemo(() => {
+    if (!formData.topic_id && !formData.topic_name) return [];
+    const matched = modalTopics.find(t =>
+      t.id === formData.topic_id || t.name?.toLowerCase() === String(formData.topic_name).toLowerCase()
+    );
+    return matched?.patterns || [];
+  }, [modalTopics, formData.topic_id, formData.topic_name]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (questionToEdit) {
+                const hintsArr = Array.isArray(questionToEdit.hints)
+          ? questionToEdit.hints
+          : typeof questionToEdit.hints === 'string'
+          ? [questionToEdit.hints]
+          : [];
+        while (hintsArr.length < 3) hintsArr.push('');
+
+        const exArr = Array.isArray(questionToEdit.examples) && questionToEdit.examples.length > 0
+          ? questionToEdit.examples
+          : (questionToEdit.example_input || questionToEdit.example_output)
+          ? [{ input: questionToEdit.example_input || '', output: questionToEdit.example_output || '', explanation: '' }]
+          : [{ input: '', output: '', explanation: '' }];
+
+        setFormData({
+          title: questionToEdit.title || '',
+          slug: questionToEdit.slug || '',
+          difficulty: questionToEdit.difficulty || 'medium',
+          topic_id: questionToEdit.topic_id || '',
+          pattern_id: questionToEdit.pattern_id || '',
+          topic_name: questionToEdit.topic_name || 'Arrays',
+          pattern_name: questionToEdit.pattern_name || '',
+          points: questionToEdit.points || 100,
+          estimated_time: questionToEdit.estimated_time || 30,
+          description: questionToEdit.description || '',
+          problem_statement: questionToEdit.problem_statement || questionToEdit.description || '',
+          constraints: questionToEdit.constraints || '',
+          input_format: questionToEdit.input_format || '',
+          output_format: questionToEdit.output_format || '',
+          examples: exArr,
+          starter_code: typeof questionToEdit.starter_code === 'object'
+            ? { ...questionToEdit.starter_code }
+            : { javascript: questionToEdit.starter_code || `function solution(input) {\n  return null;\n}` },
+          reference_solution: typeof questionToEdit.reference_solution === 'object'
+            ? { ...questionToEdit.reference_solution }
+            : { javascript: questionToEdit.reference_solution || '' },
+          supported_languages: Array.isArray(questionToEdit.supported_languages)
+            ? questionToEdit.supported_languages
+            : ['javascript', 'python', 'typescript', 'java', 'cpp'],
+          hints: hintsArr.slice(0, 5),
+          editorial: questionToEdit.editorial || questionToEdit.solution_approach || '',
+          solution_approach: questionToEdit.solution_approach || questionToEdit.editorial || '',
+          complexity: questionToEdit.complexity || '',
+          status: questionToEdit.status || 'draft',
+          assigned_date: questionToEdit.assigned_date || '',
+          created_via: questionToEdit.created_via || 'manual',
+          test_cases: Array.isArray(questionToEdit.test_cases) && questionToEdit.test_cases.length > 0
+            ? questionToEdit.test_cases.map((tc, idx) => ({
+                id: tc.id || `tc-${idx + 1}`,
+                input: tc.input || '',
+                expected_output: tc.expected_output || '',
+                is_hidden: Boolean(tc.is_hidden)
+              }))
+            : [
+                { id: 'tc-1', input: '', expected_output: '', is_hidden: false },
+                { id: 'tc-2', input: '', expected_output: '', is_hidden: true }
+              ]
+        });
+      } else {
+                setFormData({
+          title: '',
+          slug: '',
+          difficulty: 'medium',
+          topic_id: topics[0]?.id || '',
+          pattern_id: '',
+          topic_name: 'Arrays',
+          pattern_name: '',
+          points: 100,
+          estimated_time: 30,
+          description: 'Given the input parameters, write an optimal solution meeting all constraints.',
+          problem_statement: 'Given the input parameters, write an optimal solution meeting all constraints.',
+          constraints: '1 <= N <= 10^5\n-10^4 <= nums[i] <= 10^4',
+          input_format: 'Standard array and parameter inputs.',
+          output_format: 'Single calculated output.',
+          examples: [{ input: 'nums = [1, 2, 3]', output: '6', explanation: 'Sum of all elements is 6.' }],
+          starter_code: {
+            javascript: `function solution(nums) {\n  // Write your competitive solution here\n  return 0;\n}`,
+            python: `def solution(nums):\n    return 0`,
+            typescript: `function solution(nums: any[]): number {\n  return 0;\n}`,
+            java: `class Solution {\n    public int solution(int[] nums) {\n        return 0;\n    }\n}`,
+            cpp: `class Solution {\npublic:\n    int solution(vector<int>& nums) {\n        return 0;\n    }\n};`,
+          },
+          reference_solution: { javascript: '', python: '', typescript: '', java: '', cpp: '' },
+          supported_languages: ['javascript', 'python', 'typescript', 'java', 'cpp'],
+          hints: ['', '', ''],
+          editorial: '',
+          solution_approach: '',
+          complexity: 'Time: O(N) | Space: O(1)',
+          status: 'draft',
+          assigned_date: '',
+          created_via: 'manual',
+          test_cases: [
+            { id: 'tc-1', input: '[1, 2, 3]', expected_output: '6', is_hidden: false },
+            { id: 'tc-2', input: '[0, 0, 0]', expected_output: '0', is_hidden: true }
+          ]
+        });
+      }
+      setError(null);
+      setDuplicateWarning(null);
+    }
+  }, [isOpen, questionToEdit, topics]);
+
+  const handleSectionRecommend = async (section) => {
+    if (!formData.title.trim() || !formData.difficulty) {
+      setError('Enter at least a Challenge Title and Difficulty before generating recommendations.');
+      return;
+    }
+    
+    setSectionLoading(section);
+    setError(null);
     try {
       const payload = {
-        title: String(title || '').trim(),
-        difficulty,
-        topic_id: topicId || null,
-        points: Number(points) || 10,
-        estimated_time: String(estimatedTime || '').trim() || '30 mins',
-        status,
-        description: String(description || '').trim(),
-        constraints: String(constraints || '').trim(),
-        input_format: String(inputFormat || '').trim(),
-        output_format: String(outputFormat || '').trim(),
-        hints: String(hints || '').trim(),
-        starter_code: {
-          javascript: jsStarter,
-          python: pyStarter
-        },
-        test_cases: testCases.filter(
-          (tc) => String(tc.input).trim() || String(tc.expected_output).trim()
-        )
+        title: formData.title,
+        difficulty: formData.difficulty,
+        topic: formData.topic_name || '',
+        pattern: formData.pattern_name || '',
+        description: formData.description || formData.problem_statement || '',
+        constraints: formData.constraints || ''
+      };
+      const res = await api.generateQuestionBankManualAI(payload);
+      if (!res.data) throw new Error('Failed to fetch recommendation.');
+      
+      if (section === 'statement') {
+        setFormData(prev => ({
+          ...prev,
+          description: res.data.description || prev.description,
+          problem_statement: res.data.problem_statement || res.data.description || prev.problem_statement,
+          constraints: res.data.constraints || prev.constraints,
+          input_format: res.data.input_format || prev.input_format,
+          output_format: res.data.output_format || prev.output_format,
+          examples: res.data.examples || prev.examples,
+        }));
+      } else if (section === 'startercode') {
+        setFormData(prev => ({
+          ...prev,
+          starter_code: res.data.starter_code || prev.starter_code
+        }));
+      } else if (section === 'referencesolution') {
+        setFormData(prev => ({
+          ...prev,
+          reference_solution: res.data.reference_solution || prev.reference_solution
+        }));
+      }
+    } catch (err) {
+      setError(err.message || `Failed to generate recommendation.`);
+    } finally {
+      setSectionLoading(null);
+    }
+  };
+
+  // Manual Form Handlers
+  const handleStarterCodeChange = (lang, value) => {
+    setFormData(prev => ({
+      ...prev,
+      starter_code: { ...prev.starter_code, [lang]: value }
+    }));
+  };
+
+  const handleReferenceSolutionChange = (lang, value) => {
+    setFormData(prev => ({
+      ...prev,
+      reference_solution: { ...prev.reference_solution, [lang]: value }
+    }));
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'difficulty' && !questionToEdit ? {
+        points: value === 'hard' ? 150 : value === 'medium' ? 100 : 50
+      } : {})
+    }));
+  };
+
+  const handleExampleChange = (index, field, value) => {
+    const updated = [...formData.examples];
+    updated[index] = { ...updated[index], [field]: value };
+    setFormData(prev => ({ ...prev, examples: updated }));
+  };
+
+  const addExample = () => {
+    setFormData(prev => ({
+      ...prev,
+      examples: [...prev.examples, { input: '', output: '', explanation: '' }]
+    }));
+  };
+
+  const removeExample = (index) => {
+    if (formData.examples.length <= 1) return;
+    setFormData(prev => ({
+      ...prev,
+      examples: prev.examples.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleTestCaseChange = (index, field, value) => {
+    const updated = [...formData.test_cases];
+    updated[index] = { ...updated[index], [field]: value };
+    setFormData(prev => ({ ...prev, test_cases: updated }));
+  };
+
+  const addTestCase = () => {
+    setFormData(prev => ({
+      ...prev,
+      test_cases: [
+        ...prev.test_cases,
+        { id: `tc-${Date.now()}`, input: '', expected_output: '', is_hidden: false }
+      ]
+    }));
+  };
+
+  const removeTestCase = (index) => {
+    if (formData.test_cases.length <= 1) return;
+    setFormData(prev => ({
+      ...prev,
+      test_cases: prev.test_cases.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleHintChange = (index, value) => {
+    const updated = [...formData.hints];
+    updated[index] = value;
+    setFormData(prev => ({ ...prev, hints: updated }));
+  };
+
+  const addHint = () => {
+    setFormData(prev => ({ ...prev, hints: [...prev.hints, ''] }));
+  };
+
+  const removeHint = (index) => {
+    setFormData(prev => ({ ...prev, hints: prev.hints.filter((_, i) => i !== index) }));
+  };
+
+  // Submit Manual Form
+  const handleSubmit = async (overrideStatus = null) => {
+    setError(null);
+    setLoading(true);
+
+    try {
+      const targetStatus = overrideStatus || formData.status || 'draft';
+      const cleanHints = formData.hints.filter(h => h && h.trim());
+      const cleanTestCases = formData.test_cases.filter(tc => tc.input !== '' && tc.expected_output !== '');
+
+      if (targetStatus !== 'draft') {
+        if (!String(formData.title || '').trim()) { setActiveTab('details'); throw new Error('Challenge Title is required'); }
+        if (!formData.difficulty) { setActiveTab('details'); throw new Error('Difficulty is required'); }
+        if (!formData.topic_id) { setActiveTab('details'); throw new Error('Primary Topic is required'); }
+        if (!formData.points) { setActiveTab('details'); throw new Error('Competitive Points is required'); }
+        if (!String(formData.description || '').trim()) { setActiveTab('content'); throw new Error('Problem Description is required'); }
+        if (!String(formData.constraints || '').trim()) { setActiveTab('content'); throw new Error('Constraints are required'); }
+        if (!String(formData.input_format || '').trim()) { setActiveTab('content'); throw new Error('Input Format is required'); }
+        if (!String(formData.output_format || '').trim()) { setActiveTab('content'); throw new Error('Output Format is required'); }
+        
+        const completeExamples = formData.examples.filter(ex => String(ex.input || '').trim() && String(ex.output || '').trim());
+        if (completeExamples.length === 0) {
+          setActiveTab('content');
+          throw new Error('At least 1 complete Example (with Input and Output) is required');
+        }
+
+        const missingStarterCode = formData.supported_languages.find(lang => !formData.starter_code[lang] || !String(formData.starter_code[lang]).trim());
+        if (missingStarterCode) {
+          setActiveTab('startercode');
+          throw new Error(`Starter Code for ${missingStarterCode} is missing`);
+        }
+
+        if (cleanTestCases.length < 1) {
+          setActiveTab('testcases');
+          throw new Error('At least 1 valid Test Case (with Input and Expected Output) is required');
+        }
+      }
+
+      const payload = {
+        ...formData,
+        status: targetStatus,
+        hints: cleanHints,
+        test_cases: cleanTestCases,
+        topic_id: formData.topic_id && String(formData.topic_id).trim() ? formData.topic_id : undefined,
+        pattern_id: formData.pattern_id && String(formData.pattern_id).trim() ? formData.pattern_id : undefined,
+        assigned_date: formData.assigned_date && String(formData.assigned_date).trim() ? formData.assigned_date.trim() : null,
+        points: Number(formData.points) || 100,
+        estimated_time: Number(formData.estimated_time) || 30,
+        created_via: questionToEdit ? (formData.created_via || 'manual') : 'manual',
+        starter_code: formData.starter_code,
+        reference_solution: formData.reference_solution,
+        editorial: formData.editorial || formData.solution_approach,
+        solution_approach: formData.editorial || formData.solution_approach
       };
 
-      if (currentQuestion?.id) {
-        await api.updateQuestion(currentQuestion.id, payload);
+      if (questionToEdit) {
+        await api.updateQuestion(questionToEdit.id, payload);
       } else {
         await api.createQuestion(payload);
       }
 
-      await notifySaved(payload);
+      if (onSaved) onSaved();
       onClose();
-    } catch (e) {
-      alert(e.message || 'Failed to save challenge.');
+    } catch (err) {
+      setError(err.message || 'Failed to save Question');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
-  }
-
-  const addTest = () => {
-    setTestCases((prev) => [...prev, { input: '', expected_output: '', is_hidden: false }]);
   };
 
-  const removeTest = (i) => {
-    setTestCases((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
-  const changeTest = (i, k, v) => {
-    setTestCases((prev) =>
-      prev.map((tc, idx) => (idx === i ? { ...tc, [k]: v } : tc))
-    );
-  };
-
-  const diffCfg = DIFF_CONFIG[difficulty] || DIFF_CONFIG.easy;
-
-  const [showAiGen, setShowAiGen] = useState(false);
   const modalCardRef = useRef(null);
 
   useEffect(() => {
     if (modalCardRef.current) {
       modalCardRef.current.scrollLeft = 0;
     }
-  }, [isOpen, activeTab, showAiGen]);
+  }, [isOpen, activeTab]);
 
   if (!isOpen) return null;
 
-  const inputClasses =
-    'w-full px-3.5 py-2.5 rounded-xl border border-theme-border bg-theme-surface text-theme-text1 placeholder:text-theme-text3 text-xs focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/20 transition-colors';
-  const textareaClasses =
-    'w-full p-3 rounded-xl border border-theme-border bg-theme-surface text-theme-text1 placeholder:text-theme-text3 text-xs focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/20 resize-none transition-colors leading-relaxed';
-  const codeTextareaClasses =
-    'w-full p-3 rounded-xl border border-theme-border bg-theme-surface font-mono text-xs text-cyan-500 dark:text-cyan-300 placeholder:text-theme-text3 focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/20 resize-none leading-relaxed';
-
   return createPortal(
-    <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in overflow-y-auto overflow-x-hidden">
       <div 
         ref={modalCardRef}
         onScroll={(e) => {
@@ -315,45 +492,33 @@ export default function AdminQuestionModal({
             e.currentTarget.scrollLeft = 0;
           }
         }}
-        className="relative w-full max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[92vh] rounded-none sm:rounded-2xl md:rounded-3xl border-0 sm:border border-theme-border bg-theme-surface shadow-2xl overflow-hidden overflow-x-hidden flex flex-col sm:my-auto animate-in fade-in zoom-in-95 duration-200 min-w-0"
+        className="bg-theme-surface border-0 sm:border border-theme-border rounded-none sm:rounded-3xl w-full max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden overflow-x-hidden animate-slide-up relative min-w-0 sm:m-auto"
       >
-        
         {/* Header */}
-        <div className="px-5 py-3.5 sm:px-6 flex items-center justify-between border-b border-theme-border bg-theme-surface shrink-0 min-w-0 w-full z-10 relative">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0">
-              <FileCode className="w-5 h-5" />
+        <div className="px-6 py-4 border-b border-theme-border flex items-center justify-between bg-theme-surface shrink-0 min-w-0 w-full">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
+              <Flame className="w-5 h-5 fill-amber-400 text-amber-500" />
             </div>
-            <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-bold text-theme-text1 flex items-center gap-2 truncate">
-                <span>{currentQuestion ? 'Edit Coding Challenge' : 'Create New Challenge'}</span>
-                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md border shrink-0 ${diffCfg.color} ${diffCfg.bg} ${diffCfg.border}`}>
-                  {diffCfg.label}
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-theme-text1">
+                  {questionToEdit ? 'Edit Question' : 'Create New Question'}
+                </h3>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 font-semibold">
+                  Competitive DSA
                 </span>
-              </h2>
-              <p className="text-[11px] text-theme-text2 truncate">
-                Configure problem details, test cases, and starter templates
+              </div>
+              <p className="text-xs text-theme-text2">
+                Independent competitive challenge &middot; never mixed with Practice problems
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {!currentQuestion && (
-              <button
-                type="button"
-                onClick={() => setShowAiGen(!showAiGen)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                  showAiGen
-                    ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30'
-                    : 'bg-theme-surface2 text-theme-text2 hover:text-theme-text1 border border-theme-border'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
-                <span className="hidden sm:inline">{showAiGen ? 'Hide AI Generator' : 'Generate with AI'}</span>
-                <span className="sm:hidden">AI</span>
-              </button>
-            )}
+
+          <div className="flex items-center gap-3">
+
+
             <button
-              type="button"
               onClick={onClose}
               className="p-2 rounded-xl text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 transition-colors"
             >
@@ -362,510 +527,559 @@ export default function AdminQuestionModal({
           </div>
         </div>
 
-        {/* AI Quick Generator Box (for new challenges) */}
-        {!currentQuestion && showAiGen && (
-          <div className="mx-4 sm:mx-6 mt-3 p-3.5 rounded-2xl border border-cyan-500/25 bg-gradient-to-br from-cyan-500/5 via-theme-surface2 to-indigo-500/5 shrink-0 min-w-0 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-500" />
-                <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400">
-                  AI Question Generator
-                </span>
-                <span className="text-[10px] text-theme-text3 hidden sm:inline">
-                  (Prompt topic and difficulty to auto-fill specs)
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {aiSuccess && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                    <Check className="w-3.5 h-3.5" /> Generated & Loaded!
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowAiGen(false)}
-                  className="text-theme-text3 hover:text-theme-text1 p-1 rounded-lg hover:bg-theme-surface2 transition-colors"
-                  title="Close AI Generator"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+        {/* Global Error Banner */}
+        {error && (
+          <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{error}</span>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 min-w-0">
-              <input
-                type="text"
-                value={aiTopic}
-                onChange={(e) => setAiTopic(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    generateWithAI();
-                  }
-                }}
-                placeholder="Topic — e.g. Binary Search, Dynamic Programming, Two Pointers, Graph BFS..."
-                className={inputClasses}
-              />
-              <div className="relative">
-                <select
-                  value={aiDifficulty}
-                  onChange={(e) => setAiDifficulty(e.target.value)}
-                  className={`${inputClasses} pr-8 cursor-pointer`}
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-theme-text3 pointer-events-none" />
-              </div>
-              <button
-                type="button"
-                disabled={generating}
-                onClick={generateWithAI}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap shadow-sm shadow-cyan-500/25"
-              >
-                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {generating ? 'Generating...' : 'Generate with AI'}
-              </button>
-            </div>
-
-            <div className="mt-2 flex items-center justify-between text-[11px]">
-              <label className="flex items-center gap-2 text-theme-text2">
-                <span>Test cases to generate:</span>
-                <input
-                  type="number"
-                  min="2"
-                  max="15"
-                  value={aiCount}
-                  onChange={(e) => setAiCount(e.target.value)}
-                  className="w-16 px-2 py-0.5 rounded-lg border border-theme-border bg-theme-surface text-center font-mono text-theme-text1 text-xs"
-                />
-              </label>
-              {aiError && <span className="text-rose-500 font-medium">{aiError}</span>}
-            </div>
-          </div>
-        )}
-
-        {/* AI Generator Sleek Collapsed Hint */}
-        {!currentQuestion && !showAiGen && (
-          <div 
-            onClick={() => setShowAiGen(true)}
-            className="mx-4 sm:mx-6 mt-3 px-3.5 py-1.5 rounded-xl border border-dashed border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 cursor-pointer flex items-center justify-between shrink-0 min-w-0 transition-colors"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
-              <span className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 truncate">
-                Want AI to draft this challenge?
-              </span>
-              <span className="text-[11px] text-theme-text3 hidden sm:inline truncate">
-                — Auto-generates problem statement, constraints, starter templates & verified test cases
-              </span>
-            </div>
-            <span className="text-xs font-bold text-cyan-500 shrink-0 ml-2 hover:underline">
-              Open AI Generator &rarr;
-            </span>
-          </div>
-        )}
-
-        {/* Tab Navigation */}
-        <div className="px-4 sm:px-6 flex items-center gap-2 border-b border-theme-border bg-theme-surface shrink-0 min-w-0 w-full z-10 relative">
-          {[
-            { id: 'basic', label: 'Problem & Specs', icon: <FileCode className="w-3.5 h-3.5" /> },
-            { id: 'starter', label: 'Starter Code', icon: <Code2 className="w-3.5 h-3.5" /> },
-            { id: 'testcases', label: `Test Cases (${testCases.length})`, icon: <FlaskConical className="w-3.5 h-3.5" /> }
-          ].map((tab, idx) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-2.5 px-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 ${
-                activeTab === tab.id
-                  ? 'border-cyan-500 text-cyan-500'
-                  : 'border-transparent text-theme-text2 hover:text-theme-text1'
-              }`}
-            >
-              {tab.icon}
-              <span>
-                {idx + 1}. {tab.label}
-              </span>
+            <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200">
+              <X className="w-3.5 h-3.5" />
             </button>
-          ))}
-        </div>
+          </div>
+        )}
 
-        {/* Main Form Content */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden min-w-0 w-full">
-          <div 
-            onScroll={(e) => {
-              if (e.currentTarget.scrollLeft !== 0) {
-                e.currentTarget.scrollLeft = 0;
-              }
-            }}
-            className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 sm:p-6 space-y-4 min-w-0 w-full"
-          >
-            
-            {/* Tab 1: Basic & Problem Specs */}
-            {activeTab === 'basic' && (
-              <div className="space-y-4 min-w-0 w-full">
-                {/* Title */}
-                <div className="min-w-0 w-full">
-                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
-                    Challenge Title <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Invert Binary Tree, Two Sum II, Trapping Rain Water..."
-                    className={inputClasses}
-                  />
-                </div>
+        
+          <div className="flex-1 flex flex-col overflow-hidden overflow-x-hidden min-w-0 w-full">
+            {/* Sub-tabs */}
+            <div className="flex items-center gap-2 px-6 pt-3 border-b border-theme-border bg-theme-surface shrink-0 overflow-x-auto custom-scrollbar min-w-0 w-full">
+              {[
+                { id: 'details', label: 'Basic Details', icon: Sliders },
+                { id: 'content', label: 'Statement & Examples', icon: BookOpen },
+                { id: 'startercode', label: 'Starter Code', icon: FileCode2 },
+                { id: 'referencesolution', label: 'Reference Solution', icon: Code2 },
+                { id: 'testcases', label: `Test Cases (${formData.test_cases.length})`, icon: CheckCircle2 },
+                { id: 'hints_editorial', label: 'Hints & Editorial', icon: Lightbulb }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all shrink-0 ${
+                    activeTab === tab.id
+                      ? 'border-amber-400 text-amber-500 dark:text-amber-400'
+                      : 'border-transparent text-theme-text2 hover:text-theme-text1'
+                  }`}
+                >
+                  <tab.icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
 
-                {/* Meta Row: Difficulty, Topic, Points, Status, Est Time */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-0 w-full">
-                  <div className="min-w-0">
-                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Difficulty</label>
-                    <div className="relative">
+            {/* Tab Contents */}
+            <div className="p-6 space-y-5 overflow-y-auto overflow-x-hidden custom-scrollbar flex-1 min-w-0 w-full">
+              {/* TAB 1: DETAILS */}
+              {activeTab === 'details' && (
+                <div className="space-y-4 min-w-0 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0 w-full">
+                    <div className="sm:col-span-2 min-w-0">
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Challenge Title *</label>
+                      <input
+                        type="text"
+                        name="title"
+                        required
+                        placeholder="e.g. Longest Substring with At Most K Distinct Characters"
+                        value={formData.title}
+                        onChange={handleFormChange}
+                        className="input-field w-full text-xs font-semibold"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Problem Slug (Optional)</label>
+                      <input
+                        type="text"
+                        name="slug"
+                        placeholder="e.g. longest-substring-k-distinct"
+                        value={formData.slug}
+                        onChange={handleFormChange}
+                        className="input-field w-full text-xs font-mono"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Difficulty *</label>
                       <select
-                        value={difficulty}
+                        name="difficulty"
+                        value={formData.difficulty}
+                        onChange={handleFormChange}
+                        className="input-field w-full text-xs font-bold capitalize"
+                      >
+                        <option value="easy">Easy (50 pts)</option>
+                        <option value="medium">Medium (100 pts)</option>
+                        <option value="hard">Hard (150 pts)</option>
+                      </select>
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Primary Topic *</label>
+                      <select
+                        name="topic_id"
+                        value={formData.topic_id}
                         onChange={(e) => {
                           const val = e.target.value;
-                          setDifficulty(val);
-                          setPoints(DIFF_CONFIG[val]?.pts || 20);
+                          const matched = modalTopics.find(t => t.id === val);
+                          setFormData(prev => ({
+                            ...prev,
+                            topic_id: val,
+                            topic_name: matched ? matched.name : (val === 'other' ? 'Other' : val),
+                            custom_topic: val === 'other' ? prev.custom_topic : ''
+                          }));
+                          setRecReason('');
                         }}
-                        className={`${inputClasses} pr-8 cursor-pointer`}
+                        className="input-field w-full text-xs"
                       >
-                        {Object.entries(DIFF_CONFIG).map(([k, v]) => (
-                          <option key={k} value={k}>
-                            {v.label} ({v.pts} pts)
-                          </option>
+                        <option value="">Select Topic</option>
+                        {Object.entries(groupedTopics).map(([category, items]) => items.length > 0 && (
+                          <optgroup key={category} label={category}>
+                            {items.map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </optgroup>
                         ))}
+                        <option value="other">Other (Custom Topic)</option>
                       </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-theme-text3 pointer-events-none" />
                     </div>
-                  </div>
 
-                  <div className="min-w-0">
-                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Topic</label>
-                    <div className="relative">
-                      <select
-                        value={topicId}
-                        onChange={(e) => setTopicId(e.target.value)}
-                        className={`${inputClasses} pr-8 cursor-pointer`}
-                      >
-                        <option value="">— Select Topic —</option>
-                        {topics.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-theme-text3 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="min-w-0">
-                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Points</label>
-                    <input
-                      type="number"
-                      value={points}
-                      onChange={(e) => setPoints(e.target.value)}
-                      className={`${inputClasses} font-mono text-center`}
-                      placeholder="20"
-                    />
-                  </div>
-
-                  <div className="min-w-0">
-                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Est. Time</label>
-                    <input
-                      type="text"
-                      value={estimatedTime}
-                      onChange={(e) => setEstimatedTime(e.target.value)}
-                      className={inputClasses}
-                      placeholder="30 mins"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <label className="text-xs font-semibold text-theme-text2">Status:</label>
-                    <div className="relative inline-block">
-                      <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                        className="px-3 py-1 rounded-lg border border-theme-border bg-theme-surface text-theme-text1 text-xs appearance-none pr-7 cursor-pointer focus:outline-none focus:border-cyan-500"
-                      >
-                        <option value="published">Published</option>
-                        <option value="draft">Draft</option>
-                        <option value="archived">Archived</option>
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-theme-text3 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div className="min-w-0 w-full">
-                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
-                    Problem Description <span className="text-rose-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={5}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe problem context, clear task requirements, and sample input/output examples..."
-                    className={textareaClasses}
-                  />
-                </div>
-
-                {/* Input & Output format */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0 w-full">
-                  <div className="min-w-0">
-                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
-                      Input Format
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={inputFormat}
-                      onChange={(e) => setInputFormat(e.target.value)}
-                      placeholder="e.g. First line contains integer N. Second line contains N space-separated integers."
-                      className={textareaClasses}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
-                      Output Format
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={outputFormat}
-                      onChange={(e) => setOutputFormat(e.target.value)}
-                      placeholder="e.g. Print single integer representing the maximum subarray sum."
-                      className={textareaClasses}
-                    />
-                  </div>
-                </div>
-
-                {/* Constraints */}
-                <div className="min-w-0 w-full">
-                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
-                    Constraints
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={constraints}
-                    onChange={(e) => setConstraints(e.target.value)}
-                    placeholder="e.g. 1 <= N <= 10^5&#10;-10^9 <= nums[i] <= 10^9&#10;Time Limit: 2.0s, Memory Limit: 256MB"
-                    className={`${textareaClasses} font-mono`}
-                  />
-                </div>
-
-                {/* Hints */}
-                <div className="min-w-0 w-full">
-                  <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
-                    Hints <span className="font-normal opacity-60 text-theme-text3">(one per line)</span>
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={hints}
-                    onChange={(e) => setHints(e.target.value)}
-                    placeholder="Hint 1: Can you use a hash map to look up complements in O(1)?"
-                    className={textareaClasses}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Starter Code */}
-            {activeTab === 'starter' && (
-              <div className="space-y-4 min-w-0 w-full">
-                <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 text-xs text-indigo-500 dark:text-indigo-300 min-w-0">
-                  <span className="font-bold">Starter Code Templates:</span> When students open this problem in the code workspace, this code is loaded as the default template. Standard stdin/stdout reading is recommended.
-                </div>
-
-                <div className="min-w-0 w-full">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-theme-text1">
-                      <span className="px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-mono text-[10px] font-bold">
-                        JS
-                      </span>
-                      JavaScript Starter Template
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setJsStarter(DEFAULT_JS_STARTER)}
-                      className="text-[11px] text-cyan-500 hover:underline"
-                    >
-                      Reset to Default
-                    </button>
-                  </div>
-                  <textarea
-                    rows={9}
-                    value={jsStarter}
-                    onChange={(e) => setJsStarter(e.target.value)}
-                    spellCheck={false}
-                    className={codeTextareaClasses}
-                  />
-                </div>
-
-                <div className="min-w-0 w-full">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-theme-text1">
-                      <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 font-mono text-[10px] font-bold">
-                        PY
-                      </span>
-                      Python 3 Starter Template
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setPyStarter(DEFAULT_PY_STARTER)}
-                      className="text-[11px] text-cyan-500 hover:underline"
-                    >
-                      Reset to Default
-                    </button>
-                  </div>
-                  <textarea
-                    rows={9}
-                    value={pyStarter}
-                    onChange={(e) => setPyStarter(e.target.value)}
-                    spellCheck={false}
-                    className={codeTextareaClasses}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Test Cases */}
-            {activeTab === 'testcases' && (
-              <div className="space-y-3 min-w-0 w-full">
-                <div className="flex items-center justify-between min-w-0">
-                  <p className="text-xs text-theme-text2 truncate mr-2">
-                    Public test cases are displayed to students. Hidden test cases evaluate submissions.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={addTest}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-cyan-500 hover:bg-cyan-400 transition-all shadow-sm shrink-0"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Case
-                  </button>
-                </div>
-
-                {testCases.map((tc, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-2xl border border-theme-border bg-theme-surface/70 space-y-3 min-w-0 w-full"
-                  >
-                    <div className="flex items-center justify-between min-w-0">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-500 flex items-center justify-center text-xs font-bold font-mono shrink-0">
-                          {idx + 1}
-                        </span>
-                        <span className="text-xs font-semibold text-theme-text1 truncate">
-                          Test Case #{idx + 1}
-                        </span>
+                    {formData.topic_id === 'other' && (
+                      <div className="col-span-full min-w-0">
+                        <label className="block text-xs font-semibold text-amber-600 dark:text-amber-300 mb-1.5">Custom Topic Name *</label>
+                        <input
+                          type="text"
+                          name="custom_topic"
+                          placeholder="e.g. Quantum Algorithms, Trie Hashing"
+                          value={formData.custom_topic || ''}
+                          onChange={handleFormChange}
+                          className="input-field w-full text-xs border-amber-500/40 text-theme-text1"
+                        />
                       </div>
+                    )}
 
-                      <div className="flex items-center gap-3 shrink-0">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-amber-500">
+                    <div className="min-w-0">
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Algorithm Pattern (Optional)</label>
+                      {manualAvailablePatterns.length > 0 ? (
+                        <select
+                          name="pattern_name"
+                          value={formData.pattern_name}
+                          onChange={handleFormChange}
+                          className="input-field w-full text-xs"
+                        >
+                          <option value="">Select Pattern / Technique</option>
+                          {manualAvailablePatterns.map(p => (
+                            <option key={p.id} value={p.name}>{p.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          name="pattern_name"
+                          placeholder="e.g. Sliding Window, Monotonic Stack, Two Pointers"
+                          value={formData.pattern_name}
+                          onChange={handleFormChange}
+                          className="input-field w-full text-xs"
+                        />
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Competitive Points</label>
+                      <input
+                        type="number"
+                        name="points"
+                        min="10"
+                        max="500"
+                        value={formData.points}
+                        onChange={handleFormChange}
+                        className="input-field w-full text-xs font-mono font-bold text-amber-500"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Assigned Date (Optional)</label>
+                      <input
+                        type="date"
+                        name="assigned_date"
+                        value={formData.assigned_date}
+                        onChange={handleFormChange}
+                        className="input-field w-full text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: CONTENT & EXAMPLES */}
+              {activeTab === 'content' && (
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-theme-text2">Problem Description *</label>
+                      <button type="button" onClick={() => handleSectionRecommend('statement')} disabled={sectionLoading === 'statement'} className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-semibold transition-all">
+                        {sectionLoading === 'statement' ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-500" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
+                        {sectionLoading === 'statement' ? 'Analyzing...' : 'AI Recommend'}
+                      </button>
+                    </div>
+                    <textarea
+                      rows={5}
+                      name="description"
+                      required
+                      placeholder="Write comprehensive problem specifications, rules, definitions, and requirements..."
+                      value={formData.description}
+                      onChange={handleFormChange}
+                      className="input-field w-full text-xs font-mono resize-y"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Constraints *</label>
+                      <textarea
+                        rows={3}
+                        name="constraints"
+                        placeholder="e.g. 1 <= nums.length <= 10^5&#10;-10^4 <= nums[i] <= 10^4"
+                        value={formData.constraints}
+                        onChange={handleFormChange}
+                        className="input-field w-full text-xs font-mono resize-none"
+                      />
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Input Format *</label>
+                        <textarea
+                          rows={2}
+                          name="input_format"
+                          placeholder="Describe the standard input format..."
+                          value={formData.input_format}
+                          onChange={handleFormChange}
+                          className="input-field w-full text-xs font-mono resize-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Output Format *</label>
+                        <textarea
+                          rows={2}
+                          name="output_format"
+                          placeholder="Describe the expected output format..."
+                          value={formData.output_format}
+                          onChange={handleFormChange}
+                          className="input-field w-full text-xs font-mono resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Examples Builder */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase text-theme-text2 font-mono">
+                        Problem Examples ({formData.examples.length})
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addExample}
+                        className="btn-secondary btn-sm text-[11px] inline-flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add Example
+                      </button>
+                    </div>
+
+                    {formData.examples.map((ex, idx) => (
+                      <div key={idx} className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border space-y-2.5">
+                        <div className="flex items-center justify-between text-xs font-mono text-theme-text2">
+                          <span>Example #{idx + 1}</span>
+                          {formData.examples.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeExample(idx)}
+                              className="text-rose-400 hover:text-rose-300"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <input
-                            type="checkbox"
-                            checked={Boolean(tc.is_hidden)}
-                            onChange={(e) => changeTest(idx, 'is_hidden', e.target.checked)}
-                            className="rounded accent-amber-500"
+                            type="text"
+                            placeholder="Input: e.g. nums = [1, 2, 3], k = 2"
+                            value={ex.input}
+                            onChange={(e) => handleExampleChange(idx, 'input', e.target.value)}
+                            className="input-field w-full text-xs font-mono"
                           />
-                          Hidden Case
-                        </label>
-                        {testCases.length > 1 && (
+                          <input
+                            type="text"
+                            placeholder="Output: e.g. 5"
+                            value={ex.output}
+                            onChange={(e) => handleExampleChange(idx, 'output', e.target.value)}
+                            className="input-field w-full text-xs font-mono"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Explanation: why this is the expected result..."
+                          value={ex.explanation}
+                          onChange={(e) => handleExampleChange(idx, 'explanation', e.target.value)}
+                          className="input-field w-full text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: STARTER CODE */}
+              {activeTab === 'startercode' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Starter Code</h4>
+                      <p className="text-[11px] text-theme-text2">Required starting code snippet for each supported language. Must be syntactically valid.</p>
+                    </div>
+                    <button type="button" onClick={() => handleSectionRecommend('startercode')} disabled={sectionLoading === 'startercode'} className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-semibold transition-all">
+                      {sectionLoading === 'startercode' ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-500" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
+                      {sectionLoading === 'startercode' ? 'Analyzing...' : 'AI Recommend'}
+                    </button>
+                  </div>
+                  {formData.supported_languages.map(lang => (
+                    <div key={lang} className="p-4 rounded-2xl bg-theme-surface border border-theme-border">
+                      <div className="flex items-center gap-2 mb-2 text-xs font-bold capitalize text-amber-500">
+                        <FileCode2 className="w-4 h-4" /> {lang} *
+                      </div>
+                      <textarea
+                        rows={6}
+                        value={formData.starter_code[lang] || ''}
+                        onChange={(e) => handleStarterCodeChange(lang, e.target.value)}
+                        placeholder={`// Starter code for ${lang}`}
+                        className="input-field w-full text-xs font-mono bg-theme-surface2 border-0 focus:ring-1 focus:ring-amber-500/50 resize-y"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* TAB 4: REFERENCE SOLUTION */}
+              {activeTab === 'referencesolution' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Reference Solution (Optional)</h4>
+                      <p className="text-[11px] text-theme-text2">Working solution. Securely stored, never exposed to students.</p>
+                    </div>
+                    <button type="button" onClick={() => handleSectionRecommend('referencesolution')} disabled={sectionLoading === 'referencesolution'} className="flex items-center gap-1.5 px-2 py-0.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 rounded-lg text-[10px] font-semibold transition-all">
+                      {sectionLoading === 'referencesolution' ? <RefreshCw className="w-3 h-3 animate-spin text-cyan-500" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
+                      {sectionLoading === 'referencesolution' ? 'Analyzing...' : 'AI Recommend'}
+                    </button>
+                  </div>
+                  {formData.supported_languages.map(lang => (
+                    <div key={lang} className="p-4 rounded-2xl bg-theme-surface border border-theme-border">
+                      <div className="flex items-center gap-2 mb-2 text-xs font-bold capitalize text-emerald-500">
+                        <Code2 className="w-4 h-4" /> {lang} (Optional)
+                      </div>
+                      <textarea
+                        rows={6}
+                        value={formData.reference_solution?.[lang] || ''}
+                        onChange={(e) => handleReferenceSolutionChange(lang, e.target.value)}
+                        placeholder={`// Complete working solution for ${lang} (optional)`}
+                        className="input-field w-full text-xs font-mono bg-emerald-500/5 border-emerald-500/20 focus:ring-1 focus:ring-emerald-500/50 resize-y"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* TAB 5: TEST CASES */}
+              {activeTab === 'testcases' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase text-theme-text2 font-mono">Test Cases & Verification</h4>
+                      <p className="text-[11px] text-theme-text2">Provide sample public tests and edge-case hidden evaluation tests.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addTestCase}
+                      className="btn-secondary btn-sm text-[11px] inline-flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add Test Case
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {formData.test_cases.map((tc, idx) => (
+                      <div key={tc.id || idx} className="p-4 rounded-2xl bg-theme-surface border border-theme-border space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-theme-text2">Test Case #{idx + 1}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                              tc.is_hidden
+                                ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                            }`}>
+                              {tc.is_hidden ? '🔒 Hidden' : '👁️ Public Example'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-1.5 text-xs text-theme-text2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={tc.is_hidden}
+                                onChange={(e) => handleTestCaseChange(idx, 'is_hidden', e.target.checked)}
+                                className="rounded bg-theme-surface border-theme-border text-amber-500 focus:ring-0"
+                              />
+                              <span>Hidden Test</span>
+                            </label>
+                            {formData.test_cases.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeTestCase(idx)}
+                                className="text-rose-400 hover:text-rose-300"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-theme-text2 mb-1">Standard Input</label>
+                            <textarea
+                              rows={2}
+                              value={tc.input}
+                              placeholder="Raw input string or JSON array"
+                              onChange={(e) => handleTestCaseChange(idx, 'input', e.target.value)}
+                              className="input-field w-full text-xs font-mono resize-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-theme-text2 mb-1">Expected Output</label>
+                            <textarea
+                              rows={2}
+                              value={tc.expected_output}
+                              placeholder="Expected stdout or serialized return value"
+                              onChange={(e) => handleTestCaseChange(idx, 'expected_output', e.target.value)}
+                              className="input-field w-full text-xs font-mono resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: HINTS & EDITORIAL */}
+              {activeTab === 'hints_editorial' && (
+                <div className="space-y-4">
+                  {/* Progressive Hints */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase text-theme-text2 font-mono">
+                        Progressive Hints ({formData.hints.length})
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addHint}
+                        className="btn-secondary btn-sm text-[11px] inline-flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" /> Add Hint
+                      </button>
+                    </div>
+
+                    {formData.hints.map((hint, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="w-6 text-center text-xs font-mono font-bold text-amber-400">
+                          #{idx + 1}
+                        </span>
+                        <input
+                          type="text"
+                          placeholder={`Hint ${idx + 1}: Suggest an observation or pattern without giving away the full answer...`}
+                          value={hint}
+                          onChange={(e) => handleHintChange(idx, e.target.value)}
+                          className="input-field flex-1 text-xs"
+                        />
+                        {formData.hints.length > 1 && (
                           <button
                             type="button"
-                            onClick={() => removeTest(idx)}
-                            className="p-1 rounded-lg text-theme-text3 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                            onClick={() => removeHint(idx)}
+                            className="p-1.5 text-theme-text3 hover:text-rose-400"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 min-w-0 w-full">
-                      <div className="min-w-0">
-                        <label className="block text-[11px] font-semibold text-theme-text2 mb-1">
-                          Input (stdin)
-                        </label>
-                        <textarea
-                          rows={4}
-                          value={tc.input}
-                          onChange={(e) => changeTest(idx, 'input', e.target.value)}
-                          placeholder="stdin input..."
-                          spellCheck={false}
-                          className={`${inputClasses} font-mono`}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <label className="block text-[11px] font-semibold text-emerald-500 dark:text-emerald-400 mb-1">
-                          Expected Output (stdout)
-                        </label>
-                        <textarea
-                          rows={4}
-                          value={tc.expected_output}
-                          onChange={(e) => changeTest(idx, 'expected_output', e.target.value)}
-                          placeholder="expected stdout output..."
-                          spellCheck={false}
-                          className={`${inputClasses} font-mono`}
-                        />
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+
+                  {/* Solution Approach / Editorial */}
+                  <div className="pt-2">
+                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">
+                      Editorial / Solution Approach (Visible after completion or to Admins)
+                    </label>
+                    <textarea
+                      rows={4}
+                      name="editorial"
+                      placeholder="Explain optimal algorithm logic, invariant proof, and time/space complexity analysis..."
+                      value={formData.editorial}
+                      onChange={handleFormChange}
+                      className="input-field w-full text-xs font-mono resize-y"
+                    />
+                  </div>
+
+                  {/* Complexity */}
+                  <div>
+                    <label className="block text-xs font-semibold text-theme-text2 mb-1.5">Complexity Analysis</label>
+                    <input
+                      type="text"
+                      name="complexity"
+                      placeholder="e.g. Time: O(N log N) | Space: O(N)"
+                      value={formData.complexity}
+                      onChange={handleFormChange}
+                      className="input-field w-full text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-6 py-4 border-t border-theme-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-theme-surface shrink-0 min-w-0 w-full">
+              <div className="text-[11px] text-theme-text2 flex items-center gap-2 min-w-0">
+                <span>Status: <strong className="text-amber-500 capitalize">{formData.status}</strong></span>
+                {formData.assigned_date && <span>&middot; Scheduled: <strong className="text-cyan-500 font-mono">{formData.assigned_date}</strong></span>}
               </div>
-            )}
 
-          </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleSubmit('draft')}
+                  className="btn-secondary text-xs inline-flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save as Draft</span>
+                </button>
 
-          {/* Footer */}
-          <div className="px-5 py-3.5 sm:px-6 border-t border-theme-border bg-theme-surface flex items-center justify-between gap-3 shrink-0 min-w-0 w-full z-10 relative">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border shrink-0 ${diffCfg.color} ${diffCfg.bg} ${diffCfg.border}`}>
-                {diffCfg.label}
-              </span>
-              <span className="text-xs text-theme-text3 truncate">
-                {points} pts • {testCases.length} test case{testCases.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2.5 shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-theme-text2 hover:text-theme-text1 hover:bg-theme-surface2 border border-theme-border transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 shadow-md shadow-cyan-500/20"
-              >
-                {saving ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Check className="w-3.5 h-3.5" />
-                )}
-                {saving
-                  ? 'Saving...'
-                  : currentQuestion
-                  ? 'Update Challenge'
-                  : 'Create Challenge'}
-              </button>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleSubmit(formData.assigned_date ? 'scheduled' : 'published')}
+                  className="btn-primary text-xs inline-flex items-center gap-1.5 px-5 py-2 font-bold shadow-md shadow-cyan-500/20 text-white"
+                >
+                  {loading ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>{formData.assigned_date ? 'Save & Schedule' : 'Save & Publish'}</span>
+                </button>
+              </div>
             </div>
           </div>
-        </form>
-
-      </div>
-    </div>,
-    document.body
+        </div>
+      </div>,
+      document.body
   );
 }

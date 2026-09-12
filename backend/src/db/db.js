@@ -141,6 +141,12 @@ function initSchema() {
       status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'archived')),
       supported_languages TEXT DEFAULT '["python", "javascript", "java", "cpp", "c", "typescript"]',
       starter_code TEXT,
+      reference_solution TEXT,
+      editorial TEXT,
+      solution_approach TEXT,
+      complexity TEXT,
+      slug TEXT,
+      pattern_id TEXT REFERENCES patterns(id) ON DELETE SET NULL,
       current_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -148,6 +154,8 @@ function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions(difficulty);
     CREATE INDEX IF NOT EXISTS idx_questions_topic_id ON questions(topic_id);
+    CREATE INDEX IF NOT EXISTS idx_questions_pattern_id ON questions(pattern_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_questions_slug ON questions(slug) WHERE slug IS NOT NULL;
     CREATE INDEX IF NOT EXISTS idx_questions_is_active ON questions(is_active);
 
     CREATE TABLE IF NOT EXISTS test_cases (
@@ -368,6 +376,34 @@ function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_automation_logs_date ON daily_challenge_automation_logs(target_date);
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_automation_logs_created ON daily_challenge_automation_logs(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS question_bank_automation_settings (
+      id TEXT PRIMARY KEY,
+      mode TEXT NOT NULL DEFAULT 'auto_fill' CHECK (mode IN ('ai_assist', 'auto_fill')),
+      is_enabled INTEGER NOT NULL DEFAULT 1,
+      retry_limit INTEGER NOT NULL DEFAULT 3,
+      last_run_at TEXT,
+      last_run_status TEXT,
+      next_run_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS question_bank_automation_logs (
+      id TEXT PRIMARY KEY,
+      target_slot TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL DEFAULT 1,
+      validation_result TEXT,
+      sandbox_result TEXT,
+      status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'skipped', 'success_noop')),
+      failure_category TEXT,
+      question_id TEXT REFERENCES questions(id) ON DELETE SET NULL,
+      details TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_qb_auto_logs_slot ON question_bank_automation_logs(target_slot);
+    CREATE INDEX IF NOT EXISTS idx_qb_auto_logs_created ON question_bank_automation_logs(created_at DESC);
 
     CREATE TABLE IF NOT EXISTS admin_audit_logs (
       id TEXT PRIMARY KEY,
@@ -598,6 +634,8 @@ function initSchema() {
   addColumnIfNotExists('questions', 'secondary_topics', "TEXT DEFAULT '[]'");
   addColumnIfNotExists('questions', 'prerequisites', "TEXT DEFAULT '[]'");
   addColumnIfNotExists('questions', 'solution_approach', 'TEXT');
+  addColumnIfNotExists('questions', 'generation_slot', 'TEXT');
+  addColumnIfNotExists('questions', 'created_via', "TEXT NOT NULL DEFAULT 'manual'");
 
   // Assignments migrations
   addColumnIfNotExists('assignments', 'cohort_id', 'TEXT');
@@ -900,6 +938,29 @@ function initSchema() {
       CREATE INDEX IF NOT EXISTS idx_daily_challenge_problem_signature 
       ON daily_challenge_problems(problem_signature)
     `).run();
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(questions)").all();
+    const colNames = tableInfo.map(c => c.name);
+    
+    if (!colNames.includes('slug')) {
+      db.prepare("ALTER TABLE questions ADD COLUMN slug TEXT").run();
+      db.prepare("ALTER TABLE questions ADD COLUMN pattern_id TEXT REFERENCES patterns(id) ON DELETE SET NULL").run();
+      db.prepare("ALTER TABLE questions ADD COLUMN reference_solution TEXT").run();
+      db.prepare("ALTER TABLE questions ADD COLUMN editorial TEXT").run();
+      db.prepare("ALTER TABLE questions ADD COLUMN solution_approach TEXT").run();
+      db.prepare("ALTER TABLE questions ADD COLUMN complexity TEXT").run();
+      
+      db.prepare(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_questions_slug ON questions(slug) WHERE slug IS NOT NULL
+      `).run();
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_questions_pattern_id ON questions(pattern_id)
+      `).run();
+    }
   } catch (e) {
     // ignore
   }

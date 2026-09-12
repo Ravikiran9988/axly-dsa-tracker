@@ -146,6 +146,12 @@ async function getQuestionById(id, user = null) {
     if (!dc) return null;
     q = dc;
     isDailyChallenge = true;
+  } else {
+    // Standard Question, fetch pattern name if pattern_id exists
+    if (q.pattern_id) {
+      const p = await repo.one('SELECT name FROM patterns WHERE id = ?', [q.pattern_id]);
+      if (p) q.pattern_name = p.name;
+    }
   }
 
   const isAdmin = user?.role === 'admin' || user?.role === 'mentor';
@@ -198,37 +204,40 @@ async function insertTestCases(questionId, testCases = [], currentRepo = repo) {
 
 async function createQuestion(input) {
   const {
-    title, difficulty, topic_id, url, description, problem_statement,
+    title, slug, difficulty, topic_id, pattern_id, url, description, problem_statement,
     constraints, input_format, output_format, example_input, example_output,
     hints, tags, estimated_time, points, assigned_date, due_date, status,
-    supported_languages, starter_code, test_cases = []
+    supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, test_cases = []
   } = input;
 
   await validateQuestionInput({ title, difficulty, topic_id });
   const duplicate = await repo.one(
-    'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND is_active = TRUE',
-    [(title || '').trim()]
+    'SELECT id FROM questions WHERE (LOWER(title) = LOWER(?) OR (slug IS NOT NULL AND slug = ?)) AND is_active = TRUE',
+    [(title || '').trim(), (slug || '').trim()]
   );
   if (duplicate) {
-    throw new AppError(`A question with title "${title}" already exists.`, 409, 'CONFLICT', 'title');
+    throw new AppError(`A question with title or slug "${title || slug}" already exists.`, 409, 'CONFLICT', 'title');
   }
 
   const id = input.id || uuidv4();
   const fallbackUrl = url?.trim() || `https://dsatracker.axly.in/questions/${id}`;
+  const finalSlug = (slug || '').trim() || null;
 
   await repo.transaction(async tx => {
     await tx.execute(`
       INSERT INTO questions (
-        id, title, difficulty, topic_id, url, description, problem_statement,
+        id, title, slug, difficulty, topic_id, pattern_id, url, description, problem_statement,
         constraints, input_format, output_format, example_input, example_output,
         hints, tags, estimated_time, points, assigned_date, due_date, status,
-        supported_languages, starter_code, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+        supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
     `, [
       id,
       (title || '').trim(),
+      finalSlug,
       (difficulty || 'easy').toLowerCase(),
       topic_id || null,
+      pattern_id || null,
       fallbackUrl,
       description || null,
       problem_statement || null,
@@ -245,7 +254,11 @@ async function createQuestion(input) {
       due_date || null,
       status || 'published',
       normalizeJsonArray(supported_languages, ['javascript', 'python']),
-      normalizeStarterCode(starter_code)
+      normalizeStarterCode(starter_code),
+      normalizeStarterCode(reference_solution),
+      editorial || null,
+      solution_approach || null,
+      complexity || null
     ]);
 
     await insertTestCases(id, test_cases, tx);
@@ -254,68 +267,90 @@ async function createQuestion(input) {
   return getQuestionById(id, { role: 'admin' });
 }
 
-async function updateQuestion(id, updates) {
-  const existing = await getQuestionById(id, { role: 'admin' });
-  if (!existing) throw new AppError('Question not found', 404, 'NOT_FOUND');
+async function updateQuestion(id, input) {
+  const {
+    title, slug, difficulty, topic_id, pattern_id, description, problem_statement,
+    constraints, input_format, output_format, example_input, example_output,
+    hints, tags, estimated_time, points, assigned_date, due_date, status,
+    supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, test_cases
+  } = input;
 
-  if (updates.title && updates.title.trim().toLowerCase() !== existing.title.toLowerCase()) {
+  const existing = await repo.one('SELECT id FROM questions WHERE id = ?', [id]);
+  if (!existing) throw new AppError('Question not found', 404);
+
+  if (title || slug) {
     const duplicate = await repo.one(
-      'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND id != ? AND is_active = TRUE',
-      [updates.title.trim(), id]
+      'SELECT id FROM questions WHERE (LOWER(title) = LOWER(?) OR (slug IS NOT NULL AND slug = ?)) AND id != ? AND is_active = TRUE',
+      [(title || '').trim(), (slug || '').trim(), id]
     );
     if (duplicate) {
-      throw new AppError(`A question with title "${updates.title}" already exists.`, 409, 'CONFLICT', 'title');
+      throw new AppError(`A question with title or slug "${title || slug}" already exists.`, 409, 'CONFLICT', 'title');
     }
   }
 
-  if (updates.difficulty !== undefined || updates.topic_id !== undefined) {
-    await validateQuestionInput({
-      title: updates.title || existing.title,
-      difficulty: updates.difficulty || existing.difficulty,
-      topic_id: updates.topic_id !== undefined ? updates.topic_id : existing.topic_id
-    });
-  }
-
-  const columnMap = {
-    title: 'title', difficulty: 'difficulty', topic_id: 'topic_id', url: 'url', description: 'description',
-    problem_statement: 'problem_statement', constraints: 'constraints', input_format: 'input_format', output_format: 'output_format',
-    example_input: 'example_input', example_output: 'example_output', hints: 'hints', estimated_time: 'estimated_time',
-    points: 'points', assigned_date: 'assigned_date', due_date: 'due_date', status: 'status', is_active: 'is_active'
-  };
-
-  const fields = [];
-  const params = [];
-  for (const [key, column] of Object.entries(columnMap)) {
-    if (updates[key] !== undefined) {
-      fields.push(`${column} = ?`);
-      let val = updates[key];
-      if (key === 'difficulty') val = String(val).toLowerCase();
-      else if (key === 'is_active') val = Boolean(val);
-      else if (key === 'hints' && Array.isArray(val)) val = JSON.stringify(val);
-      params.push(val);
-    }
-  }
-
-  if (updates.tags !== undefined) {
-    fields.push('tags = ?');
-    params.push(normalizeJsonArray(updates.tags, '[]'));
-  }
-  if (updates.supported_languages !== undefined) {
-    fields.push('supported_languages = ?');
-    params.push(normalizeJsonArray(updates.supported_languages, ['javascript', 'python']));
-  }
-  if (updates.starter_code !== undefined) {
-    fields.push('starter_code = ?');
-    params.push(normalizeStarterCode(updates.starter_code));
-  }
+  const finalSlug = slug !== undefined ? (slug.trim() || null) : undefined;
 
   await repo.transaction(async tx => {
-    if (fields.length) {
-      await tx.execute(`UPDATE questions SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+    const updatesArray = [];
+    const params = [];
+
+    const addField = (field, value) => {
+      if (value !== undefined) {
+        updatesArray.push(`${field} = ?`);
+        params.push(value);
+      }
+    };
+
+    addField('title', title?.trim());
+    addField('slug', finalSlug);
+    addField('difficulty', difficulty?.toLowerCase());
+    addField('topic_id', topic_id || null);
+    addField('pattern_id', pattern_id || null);
+    addField('description', description);
+    addField('problem_statement', problem_statement);
+    addField('constraints', constraints);
+    addField('input_format', input_format);
+    addField('output_format', output_format);
+    addField('example_input', example_input);
+    addField('example_output', example_output);
+    
+    if (hints !== undefined) {
+      updatesArray.push('hints = ?');
+      params.push(Array.isArray(hints) ? JSON.stringify(hints) : hints);
     }
-    if (Array.isArray(updates.test_cases)) {
+    if (tags !== undefined) {
+      updatesArray.push('tags = ?');
+      params.push(normalizeJsonArray(tags, '[]'));
+    }
+    
+    addField('estimated_time', estimated_time);
+    if (points !== undefined) addField('points', Number(points));
+    addField('assigned_date', assigned_date);
+    addField('due_date', due_date);
+    addField('status', status);
+    
+    if (supported_languages !== undefined) {
+      updatesArray.push('supported_languages = ?');
+      params.push(normalizeJsonArray(supported_languages, ['javascript', 'python']));
+    }
+    if (starter_code !== undefined) {
+      updatesArray.push('starter_code = ?');
+      params.push(normalizeStarterCode(starter_code));
+    }
+    if (reference_solution !== undefined) {
+      updatesArray.push('reference_solution = ?');
+      params.push(normalizeStarterCode(reference_solution));
+    }
+    addField('editorial', editorial);
+    addField('solution_approach', solution_approach);
+    addField('complexity', complexity);
+
+    if (updatesArray.length) {
+      await tx.execute(`UPDATE questions SET ${updatesArray.join(', ')} WHERE id = ?`, [...params, id]);
+    }
+    if (Array.isArray(test_cases)) {
       await tx.execute('DELETE FROM test_cases WHERE question_id = ?', [id]);
-      await insertTestCases(id, updates.test_cases, tx);
+      await insertTestCases(id, test_cases, tx);
     }
   });
 
@@ -326,14 +361,9 @@ async function deleteQuestion(id) {
   const q = await repo.one('SELECT id, is_active FROM questions WHERE id = ?', [id]);
   if (!q) throw new AppError('Question not found', 404, 'NOT_FOUND');
 
-  const today = new Date().toISOString().split('T')[0];
-  const daily = await repo.one('SELECT id FROM daily_questions WHERE question_id = ? AND date = ?', [id, today]);
-  if (daily) {
-    throw new AppError('Cannot delete the current daily question — change it first', 409, 'CONFLICT');
-  }
-
-  await repo.execute("UPDATE questions SET is_active = FALSE, status = 'archived' WHERE id = ?", [id]);
-  return { message: 'Question successfully deactivated (soft-deleted)', id, is_active: false };
+  // Hard delete the question
+  await repo.execute("DELETE FROM questions WHERE id = ?", [id]);
+  return { message: 'Question successfully deleted', id };
 }
 
 async function listTopics() {

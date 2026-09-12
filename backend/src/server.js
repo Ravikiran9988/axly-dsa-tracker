@@ -33,7 +33,9 @@ async function startServer() {
   // Initialize Background 00:00 UTC Daily Challenge Automation Scheduler
   try {
     const { startAutomationScheduler } = require('./services/dailyChallengeAutomationService');
+    const { startQuestionBankScheduler } = require('./services/questionBankAutomationService');
     startAutomationScheduler();
+    startQuestionBankScheduler();
   } catch (err) {
     console.error('Failed to start scheduler:', err);
   }

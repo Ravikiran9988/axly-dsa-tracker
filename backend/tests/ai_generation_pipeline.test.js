@@ -35,15 +35,20 @@ describe('Unified AI Question Generation Pipeline', () => {
         return_type: 'integer'
       },
       starter_code: {
-        javascript: 'function solve() {}',
-        typescript: 'function solve() {}',
-        python: 'def solve(): pass',
-        java: 'class Main { public static int solve(int N) { return 0; } }',
-        cpp: 'int solve(int N) { return 0; }\\nint main() {}',
-        c: 'int solve(int N) { return 0; }\\nint main() {}'
+        javascript: 'function solve() { // TODO: implement }',
+        typescript: 'function solve(): number { // TODO: implement }',
+        python: 'def solve():\n    # TODO: implement\n    pass',
+        java: 'class Main { public static int solve(int N) { // TODO: implement\n return 0; } }',
+        cpp: 'int solve(int N) { // TODO: implement\n return 0; }\nint main() {}',
+        c: 'int solve(int N) { // TODO: implement\n return 0; }\nint main() {}'
       },
       reference_solution: {
-        python: 'def solve(): return 1'
+        python: 'def solve(): return 1',
+        javascript: 'function solve() { return 1; }',
+        typescript: 'function solve(): number { return 1; }',
+        java: 'class Main { public static int solve(int N) { return 1; } }',
+        cpp: 'int solve(int N) { return 1; }',
+        c: 'int solve(int N) { return 1; }'
       },
       hints: []
     };
