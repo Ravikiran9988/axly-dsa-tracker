@@ -8,9 +8,13 @@ function getAuthHeader() {
 }
 
 async function request(endpoint, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const headers = { 
+    'Content-Type': 'application/json', 
+    ...getAuthHeader(), 
+    ...options.headers 
+  };
   try {
-    const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    const response = await fetch(`${API_BASE}${endpoint}`, { cache: 'no-store', ...options, headers });
     const data = await response.json().catch(() => null);
     if (!response.ok) {
       const error = new Error(data?.error?.message || 'An unexpected error occurred');
