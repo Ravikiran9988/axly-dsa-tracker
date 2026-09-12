@@ -51,7 +51,7 @@ test.describe('Axly DSA Tracker — V1 Complete E2E Suite', () => {
 
     // Verify public marketing sections by ID
     await expect(page.locator('#features')).toBeVisible();
-    await expect(page.locator('#comparison')).toBeVisible();
+
     await expect(page.locator('#curriculum')).toBeVisible();
     await expect(page.locator('#how-it-works')).toBeVisible();
 

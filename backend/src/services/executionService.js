@@ -115,8 +115,18 @@ async function executeLocally({ language, sourceCode, testCases }) {
       timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} finish({ status: 'Time Limit Exceeded', stdout, stderr: 'Time Limit Exceeded (5s limit)' }); }, timeoutMs);
       child.stdout.on('data', data => { stdout += data.toString(); if (Buffer.byteLength(stdout) > MAX_OUTPUT_BYTES) { try { child.kill('SIGKILL'); } catch {} finish({ status: 'Output Limit Exceeded', stdout: stdout.slice(0, MAX_OUTPUT_BYTES), stderr: 'Output limit exceeded (64KB max)' }); } });
       child.stderr.on('data', data => { stderr += data.toString(); });
-      child.on('error', err => finish({ status: 'Runtime Error', stdout, stderr: err.message }));
-      child.on('close', code => finish({ status: code === 0 ? 'Passed' : 'Runtime Error', stdout, stderr }));
+      child.on('error', err => {
+        if (err.code === 'ENOENT' || err.message.includes('ENOENT')) {
+          return finish({ status: 'Compiler Missing', stdout, stderr: err.message });
+        }
+        finish({ status: 'Runtime Error', stdout, stderr: err.message });
+      });
+      child.on('close', code => {
+        if (code !== 0 && (stderr.includes('is not recognized') || stderr.includes('command not found'))) {
+          return finish({ status: 'Compiler Missing', stdout, stderr });
+        }
+        finish({ status: code === 0 ? 'Passed' : 'Runtime Error', stdout, stderr });
+      });
       try { child.stdin.end(input || ''); } catch (err) { finish({ status: 'Runtime Error', stdout, stderr: err.message }); }
     });
   }

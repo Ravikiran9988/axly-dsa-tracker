@@ -4,6 +4,8 @@ const fs = require('fs');
 
 const dbPath = process.env.NODE_ENV === 'test' 
   ? ':memory:' 
+  : process.env.NODE_ENV === 'e2e'
+  ? path.join(__dirname, '../../data/axly_dsa_e2e.db')
   : path.join(__dirname, '../../data/axly_dsa.db');
 
 if (dbPath !== ':memory:') {

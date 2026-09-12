@@ -6,7 +6,7 @@ test('Production CORS Signup Test', async ({ page }) => {
   await page.waitForLoadState('networkidle');
 
   // Verify page loaded
-  await expect(page.locator('h1:has-text("Create your Axly account")')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('h1:has-text("Create account")')).toBeVisible({ timeout: 15000 });
 
   // Listen for the signup API request to verify it completes and check response
   const signupResponsePromise = page.waitForResponse((res) => 

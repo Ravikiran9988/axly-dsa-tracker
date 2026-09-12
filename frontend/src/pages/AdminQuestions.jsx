@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import AdminQuestionModal from '../components/AdminQuestionModal';
 import AdminQuestionPreview from '../components/AdminQuestionPreview';
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 
 export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
+  const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [topics, setTopics] = useState([]);
   const [patterns, setPatterns] = useState([]);
@@ -351,9 +353,9 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                           </button>
 
                           {/* Solve */}
-                          {onSelectProblem && (
+                          {true && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); onSelectProblem(q.id); }}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/solve/${q.id}`); }}
                               className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-emerald-400 hover:bg-theme-surface2 transition-colors"
                               title="Solve in coding workspace"
                             >
@@ -443,9 +445,9 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
-                    {onSelectProblem && (
+                    {true && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); onSelectProblem(q.id); }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/solve/${q.id}`); }}
                         className="p-1.5 rounded-lg border border-theme-border text-theme-text2 hover:text-emerald-400 hover:bg-theme-surface2 transition-colors"
                         title="Solve in coding workspace"
                       >

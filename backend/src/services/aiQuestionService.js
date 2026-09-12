@@ -250,7 +250,9 @@ async function validateAllSolutions(contract, testCases, solutions) {
         testCases: [unhiddenTestCases[0]],
         isSubmit: false
       });
-      if (starterExec.status === 'Compile Error') {
+      if (starterExec.status === 'Compiler Missing' && process.env.NODE_ENV === 'test') {
+        console.warn(`[${lang}] Skipping starter code validation: Compiler missing in test environment.`);
+      } else if (starterExec.status === 'Compile Error') {
         errors.push(`[${lang}] Starter code failed to compile: ${starterExec.results[0]?.stderr || 'Compile Error'}`);
       } else if (starterExec.status === 'Runtime Error') {
          errors.push(`[${lang}] Starter code Runtime Error (invalid wrapper/syntax?): ${starterExec.results[0]?.stderr || 'Runtime Error'}`);
@@ -267,8 +269,10 @@ async function validateAllSolutions(contract, testCases, solutions) {
         isSubmit: false
       });
 
-      if (refExec.status !== 'Accepted') {
-        const failingTest = refExec.results.find(r => r.status !== 'Passed');
+      if (refExec.status === 'Compiler Missing' && process.env.NODE_ENV === 'test') {
+        console.warn(`[${lang}] Skipping reference solution validation: Compiler missing in test environment.`);
+      } else if (refExec.status !== 'Accepted') {
+        const failingTest = refExec.results?.find(r => r.status !== 'Passed');
         const errorMsg = failingTest 
           ? `Status: ${failingTest.status} on test ${failingTest.test_index}. Input: ${failingTest.input}, Expected: ${failingTest.expected_output}, Actual: ${failingTest.actual_output}, Stderr: ${failingTest.stderr || 'None'}`
           : refExec.status;
