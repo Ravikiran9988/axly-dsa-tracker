@@ -116,7 +116,7 @@ async function executeLocally({ language, sourceCode, testCases }) {
       child.stdout.on('data', data => { stdout += data.toString(); if (Buffer.byteLength(stdout) > MAX_OUTPUT_BYTES) { try { child.kill('SIGKILL'); } catch {} finish({ status: 'Output Limit Exceeded', stdout: stdout.slice(0, MAX_OUTPUT_BYTES), stderr: 'Output limit exceeded (64KB max)' }); } });
       child.stderr.on('data', data => { stderr += data.toString(); });
       child.on('error', err => {
-        if (err.code === 'ENOENT' || err.message.includes('ENOENT')) {
+        if (err.code === 'ENOENT' || err.message.includes('ENOENT') || err.message.includes('EINVAL')) {
           return finish({ status: 'Compiler Missing', stdout, stderr: err.message });
         }
         finish({ status: 'Runtime Error', stdout, stderr: err.message });
@@ -153,7 +153,7 @@ async function executeLocally({ language, sourceCode, testCases }) {
       if (ok) passed.push(i + 1);
       results.push({ test_index: i + 1, status, is_hidden: Boolean(tc.is_hidden), input: tc.is_hidden ? '[Hidden Test Case]' : tc.input, expected_output: tc.is_hidden ? '[Hidden Output]' : tc.expected_output, actual_output: tc.is_hidden ? (ok ? '[Output Passed]' : '[Output Failed]') : actual, stderr: tc.is_hidden ? undefined : (exec.stderr || undefined), execution_time_ms: exec.executionTimeMs });
     }
-    const status = passed.length === testCases.length ? 'Accepted' : results.some(r => r.status === 'Time Limit Exceeded') ? 'Time Limit Exceeded' : results.some(r => r.status === 'Runtime Error') ? 'Runtime Error' : 'Wrong Answer';
+    const status = passed.length === testCases.length ? 'Accepted' : results.some(r => r.status === 'Compiler Missing') ? 'Compiler Missing' : results.some(r => r.status === 'Time Limit Exceeded') ? 'Time Limit Exceeded' : results.some(r => r.status === 'Runtime Error') ? 'Runtime Error' : 'Wrong Answer';
     return { status, passed_tests: passed.length, total_tests: testCases.length, execution_time_ms: maxTimeMs, results };
   } finally {
     try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}

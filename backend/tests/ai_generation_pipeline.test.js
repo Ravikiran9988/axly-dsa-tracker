@@ -150,15 +150,20 @@ describe('Unified AI Question Generation Pipeline', () => {
         return_type: 'integer'
       },
       starter_code: {
-        javascript: 'function differentName() {}', // Missing 'solve'
-        typescript: 'function solve() {}',
-        python: 'def solve(): pass',
-        java: 'class Main { public static int solve(int N) { return 0; } }',
-        cpp: 'int solve(int N) { return 0; }\\nint main() {}',
-        c: 'int solve(int N) { return 0; }\\nint main() {}'
+        javascript: 'function differentName() { // TODO: }', // Missing 'solve'
+        typescript: 'function solve() { // TODO: }',
+        python: 'def solve():\\n    # TODO:\\n    pass',
+        java: 'class Main { public static int solve(int N) { // TODO:\\nreturn 0; } }',
+        cpp: 'int solve(int N) { // TODO:\\nreturn 0; }\\nint main() {}',
+        c: 'int solve(int N) { // TODO:\\nreturn 0; }\\nint main() {}'
       },
       reference_solution: {
-        python: 'def solve(): return 1'
+        javascript: 'function solve() { return 1; }',
+        typescript: 'function solve(): number { return 1; }',
+        python: 'def solve(): return 1',
+        java: 'class Main { public static int solve(int N) { return 1; } }',
+        cpp: 'int solve(int N) { return 1; }',
+        c: 'int solve(int N) { return 1; }'
       },
       hints: []
     };
@@ -194,15 +199,20 @@ describe('Unified AI Question Generation Pipeline', () => {
         return_type: 'integer'
       },
       starter_code: {
-        javascript: 'function solve() {}',
-        typescript: 'function solve() {}',
-        python: 'def solve(): pass',
-        java: 'class Main { public static int solve(int N) { return 0; } }',
-        cpp: 'int solve(int N) { return 0; }\\nint main() {}',
-        c: 'int solve(int N) { return 0; }\\nint main() {}'
+        javascript: 'function solve() { // TODO: }',
+        typescript: 'function solve() { // TODO: }',
+        python: 'def solve():\\n    # TODO:\\n    pass',
+        java: 'class Main { public static int solve(int N) { // TODO:\\nreturn 0; } }',
+        cpp: 'int solve(int N) { // TODO:\\nreturn 0; }\\nint main() {}',
+        c: 'int solve(int N) { // TODO:\\nreturn 0; }\\nint main() {}'
       },
       reference_solution: {
-        python: 'def solve(): return 1'
+        javascript: 'function solve() { return 1; }',
+        typescript: 'function solve(): number { return 1; }',
+        python: 'def solve(): return 1',
+        java: 'class Main { public static int solve(int N) { return 1; } }',
+        cpp: 'int solve(int N) { return 1; }',
+        c: 'int solve(int N) { return 1; }'
       },
       hints: []
     };
@@ -240,15 +250,20 @@ describe('Unified AI Question Generation Pipeline', () => {
         return_type: 'integer'
       },
       starter_code: {
-        javascript: 'function solve() {}',
-        typescript: 'function solve() {}',
-        python: 'def solve():\\n    # leaked solution\\n    for i in range(10):\\n        print(i)\\n    return 1',
-        java: 'class Main { public static int solve(int N) { return 0; } }',
-        cpp: 'int solve(int N) { return 0; }\\nint main() {}',
-        c: 'int solve(int N) { return 0; }\\nint main() {}'
+        javascript: 'function solve() { // TODO: }',
+        typescript: 'function solve() { // TODO: }',
+        python: 'def solve():\\n    # TODO:\\n    # leaked solution\\n    for i in range(10):\\n        print(i)\\n    return 1',
+        java: 'class Main { public static int solve(int N) { // TODO:\\nreturn 0; } }',
+        cpp: 'int solve(int N) { // TODO:\\nreturn 0; }\\nint main() {}',
+        c: 'int solve(int N) { // TODO:\\nreturn 0; }\\nint main() {}'
       },
       reference_solution: {
-        python: 'def solve():\\n    # leaked solution\\n    for i in range(10):\\n        print(i)\\n    return 1'
+        javascript: 'function solve() { return 1; }',
+        typescript: 'function solve(): number { return 1; }',
+        python: 'def solve():\\n    # leaked solution\\n    for i in range(10):\\n        print(i)\\n    return 1',
+        java: 'class Main { public static int solve(int N) { return 1; } }',
+        cpp: 'int solve(int N) { return 1; }',
+        c: 'int solve(int N) { return 1; }'
       },
       hints: []
     };
