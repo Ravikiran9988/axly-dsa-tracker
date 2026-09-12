@@ -300,6 +300,7 @@ function initSchema() {
       complexity TEXT,
       examples TEXT DEFAULT '[]',
       starter_code TEXT,
+      reference_solution TEXT,
       supported_languages TEXT DEFAULT '["javascript", "python", "typescript", "java", "cpp", "c"]',
       created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
       status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'scheduled', 'active', 'archived', 'completed')),
@@ -454,6 +455,7 @@ function initSchema() {
   addColumnIfNotExists('daily_challenge_problems', 'complexity', 'TEXT');
   addColumnIfNotExists('daily_challenge_problems', 'examples', "TEXT DEFAULT '[]'");
   addColumnIfNotExists('daily_challenge_problems', 'source_question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
+  addColumnIfNotExists('daily_challenge_problems', 'reference_solution', 'TEXT');
   try {
     const info = db.prepare('PRAGMA table_info(daily_questions)').all();
     const qidCol = info.find(c => c.name === 'question_id');

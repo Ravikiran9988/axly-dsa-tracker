@@ -314,6 +314,7 @@ async function createDailyChallenge(data, admin_id) {
     editorial,
     complexity,
     starter_code,
+    reference_solution,
     supported_languages,
     created_via = 'manual',
     status = 'draft',
@@ -377,9 +378,9 @@ async function createDailyChallenge(data, admin_id) {
         secondary_topics, prerequisites, estimated_time, points,
         description, problem_statement, constraints, input_format,
         output_format, example_input, example_output, examples, hints, tags,
-        solution_approach, editorial, complexity, starter_code, supported_languages,
+        solution_approach, editorial, complexity, starter_code, reference_solution, supported_languages,
         created_via, status, scheduled_date, problem_signature, problem_concept, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `, [
       id,
       title.trim(),
@@ -407,6 +408,7 @@ async function createDailyChallenge(data, admin_id) {
       editorial || solution_approach || null,
       complexity || null,
       typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null),
+      typeof reference_solution === 'object' ? JSON.stringify(reference_solution) : (reference_solution || null),
       normalizeJsonArray(supported_languages, '["javascript", "python"]'),
       created_via === 'ai' ? 'ai' : 'manual',
       status,
@@ -493,14 +495,14 @@ async function updateDailyChallenge(id, data, admin_id) {
       'title', 'slug', 'difficulty', 'topic_id', 'pattern_id', 'custom_topic', 'points',
       'estimated_time', 'description', 'problem_statement', 'constraints',
       'input_format', 'output_format', 'example_input', 'example_output',
-      'solution_approach', 'editorial', 'complexity', 'starter_code',
+      'solution_approach', 'editorial', 'complexity', 'starter_code', 'reference_solution',
       'status', 'scheduled_date', 'is_active', 'created_via'
     ];
 
     for (const key of allowed) {
       if (data[key] !== undefined) {
         fields.push(`${key} = ?`);
-        if (key === 'starter_code' && typeof data[key] === 'object') {
+        if ((key === 'starter_code' || key === 'reference_solution') && typeof data[key] === 'object' && data[key] !== null) {
           values.push(JSON.stringify(data[key]));
         } else if (key === 'is_active') {
           values.push(Boolean(data[key]));

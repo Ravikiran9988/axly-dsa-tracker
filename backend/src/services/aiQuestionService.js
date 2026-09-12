@@ -31,7 +31,7 @@ examples MUST be an array of objects shaped as {"input": "...", "output": "...",
 function_signature MUST be an object shaped as {"name": "...", "params": [{"name": "...", "type": "..."}], "return_type": "..."}.
 Ensure constraints semantically match the title (e.g., if it's a binary array problem, explicitly state elements are 0 or 1, and ensure examples only use 0 and 1).
 If the problem title implies elements are positive integers only, explicitly constrain them to be >= 1 or >= 0.
-Ensure input/output format descriptions explicitly describe the data types and match the examples.`;
+Ensure input/output format descriptions explicitly describe the data types and match the examples. For complex structures like Trees or Linked Lists, explicitly state that the input is a flat array/string representation (e.g., level-order traversal for trees) that must be parsed.`;
 
   const result = await llmRouter.generate({
     prompt,
@@ -114,10 +114,14 @@ Return JSON only in this exact shape:
 }
 
 For EACH language in starter_code, provide the complete executable boilerplate that reads standard input (stdin), parses it based on the input_format, calls the function defined in function_signature, and prints to standard output (stdout) based on output_format.
+CRITICAL I/O INSTRUCTION: You MUST write the complete driver code to parse the input into the required data types. If the problem involves complex structures like Linked Lists or Binary Trees, YOU MUST implement the full helper functions to deserialize the string/array from stdin into actual Node objects, and serialize the result back to string for stdout. DO NOT use placeholders like "Boilerplate for reading input". Your code will be executed exactly as generated.
+Input streams will ALWAYS be plain text (space or newline separated tokens). DO NOT assume the input is a JSON string and DO NOT use JSON parsing libraries (like json.load) to read stdin unless the problem explicitly requires parsing a JSON string. Parse tokens manually.
 The starter code MUST:
 - match the exact function signature: ${JSON.stringify(contract.function_signature)}
-- contain ONLY the function signature and a dummy return (e.g., 'return null', 'return 0', or 'pass') inside the function body.
+- contain ONLY the function signature and a dummy return (e.g., 'return 0', 'return null') inside the function body.
+- explicitly include a comment like "// TODO: Write your solution here" or "# TODO: Write your solution here" right before the dummy return.
 - NEVER implement the algorithm logic in the starter code.
+- ONLY include imports strictly necessary for reading/parsing the I/O boilerplate. Do NOT include unused algorithmic imports (e.g., 'from collections import deque').
 
 The reference_solution.python MUST be the complete working python code that solves the problem AND includes the EXACT same driver code (reading from stdin and printing to stdout) as the python starter_code. It will be run in a sandbox against test cases. It MUST handle all edge cases described in constraints: ${contract.constraints}.
 
