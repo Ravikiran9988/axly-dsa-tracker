@@ -366,8 +366,43 @@ async function generateQuestion(options) {
   }
 }
 
-async function validateGeneratedQuestionAsync() {
-  return { valid: true };
+async function validateGeneratedQuestionAsync(jsonString, timeoutSeconds = 30) {
+  let candidate;
+  try {
+    candidate = extractJson(jsonString);
+  } catch (err) {
+    return { valid: false, reason: err.message };
+  }
+
+  const requiredFields = ['title', 'difficulty', 'description', 'constraints', 'input_format', 'output_format', 'examples', 'starter_code', 'reference_solution', 'test_cases'];
+  for (const field of requiredFields) {
+    if (!candidate[field]) {
+      return { valid: false, reason: `INVALID_GENERATION: missing: ${field}` };
+    }
+  }
+
+  // Solution leakage check (basic heuristic)
+  for (const lang of Object.keys(candidate.starter_code)) {
+    const starter = candidate.starter_code[lang] || '';
+    const ref = candidate.reference_solution[lang] || '';
+    if (starter.length > 50 && ref.length > 50 && starter === ref) {
+      return { valid: false, reason: `INVALID_GENERATION: Solution leakage detected in ${lang}` };
+    }
+  }
+
+  try {
+    await validateAllSolutions(candidate, candidate.test_cases, {
+      starter_code: candidate.starter_code,
+      reference_solution: candidate.reference_solution
+    });
+    return { valid: true, candidate };
+  } catch (err) {
+    let reason = err.message;
+    if (reason.includes('failed verification')) {
+      reason = 'Sandbox verification failed: Reference solution resulted in Wrong Answer';
+    }
+    return { valid: false, reason };
+  }
 }
 
 module.exports = { generateQuestion, validateGeneratedQuestionAsync };
