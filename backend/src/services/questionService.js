@@ -108,7 +108,7 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
       s.review_status, s.feedback, s.attempted_at, s.solved_at,
       (SELECT COUNT(*) FROM assignments x WHERE x.question_id = q.id AND x.status != 'unassigned') AS active_assignees_count,
       CASE 
-        WHEN q.is_daily_challenge = 1 THEN (SELECT COUNT(*) FROM daily_challenge_test_cases tc WHERE tc.challenge_id = q.id)
+        WHEN q.is_daily_challenge = 1 THEN (SELECT COUNT(*) FROM test_cases tc WHERE tc.challenge_id = q.id)
         ELSE (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = q.id)
       END AS total_test_cases_count,
       q.is_daily_challenge
@@ -168,8 +168,8 @@ async function getQuestionById(id, user = null) {
   let testCaseSql = '';
   if (isDailyChallenge) {
     testCaseSql = isAdmin
-      ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC'
-      : 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC';
+      ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC'
+      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC';
   } else {
     testCaseSql = isAdmin
       ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC'

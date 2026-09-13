@@ -964,6 +964,80 @@ function initSchema() {
   } catch (e) {
     // ignore
   }
+
+  // Canonical Question Entity Migration (Migration 021)
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(questions)").all();
+    const colNames = tableInfo.map(c => c.name);
+    
+    if (!colNames.includes('problem_signature')) {
+      addColumnIfNotExists('questions', 'examples', "TEXT DEFAULT '[]'");
+      addColumnIfNotExists('questions', 'supported_languages', 'TEXT DEFAULT \'["python", "javascript", "java", "cpp", "c", "typescript"]\'');
+      addColumnIfNotExists('questions', 'problem_signature', 'TEXT');
+      addColumnIfNotExists('questions', 'problem_concept', 'TEXT');
+
+      // Migrate data from daily_challenge_problems into questions
+      db.prepare(`
+        INSERT OR IGNORE INTO questions (
+          id, title, slug, difficulty, points, estimated_time, topic_id, pattern_id,
+          description, problem_statement, constraints, input_format, output_format,
+          example_input, example_output, hints, tags, solution_approach,
+          starter_code, current_version, created_at, is_practice, status, secondary_topics,
+          prerequisites, editorial, complexity, examples, supported_languages,
+          problem_signature, problem_concept, is_active
+        )
+        SELECT 
+          id, title, slug, difficulty, points, estimated_time, topic_id, pattern_id,
+          description, problem_statement, constraints, input_format, output_format,
+          example_input, example_output, hints, tags, solution_approach,
+          starter_code, 1, created_at, 0, status, '[]',
+          '[]', editorial, complexity, examples, supported_languages,
+          problem_signature, problem_concept, is_active
+        FROM daily_challenge_problems
+      `).run();
+
+      // Migrate test cases
+      db.prepare(`
+        INSERT OR IGNORE INTO test_cases (
+          id, question_id, input, expected_output, is_hidden, created_at
+        )
+        SELECT 
+          id, challenge_id, input, expected_output, is_hidden, created_at
+        FROM daily_challenge_test_cases
+      `).run();
+
+      // Create daily_challenge_metadata table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS daily_challenge_metadata (
+          question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
+          scheduled_date TEXT UNIQUE,
+          custom_topic TEXT,
+          created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+
+      // Backfill metadata
+      db.prepare(`
+        INSERT OR IGNORE INTO daily_challenge_metadata (
+          question_id, scheduled_date, custom_topic, created_via, created_at, updated_at
+        )
+        SELECT 
+          id, scheduled_date, custom_topic, created_via, created_at, updated_at
+        FROM daily_challenge_problems
+      `).run();
+
+      // Update daily_questions
+      db.prepare(`
+        UPDATE daily_questions 
+        SET question_id = challenge_id 
+        WHERE question_id IS NULL AND challenge_id IS NOT NULL
+      `).run();
+    }
+  } catch (e) {
+    // ignore
+  }
 }
 
 initSchema();

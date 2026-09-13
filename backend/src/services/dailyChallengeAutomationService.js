@@ -44,7 +44,7 @@ async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
 
 async function getAutomationLogs(limit = 20) {
   const l = Math.max(1, Math.min(100, Number(limit) || 20));
-  const logs = await getRepo().many(`SELECT al.*, dc.title AS challenge_title, dc.difficulty AS challenge_difficulty FROM daily_challenge_automation_logs al LEFT JOIN daily_challenge_problems dc ON al.challenge_id = dc.id ORDER BY al.created_at DESC LIMIT ?`, [l]);
+  const logs = await getRepo().many(`SELECT al.*, dc.title AS challenge_title, dc.difficulty AS challenge_difficulty FROM daily_challenge_automation_logs al LEFT JOIN questions dc ON al.challenge_id = dc.id ORDER BY al.created_at DESC LIMIT ?`, [l]);
   return logs.map(log => ({ ...log, validation_result: log.validation_result || 'Passed', sandbox_result: 'Not used' }));
 }
 
@@ -77,7 +77,7 @@ async function persistRunStatus(status) {
 }
 
 async function publishTodaysScheduledChallenge(todayDate) {
-  const scheduled = await getRepo().one(`SELECT id, title, status, scheduled_date FROM daily_challenge_problems WHERE scheduled_date = ? AND status = 'scheduled' AND is_active = TRUE ORDER BY updated_at DESC LIMIT 1`, [todayDate]);
+  const scheduled = await getRepo().one(`SELECT dc.id, dc.title, dc.status, dcm.scheduled_date FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id WHERE dcm.scheduled_date = ? AND dc.status = 'scheduled' AND dc.is_active = TRUE ORDER BY dcm.updated_at DESC LIMIT 1`, [todayDate]);
   if (!scheduled) return { published: false, challenge: null };
   const published = await publishDailyChallenge(scheduled.id, 'usr-system-cron');
   return { published: true, challenge: published };
@@ -122,7 +122,7 @@ async function runDailyScheduledAutomation() {
   const publishResult = await publishTodaysScheduledChallenge(todayDate);
 
   // Step 2: generate and schedule tomorrow's challenge.
-  const existingTomorrow = await getRepo().one(`SELECT id, title, status, scheduled_date FROM daily_challenge_problems WHERE scheduled_date = ? AND status != 'archived' AND is_active = TRUE`, [tomorrowDate]);
+  const existingTomorrow = await getRepo().one(`SELECT dc.id, dc.title, dc.status, dcm.scheduled_date FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id WHERE dcm.scheduled_date = ? AND dc.status != 'archived' AND dc.is_active = TRUE`, [tomorrowDate]);
   if (existingTomorrow) {
     await persistRunStatus('success');
     return {
@@ -177,9 +177,9 @@ async function runDailyExpiration() {
   try {
     const targetDate = getCanonicalIstDate();
     await getRepo().execute(`
-      UPDATE daily_challenge_problems 
+      UPDATE questions 
       SET status = 'expired', updated_at = CURRENT_TIMESTAMP 
-      WHERE scheduled_date <= ? AND status = 'published' AND is_active = TRUE
+      WHERE id IN (SELECT question_id FROM daily_challenge_metadata WHERE scheduled_date <= ?) AND status = 'published' AND is_active = TRUE
     `, [targetDate]);
     console.log(`✅ [00:29 IST] Daily Challenge Expiration job completed. targetDate=${targetDate}`);
   } catch (err) {

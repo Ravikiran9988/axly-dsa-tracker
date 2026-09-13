@@ -153,7 +153,7 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
     'SELECT id, difficulty, points, title FROM questions WHERE id = ?',
     [challengeId]
   ));
-  const isDailyQuestion = Boolean(await repo.one('SELECT id FROM daily_questions WHERE question_id = ? OR challenge_id = ?', [challengeId, challengeId]));
+  const isDailyQuestion = Boolean(await repo.one('SELECT id FROM daily_questions WHERE question_id = ? OR question_id = ?', [challengeId, challengeId]));
   let pts = challenge ? getDailyChallengePointsForDifficulty(challenge.difficulty) : 100;
   if (isDailyQuestion) {
     pts = Math.max(pts, 100);
@@ -210,8 +210,8 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
 
 async function awardSolve(userId, questionId, startedAt = null) {
   const isDaily = String(questionId || '').startsWith('dc-') || 
-                  Boolean(await repo.one('SELECT id FROM daily_challenge_problems WHERE id = ?', [questionId])) || 
-                  Boolean(await repo.one('SELECT id FROM daily_questions WHERE question_id = ? OR challenge_id = ?', [questionId, questionId]));
+                  Boolean(await repo.one('SELECT question_id AS id FROM daily_challenge_metadata WHERE question_id = ?', [questionId])) || 
+                  Boolean(await repo.one('SELECT id FROM daily_questions WHERE question_id = ? OR question_id = ?', [questionId, questionId]));
   if (isDaily) {
     return awardDailyChallengeSolve(userId, questionId, startedAt);
   }

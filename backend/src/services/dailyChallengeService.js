@@ -111,7 +111,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   }
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const countRow = await getRepo().one(`SELECT COUNT(*) AS total FROM daily_challenge_problems dc ${whereSql}`, params);
+  const countRow = await getRepo().one(`SELECT COUNT(*) AS total FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id ${whereSql}`, params);
   const total = Number(countRow?.total || 0);
 
   const p = Math.max(1, Number(page) || 1);
@@ -130,8 +130,8 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
       dc.scheduled_date, dc.is_active, dc.created_by, dc.created_at, dc.updated_at,
       t.name AS topic_name,
       p.name AS pattern_name,
-      (SELECT COUNT(*) FROM daily_challenge_test_cases tc WHERE tc.challenge_id = dc.id) AS total_test_cases_count,
-      (SELECT dq.date FROM daily_questions dq WHERE dq.challenge_id = dc.id OR dq.question_id = dc.id LIMIT 1) AS active_daily_date,
+      (SELECT COUNT(*) FROM test_cases tc WHERE tc.challenge_id = dc.id) AS total_test_cases_count,
+      (SELECT dq.date FROM daily_questions dq WHERE dq.question_id = dc.id LIMIT 1) AS active_daily_date,
       sq.title AS source_question_title
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
@@ -240,7 +240,7 @@ async function getDailyChallengeById(id, isPrivileged = false) {
       t.name AS topic_name,
       p.name AS pattern_name,
       sq.title AS source_question_title,
-      (SELECT dq.date FROM daily_questions dq WHERE dq.challenge_id = dc.id OR dq.question_id = dc.id LIMIT 1) AS active_daily_date
+      (SELECT dq.date FROM daily_questions dq WHERE dq.question_id = dc.id LIMIT 1) AS active_daily_date
     FROM daily_challenge_problems dc
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
@@ -254,8 +254,8 @@ async function getDailyChallengeById(id, isPrivileged = false) {
 
   const testCases = await getRepo().many(`
     SELECT id, input, expected_output, is_hidden
-    FROM daily_challenge_test_cases
-    WHERE challenge_id = ?
+    FROM test_cases
+    WHERE question_id = ?
     ORDER BY is_hidden ASC, created_at ASC, id ASC
   `, [id]);
 
@@ -422,7 +422,7 @@ async function createDailyChallenge(data, admin_id) {
       for (const tc of test_cases) {
         if (tc && tc.input !== undefined && tc.expected_output !== undefined) {
           await tx.execute(`
-            INSERT INTO daily_challenge_test_cases (id, challenge_id, input, expected_output, is_hidden)
+            INSERT INTO test_cases (id, challenge_id, input, expected_output, is_hidden)
             VALUES (?, ?, ?, ?, ?)
           `, [
             `dc-tc-${uuidv4().slice(0, 8)}`,
@@ -550,11 +550,11 @@ async function updateDailyChallenge(id, data, admin_id) {
         throw new AppError('Cannot replace test cases of a live published challenge with active student submissions.', 400, 'PROTECTED_FIELD_ERROR', 'test_cases');
       }
 
-      await tx.execute('DELETE FROM daily_challenge_test_cases WHERE challenge_id = ?', [id]);
+      await tx.execute('DELETE FROM test_cases WHERE question_id = ?', [id]);
       for (const tc of data.test_cases) {
         if (tc && tc.input !== undefined && tc.expected_output !== undefined) {
           await tx.execute(`
-            INSERT INTO daily_challenge_test_cases (id, challenge_id, input, expected_output, is_hidden)
+            INSERT INTO test_cases (id, challenge_id, input, expected_output, is_hidden)
             VALUES (?, ?, ?, ?, ?)
           `, [
             `dc-tc-${uuidv4().slice(0, 8)}`,
@@ -744,7 +744,7 @@ async function unpublishDailyChallenge(id, admin_id) {
  * Archive Daily Challenge (soft-archive, retains historical submissions)
  */
 async function archiveDailyChallenge(id) {
-  const challenge = await getRepo().one('SELECT id FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT question_id AS id FROM daily_challenge_metadata WHERE question_id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   await getRepo().execute(`
@@ -764,9 +764,9 @@ async function deleteDailyChallenge(id) {
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   await getRepo().transaction(async tx => {
-    await tx.execute('DELETE FROM daily_challenge_test_cases WHERE challenge_id = ?', [id]);
-    await tx.execute('DELETE FROM daily_questions WHERE challenge_id = ? OR question_id = ?', [id, id]);
-    await tx.execute('DELETE FROM daily_challenge_problems WHERE id = ?', [id]);
+    await tx.execute('DELETE FROM test_cases WHERE question_id = ?', [id]);
+    await tx.execute('DELETE FROM daily_questions WHERE question_id = ? OR question_id = ?', [id, id]);
+    await tx.execute('DELETE FROM questions WHERE id = ?', [id]);
   });
 
   return { success: true, message: `Daily challenge "${challenge.title}" deleted successfully` };
