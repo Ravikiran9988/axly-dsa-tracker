@@ -316,7 +316,7 @@ function getNoveltyConfig() {
     duplicateThreshold: NOVELTY_DUPLICATE_THRESHOLD,
     borderlineThreshold: NOVELTY_BORDERLINE_THRESHOLD,
     topK: NOVELTY_TOP_K,
-    embeddingModel: process.env.EMBEDDING_MODEL || 'snowflake-arctic-embed-m',
+    embeddingModel: process.env.EMBEDDING_MODEL || 'gemini-embedding-001',
     // Documentation: thresholds are initial configurable values, NOT calibrated
     _documentation: 'Thresholds are initial defaults. Tune based on observed false positive/negative rates in production.'
   };

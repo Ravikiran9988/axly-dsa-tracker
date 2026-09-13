@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS question_embeddings (
   question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   embedding JSONB NOT NULL,
   content_hash TEXT NOT NULL,
-  embedding_model TEXT NOT NULL DEFAULT 'snowflake-arctic-embed-m',
+  embedding_model TEXT NOT NULL DEFAULT 'gemini-embedding-001',
   embedding_version INTEGER NOT NULL DEFAULT 1,
   indexed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -67,7 +67,7 @@ COMMENT ON COLUMN question_embeddings.content_hash IS
   'SHA-256 hash of the question content used to generate the embedding. Used for idempotent re-indexing.';
 
 COMMENT ON COLUMN question_embeddings.embedding_model IS 
-  'The embedding model used (e.g., snowflake-arctic-embed-m). Supports future model upgrades.';
+  'The embedding model used (e.g., gemini-embedding-001). Supports future model upgrades.';
 
 COMMENT ON COLUMN question_embeddings.embedding_version IS 
   'Version number for embedding model upgrades. Allows re-indexing with new models.';

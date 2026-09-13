@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS question_embeddings (
   question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   embedding TEXT NOT NULL,
   content_hash TEXT NOT NULL,
-  embedding_model TEXT NOT NULL DEFAULT 'snowflake-arctic-embed-m',
+  embedding_model TEXT NOT NULL DEFAULT 'gemini-embedding-001',
   embedding_version INTEGER NOT NULL DEFAULT 1,
   indexed_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),

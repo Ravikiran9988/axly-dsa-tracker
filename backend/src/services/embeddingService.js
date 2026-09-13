@@ -3,16 +3,22 @@ const https = require('https');
 /**
  * Embedding Provider Abstraction
  * 
- * Uses Groq's embedding endpoint (snowflake-arctic-embed-m) with existing API keys.
+ * Uses Google Gemini's OpenAI-compatible embedding endpoint (gemini-embedding-001).
  * Provider-abstracted: can be swapped for OpenAI, Cohere, etc. by changing the
- * embedding provider configuration.
+ * embedding provider configuration via environment variables.
  * 
- * Embedding model: snowflake-arctic-embed-m (1024 dimensions)
- * Endpoint: https://api.groq.com/openai/v1/embeddings
+ * Embedding model: gemini-embedding-001 (3072 dimensions)
+ * Endpoint: https://generativelanguage.googleapis.com/v1beta/openai/embeddings
+ * 
+ * Configuration via environment variables:
+ * - EMBEDDING_PROVIDER_BASE_URL: Base URL for the embedding API
+ * - EMBEDDING_PROVIDER_API_KEY: API key for the embedding provider
+ * - EMBEDDING_MODEL: Model name (default: gemini-embedding-001)
+ * - EMBEDDING_DIMENSIONS: Expected vector dimensions (default: 3072)
  */
 
-const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'snowflake-arctic-embed-m';
-const EMBEDDING_DIMENSIONS = Number(process.env.EMBEDDING_DIMENSIONS) || 1024;
+const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'gemini-embedding-001';
+const EMBEDDING_DIMENSIONS = Number(process.env.EMBEDDING_DIMENSIONS) || 3072;
 const EMBEDDING_TIMEOUT_MS = Number(process.env.EMBEDDING_TIMEOUT_MS) || 30000;
 const EMBEDDING_MAX_RETRIES = Number(process.env.EMBEDDING_MAX_RETRIES) || 2;
 const EMBEDDING_RETRY_DELAY_MS = Number(process.env.EMBEDDING_RETRY_DELAY_MS) || 1000;
@@ -214,15 +220,23 @@ class EmbeddingProvider {
  * Initialize the default embedding provider from environment variables
  */
 function createDefaultProvider() {
-  const apiKeys = [
-    process.env.GROQ_API_KEY_1 || process.env.GROQ_API_KEY,
-    process.env.GROQ_API_KEY_2,
-    process.env.GROQ_API_KEY_3
-  ].filter(Boolean);
+  // Support configurable provider via EMBEDDING_PROVIDER_BASE_URL and EMBEDDING_PROVIDER_API_KEY
+  const baseUrl = process.env.EMBEDDING_PROVIDER_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai';
+  const providerApiKey = process.env.EMBEDDING_PROVIDER_API_KEY;
+  
+  // API keys: prefer provider-specific key, fall back to Groq keys for backward compatibility
+  const apiKeys = providerApiKey
+    ? [providerApiKey]
+    : [
+        process.env.GROQ_API_KEY_1 || process.env.GROQ_API_KEY,
+        process.env.GROQ_API_KEY_2,
+        process.env.GROQ_API_KEY_3
+      ].filter(Boolean);
 
   return new EmbeddingProvider({
-    name: 'groq-embedding',
-    apiKeys
+    name: providerApiKey ? 'gemini-embedding' : 'groq-embedding',
+    apiKeys,
+    baseUrl
   });
 }
 
