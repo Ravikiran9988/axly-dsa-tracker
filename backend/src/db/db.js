@@ -150,10 +150,11 @@ function initSchema() {
       current_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-      is_practice INTEGER NOT NULL DEFAULT 1,
+      is_practice INTEGER NOT NULL DEFAULT 1,\n      source_question_id TEXT REFERENCES questions(id) ON DELETE SET NULL,
       problem_signature TEXT,
       problem_concept TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions(difficulty);

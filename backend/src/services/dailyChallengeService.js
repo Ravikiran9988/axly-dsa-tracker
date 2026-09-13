@@ -102,7 +102,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
     params.push(topic_id);
   }
   if (date) {
-    conditions.push('dc.scheduled_date = ?');
+    conditions.push('dcm.scheduled_date = ?');
     params.push(date);
   }
   if (search && search.trim()) {
@@ -120,14 +120,14 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
 
   const rows = await getRepo().many(`
     SELECT 
-      dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dc.custom_topic,
+      dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dcm.custom_topic,
       dc.source_question_id,
       dc.secondary_topics, dc.prerequisites, dc.estimated_time, dc.points,
       dc.description, dc.problem_statement, dc.constraints, dc.input_format,
       dc.output_format, dc.example_input, dc.example_output, dc.examples,
       dc.hints, dc.tags, dc.solution_approach, dc.editorial, dc.complexity,
       dc.starter_code, dc.supported_languages, dc.created_via, dc.status,
-      dc.scheduled_date, dc.is_active, dc.created_by, dc.created_at, dc.updated_at,
+      dcm.scheduled_date, dc.is_active, dc.created_by, dc.created_at, dc.updated_at,
       t.name AS topic_name,
       p.name AS pattern_name,
       (SELECT COUNT(*) FROM test_cases tc WHERE tc.challenge_id = dc.id) AS total_test_cases_count,
@@ -375,57 +375,44 @@ async function createDailyChallenge(data, admin_id) {
   const concept = data.problem_concept || extractProblemConcept(title, description);
 
   await getRepo().transaction(async tx => {
+    
     await tx.execute(`
       INSERT INTO questions (
-        id, title, slug, difficulty, topic_id, pattern_id, custom_topic, source_question_id,
-        secondary_topics, prerequisites, estimated_time, points,
+        id, title, slug, difficulty, topic_id, pattern_id, url,
         description, problem_statement, constraints, input_format,
-        output_format, example_input, example_output, examples, hints, tags,
-        solution_approach, editorial, complexity, starter_code, reference_solution, supported_languages,
-        created_via, status, scheduled_date, problem_signature, problem_concept, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        output_format, example_input, example_output, hints, tags,
+        estimated_time, points, status, supported_languages, starter_code,
+        reference_solution, editorial, solution_approach, complexity,
+        is_active, is_practice, problem_signature, problem_concept, created_by,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `, [
-      id,
-      title.trim(),
-      finalSlug,
-      difficulty.toLowerCase(),
-      topic_id || null,
-      resolvedPatternId,
-      custom_topic || null,
-      source_question_id || null,
-      normalizeJsonArray(secondary_topics, '[]'),
-      normalizeJsonArray(prerequisites, '[]'),
-      Number(estimated_time) || 30,
-      Number(points) || 100,
-      description.trim(),
-      problem_statement || null,
-      constraints || null,
-      input_format || null,
+      id, title.trim(), finalSlug, difficulty.toLowerCase(), topic_id || null, resolvedPatternId, '/problems/' + finalSlug,
+      description.trim(), problem_statement || null, constraints || null, input_format || null,
       output_format || null,
       (example_input || (examples && examples[0]?.input)) != null ? (typeof (example_input || (examples && examples[0]?.input)) === 'object' ? JSON.stringify(example_input || (examples && examples[0]?.input)) : String(example_input || (examples && examples[0]?.input))) : null,
       (example_output || (examples && examples[0]?.output)) != null ? (typeof (example_output || (examples && examples[0]?.output)) === 'object' ? JSON.stringify(example_output || (examples && examples[0]?.output)) : String(example_output || (examples && examples[0]?.output))) : null,
-      normalizeJsonArray(examples, '[]'),
-      normalizeJsonArray(hints, '[]'),
-      normalizeJsonArray(tags, '[]'),
-      solution_approach || editorial || null,
-      editorial || solution_approach || null,
-      complexity || null,
+      normalizeJsonArray(hints, '[]'), normalizeJsonArray(tags, '[]'),
+      estimated_time ? `${estimated_time} mins` : '30 mins', Number(points) || 100, status,
+      normalizeJsonArray(supported_languages, '["javascript", "python"]'),
       typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null),
       typeof reference_solution === 'object' ? JSON.stringify(reference_solution) : (reference_solution || null),
-      normalizeJsonArray(supported_languages, '["javascript", "python"]'),
-      created_via === 'ai' ? 'ai' : 'manual',
-      status,
-      scheduled_date || null,
-      signature,
-      concept,
-      admin_id || null
+      editorial || solution_approach || null, solution_approach || editorial || null, complexity || null,
+      signature, concept, admin_id || null
     ]);
+
+    await tx.execute(`
+      INSERT INTO daily_challenge_metadata (
+        question_id, custom_topic, created_via, scheduled_date, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, [id, custom_topic || null, created_via === 'ai' ? 'ai_automation' : 'manual', scheduled_date || null]);
+
 
     if (Array.isArray(test_cases) && test_cases.length > 0) {
       for (const tc of test_cases) {
         if (tc && tc.input !== undefined && tc.expected_output !== undefined) {
           await tx.execute(`
-            INSERT INTO test_cases (id, challenge_id, input, expected_output, is_hidden)
+            INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden)
             VALUES (?, ?, ?, ?, ?)
           `, [
             `dc-tc-${uuidv4().slice(0, 8)}`,
@@ -557,7 +544,7 @@ async function updateDailyChallenge(id, data, admin_id) {
       for (const tc of data.test_cases) {
         if (tc && tc.input !== undefined && tc.expected_output !== undefined) {
           await tx.execute(`
-            INSERT INTO test_cases (id, challenge_id, input, expected_output, is_hidden)
+            INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden)
             VALUES (?, ?, ?, ?, ?)
           `, [
             `dc-tc-${uuidv4().slice(0, 8)}`,
@@ -608,10 +595,16 @@ async function scheduleDailyChallenge(id, date, admin_id) {
 
   await getRepo().transaction(async tx => {
     await tx.execute(`
-      UPDATE questions 
-      SET scheduled_date = ?, status = 'scheduled', updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
+      UPDATE daily_challenge_metadata 
+      SET scheduled_date = ? 
+      WHERE question_id = ?
     `, [date, id]);
+
+    await tx.execute(`
+      UPDATE questions 
+      SET status = 'scheduled', updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `, [id]);
 
     await tx.execute(`
       INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
@@ -646,10 +639,16 @@ async function publishDailyChallenge(id, admin_id) {
 
   await getRepo().transaction(async tx => {
     await tx.execute(`
-      UPDATE questions 
-      SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
+      UPDATE daily_challenge_metadata 
+      SET scheduled_date = ? 
+      WHERE question_id = ?
     `, [targetDate, id]);
+
+    await tx.execute(`
+      UPDATE questions 
+      SET status = 'published', updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `, [id]);
 
     await tx.execute(`
       INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
@@ -693,10 +692,16 @@ async function publishNowDailyChallenge(id, admin_id) {
 
   await getRepo().transaction(async tx => {
     await tx.execute(`
-      UPDATE questions 
-      SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
+      UPDATE daily_challenge_metadata 
+      SET scheduled_date = ? 
+      WHERE question_id = ?
     `, [todayUtc, id]);
+
+    await tx.execute(`
+      UPDATE questions 
+      SET status = 'published', updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `, [id]);
 
     await tx.execute(`
       INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
@@ -790,7 +795,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
-    WHERE dc.scheduled_date = ?
+    WHERE dcm.scheduled_date = ?
       AND (dc.is_active = TRUE OR dc.is_active = 1)
       AND dc.status IN ('published', 'scheduled')
     ORDER BY 
