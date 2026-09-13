@@ -17,9 +17,10 @@ async function request(endpoint, options = {}) {
     const response = await fetch(`${API_BASE}${endpoint}`, { cache: 'no-store', ...options, headers });
     const data = await response.json().catch(() => null);
     if (!response.ok) {
-      const error = new Error(data?.error?.message || 'An unexpected error occurred');
+      const errorMsg = data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || 'An unexpected error occurred';
+      const error = new Error(errorMsg);
       error.status = response.status;
-      error.code = data?.error?.code;
+      error.code = data?.error?.code || data?.failure_category;
       error.details = data?.error?.details;
       throw error;
     }

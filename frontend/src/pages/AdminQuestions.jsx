@@ -671,7 +671,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
         />
       )}
       {showLogsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
           <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-3xl max-h-[85vh] overflow-y-auto custom-scrollbar p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-theme-border">
               <div className="flex items-center gap-2">
@@ -697,10 +697,14 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                         <span className="text-theme-text3">Mode: {log.mode}</span>
                         {log.attempt_count > 0 && <span className="text-theme-text2">Attempts: {log.attempt_count}</span>}
                       </div>
-                      <p className="text-[11px] text-theme-text2">{log.details || log.validation_result}</p>
+                      <p className="text-[11px] text-theme-text2">
+                        {log.status === 'failed' 
+                          ? (log.details || log.failure_category || 'Failed: Unknown reason') 
+                          : (log.details || log.validation_result)}
+                      </p>
                     </div>
                     <div className="text-[10px] text-theme-text3 font-mono shrink-0">
-                      {new Date(log.created_at).toLocaleString()}
+                      {new Date(log.created_at.includes('Z') ? log.created_at : log.created_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}
                     </div>
                   </div>
                 ))

@@ -5,7 +5,12 @@ const auditService = require('../services/auditService');
 async function generate(req, res, next) {
   try {
     const { topic, difficulty, count } = req.body;
-    const data = await generateQuestion({ topic, difficulty, count: Number(count) || 8 });
+    const data = await generateQuestion({ 
+      topic, 
+      difficulty, 
+      count: Number(count) || 8,
+      skipSandbox: process.env.NODE_ENV !== 'production'
+    });
     const items = Array.isArray(data) ? data : [data];
     const checked = [];
 

@@ -64,9 +64,10 @@ The examples MUST strictly match this exact plain text format without any labels
 }
 
 async function generateTestCasesForContract(contract, count) {
+  const publicCount = Math.min(2, Math.max(1, Math.floor(count / 2) || 1));
   const prompt = `Create exactly ${count} test cases for this algorithmic problem. 
 Return JSON only in this exact shape: {"test_cases":[{"input":"...","expected_output":"...","is_hidden":false}]}.
-Use exactly 2 public cases (is_hidden: false) and the rest hidden cases (is_hidden: true).
+Use exactly ${publicCount} public cases (is_hidden: false) and the rest hidden cases (is_hidden: true).
 Do not duplicate inputs.
 Make every expected output deterministic and internally consistent with the problem. Include edge cases (e.g., minimum size, zeros, alternating, large inputs) based on the constraints.
 CRITICAL: Test cases MUST STRICTLY adhere to the constraints defined in the contract. Do not use numbers outside the defined ranges (e.g., do not use -1 if the problem constraints specify positive integers or binary values).
