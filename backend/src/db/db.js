@@ -138,7 +138,7 @@ function initSchema() {
       points INTEGER DEFAULT 20,
       assigned_date TEXT,
       due_date TEXT,
-      status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'archived')),
+      status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'archived', 'scheduled', 'expired')),
       supported_languages TEXT DEFAULT '["python", "javascript", "java", "cpp", "c", "typescript"]',
       starter_code TEXT,
       reference_solution TEXT,
@@ -149,6 +149,10 @@ function initSchema() {
       pattern_id TEXT REFERENCES patterns(id) ON DELETE SET NULL,
       current_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      is_practice INTEGER NOT NULL DEFAULT 1,
+      problem_signature TEXT,
+      problem_concept TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -285,57 +289,17 @@ function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS daily_challenge_problems (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      slug TEXT UNIQUE,
-      difficulty TEXT NOT NULL CHECK (difficulty IN ('easy', 'medium', 'hard')),
-      topic_id TEXT REFERENCES topics(id) ON DELETE SET NULL,
-      pattern_id TEXT,
-      secondary_topics TEXT DEFAULT '[]',
-      prerequisites TEXT DEFAULT '[]',
-      estimated_time INTEGER DEFAULT 30,
-      points INTEGER NOT NULL DEFAULT 100,
-      description TEXT NOT NULL,
-      problem_statement TEXT,
-      constraints TEXT,
-      input_format TEXT,
-      output_format TEXT,
-      example_input TEXT,
-      example_output TEXT,
-      hints TEXT DEFAULT '[]',
-      tags TEXT DEFAULT '[]',
-      solution_approach TEXT,
-      editorial TEXT,
-      complexity TEXT,
-      examples TEXT DEFAULT '[]',
-      starter_code TEXT,
-      reference_solution TEXT,
-      supported_languages TEXT DEFAULT '["javascript", "python", "typescript", "java", "cpp", "c"]',
-      created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
-      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'scheduled', 'active', 'archived', 'completed')),
+    CREATE TABLE IF NOT EXISTS daily_challenge_metadata (
+      question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
       scheduled_date TEXT,
+      created_via TEXT DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai_automation')),
       custom_topic TEXT,
-      is_active INTEGER NOT NULL DEFAULT 1,
-      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      generation_prompt TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_status ON daily_challenge_problems(status);
-    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_topic ON daily_challenge_problems(topic_id);
-    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_date ON daily_challenge_problems(scheduled_date);
-
-    CREATE TABLE IF NOT EXISTS daily_challenge_test_cases (
-      id TEXT PRIMARY KEY,
-      challenge_id TEXT NOT NULL REFERENCES daily_challenge_problems(id) ON DELETE CASCADE,
-      input TEXT NOT NULL,
-      expected_output TEXT NOT NULL,
-      is_hidden INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_daily_challenge_test_cases_challenge ON daily_challenge_test_cases(challenge_id);
+    CREATE INDEX IF NOT EXISTS idx_dcm_scheduled_date ON daily_challenge_metadata(scheduled_date);
 
     CREATE TABLE IF NOT EXISTS daily_questions (
       id TEXT PRIMARY KEY,

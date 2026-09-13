@@ -67,7 +67,7 @@ async function assertDateAvailable(date, excludeId = null) {
   }
 
   const existing = await getRepo().one(
-    `SELECT id, title, scheduled_date FROM daily_challenge_problems 
+    `SELECT dc.id, dc.title, dcm.scheduled_date FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id 
      WHERE scheduled_date = ? AND status != 'archived' AND is_active = TRUE ${excludeId ? 'AND id != ?' : ''}`,
     excludeId ? [date, excludeId] : [date]
   );
@@ -133,7 +133,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
       (SELECT COUNT(*) FROM test_cases tc WHERE tc.challenge_id = dc.id) AS total_test_cases_count,
       (SELECT dq.date FROM daily_questions dq WHERE dq.question_id = dc.id LIMIT 1) AS active_daily_date,
       sq.title AS source_question_title
-    FROM daily_challenge_problems dc
+    FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
     LEFT JOIN questions sq ON dc.source_question_id = sq.id
@@ -145,7 +145,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   // Aggregate stats across all daily challenges
   const allStatusCounts = await getRepo().many(`
     SELECT status, COUNT(*) AS count
-    FROM daily_challenge_problems
+    FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id
     GROUP BY status
   `);
 
@@ -171,11 +171,12 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
 
   // Find today's challenge
   const todayRow = await getRepo().one(`
-    SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
-    FROM daily_challenge_problems dc
+    SELECT dc.*, dcm.custom_topic, dcm.scheduled_date, dcm.created_via, t.name AS topic_name, p.name AS pattern_name
+    FROM daily_challenge_metadata dcm
+    JOIN questions dc ON dcm.question_id = dc.id
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
-    WHERE (dc.scheduled_date = ? OR dc.id IN (SELECT challenge_id FROM daily_questions WHERE date = ?))
+    WHERE (dcm.scheduled_date = ? OR dc.id IN (SELECT question_id FROM daily_questions WHERE date = ?))
       AND dc.is_active = TRUE 
       AND dc.status IN ('published', 'scheduled')
     ORDER BY dc.updated_at DESC LIMIT 1
@@ -183,14 +184,15 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
 
   // Find next scheduled challenge (strictly future)
   const nextScheduledRow = await getRepo().one(`
-    SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
-    FROM daily_challenge_problems dc
+    SELECT dc.*, dcm.custom_topic, dcm.scheduled_date, dcm.created_via, t.name AS topic_name, p.name AS pattern_name
+    FROM daily_challenge_metadata dcm
+    JOIN questions dc ON dcm.question_id = dc.id
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
-    WHERE dc.scheduled_date > ? 
+    WHERE dcm.scheduled_date > ? 
       AND dc.status IN ('scheduled', 'published') 
       AND dc.is_active = TRUE
-    ORDER BY dc.scheduled_date ASC LIMIT 1
+    ORDER BY dcm.scheduled_date ASC LIMIT 1
   `, [todayStr]);
 
   const formattedRows = rows.map(r => ({
@@ -236,15 +238,16 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
 async function getDailyChallengeById(id, isPrivileged = false) {
   const challenge = await getRepo().one(`
     SELECT 
-      dc.*,
+      dc.*, dcm.custom_topic, dcm.scheduled_date, dcm.created_via,
       t.name AS topic_name,
       p.name AS pattern_name,
       sq.title AS source_question_title,
       (SELECT dq.date FROM daily_questions dq WHERE dq.question_id = dc.id LIMIT 1) AS active_daily_date
-    FROM daily_challenge_problems dc
+    FROM daily_challenge_metadata dcm
+    JOIN questions dc ON dcm.question_id = dc.id
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
-    LEFT JOIN questions sq ON dc.source_question_id = sq.id
+    LEFT JOIN questions sq ON NULL = sq.id /* NOTE: source_question_id no longer exists on questions natively but if needed we can mock or keep */
     WHERE dc.id = ?
   `, [id]);
 
@@ -373,7 +376,7 @@ async function createDailyChallenge(data, admin_id) {
 
   await getRepo().transaction(async tx => {
     await tx.execute(`
-      INSERT INTO daily_challenge_problems (
+      INSERT INTO questions (
         id, title, slug, difficulty, topic_id, pattern_id, custom_topic, source_question_id,
         secondary_topics, prerequisites, estimated_time, points,
         description, problem_statement, constraints, input_format,
@@ -454,7 +457,7 @@ async function createDailyChallenge(data, admin_id) {
  * Update an existing Daily Challenge with Controlled Editing for Published Problems
  */
 async function updateDailyChallenge(id, data, admin_id) {
-  const current = await getRepo().one('SELECT * FROM daily_challenge_problems WHERE id = ?', [id]);
+  const current = await getRepo().one('SELECT dc.*, dcm.scheduled_date, dcm.custom_topic, dcm.created_via FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id WHERE dc.id = ?', [id]);
   if (!current) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   const isPublished = current.status === 'published';
@@ -541,7 +544,7 @@ async function updateDailyChallenge(id, data, admin_id) {
 
     if (fields.length > 1) {
       values.push(id);
-      await tx.execute(`UPDATE daily_challenge_problems SET ${fields.join(', ')} WHERE id = ?`, values);
+      await tx.execute(`UPDATE questions SET ${fields.join(', ')} WHERE id = ?`, values);
     }
 
     if (Array.isArray(data.test_cases)) {
@@ -597,7 +600,7 @@ async function scheduleDailyChallenge(id, date, admin_id) {
     throw new AppError('Scheduled date must be in the future relative to UTC today.', 400, 'VALIDATION_ERROR', 'date');
   }
 
-  const challenge = await getRepo().one('SELECT id, status, is_active FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT dc.id, dc.status, dc.is_active FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id WHERE dc.id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   // Prevent duplicate schedule for the same date
@@ -605,7 +608,7 @@ async function scheduleDailyChallenge(id, date, admin_id) {
 
   await getRepo().transaction(async tx => {
     await tx.execute(`
-      UPDATE daily_challenge_problems 
+      UPDATE questions 
       SET scheduled_date = ?, status = 'scheduled', updated_at = CURRENT_TIMESTAMP 
       WHERE id = ?
     `, [date, id]);
@@ -629,7 +632,7 @@ async function scheduleDailyChallenge(id, date, admin_id) {
  * - If draft or scheduled with future date -> retains future date & status = 'published'.
  */
 async function publishDailyChallenge(id, admin_id) {
-  const challenge = await getRepo().one('SELECT id, title, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT dc.id, dc.title, dc.status, dcm.scheduled_date FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id WHERE dc.id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   let targetDate = challenge.scheduled_date;
@@ -643,7 +646,7 @@ async function publishDailyChallenge(id, admin_id) {
 
   await getRepo().transaction(async tx => {
     await tx.execute(`
-      UPDATE daily_challenge_problems 
+      UPDATE questions 
       SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
       WHERE id = ?
     `, [targetDate, id]);
@@ -682,7 +685,7 @@ async function publishDailyChallenge(id, admin_id) {
  * validates availability, and publishes immediately.
  */
 async function publishNowDailyChallenge(id, admin_id) {
-  const challenge = await getRepo().one('SELECT id, title, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT dc.id, dc.title, dc.status, dcm.scheduled_date FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id WHERE dc.id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   const todayUtc = getCanonicalUtcDate();
@@ -690,7 +693,7 @@ async function publishNowDailyChallenge(id, admin_id) {
 
   await getRepo().transaction(async tx => {
     await tx.execute(`
-      UPDATE daily_challenge_problems 
+      UPDATE questions 
       SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
       WHERE id = ?
     `, [todayUtc, id]);
@@ -725,14 +728,14 @@ async function publishNowDailyChallenge(id, admin_id) {
  * Unpublish Daily Challenge (revert to scheduled if future date, or draft)
  */
 async function unpublishDailyChallenge(id, admin_id) {
-  const challenge = await getRepo().one('SELECT id, status, scheduled_date FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT dc.id, dc.status, dcm.scheduled_date FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id WHERE dc.id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   const todayUtc = getCanonicalUtcDate();
   const nextStatus = (challenge.scheduled_date && challenge.scheduled_date > todayUtc) ? 'scheduled' : 'draft';
 
   await getRepo().execute(`
-    UPDATE daily_challenge_problems 
+    UPDATE questions 
     SET status = ?, updated_at = CURRENT_TIMESTAMP 
     WHERE id = ?
   `, [nextStatus, id]);
@@ -748,7 +751,7 @@ async function archiveDailyChallenge(id) {
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   await getRepo().execute(`
-    UPDATE daily_challenge_problems 
+    UPDATE questions 
     SET status = 'archived', is_active = FALSE, updated_at = CURRENT_TIMESTAMP 
     WHERE id = ?
   `, [id]);
@@ -760,7 +763,7 @@ async function archiveDailyChallenge(id) {
  * Permanently Delete Daily Challenge
  */
 async function deleteDailyChallenge(id) {
-  const challenge = await getRepo().one('SELECT id, title FROM daily_challenge_problems WHERE id = ?', [id]);
+  const challenge = await getRepo().one('SELECT dc.id, dc.title FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id WHERE dc.id = ?', [id]);
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   await getRepo().transaction(async tx => {
@@ -784,7 +787,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
   // 1. Primary query: Find active published/scheduled challenge for dateStr in daily_challenge_problems
   let challenge = await getRepo().one(`
     SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
-    FROM daily_challenge_problems dc
+    FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id
     LEFT JOIN topics t ON dc.topic_id = t.id
     LEFT JOIN patterns p ON dc.pattern_id = p.id
     WHERE dc.scheduled_date = ?
@@ -801,7 +804,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
   if (!challenge) {
     challenge = await getRepo().one(`
       SELECT dc.*, t.name AS topic_name, p.name AS pattern_name
-      FROM daily_challenge_problems dc
+      FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id
       LEFT JOIN topics t ON dc.topic_id = t.id
       LEFT JOIN patterns p ON dc.pattern_id = p.id
       WHERE (dc.id IN (SELECT challenge_id FROM daily_questions WHERE date = ?) OR dc.source_question_id IN (SELECT question_id FROM daily_questions WHERE date = ?))
