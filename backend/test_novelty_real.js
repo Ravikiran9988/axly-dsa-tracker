@@ -2,7 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// ─── Load .env manually (no dotenv dependency needed) ───
+// ─── Load .env manually (handle duplicate keys — take LAST occurrence) ───
 const envPath = path.join(__dirname, '.env');
 const envText = fs.readFileSync(envPath, 'utf-8');
 const env = {};
@@ -13,7 +13,7 @@ for (const line of envText.split('\n')) {
   if (eqIdx === -1) continue;
   const key = trimmed.slice(0, eqIdx).trim();
   const value = trimmed.slice(eqIdx + 1).trim();
-  env[key] = value;
+  env[key] = value; // last wins
 }
 
 const API_KEY   = env['EMBEDDING_PROVIDER_API_KEY'];
@@ -28,12 +28,23 @@ console.log('DIMENSIONS:', DIMS);
 console.log('API_KEY (first 20 chars):', API_KEY ? API_KEY.slice(0, 20) + '...' : 'MISSING');
 console.log();
 
+if (!API_KEY || API_KEY === 'your-gemini-api-key') {
+  throw new Error('EMBEDDING_PROVIDER_API_KEY must be set to a real value in backend/.env');
+}
+
 // ─── 1. Load DB ───
 const dbPath = path.join(__dirname, 'data', 'axly_dsa.db');
 console.log('Loading DB:', dbPath);
 const db = new Database(dbPath, { readonly: true });
 
-const rows = db.prepare('SELECT id, title, embedding FROM questions WHERE embedding IS NOT NULL').all();
+// Join questions + question_embeddings
+const rows = db.prepare(`
+  SELECT q.id, q.title, qe.embedding, qe.embedding_model
+  FROM questions q
+  JOIN question_embeddings qe ON q.id = qe.question_id
+  ORDER BY q.created_at
+`).all();
+
 console.log(`Found ${rows.length} questions with embeddings.`);
 
 if (rows.length === 0) {
@@ -41,35 +52,25 @@ if (rows.length === 0) {
   process.exit(1);
 }
 
-// Parse embeddings from JSON blobs
+// Parse embeddings — stored as JSON text in SQLite
 const corpus = rows.map(r => {
   let emb;
   if (typeof r.embedding === 'string') {
     emb = JSON.parse(r.embedding);
+  } else if (Buffer.isBuffer(r.embedding)) {
+    const s = r.embedding.toString('utf-8');
+    emb = JSON.parse(s);
   } else {
-    emb = r.embedding; // already array/blob
+    emb = r.embedding;
   }
-  // Handle Buffer (SQLite stores as blob)
-  if (Buffer.isBuffer(emb)) {
-    // Try to decode as JSON text first, fallback to float array
-    try {
-      emb = JSON.parse(emb.toString('utf-8'));
-    } catch {
-      // Decode as float32 array from raw bytes
-      const floats = [];
-      for (let i = 0; i < emb.length; i += 4) {
-        floats.push(emb.readFloatLE(i));
-      }
-      emb = floats;
-    }
-  }
-  return { id: r.id, title: r.title, embedding: emb };
+  return { id: r.id, title: r.title, embedding: emb, model: r.embedding_model };
 });
 
 console.log(`Parsed ${corpus.length} embeddings.`);
 console.log('Sample embedding length:', corpus[0].embedding.length);
 console.log('Sample embedding first 5 values:', corpus[0].embedding.slice(0, 5));
 console.log('Sample question:', corpus[0].title);
+console.log('Embedding model in DB:', corpus[0].model);
 console.log();
 
 // ─── 2. Embed via Gemini OpenAI-compatible endpoint ───
@@ -151,6 +152,15 @@ async function main() {
   const candidateEmbeddings = await embedTexts(candidateTexts);
   console.log(`Got ${candidateEmbeddings.length} candidate embeddings, each with ${candidateEmbeddings[0].length} dims.\n`);
 
+  // Verify candidate embeddings match DB embedding dimensions
+  const dbDim = corpus[0].embedding.length;
+  const apiDim = candidateEmbeddings[0].length;
+  console.log(`DB embedding dim: ${dbDim}, API embedding dim: ${apiDim}`);
+  if (dbDim !== apiDim) {
+    console.warn(`WARNING: Dimension mismatch! DB has ${dbDim}, API returned ${apiDim}. Proceeding anyway.`);
+  }
+  console.log();
+
   const DUPLICATE_T  = 0.88;
   const BORDERLINE_T = 0.75;
 
@@ -163,15 +173,20 @@ async function main() {
     let maxSim = -1;
     let bestTitle = '';
     let bestId = null;
+    let allSims = [];
 
     for (const row of corpus) {
       const sim = cosineSimilarity(emb, row.embedding);
+      allSims.push({ title: row.title, sim });
       if (sim > maxSim) {
         maxSim = sim;
         bestTitle = row.title;
         bestId = row.id;
       }
     }
+
+    // Sort to show top-5 matches
+    allSims.sort((a, b) => b.sim - a.sim);
 
     let classification;
     if (maxSim >= DUPLICATE_T) classification = 'DUPLICATE';
@@ -201,6 +216,10 @@ async function main() {
     console.log(`Got:        ${classification} (sim=${maxSim.toFixed(6)})`);
     console.log(`Best match: "${bestTitle}" (id=${bestId})`);
     console.log(`Action:     ${passOrObserve}`);
+    console.log('Top-5 matches:');
+    allSims.slice(0, 5).forEach((m, idx) => {
+      console.log(`  ${idx + 1}. sim=${m.sim.toFixed(6)}  "${m.title}"`);
+    });
     console.log();
   }
 
@@ -218,9 +237,9 @@ async function main() {
     if (exp === cls) ok = true;
     if (exp === 'DUPLICATE or BORDERLINE' && (cls === 'DUPLICATE' || cls === 'BORDERLINE')) ok = true;
     if (!ok) allCorrect = false;
-    console.log(`Candidate ${r.candidate}: expected ${exp} → got ${cls}  ${ok ? '✓' : '✗ MISMATCH'}`);
+    console.log(`Candidate ${r.candidate}: expected ${exp} -> got ${cls}  ${ok ? 'PASS' : 'MISMATCH'}`);
   }
-  console.log(`\nOverall: ${allCorrect ? 'ALL CORRECT ✓' : 'SOME MISMATCHES ✗'}`);
+  console.log(`\nOverall: ${allCorrect ? 'ALL CORRECT' : 'SOME MISMATCHES'}`);
 }
 
 main().catch(err => {
