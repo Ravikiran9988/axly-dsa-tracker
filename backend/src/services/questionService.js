@@ -1,6 +1,7 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
+const { indexAcceptedQuestion } = require('./questionNoveltyService');
 
 const repo = getRepository();
 
@@ -259,7 +260,13 @@ async function createQuestion(input) {
     await insertTestCases(id, test_cases, tx);
   });
 
-  return getQuestionById(id, { role: 'admin' });
+  // Index question for novelty detection (async, non-blocking)
+  const createdQuestion = await getQuestionById(id, { role: 'admin' });
+  indexAcceptedQuestion(id, createdQuestion).catch(err => {
+    console.warn(`[QuestionService] Failed to index question ${id} for novelty detection:`, err.message);
+  });
+
+  return createdQuestion;
 }
 
 async function updateQuestion(id, input) {
@@ -349,7 +356,13 @@ async function updateQuestion(id, input) {
     }
   });
 
-  return getQuestionById(id, { role: 'admin' });
+  // Re-index question for novelty detection (async, non-blocking)
+  const updatedQuestion = await getQuestionById(id, { role: 'admin' });
+  indexAcceptedQuestion(id, updatedQuestion, { force: true }).catch(err => {
+    console.warn(`[QuestionService] Failed to re-index question ${id} for novelty detection:`, err.message);
+  });
+
+  return updatedQuestion;
 }
 
 async function deleteQuestion(id) {

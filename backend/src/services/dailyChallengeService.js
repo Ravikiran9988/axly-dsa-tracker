@@ -2,6 +2,7 @@ const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
 const { checkDuplicateChallenge } = require('./aiDailyChallengeService');
+const { indexAcceptedQuestion } = require('./questionNoveltyService');
 const {
   getCanonicalUtcDate,
   getNextCanonicalUtcDate,
@@ -361,6 +362,12 @@ async function createDailyChallenge(data, admin_id) {
     `, [question_id, scheduled_date || null, custom_topic || null, created_via, status]);
   });
 
+  // Index question for novelty detection (async, non-blocking)
+  const createdQuestion = await getRepo().one('SELECT * FROM questions WHERE id = ?', [question_id]);
+  indexAcceptedQuestion(question_id, createdQuestion).catch(err => {
+    console.warn(`[DailyChallengeService] Failed to index question ${question_id} for novelty detection:`, err.message);
+  });
+
   return getDailyChallengeById(question_id, true);
 }
 
@@ -430,6 +437,14 @@ async function updateDailyChallenge(id, data, admin_id) {
       await tx.execute(`UPDATE daily_challenge_metadata SET ${mFields.join(', ')} WHERE question_id = ?`, mValues);
     }
   });
+
+  // Re-index question for novelty detection if question content was updated
+  if (qFields.length > 0) {
+    const updatedQuestion = await getRepo().one('SELECT * FROM questions WHERE id = ?', [id]);
+    indexAcceptedQuestion(id, updatedQuestion, { force: true }).catch(err => {
+      console.warn(`[DailyChallengeService] Failed to re-index question ${id} for novelty detection:`, err.message);
+    });
+  }
 
   return getDailyChallengeById(id, true);
 }

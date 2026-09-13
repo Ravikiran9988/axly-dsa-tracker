@@ -4,10 +4,24 @@ const llmRouter = require('./llm/llmRouter');
 const { executeCode, normalizeOutput } = require('./executionService');
 const { getCanonicalUtcDate } = require('../utils/dateUtils');
 const { generateQuestion } = require('./aiQuestionService');
+const noveltyService = require('./questionNoveltyService');
 
 function getRepo() {
   return getRepository();
 }
+
+/**
+ * Generation Mutex
+ * 
+ * Prevents concurrent generation requests from both passing pre-LLM check
+ * and producing duplicate candidates. This is a process-local mutex and
+ * does NOT protect against multi-instance deployments.
+ * 
+ * LIMITATION: In multi-instance deployments, this mutex only protects within
+ * a single Node.js process. For multi-instance protection, a distributed
+ * lock (e.g., Redis-based) would be required.
+ */
+const generationMutex = new Map();
 
 /**
  * Standard topics in DSA curriculum
@@ -460,7 +474,22 @@ async function getRecentTaxonomyHistory(limit = 15) {
 }
 
 /**
- * Generate an AI Problem with rotational diversity and concept-level uniqueness
+ * Maximum number of regeneration attempts when a candidate is rejected as duplicate
+ */
+const MAX_REGENERATION_ATTEMPTS = Number(process.env.NOVELTY_MAX_REGENERATION_ATTEMPTS) || 2;
+
+/**
+ * Generate an AI Problem with rotational diversity, concept-level uniqueness,
+ * and embedding-based novelty detection.
+ * 
+ * Pipeline:
+ * 1. Pre-LLM: Retrieve similar questions for exclusion context
+ * 2. LLM Generation: Generate candidate with exclusion instructions
+ * 3. Structural Validation: Schema + constraint validation
+ * 4. Token-based Duplicate Check: 3-layer detection (existing)
+ * 5. Post-LLM Duplicate Check: Embedding-based semantic similarity (NEW)
+ * 6. Sandbox Verification: Reference solution execution
+ * 
  * Destination can be 'daily_challenge' (default) or 'question_bank'.
  */
 async function generateUniqueProblem(options = {}) {
@@ -474,7 +503,62 @@ async function generateUniqueProblem(options = {}) {
     points = null,
     instructions = null,
     scheduled_date = null,
-    skipSandbox = false
+    skipSandbox = false,
+    _regenerationAttempt = 0
+  } = options;
+
+  const normDifficulty = ['easy', 'medium', 'hard'].includes(String(difficulty).toLowerCase())
+    ? String(difficulty).toLowerCase()
+    : 'medium';
+
+  let targetTopic = topic && topic !== 'Surprise Me' ? topic : null;
+  let targetPattern = pattern;
+  let recommendationReason = null;
+
+  // ============================================================
+  // RACE CONDITION PROTECTION: Process-local mutex
+  // Prevents concurrent generation requests from producing duplicates
+  // when both pass pre-LLM check simultaneously.
+  // 
+  // LIMITATION: This is process-local only. In multi-instance
+  // deployments, a distributed lock (Redis-based) is required.
+  // ============================================================
+  const mutexKey = `gen:${targetTopic || 'any'}:${normDifficulty}:${targetPattern || 'any'}`;
+  if (generationMutex.has(mutexKey)) {
+    console.warn(`[Generation] Mutex contention: waiting for concurrent generation on ${mutexKey}`);
+    await generationMutex.get(mutexKey);
+  }
+  
+  let releaseMutex;
+  const mutexPromise = new Promise((resolve) => {
+    releaseMutex = resolve;
+  });
+  generationMutex.set(mutexKey, mutexPromise);
+  
+  try {
+    return await _generateUniqueProblemInternal(options);
+  } finally {
+    generationMutex.delete(mutexKey);
+    if (releaseMutex) releaseMutex();
+  }
+}
+
+/**
+ * Internal generation function (called within mutex)
+ */
+async function _generateUniqueProblemInternal(options = {}) {
+  const {
+    title = null,
+    description = null,
+    constraints = null,
+    topic = null,
+    difficulty = 'medium',
+    pattern = null,
+    points = null,
+    instructions = null,
+    scheduled_date = null,
+    skipSandbox = false,
+    _regenerationAttempt = 0
   } = options;
 
   const normDifficulty = ['easy', 'medium', 'hard'].includes(String(difficulty).toLowerCase())
@@ -499,11 +583,39 @@ async function generateUniqueProblem(options = {}) {
   const defaultPoints = normDifficulty === 'hard' ? 150 : normDifficulty === 'medium' ? 100 : 50;
   const finalPoints = Number(points) > 0 ? Number(points) : defaultPoints;
 
-  // 1. Try LLM Router with strict Anti-Variant & Exclusion Instructions
+  // ============================================================
+  // PHASE 1: Pre-LLM Novelty Retrieval
+  // Retrieve semantically similar existing questions for exclusion
+  // ============================================================
+  let noveltyExclusionText = '';
+  let preLLMRetrievalResult = null;
+  
   try {
-    const exclusionText = recentTitles.length > 0
+    preLLMRetrievalResult = await noveltyService.preLLMRetrieval({
+      title,
+      description,
+      topic: targetTopic,
+      pattern: targetPattern,
+      difficulty: normDifficulty
+    });
+    
+    if (preLLMRetrievalResult.exclusionContext) {
+      noveltyExclusionText = preLLMRetrievalResult.exclusionContext;
+    }
+  } catch (noveltyErr) {
+    console.warn('[Novelty] Pre-LLM retrieval failed (continuing without embedding context):', noveltyErr.message);
+  }
+
+  // ============================================================
+  // PHASE 2: LLM Generation with combined exclusion context
+  // ============================================================
+  try {
+    // Combine token-based exclusion list with embedding-based exclusion context
+    const tokenExclusionText = recentTitles.length > 0
       ? `\n\nEXCLUSION LIST (DO NOT GENERATE OR CREATE VARIANTS OF THESE):\n${recentTitles.map(t => `- ${t}`).join('\n')}`
       : '';
+
+    const combinedExclusionText = tokenExclusionText + noveltyExclusionText;
 
     const generatedQuestion = await generateQuestion({
       title,
@@ -513,7 +625,7 @@ async function generateUniqueProblem(options = {}) {
       difficulty: normDifficulty,
       count: 4,
       pattern: targetPattern || 'Appropriate for topic',
-      exclusionText,
+      exclusionText: combinedExclusionText,
       instructions: instructions || 'Ensure clean specifications, edge cases, progressive hints, and a verified reference solution.',
       skipSandbox,
       is_fallback_allowed: false
@@ -545,16 +657,84 @@ async function generateUniqueProblem(options = {}) {
       parsed.problem_signature = generateProblemSignature(parsed);
       if (recommendationReason) parsed.recommendation_reason = recommendationReason;
 
+      // ============================================================
+      // PHASE 3: Structural Validation
+      // ============================================================
       const val = validateDailyChallenge(parsed);
       if (!val.isValid) {
         throw new AppError(`INVALID_STRUCTURE: ${val.errors.join(', ')}`, 422, 'AI_VALIDATION_ERROR');
       }
 
+      // ============================================================
+      // PHASE 4: Token-based Duplicate Check (existing 3-layer detection)
+      // ============================================================
       const dupCheck = await checkDuplicateChallenge(parsed);
       if (dupCheck.isDuplicate) {
         throw new AppError(`DUPLICATE_PROBLEM: ${dupCheck.reason}`, 409, 'DUPLICATE_COLLISION');
       }
 
+      // ============================================================
+      // PHASE 5: Post-LLM Embedding-based Duplicate Check (NEW)
+      // ============================================================
+      let noveltyClassification = 'NOVEL';
+      let noveltyResult = null;
+      
+      try {
+        noveltyResult = await noveltyService.postLLMDuplicateCheck(parsed);
+        noveltyClassification = noveltyResult.classification;
+        
+        if (noveltyClassification === 'DUPLICATE') {
+          // Controlled regeneration: retry if under limit
+          if (_regenerationAttempt < MAX_REGENERATION_ATTEMPTS) {
+            console.warn(`[Novelty] Post-LLM DUPLICATE detected (attempt ${_regenerationAttempt + 1}/${MAX_REGENERATION_ATTEMPTS}): ${noveltyResult.reason}`);
+            
+            return _generateUniqueProblemInternal({
+              ...options,
+              _regenerationAttempt: _regenerationAttempt + 1
+            });
+          }
+          
+          throw new AppError(
+            `SEMANTIC_DUPLICATE: ${noveltyResult.reason}`,
+            409,
+            'DUPLICATE_COLLISION'
+          );
+        }
+        
+        // FAIL-CLOSED: UNAVAILABLE means novelty validation could not be performed.
+        // Auto Fill MUST NOT publish when novelty status is unknown.
+        if (noveltyClassification === 'UNAVAILABLE') {
+          console.error(`[Novelty] Post-LLM UNAVAILABLE — rejecting candidate: ${noveltyResult.reason}`);
+          throw new AppError(
+            `NOVELTY_VALIDATION_UNAVAILABLE: ${noveltyResult.reason}`,
+            422,
+            'NOVELTY_VALIDATION_UNAVAILABLE'
+          );
+        }
+        
+        if (noveltyClassification === 'BORDERLINE') {
+          console.warn(`[Novelty] BORDERLINE similarity detected: ${noveltyResult.reason}`);
+          // Borderline: allow but log for observability
+        }
+      } catch (noveltyErr) {
+        // If novelty check fails with a DUPLICATE error, re-throw it
+        if (noveltyErr.code === 'DUPLICATE_COLLISION') {
+          throw noveltyErr;
+        }
+        // FAIL-CLOSED: Auto Fill MUST NOT publish when novelty validation is unavailable.
+        // Embedding failures, vector retrieval failures, database failures, and
+        // unexpected novelty errors all result in rejection of the candidate.
+        console.error('[Novelty] Post-LLM check FAILED (rejecting candidate):', noveltyErr.message);
+        throw new AppError(
+          `NOVELTY_VALIDATION_UNAVAILABLE: Post-LLM duplicate check failed. ${noveltyErr.message}`,
+          422,
+          'NOVELTY_VALIDATION_UNAVAILABLE'
+        );
+      }
+
+      // ============================================================
+      // PHASE 6: Sandbox Verification
+      // ============================================================
       if (!skipSandbox && parsed.reference_solution) {
         const sbResult = await verifyReferenceSolution(parsed);
         parsed.sandbox_verified = sbResult.verified;
@@ -562,6 +742,15 @@ async function generateUniqueProblem(options = {}) {
           throw new AppError(`SANDBOX_VERIFICATION_FAILED: ${sbResult.reason}`, 422, 'SANDBOX_VERIFICATION_FAILED');
         }
       }
+      
+      // Attach novelty metadata for observability
+      parsed._novelty = {
+        classification: noveltyClassification,
+        maxSimilarity: noveltyResult?.maxSimilarity || 0,
+        similarQuestionsFound: noveltyResult?.similarQuestions?.length || 0,
+        preLLMSimilarCount: preLLMRetrievalResult?.similarCount || 0,
+        embeddingAvailable: noveltyResult?.embeddingAvailable || false
+      };
       
       return { success: true, data: parsed, source: `llm-unified` };
     }
@@ -581,5 +770,6 @@ module.exports = {
   extractProblemConcept,
   stripVariantIdentifiers,
   computeSemanticSimilarity,
-  TOPIC_NAMES
+  TOPIC_NAMES,
+  MAX_REGENERATION_ATTEMPTS
 };
