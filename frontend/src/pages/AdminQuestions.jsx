@@ -671,47 +671,45 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
         />
       )}
       {showLogsModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-theme-surface border border-theme-border rounded-3xl w-full max-w-3xl max-h-[85vh] overflow-y-auto custom-scrollbar p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-theme-border">
-              <div className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-cyan-400" />
-                <h3 className="text-base font-bold text-theme-text1">Question Bank Automation Logs</h3>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/90 dark:bg-black/90 backdrop-blur-md animate-fade-in">
+          <div className="bg-theme-surface w-full h-full max-w-full max-h-full overflow-y-auto custom-scrollbar p-6 sm:p-10 space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-theme-border">
+              <div className="flex items-center gap-3">
+                <Bot className="w-6 h-6 text-cyan-400" />
+                <h3 className="text-xl font-bold text-theme-text1">Question Bank Automation Logs</h3>
               </div>
-              <button onClick={() => setShowLogsModal(false)} className="text-theme-text2 hover:text-theme-text1">
-                <X className="w-4 h-4" />
+              <button onClick={() => setShowLogsModal(false)} className="p-2 rounded-full hover:bg-theme-surface2 text-theme-text2 hover:text-theme-text1 transition-colors">
+                <X className="w-6 h-6" />
               </button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3 max-w-5xl mx-auto pt-4">
               {automationLogs.length === 0 ? (
-                <div className="py-8 text-center text-theme-text3 text-xs">No automation run logs found.</div>
+                <div className="py-12 text-center text-theme-text3 text-sm">No automation run logs found.</div>
               ) : (
                 automationLogs.map((log) => (
-                  <div key={log.id} className="p-3 rounded-xl bg-theme-surface border border-theme-border text-xs flex items-center justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${log.status === 'success' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : log.status === 'failed' ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-theme-text2 bg-theme-surface2'}`}>
+                  <div key={log.id} className="p-4 rounded-xl bg-theme-surface border border-theme-border text-sm flex items-start sm:items-center justify-between flex-col sm:flex-row gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center flex-wrap gap-2">
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase ${log.status === 'success' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : log.status === 'failed' ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-theme-text2 bg-theme-surface2'}`}>
                           {log.status}
                         </span>
                         <span className="font-mono text-cyan-400 font-bold">Slot: {log.target_slot}</span>
+                        <span className="text-theme-text3 px-2">|</span>
                         <span className="text-theme-text3">Mode: {log.mode}</span>
-                        {log.attempt_count > 0 && <span className="text-theme-text2">Attempts: {log.attempt_count}</span>}
+                        {log.attempt_count > 0 && <span className="text-theme-text2 px-2">| Attempts: {log.attempt_count}</span>}
                       </div>
-                      <p className="text-[11px] text-theme-text2">
+                      <p className="text-sm text-theme-text2 max-w-3xl leading-relaxed">
                         {log.status === 'failed' 
                           ? (log.details || log.failure_category || 'Failed: Unknown reason') 
                           : (log.details || log.validation_result)}
                       </p>
                     </div>
-                    <div className="text-[10px] text-theme-text3 font-mono shrink-0">
+                    <div className="text-xs text-theme-text3 font-mono shrink-0 bg-theme-surface2 px-3 py-1.5 rounded-lg border border-theme-border">
                       {new Date(log.created_at.includes('Z') ? log.created_at : log.created_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}
                     </div>
                   </div>
                 ))
               )}
-            </div>
-            <div className="flex justify-end pt-2 border-t border-theme-border">
-              <button onClick={() => setShowLogsModal(false)} className="btn-secondary btn-sm text-xs">Close</button>
             </div>
           </div>
         </div>
