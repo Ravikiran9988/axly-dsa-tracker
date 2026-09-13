@@ -2,10 +2,11 @@ const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { getCanonicalIstDate } = require('../utils/dateUtils');
 const { generateUniqueProblem, stripVariantIdentifiers } = require('./aiSharedGenerationService');
-const { createQuestion } = require('./questionLifecycleService');
+const { createQuestion } = require('./questionService');
 
 // Run every 2 hours in IST (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
-const SCHEDULER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+// Checks every 30 minutes to see if generation is needed
+const SCHEDULER_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const FAILED_RUN_RETRY_DELAY_MS = 30 * 60 * 1000;
 
 function getRepo() { return getRepository(); }
@@ -103,6 +104,9 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
     return { success: true, status: 'SUCCESS_NOOP', message: `Slot ${slot} already generated.` };
   }
 
+  const settings = await getAutomationSettings();
+  const mode = settings.mode;
+
   let generated = null;
   let failureReason = 'Unknown failure during AI synthesis';
   let failureCategory = 'UNKNOWN';
@@ -113,7 +117,8 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
       difficulty: 'medium', 
       instructions: 'Create a genuinely original algorithm problem for the practice library.',
       destination: 'question_bank',
-      generation_slot: slot
+      generation_slot: slot,
+      skipSandbox: true
     });
 
     if (!result || !result.success || !result.data) {
@@ -129,8 +134,10 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
   let createdDraftId = null;
   if (generated) {
     try {
+      const targetStatus = mode === 'auto_fill' ? 'published' : 'draft';
       const createdDraft = await createQuestion({ 
         ...generated,
+        status: targetStatus,
         is_active: true
       }, adminId);
       
@@ -138,19 +145,19 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
       
       await getRepo().execute(
         `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, question_id) VALUES (?, ?, ?, ?, ?)`,
-        [`auto-log-${uuidv4().slice(0, 8)}`, slot, 'auto_fill', 'success', createdDraftId]
+        [`auto-log-${uuidv4().slice(0, 8)}`, slot, mode, 'success', createdDraftId]
       );
 
       return { 
         success: true, 
         status: 'success', 
         challenge: createdDraft, 
-        message: `AI challenge for slot ${slot} generated successfully.` 
+        message: `AI challenge for slot ${slot} generated successfully as ${targetStatus}.` 
       };
     } catch (dbErr) {
       await getRepo().execute(
         `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, failure_category, details) VALUES (?, ?, ?, ?, ?, ?)`,
-        [`auto-log-${uuidv4().slice(0, 8)}`, slot, 'auto_fill', 'failed', 'DATABASE_ERROR', dbErr.message]
+        [`auto-log-${uuidv4().slice(0, 8)}`, slot, mode, 'failed', 'DATABASE_ERROR', dbErr.message]
       );
       return { 
         success: false, 
@@ -163,7 +170,7 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
 
   await getRepo().execute(
     `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, failure_category, details) VALUES (?, ?, ?, ?, ?, ?)`,
-    [`auto-log-${uuidv4().slice(0, 8)}`, slot, 'auto_fill', 'failed', failureCategory, failureReason]
+    [`auto-log-${uuidv4().slice(0, 8)}`, slot, mode || 'auto_fill', 'failed', failureCategory, failureReason]
   );
 
   return { 
@@ -261,5 +268,6 @@ module.exports = {
   getQuestionBankGenerationStatus,
   getAutomationSettings,
   updateAutomationSettings,
-  getAutomationLogs
+  getAutomationLogs,
+  persistRunStatus
 };

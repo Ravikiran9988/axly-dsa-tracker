@@ -51,13 +51,17 @@ const {
   getQuestionBankGenerationStatus: fetchQbStatus,
   getAutomationSettings,
   updateAutomationSettings,
-  getAutomationLogs
+  getAutomationLogs,
+  persistRunStatus
 } = require('../services/questionBankAutomationService');
 
 async function generateQuestionBankManual(req, res, next) {
   try {
     const slot = getCurrentIstSlot();
     const result = await generateForSlot(slot, req.user?.id || 'usr-admin-manual');
+    if (result && result.status) {
+      await persistRunStatus(result.status);
+    }
     return res.status(result.success ? 200 : 400).json(result);
   } catch (e) {
     next(e);
