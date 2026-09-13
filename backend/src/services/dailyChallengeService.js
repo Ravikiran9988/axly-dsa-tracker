@@ -124,13 +124,13 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
       dc.source_question_id,
       dc.secondary_topics, dc.prerequisites, dc.estimated_time, dc.points,
       dc.description, dc.problem_statement, dc.constraints, dc.input_format,
-      dc.output_format, dc.example_input, dc.example_output, dc.examples,
+      dc.output_format, dc.example_input, dc.example_output,
       dc.hints, dc.tags, dc.solution_approach, dc.editorial, dc.complexity,
-      dc.starter_code, dc.supported_languages, dc.created_via, dc.status,
+      dc.starter_code, dc.supported_languages, dcm.created_via, dc.status,
       dcm.scheduled_date, dc.is_active, dc.created_by, dc.created_at, dc.updated_at,
       t.name AS topic_name,
       p.name AS pattern_name,
-      (SELECT COUNT(*) FROM test_cases tc WHERE tc.challenge_id = dc.id) AS total_test_cases_count,
+      (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = dc.id) AS total_test_cases_count,
       (SELECT dq.date FROM daily_questions dq WHERE dq.question_id = dc.id LIMIT 1) AS active_daily_date,
       sq.title AS source_question_title
     FROM daily_challenge_metadata dcm JOIN questions dc ON dcm.question_id = dc.id
@@ -384,8 +384,9 @@ async function createDailyChallenge(data, admin_id) {
         estimated_time, points, status, supported_languages, starter_code,
         reference_solution, editorial, solution_approach, complexity,
         is_active, is_practice, problem_signature, problem_concept, created_by,
+        source_question_id,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `, [
       id, title.trim(), finalSlug, difficulty.toLowerCase(), topic_id || null, resolvedPatternId, '/problems/' + finalSlug,
       description.trim(), problem_statement || null, constraints || null, input_format || null,
@@ -398,7 +399,7 @@ async function createDailyChallenge(data, admin_id) {
       typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null),
       typeof reference_solution === 'object' ? JSON.stringify(reference_solution) : (reference_solution || null),
       editorial || solution_approach || null, solution_approach || editorial || null, complexity || null,
-      signature, concept, admin_id || null
+      signature, concept, admin_id || null, source_question_id || null
     ]);
 
     await tx.execute(`
