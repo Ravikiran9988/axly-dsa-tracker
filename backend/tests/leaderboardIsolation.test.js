@@ -36,9 +36,14 @@ describe('Leaderboard isolation: practice is individual-only', () => {
     `);
 
     await repo.execute(`
-      INSERT OR REPLACE INTO daily_challenge_problems
-        (id, title, slug, description, difficulty, points, status, is_active)
-      VALUES ('lb-daily-hard', 'Leaderboard Isolation Daily', 'lb-daily-hard', 'Test', 'hard', 150, 'published', 1)
+      INSERT OR REPLACE INTO questions
+        (id, title, slug, url, description, difficulty, points, status, is_active)
+      VALUES ('lb-daily-hard', 'Leaderboard Isolation Daily', 'lb-daily-hard', 'internal://lb-daily-hard', 'Test', 'hard', 150, 'published', 1)
+    `);
+    await repo.execute(`
+      INSERT OR REPLACE INTO daily_challenge_metadata
+        (question_id, status)
+      VALUES ('lb-daily-hard', 'published')
     `);
   });
 
@@ -46,7 +51,7 @@ describe('Leaderboard isolation: practice is individual-only', () => {
     await repo.execute('DELETE FROM points_ledger WHERE user_id IN (?, ?)', [practiceUser, dailyUser]);
     await repo.execute('DELETE FROM users WHERE id IN (?, ?)', [practiceUser, dailyUser]);
     await repo.execute("DELETE FROM questions WHERE id = 'lb-practice-easy'");
-    await repo.execute("DELETE FROM daily_challenge_problems WHERE id = 'lb-daily-hard'");
+    await repo.execute("DELETE FROM questions WHERE id = 'lb-daily-hard'");
   });
 
   test('practice solve increases individual score but never competitive leaderboard score', async () => {

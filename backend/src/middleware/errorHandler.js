@@ -22,9 +22,7 @@ function errorHandler(err, req, res, next) {
     }
   };
 
-  if (statusCode === 500) {
-    console.error('[Error 500]', err);
-  }
+  console.error(`[Error ${statusCode}]`, err.message, err);
 
   res.status(statusCode).json(errorResponse);
 }

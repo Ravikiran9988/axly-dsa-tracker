@@ -4,6 +4,8 @@ const { db, initSchema } = require('../src/db/db');
 const { seedDatabase } = require('../src/db/seed');
 const { seedPracticeProblems } = require('../src/db/practiceSeed');
 const { generateTestToken } = require('../src/middleware/auth');
+jest.mock('../src/services/llm/llmRouter');
+const llmRouter = require('../src/services/llm/llmRouter');
 const {
   getCanonicalUtcDate,
   getNextCanonicalUtcDate,
@@ -41,6 +43,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
   let studentToken;
   const todayUtc = getCanonicalUtcDate();
   const tomorrowUtc = getNextCanonicalUtcDate();
+  let mockGenCount = 0;
 
   beforeAll(async () => {
     initSchema();
@@ -58,7 +61,54 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       id: 'usr-user-01',
       email: 'alex@example.com',
       name: 'Alex Mercer',
-      role: 'user'
+      role: 'student'
+    });
+
+    llmRouter.generate.mockImplementation(async () => {
+      mockGenCount++;
+      const uniqueTitle = `Mocked Generated Challenge ${mockGenCount}`;
+      const mockOutput = {
+        title: uniqueTitle,
+        description: 'Mocked generated challenge description.',
+        constraints: '1 <= N <= 100',
+        input_format: 'Number N',
+        output_format: 'Number result',
+        examples: [{ input: '1', expected_output: '1', explanation: 'Base case' }],
+        solution_approach: 'Use DP.',
+        complexity: 'Time O(N), Space O(N)',
+        test_cases: [
+          { input: '1', expected_output: '1', is_hidden: false },
+          { input: '2', expected_output: '2', is_hidden: true }
+        ],
+        time_limit_ms: 2000,
+        memory_limit_mb: 256,
+        function_signature: {
+          name: 'solve',
+          params: [{ name: 'N', type: 'integer' }],
+          return_type: 'integer'
+        },
+        starter_code: {
+          javascript: `function solve(N) { \n  // TODO: implement \n}`,
+          python: `def solve(N):\n    # TODO: implement\n    pass`,
+          java: `class Solution {\n  public int solve(int N) {\n    // TODO: implement\n    return 0;\n  }\n}`,
+          cpp: `class Solution {\npublic:\n  int solve(int N) {\n    // TODO: implement\n    return 0;\n  }\n};`,
+          c: `int solve(int N) {\n  // TODO: implement\n  return 0;\n}`,
+          typescript: `function solve(N: number): number {\n  // TODO: implement\n  return 0;\n}`
+        },
+        reference_solution: {
+          javascript: `function solve(N) { return N; }`,
+          python: `def solve(N): return N`,
+          java: `class Solution { public int solve(int N) { return N; } }`,
+          cpp: `class Solution { public: int solve(int N) { return N; } };`,
+          c: `int solve(int N) { return N; }`,
+          typescript: `function solve(N: number): number { return N; }`
+        },
+        hints: ['Hint 1']
+      };
+      return {
+        source: 'llm-groq',
+        text: JSON.stringify(mockOutput)
+      };
     });
   });
 
@@ -105,7 +155,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
         .send(payload);
 
       expect(res.status).toBe(201);
-      expect(res.body.data.id).toMatch(/^dc-/);
+      expect(res.body.data.id).toMatch(/^q-/);
       expect(res.body.data.status).toBe('draft');
       expect(res.body.data.scheduled_date).toBeNull();
       createdDraftId = res.body.data.id;
@@ -184,7 +234,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       }, 'usr-admin-01');
 
       // Clear today's assignment first to allow publish
-      db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
+      db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
       db.prepare("DELETE FROM daily_questions WHERE date = ?").run(todayUtc);
 
       const pubRes = await request(app)
@@ -219,7 +269,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       }, 'usr-admin-01');
 
       // Clear today's conflict
-      db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
+      db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
       db.prepare("DELETE FROM daily_questions WHERE date = ?").run(todayUtc);
 
       const pubNowRes = await request(app)
@@ -261,7 +311,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
 
     beforeAll(async () => {
       // Clear today's date
-      db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
+      db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
       db.prepare("DELETE FROM daily_questions WHERE date = ?").run(todayUtc);
 
       todayProblem = await createDailyChallenge({
@@ -399,7 +449,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
 
     test('6.1 Test A & E: Existing challenge + manual Run Auto-Fill creates new Draft with scheduled_date = null and leaves existing challenge unchanged', async () => {
       // Create Challenge A for tomorrow
-      db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
+      db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
       db.prepare("DELETE FROM daily_questions WHERE date = ?").run(testTomorrow);
 
       const challengeA = await createDailyChallenge({
@@ -458,7 +508,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
 
     test('6.4 Test D: No existing challenge + scheduled AUTO_FILL generates, sandbox-verifies and schedules for tomorrow', async () => {
       // Clear tomorrow
-      db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
+      db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
       db.prepare("DELETE FROM daily_questions WHERE date = ?").run(testTomorrow);
 
       await updateAutomationSettings({ mode: 'auto_fill', is_enabled: 1 });

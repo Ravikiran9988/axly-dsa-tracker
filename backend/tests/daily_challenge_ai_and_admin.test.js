@@ -197,7 +197,7 @@ describe('Daily Challenge Admin Portal & AI Generation Suite', () => {
 
     expect(delRes.status).toBe(200);
 
-    const check = db.prepare('SELECT id FROM daily_challenge_problems WHERE id = ?').get(challenge.id);
+    const check = db.prepare('SELECT question_id FROM daily_challenge_metadata WHERE question_id = ?').get(challenge.id);
     expect(check).toBeUndefined();
   });
 

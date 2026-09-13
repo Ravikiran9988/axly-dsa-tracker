@@ -11,6 +11,27 @@ function getActualUtcDate(date = new Date()) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
+function getIstClock(date = new Date()) {
+  const input = date instanceof Date ? date : new Date(date);
+  if (isNaN(input.getTime())) return getIstClock(new Date());
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(input);
+  const values = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(values.hour),
+    minute: Number(values.minute)
+  };
+}
+
 function getCanonicalIstDate(date = new Date()) {
   const input = date instanceof Date ? date : new Date(date);
   if (isNaN(input.getTime())) return getCanonicalIstDate(new Date());
@@ -77,6 +98,7 @@ module.exports = {
   getCanonicalUtcDate,
   getNextCanonicalUtcDate,
   getCanonicalIstDate,
+  getIstClock,
   getNextCanonicalIstDate,
   getActualUtcDate,
   isValidDateString,

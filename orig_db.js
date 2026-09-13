@@ -130,7 +130,6 @@ function initSchema() {
       constraints TEXT,
       input_format TEXT,
       output_format TEXT,
-      examples TEXT,
       example_input TEXT,
       example_output TEXT,
       hints TEXT,
@@ -148,11 +147,8 @@ function initSchema() {
       complexity TEXT,
       slug TEXT,
       pattern_id TEXT REFERENCES patterns(id) ON DELETE SET NULL,
-      problem_signature TEXT,
-      problem_concept TEXT,
       current_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
-      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -289,23 +285,62 @@ function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS daily_challenge_metadata (
-      question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
-      scheduled_date TEXT UNIQUE,
-      custom_topic TEXT,
+    CREATE TABLE IF NOT EXISTS daily_challenge_problems (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      slug TEXT UNIQUE,
+      difficulty TEXT NOT NULL CHECK (difficulty IN ('easy', 'medium', 'hard')),
+      topic_id TEXT REFERENCES topics(id) ON DELETE SET NULL,
+      pattern_id TEXT,
+      secondary_topics TEXT DEFAULT '[]',
+      prerequisites TEXT DEFAULT '[]',
+      estimated_time INTEGER DEFAULT 30,
+      points INTEGER NOT NULL DEFAULT 100,
+      description TEXT NOT NULL,
+      problem_statement TEXT,
+      constraints TEXT,
+      input_format TEXT,
+      output_format TEXT,
+      example_input TEXT,
+      example_output TEXT,
+      hints TEXT DEFAULT '[]',
+      tags TEXT DEFAULT '[]',
+      solution_approach TEXT,
+      editorial TEXT,
+      complexity TEXT,
+      examples TEXT DEFAULT '[]',
+      starter_code TEXT,
+      reference_solution TEXT,
+      supported_languages TEXT DEFAULT '["javascript", "python", "typescript", "java", "cpp", "c"]',
       created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
-      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'published', 'archived')),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'scheduled', 'active', 'archived', 'completed')),
+      scheduled_date TEXT,
+      custom_topic TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE INDEX IF NOT EXISTS idx_daily_challenge_metadata_date ON daily_challenge_metadata(scheduled_date);
-    CREATE INDEX IF NOT EXISTS idx_daily_challenge_metadata_status ON daily_challenge_metadata(status);
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_status ON daily_challenge_problems(status);
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_topic ON daily_challenge_problems(topic_id);
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_date ON daily_challenge_problems(scheduled_date);
+
+    CREATE TABLE IF NOT EXISTS daily_challenge_test_cases (
+      id TEXT PRIMARY KEY,
+      challenge_id TEXT NOT NULL REFERENCES daily_challenge_problems(id) ON DELETE CASCADE,
+      input TEXT NOT NULL,
+      expected_output TEXT NOT NULL,
+      is_hidden INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_test_cases_challenge ON daily_challenge_test_cases(challenge_id);
 
     CREATE TABLE IF NOT EXISTS daily_questions (
       id TEXT PRIMARY KEY,
       question_id TEXT,
-      
+      challenge_id TEXT,
       date TEXT NOT NULL UNIQUE,
       created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -334,7 +369,7 @@ function initSchema() {
       sandbox_result TEXT,
       status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'skipped')),
       failure_category TEXT,
-      question_id TEXT REFERENCES questions(id) ON DELETE SET NULL,
+      challenge_id TEXT REFERENCES daily_challenge_problems(id) ON DELETE SET NULL,
       details TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -459,12 +494,6 @@ function initSchema() {
   addColumnIfNotExists('daily_challenge_problems', 'examples', "TEXT DEFAULT '[]'");
   addColumnIfNotExists('daily_challenge_problems', 'source_question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
   addColumnIfNotExists('daily_challenge_problems', 'reference_solution', 'TEXT');
-  addColumnIfNotExists('daily_challenge_metadata', 'status', "TEXT NOT NULL DEFAULT 'draft'");
-  addColumnIfNotExists('daily_challenge_automation_logs', 'question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
-  
-  try {
-    db.exec(`CREATE INDEX IF NOT EXISTS idx_daily_challenge_metadata_status ON daily_challenge_metadata(status);`);
-  } catch (e) {}
   try {
     const info = db.prepare('PRAGMA table_info(daily_questions)').all();
     const qidCol = info.find(c => c.name === 'question_id');
@@ -584,13 +613,9 @@ function initSchema() {
   // Questions migrations
   addColumnIfNotExists('questions', 'description', 'TEXT');
   addColumnIfNotExists('questions', 'problem_statement', 'TEXT');
-  addColumnIfNotExists('questions', 'complexity', 'TEXT');
-  addColumnIfNotExists('questions', 'problem_signature', 'TEXT');
-  addColumnIfNotExists('questions', 'problem_concept', 'TEXT');
   addColumnIfNotExists('questions', 'constraints', 'TEXT');
   addColumnIfNotExists('questions', 'input_format', 'TEXT');
   addColumnIfNotExists('questions', 'output_format', 'TEXT');
-  addColumnIfNotExists('questions', 'examples', "TEXT DEFAULT '[]'");
   addColumnIfNotExists('questions', 'example_input', 'TEXT');
   addColumnIfNotExists('questions', 'example_output', 'TEXT');
   addColumnIfNotExists('questions', 'hints', 'TEXT');
@@ -611,7 +636,6 @@ function initSchema() {
   addColumnIfNotExists('questions', 'solution_approach', 'TEXT');
   addColumnIfNotExists('questions', 'generation_slot', 'TEXT');
   addColumnIfNotExists('questions', 'created_via', "TEXT NOT NULL DEFAULT 'manual'");
-  addColumnIfNotExists('questions', 'created_by', 'TEXT REFERENCES users(id) ON DELETE SET NULL');
 
   // Assignments migrations
   addColumnIfNotExists('assignments', 'cohort_id', 'TEXT');
@@ -682,7 +706,7 @@ function initSchema() {
     const solvedDaily = db.prepare(`
       SELECT s.user_id, s.question_id, dc.difficulty, s.solved_at, s.attempted_at
       FROM submissions s
-      JOIN daily_challenge_metadata dc ON s.question_id = dc.question_id
+      JOIN daily_challenge_problems dc ON s.question_id = dc.id
       WHERE s.status IN ('solved', 'completed', 'approved')
     `).all();
 
@@ -882,20 +906,20 @@ function initSchema() {
 
   try {
     db.prepare(`
-      UPDATE daily_challenge_metadata 
+      UPDATE daily_challenge_problems 
       SET scheduled_date = NULL 
-      WHERE question_id NOT IN (
-        SELECT MIN(question_id) 
-        FROM daily_challenge_metadata 
-        WHERE scheduled_date IS NOT NULL AND status != 'archived'
+      WHERE id NOT IN (
+        SELECT MIN(id) 
+        FROM daily_challenge_problems 
+        WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = TRUE 
         GROUP BY scheduled_date
-      ) AND scheduled_date IS NOT NULL AND status != 'archived'
+      ) AND scheduled_date IS NOT NULL AND status != 'archived' AND is_active = TRUE
     `).run();
 
     db.prepare(`
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_challenge_metadata_unique_active_date 
-      ON daily_challenge_metadata(scheduled_date) 
-      WHERE scheduled_date IS NOT NULL AND status != 'archived'
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_challenge_problems_unique_active_date 
+      ON daily_challenge_problems(scheduled_date) 
+      WHERE scheduled_date IS NOT NULL AND status != 'archived' AND is_active = TRUE
     `).run();
   } catch (e) {
     // ignore

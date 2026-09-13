@@ -80,7 +80,7 @@ class DsaProblemMatcherService {
       }
     }
 
-    // 2. Fetch all active candidate problems from questions and daily_challenge_problems
+    // 2. Fetch all active candidate problems from questions
     const candidates = await this.getAllCandidateProblems();
 
     let bestMatch = null;

@@ -1131,11 +1131,12 @@ async function checkDuplicateChallenge(candidate, description = '', excludeId = 
   const candidateSignature = candidateData.problem_signature || generateProblemSignature(candidateData);
   const candidateConcept = extractProblemConcept(cleanTitle, candidateData.description || '');
 
-  // 1. Check daily_challenge_problems (all non-archived: draft, scheduled, published)
+  // 1. Check daily challenge metadata and questions (all non-archived: draft, scheduled, published)
   const existingDc = await getRepo().many(`
-    SELECT id, title, description, status, scheduled_date, problem_signature, problem_concept
-    FROM daily_challenge_problems
-    WHERE status != 'archived' AND is_active = TRUE ${excludeId ? 'AND id != ?' : ''}
+    SELECT q.id, q.title, q.description, dcm.status, dcm.scheduled_date, q.problem_signature, q.problem_concept
+    FROM daily_challenge_metadata dcm
+    JOIN questions q ON dcm.question_id = q.id
+    WHERE dcm.status != 'archived' AND q.is_active = TRUE ${excludeId ? 'AND q.id != ?' : ''}
   `, excludeId ? [excludeId] : []);
 
   for (const c of existingDc) {
@@ -1394,10 +1395,11 @@ async function verifyReferenceSolution(challengeData) {
 async function getRecentTaxonomyHistory(limit = 15) {
   try {
     const recent = await getRepo().many(`
-      SELECT title, topic_id, custom_topic, pattern_id, problem_concept
-      FROM daily_challenge_problems
-      WHERE status != 'archived' AND is_active = TRUE
-      ORDER BY created_at DESC
+      SELECT q.title, q.topic_id, dcm.custom_topic, q.pattern_id, dcm.problem_concept
+      FROM daily_challenge_metadata dcm
+      JOIN questions q ON dcm.question_id = q.id
+      WHERE dcm.status != 'archived' AND q.is_active = TRUE
+      ORDER BY dcm.created_at DESC
       LIMIT ?
     `, [limit]);
 

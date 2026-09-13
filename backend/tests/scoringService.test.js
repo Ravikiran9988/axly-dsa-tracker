@@ -39,11 +39,19 @@ describe('Axly DSA Tracker Scoring Model Tests', () => {
     `);
 
     await repo.execute(`
-      INSERT OR REPLACE INTO daily_challenge_problems (id, title, slug, description, difficulty, points, status, is_active)
+      INSERT OR REPLACE INTO questions (id, title, slug, url, description, difficulty, points, status, is_active)
       VALUES 
-        ('dc-easy-1', 'Daily Easy Challenge', 'dc-easy-1', 'Test Description Easy', 'easy', 50, 'published', 1),
-        ('dc-med-1', 'Daily Medium Challenge', 'dc-med-1', 'Test Description Medium', 'medium', 100, 'published', 1),
-        ('dc-hard-1', 'Daily Hard Challenge', 'dc-hard-1', 'Test Description Hard', 'hard', 150, 'published', 1)
+        ('dc-easy-1', 'Daily Easy Challenge', 'dc-easy-1', 'internal://dc-easy-1', 'Test Description Easy', 'easy', 50, 'published', 1),
+        ('dc-med-1', 'Daily Medium Challenge', 'dc-med-1', 'internal://dc-med-1', 'Test Description Medium', 'medium', 100, 'published', 1),
+        ('dc-hard-1', 'Daily Hard Challenge', 'dc-hard-1', 'internal://dc-hard-1', 'Test Description Hard', 'hard', 150, 'published', 1)
+    `);
+    
+    await repo.execute(`
+      INSERT OR REPLACE INTO daily_challenge_metadata (question_id, status)
+      VALUES 
+        ('dc-easy-1', 'published'),
+        ('dc-med-1', 'published'),
+        ('dc-hard-1', 'published')
     `);
   });
 

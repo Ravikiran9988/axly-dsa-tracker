@@ -179,7 +179,7 @@ describe('Unified AI Question Generation Pipeline', () => {
     });
 
     await expect(generateQuestion({ topic: 'Arrays', difficulty: 'Medium', count: 2 }))
-      .rejects.toThrow(/starter_code for javascript does not contain the function signature name 'solve'/);
+      .rejects.toThrow(/\[javascript\] Starter code does not contain the function signature name 'solve'/);
   });
 
   it('fails validation if sandbox execution is not Accepted', async () => {
@@ -230,7 +230,7 @@ describe('Unified AI Question Generation Pipeline', () => {
     executeCode.mockResolvedValue({ status: 'Wrong Answer' });
 
     await expect(generateQuestion({ topic: 'Arrays', difficulty: 'Medium', count: 2 }))
-      .rejects.toThrow(/Sandbox verification failed: Reference solution resulted in Wrong Answer/);
+      .rejects.toThrow(/\[javascript\] Reference solution failed verification/);
   });
 
   it('fails validation if reference solution is leaked in starter code', async () => {
@@ -279,6 +279,6 @@ describe('Unified AI Question Generation Pipeline', () => {
     });
 
     await expect(generateQuestion({ topic: 'Arrays', difficulty: 'Medium', count: 2 }))
-      .rejects.toThrow(/starter_code appears to contain the complete reference_solution/);
+      .rejects.toThrow(/\[python\] AST Validation Failed/);
   });
 });

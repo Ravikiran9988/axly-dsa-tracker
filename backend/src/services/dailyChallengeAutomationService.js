@@ -1,6 +1,6 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
-const { getCanonicalIstDate, getNextCanonicalIstDate } = require('../utils/dateUtils');
+const { getCanonicalIstDate, getNextCanonicalIstDate, getIstClock } = require('../utils/dateUtils');
 const { generateDailyChallenge, checkDuplicateChallenge, stripVariantIdentifiers } = require('./aiDailyChallengeService');
 const { createDailyChallenge, publishDailyChallenge } = require('./dailyChallengeService');
 
@@ -44,12 +44,12 @@ async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
 
 async function getAutomationLogs(limit = 20) {
   const l = Math.max(1, Math.min(100, Number(limit) || 20));
-  const logs = await getRepo().many(`SELECT al.*, dc.title AS challenge_title, dc.difficulty AS challenge_difficulty FROM daily_challenge_automation_logs al LEFT JOIN daily_challenge_problems dc ON al.challenge_id = dc.id ORDER BY al.created_at DESC LIMIT ?`, [l]);
+  const logs = await getRepo().many(`SELECT al.*, q.title AS challenge_title, q.difficulty AS challenge_difficulty FROM daily_challenge_automation_logs al LEFT JOIN questions q ON al.question_id = q.id ORDER BY al.created_at DESC LIMIT ?`, [l]);
   return logs.map(log => ({ ...log, validation_result: log.validation_result || 'Passed', sandbox_result: 'Not used' }));
 }
 
 async function generateUniqueChallenge({ topic = 'Surprise Me', difficulty = 'medium', instructions = '' } = {}) {
-  const result = await generateDailyChallenge({ topic, difficulty, instructions, skipSandbox: true });
+  const result = await generateDailyChallenge({ topic, difficulty, instructions, skipSandbox: false });
   if (!result || !result.success || !result.data) {
     const error = new Error(result?.error || 'All configured LLM fallback slots failed and no unique challenge was available.');
     error.code = result?.code || 'LLM_GENERATION_FAILED';
@@ -77,7 +77,13 @@ async function persistRunStatus(status) {
 }
 
 async function publishTodaysScheduledChallenge(todayDate) {
-  const scheduled = await getRepo().one(`SELECT id, title, status, scheduled_date FROM daily_challenge_problems WHERE scheduled_date = ? AND status = 'scheduled' AND is_active = TRUE ORDER BY updated_at DESC LIMIT 1`, [todayDate]);
+  const scheduled = await getRepo().one(`
+    SELECT q.id, q.title, dcm.status, dcm.scheduled_date 
+    FROM daily_challenge_metadata dcm
+    JOIN questions q ON q.id = dcm.question_id
+    WHERE dcm.scheduled_date = ? AND dcm.status = 'scheduled' AND q.is_active = TRUE 
+    ORDER BY dcm.updated_at DESC LIMIT 1
+  `, [todayDate]);
   if (!scheduled) return { published: false, challenge: null };
   const published = await publishDailyChallenge(scheduled.id, 'usr-system-cron');
   return { published: true, challenge: published };
@@ -98,7 +104,7 @@ async function runAdminAutoFillNow(options = {}) {
   const logId = `auto-log-${uuidv4().slice(0, 8)}`;
   const targetDate = getCanonicalIstDate();
   if (createdDraft) {
-    await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, challenge_id, details, created_at) VALUES (?, ?, 'manual_admin', 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`, [logId, targetDate, createdDraft.id, `AI challenge "${createdDraft.title}" generated through the five-slot LLM fallback chain and saved as Draft.`]);
+    await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, 'manual_admin', 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`, [logId, targetDate, createdDraft.id, `AI challenge "${createdDraft.title}" generated through the five-slot LLM fallback chain and saved as Draft.`]);
     await persistRunStatus('success');
     return { success: true, status: 'success', attempts: 1, challenge: createdDraft, message: 'AI challenge generated successfully and saved as Draft.' };
   }
@@ -122,7 +128,12 @@ async function runDailyScheduledAutomation() {
   const publishResult = await publishTodaysScheduledChallenge(todayDate);
 
   // Step 2: generate and schedule tomorrow's challenge.
-  const existingTomorrow = await getRepo().one(`SELECT id, title, status, scheduled_date FROM daily_challenge_problems WHERE scheduled_date = ? AND status != 'archived' AND is_active = TRUE`, [tomorrowDate]);
+  const existingTomorrow = await getRepo().one(`
+    SELECT q.id, q.title, dcm.status, dcm.scheduled_date 
+    FROM daily_challenge_metadata dcm
+    JOIN questions q ON q.id = dcm.question_id
+    WHERE dcm.scheduled_date = ? AND dcm.status != 'archived' AND q.is_active = TRUE
+  `, [tomorrowDate]);
   if (existingTomorrow) {
     await persistRunStatus('success');
     return {
@@ -154,7 +165,7 @@ async function runDailyScheduledAutomation() {
   if (generated) {
     const targetStatus = settings.mode === 'auto_fill' ? 'scheduled' : 'draft';
     const created = await createDailyChallenge({ ...generated, status: targetStatus, scheduled_date: tomorrowDate, created_via: 'ai' }, 'usr-system-cron');
-    await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, challenge_id, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`, [logId, tomorrowDate, settings.mode, created.id, settings.mode === 'auto_fill' ? `Published today's challenge for ${todayDate} and generated/scheduled tomorrow's challenge for ${tomorrowDate}.` : `Published today's challenge for ${todayDate}; generated tomorrow's challenge for ${tomorrowDate} as a draft for admin review.`]);
+    await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`, [logId, tomorrowDate, settings.mode, created.id, settings.mode === 'auto_fill' ? `Published today's challenge for ${todayDate} and generated/scheduled tomorrow's challenge for ${tomorrowDate}.` : `Published today's challenge for ${todayDate}; generated tomorrow's challenge for ${tomorrowDate} as a draft for admin review.`]);
     await persistRunStatus('success');
     return { success: true, status: 'SUCCESS', target_date: tomorrowDate, attempts: 1, published_today: publishResult.published, published_challenge: publishResult.challenge, challenge: created };
   }
@@ -173,15 +184,42 @@ async function runAutomationPipeline(options = {}) {
 let expireTimer = null;
 let publishTimer = null;
 
-async function runDailyExpiration() {
+async function runDailyExpiration(now = new Date()) {
   try {
-    const targetDate = getCanonicalIstDate();
-    await getRepo().execute(`
-      UPDATE daily_challenge_problems 
-      SET status = 'expired', updated_at = CURRENT_TIMESTAMP 
-      WHERE scheduled_date <= ? AND status = 'published' AND is_active = TRUE
-    `, [targetDate]);
-    console.log(`✅ [00:29 IST] Daily Challenge Expiration job completed. targetDate=${targetDate}`);
+    const clock = getIstClock(now);
+    // Previous challenge stays active through 00:00–00:28 IST.
+    if (clock.hour === 0 && clock.minute < 29) {
+      return { expired: false, reason: 'before_expiration_window', istDate: clock.date };
+    }
+
+    const expiredIdsRow = await getRepo().many(`
+      SELECT q.id 
+      FROM questions q
+      JOIN daily_challenge_metadata dcm ON q.id = dcm.question_id
+      WHERE dcm.scheduled_date < ? AND dcm.status = 'published' AND q.is_active = TRUE
+    `, [clock.date]);
+
+    const expiredIds = expiredIdsRow.map(row => row.id);
+
+    if (expiredIds.length > 0) {
+      await getRepo().transaction(async tx => {
+        // Set metadata status to archived
+        await tx.execute(`
+          UPDATE daily_challenge_metadata 
+          SET status = 'archived', updated_at = CURRENT_TIMESTAMP 
+          WHERE question_id IN (${expiredIds.map(() => '?').join(',')})
+        `, expiredIds);
+        
+        // Expose to practice by setting is_practice = 1 and status = archived
+        await tx.execute(`
+          UPDATE questions 
+          SET is_practice = 1, is_active = 1, updated_at = CURRENT_TIMESTAMP 
+          WHERE id IN (${expiredIds.map(() => '?').join(',')})
+        `, expiredIds);
+      });
+    }
+    console.log(`✅ [00:29 IST] Daily Challenge Expiration job completed. istDate=${clock.date} expired=${expiredIds.length}`);
+    return { expired: true, count: expiredIds.length, istDate: clock.date };
   } catch (err) {
     console.error(`❌ [00:29 IST] Error in Daily Challenge Expiration:`, err.message);
   }

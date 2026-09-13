@@ -37,17 +37,15 @@ async function listSubmissions({ user, question_id, status, review_status, page 
   const data = await repo.many(`
     SELECT 
       s.*,
-      COALESCE(q.title, dc.title, s.question_id) AS question_title,
-      COALESCE(q.difficulty, dc.difficulty, 'medium') AS question_difficulty,
-      COALESCE(q.points, dc.points, 20) AS question_points,
-      COALESCE(t1.name, t2.name, 'DSA') AS topic_name,
+      COALESCE(q.title, s.question_id) AS question_title,
+      COALESCE(q.difficulty, 'medium') AS question_difficulty,
+      COALESCE(q.points, 20) AS question_points,
+      COALESCE(t1.name, 'DSA') AS topic_name,
       u.name AS user_name, u.email AS user_email, u.avatar_url AS user_avatar,
       rev.name AS reviewer_name
     FROM submissions s
     LEFT JOIN questions q ON s.question_id = q.id
-    LEFT JOIN daily_challenge_problems dc ON s.question_id = dc.id
     LEFT JOIN topics t1 ON q.topic_id = t1.id
-    LEFT JOIN topics t2 ON dc.topic_id = t2.id
     JOIN users u ON s.user_id = u.id
     LEFT JOIN users rev ON s.reviewer_id = rev.id
     ${whereSql}
@@ -218,8 +216,10 @@ async function updateSubmission({ submission_id, question_id, user_id, status })
 
   const now = new Date().toISOString();
   const qId = submission ? submission.question_id : question_id;
-  const isDaily = Boolean(await repo.one('SELECT id FROM daily_questions WHERE question_id = ? OR challenge_id = ?', [qId, qId])) ||
-                  Boolean(await repo.one('SELECT id FROM daily_challenge_problems WHERE id = ?', [qId]));
+  const isDaily = Boolean(await repo.one(
+    'SELECT question_id FROM daily_challenge_metadata WHERE question_id = ? AND status IN (?, ?) LIMIT 1',
+    [qId, 'published', 'scheduled']
+  ));
   const qRow = await repo.one('SELECT id, is_practice FROM questions WHERE id = ?', [qId]);
   const isPractice = !isDaily && Boolean(qRow?.is_practice);
 

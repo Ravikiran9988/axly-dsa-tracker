@@ -305,14 +305,14 @@ async function createDailyChallenge(data, admin_id) {
     // 1. Insert into questions table (canonical row, not practice yet, wait - let's default is_practice=0 if created as standalone DC? Or 1? Let's say is_practice=0 until published? We can just leave it as 0.)
     await tx.execute(`
       INSERT INTO questions (
-        id, title, slug, difficulty, topic_id, pattern_id,
+        id, title, slug, url, difficulty, topic_id, pattern_id,
         estimated_time, points, description, problem_statement, constraints,
         input_format, output_format, example_input, example_output, examples,
         hints, tags, solution_approach, editorial, complexity, starter_code,
         reference_solution, supported_languages, is_practice, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
     `, [
-      question_id, title.trim(), finalSlug, difficulty.toLowerCase(), topic_id || null, pattern_id || null,
+      question_id, title.trim(), finalSlug, `internal://${finalSlug}`, difficulty.toLowerCase(), topic_id || null, pattern_id || null,
       Number(estimated_time) || 30, Number(points) || 100, description.trim(), problem_statement || null, constraints || null,
       input_format || null, output_format || null, String(example_input || ''), String(example_output || ''), normalizeJsonArray(examples, '[]'),
       normalizeJsonArray(hints, '[]'), normalizeJsonArray(tags, '[]'), solution_approach || editorial || null,
@@ -441,10 +441,6 @@ async function publishDailyChallenge(id, admin_id) {
     WHERE question_id = ?
   `, [targetDate, id]);
 
-  // If we publish, we should also expose this canonical question to the question bank by setting is_practice=1!
-  // BUT only once it is actively published. The frontend can handle filtering. Let's make it available to practice!
-  await getRepo().execute('UPDATE questions SET is_practice = 1 WHERE id = ?', [id]);
-
   return getDailyChallengeById(id, true);
 }
 
@@ -456,7 +452,6 @@ async function publishNowDailyChallenge(id, admin_id) {
     SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
     WHERE question_id = ?
   `, [todayUtc, id]);
-  await getRepo().execute('UPDATE questions SET is_practice = 1 WHERE id = ?', [id]);
   return getDailyChallengeById(id, true);
 }
 
@@ -477,11 +472,18 @@ async function unpublishDailyChallenge(id, admin_id) {
 }
 
 async function archiveDailyChallenge(id) {
-  await getRepo().execute(`
-    UPDATE daily_challenge_metadata 
-    SET status = 'archived', updated_at = CURRENT_TIMESTAMP 
-    WHERE question_id = ?
-  `, [id]);
+  await getRepo().transaction(async tx => {
+    await tx.execute(`
+      UPDATE daily_challenge_metadata 
+      SET status = 'archived', updated_at = CURRENT_TIMESTAMP 
+      WHERE question_id = ?
+    `, [id]);
+    await tx.execute(`
+      UPDATE questions 
+      SET is_practice = 1, is_active = 1
+      WHERE id = ?
+    `, [id]);
+  });
   return { success: true, message: 'Daily challenge archived' };
 }
 
@@ -505,7 +507,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     JOIN questions q ON dcm.question_id = q.id
     LEFT JOIN topics t ON q.topic_id = t.id
     LEFT JOIN patterns p ON q.pattern_id = p.id
-    WHERE dcm.scheduled_date = ? AND dcm.status IN ('published', 'scheduled')
+    WHERE dcm.scheduled_date = ? AND dcm.status = 'published'
   `, [dateStr]);
 
   if (!challenge) return null;
@@ -535,6 +537,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     }
   }
 
+  const isPrivileged = user?.role === 'admin' || user?.role === 'mentor';
   return {
     ...challenge,
     topic_name: challenge.topic_name || challenge.topic_id || 'Other',
@@ -544,6 +547,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
     examples: safeParseJson(challenge.examples, []),
     supported_languages: safeParseJson(challenge.supported_languages, ['javascript', 'python']),
     starter_code: challenge.starter_code ? safeParseJson(challenge.starter_code) : null,
+    reference_solution: isPrivileged && challenge.reference_solution ? safeParseJson(challenge.reference_solution) : null,
     test_cases: testCases,
     user_status: userStatus
   };

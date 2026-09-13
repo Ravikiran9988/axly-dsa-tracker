@@ -236,6 +236,17 @@ async function validateAllSolutions(contract, testCases, solutions) {
     if (!starter.includes('TODO:')) {
       errors.push(`[${lang}] Starter code missing 'TODO:' instruction`);
     }
+    
+    if (contract.function_signature?.name && !starter.includes(contract.function_signature.name)) {
+      errors.push(`[${lang}] Starter code does not contain the function signature name '${contract.function_signature.name}'`);
+    }
+
+    // Leak check: strip whitespace and check if starter contains reference
+    const strippedStarter = starter.replace(/\s+/g, '');
+    const strippedRef = ref.replace(/\s+/g, '');
+    if (strippedStarter.includes(strippedRef) && strippedRef.length > 20) {
+      errors.push(`[${lang}] starter_code appears to contain the complete reference_solution.`);
+    }
 
     if (lang === 'python') {
       const astCheck = await validatePythonAst(ref);

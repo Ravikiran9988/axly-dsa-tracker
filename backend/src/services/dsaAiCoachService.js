@@ -857,18 +857,7 @@ Answer accurately using standard algorithmic principles. Use Markdown for struct
         LIMIT 10
       `, [problemId]);
 
-      if (rows && rows.length > 0) return rows;
-
-      // Check daily_challenge_test_cases
-      const dcRows = await getRepo().many(`
-        SELECT id, input, expected_output, is_hidden
-        FROM daily_challenge_test_cases
-        WHERE challenge_id = ?
-        ORDER BY is_hidden ASC, id ASC
-        LIMIT 10
-      `, [problemId]);
-
-      return dcRows || [];
+      return rows || [];
     } catch (_) {
       return [];
     }

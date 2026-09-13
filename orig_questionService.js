@@ -55,7 +55,6 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
 
   if (user?.role !== 'admin') {
     conditions.push('q.is_active = TRUE');
-    conditions.push('q.is_practice = TRUE');
   }
   if (difficulty) {
     conditions.push('LOWER(q.difficulty) = ?');
@@ -79,7 +78,9 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   }
 
   const combinedQuestionsQuery = `
-    SELECT q.id, q.title, q.difficulty, q.topic_id, q.url, q.is_active, q.created_at, q.description, q.problem_statement, q.constraints, q.input_format, q.output_format, q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points, q.assigned_date, q.due_date, q.status, q.supported_languages, q.starter_code, q.is_practice, CASE WHEN dcm.question_id IS NOT NULL THEN 1 ELSE 0 END AS is_daily_challenge FROM questions q LEFT JOIN daily_challenge_metadata dcm ON dcm.question_id = q.id
+    SELECT q.id, q.title, q.difficulty, q.topic_id, q.url, q.is_active, q.created_at, q.description, q.problem_statement, q.constraints, q.input_format, q.output_format, q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points, q.assigned_date, q.due_date, q.status, q.supported_languages, q.starter_code, 0 AS is_daily_challenge FROM questions q
+    UNION ALL
+    SELECT dc.id, dc.title, dc.difficulty, dc.topic_id, NULL AS url, dc.is_active, dc.created_at, dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format, dc.example_input, dc.example_output, dc.hints, dc.tags, dc.estimated_time, dc.points, NULL AS assigned_date, NULL AS due_date, dc.status, dc.supported_languages, dc.starter_code, 1 AS is_daily_challenge FROM daily_challenge_problems dc WHERE dc.status = 'expired'
   `;
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -106,7 +107,10 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
       s.id AS submission_id, s.status AS submission_status,
       s.review_status, s.feedback, s.attempted_at, s.solved_at,
       (SELECT COUNT(*) FROM assignments x WHERE x.question_id = q.id AND x.status != 'unassigned') AS active_assignees_count,
-      (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = q.id) AS total_test_cases_count,
+      CASE 
+        WHEN q.is_daily_challenge = 1 THEN (SELECT COUNT(*) FROM daily_challenge_test_cases tc WHERE tc.challenge_id = q.id)
+        ELSE (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = q.id)
+      END AS total_test_cases_count,
       q.is_daily_challenge
     FROM (${combinedQuestionsQuery}) q
     LEFT JOIN topics t ON q.topic_id = t.id
@@ -138,21 +142,39 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
 
 async function getQuestionById(id, user = null) {
   let q = await repo.one(
-    'SELECT q.*, t.name AS topic_name, p.name AS pattern_name FROM questions q LEFT JOIN topics t ON q.topic_id = t.id LEFT JOIN patterns p ON q.pattern_id = p.id WHERE q.id = ? OR q.slug = ?',
-    [id, id]
+    'SELECT q.*, t.name AS topic_name FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.id = ?',
+    [id]
   );
-  if (!q) return null;
+  let isDailyChallenge = false;
 
-  const dcm = await repo.one('SELECT scheduled_date, status, custom_topic, created_via FROM daily_challenge_metadata WHERE question_id = ?', [q.id]);
-  if (dcm) {
-    q = { ...q, ...dcm };
+  if (!q) {
+    // Check if this ID belongs to a Daily Challenge Problem
+    const dc = await repo.one(
+      'SELECT dc.*, t.name AS topic_name, p.name AS pattern_name FROM daily_challenge_problems dc LEFT JOIN topics t ON dc.topic_id = t.id LEFT JOIN patterns p ON dc.pattern_id = p.id WHERE dc.id = ? OR dc.slug = ?',
+      [id, id]
+    );
+    if (!dc) return null;
+    q = dc;
+    isDailyChallenge = true;
+  } else {
+    // Standard Question, fetch pattern name if pattern_id exists
+    if (q.pattern_id) {
+      const p = await repo.one('SELECT name FROM patterns WHERE id = ?', [q.pattern_id]);
+      if (p) q.pattern_name = p.name;
+    }
   }
-  const isDailyChallenge = Boolean(dcm);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'mentor';
-  const testCaseSql = isAdmin
-    ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC'
-    : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC';
+  let testCaseSql = '';
+  if (isDailyChallenge) {
+    testCaseSql = isAdmin
+      ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC'
+      : 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC';
+  } else {
+    testCaseSql = isAdmin
+      ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC'
+      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC';
+  }
 
   const testCases = await repo.many(testCaseSql, [q.id]);
   const formattedTestCases = testCases.map(tc => ({
@@ -193,10 +215,9 @@ async function insertTestCases(questionId, testCases = [], currentRepo = repo) {
 async function createQuestion(input) {
   const {
     title, slug, difficulty, topic_id, pattern_id, url, description, problem_statement,
-    constraints, input_format, output_format, example_input, example_output, examples,
+    constraints, input_format, output_format, example_input, example_output,
     hints, tags, estimated_time, points, assigned_date, due_date, status,
-    supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, test_cases = [],
-    is_practice, generation_slot, created_via
+    supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, test_cases = []
   } = input;
 
   await validateQuestionInput({ title, difficulty, topic_id });
@@ -216,11 +237,10 @@ async function createQuestion(input) {
     await tx.execute(`
       INSERT INTO questions (
         id, title, slug, difficulty, topic_id, pattern_id, url, description, problem_statement,
-        constraints, input_format, output_format, example_input, example_output, examples,
+        constraints, input_format, output_format, example_input, example_output,
         hints, tags, estimated_time, points, assigned_date, due_date, status,
-        supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity,
-        is_active, is_practice, generation_slot, created_via
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?, ?)
+        supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
     `, [
       id,
       (title || '').trim(),
@@ -236,7 +256,6 @@ async function createQuestion(input) {
       output_format || null,
       example_input || null,
       example_output || null,
-      normalizeJsonArray(examples, '[]'),
       Array.isArray(hints) ? JSON.stringify(hints) : (hints || null),
       normalizeJsonArray(tags, '[]'),
       estimated_time || '30 mins',
@@ -249,10 +268,7 @@ async function createQuestion(input) {
       normalizeStarterCode(reference_solution),
       editorial || null,
       solution_approach || null,
-      complexity || null,
-      is_practice === false || is_practice === 0 ? 0 : 1,
-      generation_slot || null,
-      created_via || 'manual'
+      complexity || null
     ]);
 
     await insertTestCases(id, test_cases, tx);
