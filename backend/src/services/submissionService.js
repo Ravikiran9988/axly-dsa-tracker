@@ -218,8 +218,8 @@ async function updateSubmission({ submission_id, question_id, user_id, status })
 
   const now = new Date().toISOString();
   const qId = submission ? submission.question_id : question_id;
-  const isDaily = Boolean(await repo.one('SELECT id FROM daily_questions WHERE question_id = ? OR question_id = ?', [qId, qId])) ||
-                  Boolean(await repo.one('SELECT question_id AS id FROM daily_challenge_metadata WHERE question_id = ?', [qId]));
+  const isDaily = Boolean(await repo.one('SELECT id FROM daily_questions WHERE question_id = ? OR challenge_id = ?', [qId, qId])) ||
+                  Boolean(await repo.one('SELECT id FROM daily_challenge_problems WHERE id = ?', [qId]));
   const qRow = await repo.one('SELECT id, is_practice FROM questions WHERE id = ?', [qId]);
   const isPractice = !isDaily && Boolean(qRow?.is_practice);
 

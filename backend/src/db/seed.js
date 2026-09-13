@@ -1262,12 +1262,12 @@ print(find_median(nums1, nums2))`
   const { generateProblemSignature, extractProblemConcept } = require('../services/aiDailyChallengeService');
 
   const insertDailyChallenge = db.prepare(`
-    INSERT INTO questions (
+    INSERT INTO daily_challenge_problems (
       id, title, slug, difficulty, topic_id, pattern_id, points, estimated_time,
       description, problem_statement, constraints, input_format, output_format,
       example_input, example_output, hints, tags, solution_approach, status,
-      problem_signature, problem_concept, created_by, is_practice, is_active, url
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?)
+      scheduled_date, problem_signature, problem_concept, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
       difficulty = excluded.difficulty,
@@ -1286,20 +1286,13 @@ print(find_median(nums1, nums2))`
       tags = excluded.tags,
       solution_approach = excluded.solution_approach,
       status = excluded.status,
+      scheduled_date = excluded.scheduled_date,
       problem_signature = excluded.problem_signature,
       problem_concept = excluded.problem_concept
   `);
 
-  const insertDailyChallengeMetadata = db.prepare(`
-    INSERT INTO daily_challenge_metadata (
-      question_id, scheduled_date, created_via
-    ) VALUES (?, ?, ?)
-    ON CONFLICT(question_id) DO UPDATE SET
-      scheduled_date = excluded.scheduled_date
-  `);
-
   const insertDailyTestCase = db.prepare(`
-    INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden)
+    INSERT INTO daily_challenge_test_cases (id, challenge_id, input, expected_output, is_hidden)
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       input = excluded.input,
@@ -1308,19 +1301,18 @@ print(find_median(nums1, nums2))`
   `);
 
   try {
-    db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date IN (?, ?)").run(yesterdayUtc, todayUtc);
+    db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date IN (?, ?)").run(yesterdayUtc, todayUtc);
   } catch (_) {}
 
   dailyChallenges.forEach(dc => {
     const signature = generateProblemSignature(dc);
     const concept = extractProblemConcept(dc.title, dc.description);
     insertDailyChallenge.run(
-      dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, `${dc.estimated_time || 30} mins`,
+      dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, dc.estimated_time,
       dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format,
-      dc.example_input, dc.example_output, dc.hints || '[]', dc.tags || '[]', dc.solution_approach, dc.status || 'published',
-      signature, concept, dc.created_by, `/problems/${dc.slug}`
+      dc.example_input, dc.example_output, dc.hints, dc.tags, dc.solution_approach, dc.status,
+      dc.scheduled_date, signature, concept, dc.created_by
     );
-    insertDailyChallengeMetadata.run(dc.id, dc.scheduled_date, 'manual');
     if (dc.test_cases && dc.test_cases.length > 0) {
       dc.test_cases.forEach(tc => {
         insertDailyTestCase.run(tc.id, dc.id, tc.input, tc.expected_output, tc.is_hidden);

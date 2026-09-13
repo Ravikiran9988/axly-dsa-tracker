@@ -59,7 +59,7 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
           SELECT COUNT(DISTINCT s.question_id)
           FROM submissions s
           WHERE s.user_id = u.id AND s.status IN ('solved', 'completed', 'approved')
-            AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT question_id FROM daily_challenge_metadata))
+            AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT id FROM daily_challenge_problems))
         ) AS completed_count,
         (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count
       FROM users u
@@ -94,7 +94,7 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
         SELECT COUNT(DISTINCT s.question_id)
         FROM submissions s
         WHERE s.user_id = u.id AND s.status IN ('solved', 'completed', 'approved')
-          AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT question_id FROM daily_challenge_metadata))
+          AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT id FROM daily_challenge_problems))
           AND COALESCE(s.solved_at, s.updated_at, s.created_at) >= (CURRENT_TIMESTAMP - INTERVAL '${days} days')
       ) AS completed_count,
       (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count
@@ -126,7 +126,7 @@ async function getCompetitiveLeaders(limit = 100, period = 'all') {
           SELECT COUNT(DISTINCT s.question_id)
           FROM submissions s
           WHERE s.user_id = u.id AND s.status IN ('solved', 'completed', 'approved')
-            AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT question_id FROM daily_challenge_metadata))
+            AND (s.question_id LIKE 'dc-%' OR s.question_id IN (SELECT id FROM daily_challenge_problems))
             AND COALESCE(s.solved_at, s.updated_at, s.created_at) >= datetime('now', '-${days} days')
         ) AS completed_count,
         (SELECT COUNT(*) FROM user_badges ub WHERE ub.user_id = u.id) AS badge_count

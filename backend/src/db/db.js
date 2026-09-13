@@ -138,7 +138,7 @@ function initSchema() {
       points INTEGER DEFAULT 20,
       assigned_date TEXT,
       due_date TEXT,
-      status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'archived', 'scheduled', 'expired')),
+      status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'published', 'archived')),
       supported_languages TEXT DEFAULT '["python", "javascript", "java", "cpp", "c", "typescript"]',
       starter_code TEXT,
       reference_solution TEXT,
@@ -149,12 +149,7 @@ function initSchema() {
       pattern_id TEXT REFERENCES patterns(id) ON DELETE SET NULL,
       current_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
-      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-      is_practice INTEGER NOT NULL DEFAULT 1,\n      source_question_id TEXT REFERENCES questions(id) ON DELETE SET NULL,
-      problem_signature TEXT,
-      problem_concept TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions(difficulty);
@@ -290,17 +285,57 @@ function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS daily_challenge_metadata (
-      question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
+    CREATE TABLE IF NOT EXISTS daily_challenge_problems (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      slug TEXT UNIQUE,
+      difficulty TEXT NOT NULL CHECK (difficulty IN ('easy', 'medium', 'hard')),
+      topic_id TEXT REFERENCES topics(id) ON DELETE SET NULL,
+      pattern_id TEXT,
+      secondary_topics TEXT DEFAULT '[]',
+      prerequisites TEXT DEFAULT '[]',
+      estimated_time INTEGER DEFAULT 30,
+      points INTEGER NOT NULL DEFAULT 100,
+      description TEXT NOT NULL,
+      problem_statement TEXT,
+      constraints TEXT,
+      input_format TEXT,
+      output_format TEXT,
+      example_input TEXT,
+      example_output TEXT,
+      hints TEXT DEFAULT '[]',
+      tags TEXT DEFAULT '[]',
+      solution_approach TEXT,
+      editorial TEXT,
+      complexity TEXT,
+      examples TEXT DEFAULT '[]',
+      starter_code TEXT,
+      reference_solution TEXT,
+      supported_languages TEXT DEFAULT '["javascript", "python", "typescript", "java", "cpp", "c"]',
+      created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'scheduled', 'active', 'archived', 'completed')),
       scheduled_date TEXT,
-      created_via TEXT DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai_automation')),
       custom_topic TEXT,
-      generation_prompt TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE INDEX IF NOT EXISTS idx_dcm_scheduled_date ON daily_challenge_metadata(scheduled_date);
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_status ON daily_challenge_problems(status);
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_topic ON daily_challenge_problems(topic_id);
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_problems_date ON daily_challenge_problems(scheduled_date);
+
+    CREATE TABLE IF NOT EXISTS daily_challenge_test_cases (
+      id TEXT PRIMARY KEY,
+      challenge_id TEXT NOT NULL REFERENCES daily_challenge_problems(id) ON DELETE CASCADE,
+      input TEXT NOT NULL,
+      expected_output TEXT NOT NULL,
+      is_hidden INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_daily_challenge_test_cases_challenge ON daily_challenge_test_cases(challenge_id);
 
     CREATE TABLE IF NOT EXISTS daily_questions (
       id TEXT PRIMARY KEY,
@@ -924,80 +959,6 @@ function initSchema() {
       `).run();
       db.prepare(`
         CREATE INDEX IF NOT EXISTS idx_questions_pattern_id ON questions(pattern_id)
-      `).run();
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  // Canonical Question Entity Migration (Migration 021)
-  try {
-    const tableInfo = db.prepare("PRAGMA table_info(questions)").all();
-    const colNames = tableInfo.map(c => c.name);
-    
-    if (!colNames.includes('problem_signature')) {
-      addColumnIfNotExists('questions', 'examples', "TEXT DEFAULT '[]'");
-      addColumnIfNotExists('questions', 'supported_languages', 'TEXT DEFAULT \'["python", "javascript", "java", "cpp", "c", "typescript"]\'');
-      addColumnIfNotExists('questions', 'problem_signature', 'TEXT');
-      addColumnIfNotExists('questions', 'problem_concept', 'TEXT');
-
-      // Migrate data from daily_challenge_problems into questions
-      db.prepare(`
-        INSERT OR IGNORE INTO questions (
-          id, title, slug, difficulty, points, estimated_time, topic_id, pattern_id,
-          description, problem_statement, constraints, input_format, output_format,
-          example_input, example_output, hints, tags, solution_approach,
-          starter_code, current_version, created_at, is_practice, status, secondary_topics,
-          prerequisites, editorial, complexity, examples, supported_languages,
-          problem_signature, problem_concept, is_active
-        )
-        SELECT 
-          id, title, slug, difficulty, points, estimated_time, topic_id, pattern_id,
-          description, problem_statement, constraints, input_format, output_format,
-          example_input, example_output, hints, tags, solution_approach,
-          starter_code, 1, created_at, 0, status, '[]',
-          '[]', editorial, complexity, examples, supported_languages,
-          problem_signature, problem_concept, is_active
-        FROM daily_challenge_problems
-      `).run();
-
-      // Migrate test cases
-      db.prepare(`
-        INSERT OR IGNORE INTO test_cases (
-          id, question_id, input, expected_output, is_hidden, created_at
-        )
-        SELECT 
-          id, challenge_id, input, expected_output, is_hidden, created_at
-        FROM daily_challenge_test_cases
-      `).run();
-
-      // Create daily_challenge_metadata table
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS daily_challenge_metadata (
-          question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
-          scheduled_date TEXT UNIQUE,
-          custom_topic TEXT,
-          created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
-          created_at TEXT NOT NULL DEFAULT (datetime('now')),
-          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-      `);
-
-      // Backfill metadata
-      db.prepare(`
-        INSERT OR IGNORE INTO daily_challenge_metadata (
-          question_id, scheduled_date, custom_topic, created_via, created_at, updated_at
-        )
-        SELECT 
-          id, scheduled_date, custom_topic, created_via, created_at, updated_at
-        FROM daily_challenge_problems
-      `).run();
-
-      // Update daily_questions
-      db.prepare(`
-        UPDATE daily_questions 
-        SET question_id = challenge_id 
-        WHERE question_id IS NULL AND challenge_id IS NOT NULL
       `).run();
     }
   } catch (e) {
