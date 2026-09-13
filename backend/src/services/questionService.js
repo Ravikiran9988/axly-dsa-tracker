@@ -80,7 +80,7 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   const combinedQuestionsQuery = `
     SELECT q.id, q.title, q.difficulty, q.topic_id, q.url, q.is_active, q.created_at, q.description, q.problem_statement, q.constraints, q.input_format, q.output_format, q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points, q.assigned_date, q.due_date, q.status, q.supported_languages, q.starter_code, 0 AS is_daily_challenge FROM questions q
     UNION ALL
-    SELECT dc.id, dc.title, dc.difficulty, dc.topic_id, NULL AS url, dc.is_active, dc.created_at, dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format, dc.example_input, dc.example_output, dc.hints, dc.tags, dc.estimated_time, dc.points, NULL AS assigned_date, NULL AS due_date, dc.status, dc.supported_languages, dc.starter_code, 1 AS is_daily_challenge FROM daily_challenge_problems dc WHERE dc.status = 'expired'
+    SELECT q.id, q.title, q.difficulty, q.topic_id, NULL AS url, q.is_active, q.created_at, q.description, q.problem_statement, q.constraints, q.input_format, q.output_format, q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points, NULL AS assigned_date, NULL AS due_date, dcm.status, q.supported_languages, q.starter_code, 1 AS is_daily_challenge FROM daily_challenge_metadata dcm JOIN questions q ON dcm.question_id = q.id WHERE dcm.status IN ('expired', 'archived')
   `;
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -150,7 +150,7 @@ async function getQuestionById(id, user = null) {
   if (!q) {
     // Check if this ID belongs to a Daily Challenge Problem
     const dc = await repo.one(
-      'SELECT dc.*, t.name AS topic_name, p.name AS pattern_name FROM daily_challenge_problems dc LEFT JOIN topics t ON dc.topic_id = t.id LEFT JOIN patterns p ON dc.pattern_id = p.id WHERE dc.id = ? OR dc.slug = ?',
+      'SELECT q.*, dcm.scheduled_date, dcm.status, dcm.custom_topic, dcm.created_via, t.name AS topic_name, p.name AS pattern_name FROM daily_challenge_metadata dcm JOIN questions q ON dcm.question_id = q.id LEFT JOIN topics t ON q.topic_id = t.id LEFT JOIN patterns p ON q.pattern_id = p.id WHERE q.id = ? OR q.slug = ?',
       [id, id]
     );
     if (!dc) return null;
