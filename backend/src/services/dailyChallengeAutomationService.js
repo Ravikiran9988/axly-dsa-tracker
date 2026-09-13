@@ -2,7 +2,8 @@ const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { getCanonicalIstDate, getNextCanonicalIstDate, getIstClock } = require('../utils/dateUtils');
 const { generateDailyChallenge, checkDuplicateChallenge, stripVariantIdentifiers } = require('./aiDailyChallengeService');
-const { createDailyChallenge, publishDailyChallenge } = require('./dailyChallengeService');
+const { createDailyChallenge, publishDailyChallenge, updateDailyChallengeStatus } = require('./dailyChallengeService');
+const { indexAcceptedQuestion } = require('./questionNoveltyService');
 
 // 12:30 AM IST = 19:00 UTC on the previous calendar day.
 // At each run we publish today's scheduled challenge, then generate tomorrow's challenge.
@@ -97,6 +98,15 @@ async function runAdminAutoFillNow(options = {}) {
   try {
     const generated = await generateUniqueChallenge({ topic, difficulty, instructions: 'Create a genuinely original problem. Do not use a variant of an existing challenge.' });
     createdDraft = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: null, created_via: 'ai' }, adminId);
+
+    // Required embedding/indexing — must succeed before the draft is considered usable
+    const indexResult = await indexAcceptedQuestion(createdDraft.id, createdDraft);
+    if (!indexResult || !indexResult.success) {
+      const indexReason = indexResult?.reason || 'unknown_indexing_failure';
+      failureReason = `Required embedding/indexing failed: ${indexReason}`;
+      failureCategory = 'INDEXING_FAILED';
+      createdDraft = null;
+    }
   } catch (err) {
     failureReason = err.message || failureReason;
     failureCategory = err.code || 'PIPELINE_ERROR';
@@ -163,9 +173,25 @@ async function runDailyScheduledAutomation() {
 
   const logId = `auto-log-${uuidv4().slice(0, 8)}`;
   if (generated) {
+    // Always persist as draft first — required indexing must succeed before scheduling
+    const created = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: tomorrowDate, created_via: 'ai' }, 'usr-system-cron');
+
+    // Required embedding/indexing — must succeed before question is considered scheduled
+    const indexResult = await indexAcceptedQuestion(created.id, created);
+    if (!indexResult || !indexResult.success) {
+      const indexReason = indexResult?.reason || 'unknown_indexing_failure';
+      await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)`, [logId, tomorrowDate, settings.mode, 'INDEXING_FAILED', `Today's challenge ${publishResult.published ? 'was published' : 'was not found to publish'} for ${todayDate}, but required indexing of tomorrow's challenge ${tomorrowDate} failed: ${indexReason}.`]);
+      await persistRunStatus('failed');
+      return { success: false, status: 'failed', target_date: tomorrowDate, attempts: 1, published_today: publishResult.published, published_challenge: publishResult.challenge, error: `Required embedding/indexing failed: ${indexReason}`, failure_category: 'INDEXING_FAILED' };
+    }
+
+    // Indexing succeeded — promote to target status
     const targetStatus = settings.mode === 'auto_fill' ? 'scheduled' : 'draft';
-    const created = await createDailyChallenge({ ...generated, status: targetStatus, scheduled_date: tomorrowDate, created_via: 'ai' }, 'usr-system-cron');
-    await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`, [logId, tomorrowDate, settings.mode, created.id, settings.mode === 'auto_fill' ? `Published today's challenge for ${todayDate} and generated/scheduled tomorrow's challenge for ${tomorrowDate}.` : `Published today's challenge for ${todayDate}; generated tomorrow's challenge for ${tomorrowDate} as a draft for admin review.`]);
+    if (targetStatus !== 'draft') {
+      await updateDailyChallengeStatus(created.id, targetStatus, tomorrowDate);
+    }
+
+    await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`, [logId, tomorrowDate, settings.mode, created.id, settings.mode === 'auto_fill' ? `Published today's challenge for ${todayDate} and generated/indexed/scheduled tomorrow's challenge for ${tomorrowDate}.` : `Published today's challenge for ${todayDate}; generated tomorrow's challenge for ${tomorrowDate} as a draft for admin review.`]);
     await persistRunStatus('success');
     return { success: true, status: 'SUCCESS', target_date: tomorrowDate, attempts: 1, published_today: publishResult.published, published_challenge: publishResult.challenge, challenge: created };
   }

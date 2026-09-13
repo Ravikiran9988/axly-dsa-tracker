@@ -378,11 +378,24 @@ async function listTopics() {
   return repo.many('SELECT id, name FROM topics ORDER BY name ASC');
 }
 
+async function updateQuestionStatus(id, status) {
+  const existing = await repo.one('SELECT id, status FROM questions WHERE id = ?', [id]);
+  if (!existing) throw new AppError('Question not found', 404);
+
+  await repo.execute(
+    'UPDATE questions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [status, id]
+  );
+
+  return getQuestionById(id, { role: 'admin' });
+}
+
 module.exports = {
   listQuestions,
   getQuestionById,
   createQuestion,
   updateQuestion,
+  updateQuestionStatus,
   deleteQuestion,
   listTopics,
   validateQuestionInput

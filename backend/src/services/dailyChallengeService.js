@@ -589,12 +589,33 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
   };
 }
 
+async function updateDailyChallengeStatus(id, status, scheduledDate = null) {
+  const meta = await getRepo().one('SELECT status FROM daily_challenge_metadata WHERE question_id = ?', [id]);
+  if (!meta) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+
+  const updates = ['status = ?', 'updated_at = CURRENT_TIMESTAMP'];
+  const params = [status];
+  if (scheduledDate !== null) {
+    updates.push('scheduled_date = ?');
+    params.push(scheduledDate);
+  }
+  params.push(id);
+
+  await getRepo().execute(
+    `UPDATE daily_challenge_metadata SET ${updates.join(', ')} WHERE question_id = ?`,
+    params
+  );
+
+  return getDailyChallengeById(id, true);
+}
+
 module.exports = {
   listDailyChallenges,
   getDailyChallengeById,
   createDailyChallenge,
   createDailyChallengeFromPractice,
   updateDailyChallenge,
+  updateDailyChallengeStatus,
   scheduleDailyChallenge,
   publishDailyChallenge,
   publishNowDailyChallenge,

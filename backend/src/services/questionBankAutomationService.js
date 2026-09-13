@@ -2,7 +2,8 @@ const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { getCanonicalIstDate } = require('../utils/dateUtils');
 const { generateUniqueProblem, stripVariantIdentifiers } = require('./aiSharedGenerationService');
-const { createQuestion } = require('./questionService');
+const { createQuestion, updateQuestionStatus } = require('./questionService');
+const { indexAcceptedQuestion } = require('./questionNoveltyService');
 
 // Run every 2 hours in IST (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
 // Checks every 30 minutes to see if generation is needed
@@ -130,15 +131,37 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
   let createdDraftId = null;
   if (generated) {
     try {
-      const targetStatus = mode === 'auto_fill' ? 'published' : 'draft';
+      // Always persist as draft first — required indexing must succeed before publication
       const createdDraft = await createQuestion({ 
         ...generated,
-        status: targetStatus,
+        status: 'draft',
         is_active: true,
         generation_slot: slot
       }, adminId);
       
       createdDraftId = createdDraft.id;
+
+      // Required embedding/indexing — must succeed before question is considered published
+      const indexResult = await indexAcceptedQuestion(createdDraftId, createdDraft);
+      if (!indexResult || !indexResult.success) {
+        const indexReason = indexResult?.reason || 'unknown_indexing_failure';
+        await getRepo().execute(
+          `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, failure_category, details) VALUES (?, ?, ?, ?, ?, ?)`,
+          [`auto-log-${uuidv4().slice(0, 8)}`, slot, mode, 'failed', 'INDEXING_FAILED', `Required embedding/indexing failed: ${indexReason}`]
+        );
+        return { 
+          success: false, 
+          status: 'failed', 
+          error: `Required embedding/indexing failed: ${indexReason}`,
+          failure_category: 'INDEXING_FAILED' 
+        };
+      }
+
+      // Indexing succeeded — now promote to target status
+      const targetStatus = mode === 'auto_fill' ? 'published' : 'draft';
+      if (targetStatus !== 'draft') {
+        await updateQuestionStatus(createdDraftId, targetStatus);
+      }
       
       await getRepo().execute(
         `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, question_id) VALUES (?, ?, ?, ?, ?)`,
@@ -149,7 +172,7 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
         success: true, 
         status: 'success', 
         challenge: createdDraft, 
-        message: `AI challenge for slot ${slot} generated successfully as ${targetStatus}.` 
+        message: `AI challenge for slot ${slot} generated, indexed, and set to ${targetStatus}.` 
       };
     } catch (dbErr) {
       if (dbErr.message && dbErr.message.includes('UNIQUE') && dbErr.message.includes('generation_slot')) {
