@@ -122,9 +122,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
       dcm.scheduled_date, dcm.status, dcm.custom_topic, dcm.created_via,
       dcm.created_at, dcm.updated_at,
       t.name AS topic_name,
-      p.name AS pattern_name,
-      (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = q.id) AS total_test_cases_count,
-      (CASE WHEN q.is_practice = 1 THEN q.id ELSE NULL END) AS source_question_id
+      p.name AS pattern_name
     FROM daily_challenge_metadata dcm
     JOIN questions q ON dcm.question_id = q.id
     LEFT JOIN topics t ON q.topic_id = t.id
@@ -197,8 +195,7 @@ async function getDailyChallengeById(question_id, isPrivileged = false) {
       q.*,
       dcm.scheduled_date, dcm.status, dcm.custom_topic, dcm.created_via, dcm.created_at AS dc_created_at, dcm.updated_at AS dc_updated_at,
       t.name AS topic_name,
-      p.name AS pattern_name,
-      (CASE WHEN q.is_practice = 1 THEN q.id ELSE NULL END) AS source_question_id
+      p.name AS pattern_name
     FROM daily_challenge_metadata dcm
     JOIN questions q ON dcm.question_id = q.id
     LEFT JOIN topics t ON q.topic_id = t.id
@@ -293,6 +290,30 @@ async function createDailyChallenge(data, admin_id) {
 
   if (!title || !String(title).trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
   if (!description || !String(description).trim()) throw new AppError('Description is required', 400, 'VALIDATION_ERROR', 'description');
+
+  const validDifficulties = ['easy', 'medium', 'hard'];
+  if (difficulty && !validDifficulties.includes(String(difficulty).toLowerCase())) {
+    throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
+  }
+
+  if (starter_code) {
+    const sc = typeof starter_code === 'string' ? JSON.parse(starter_code || '{}') : starter_code;
+    if (typeof sc === 'object' && sc !== null) {
+      const hasValidStarter = Object.values(sc).some(v => v && String(v).trim());
+      if (!hasValidStarter) {
+        throw new AppError('Starter code must include at least one language with code', 400, 'VALIDATION_ERROR', 'starter_code');
+      }
+    }
+  }
+
+  if (Array.isArray(test_cases) && test_cases.length > 0) {
+    for (let i = 0; i < test_cases.length; i++) {
+      const tc = test_cases[i];
+      if (!tc || tc.input === undefined || tc.expected_output === undefined) {
+        throw new AppError(`Test case ${i + 1} must have input and expected_output`, 400, 'VALIDATION_ERROR', 'test_cases');
+      }
+    }
+  }
 
   if (scheduled_date && (status === 'scheduled' || status === 'published')) {
     await assertDateAvailable(scheduled_date);

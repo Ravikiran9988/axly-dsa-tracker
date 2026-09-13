@@ -235,7 +235,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
 
       // Clear today's assignment first to allow publish
       db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
-      db.prepare("DELETE FROM daily_questions WHERE date = ?").run(todayUtc);
+      db.prepare("DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?").run(todayUtc);
 
       const pubRes = await request(app)
         .post(`/api/v1/daily-challenges/${draft.id}/publish`)
@@ -270,7 +270,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
 
       // Clear today's conflict
       db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
-      db.prepare("DELETE FROM daily_questions WHERE date = ?").run(todayUtc);
+      db.prepare("DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?").run(todayUtc);
 
       const pubNowRes = await request(app)
         .post(`/api/v1/daily-challenges/${draft.id}/publish-now`)
@@ -312,7 +312,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
     beforeAll(async () => {
       // Clear today's date
       db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(todayUtc);
-      db.prepare("DELETE FROM daily_questions WHERE date = ?").run(todayUtc);
+      db.prepare("DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?").run(todayUtc);
 
       todayProblem = await createDailyChallenge({
         title: `Active Today Problem ${Date.now()}`,
@@ -450,7 +450,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
     test('6.1 Test A & E: Existing challenge + manual Run Auto-Fill creates new Draft with scheduled_date = null and leaves existing challenge unchanged', async () => {
       // Create Challenge A for tomorrow
       db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
-      db.prepare("DELETE FROM daily_questions WHERE date = ?").run(testTomorrow);
+      db.prepare("DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?").run(testTomorrow);
 
       const challengeA = await createDailyChallenge({
         title: `Challenge A Existing ${Date.now()}`,
@@ -509,7 +509,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
     test('6.4 Test D: No existing challenge + scheduled AUTO_FILL generates, sandbox-verifies and schedules for tomorrow', async () => {
       // Clear tomorrow
       db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
-      db.prepare("DELETE FROM daily_questions WHERE date = ?").run(testTomorrow);
+      db.prepare("DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?").run(testTomorrow);
 
       await updateAutomationSettings({ mode: 'auto_fill', is_enabled: 1 });
 

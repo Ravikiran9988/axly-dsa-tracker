@@ -100,10 +100,6 @@ async function checkSlotExists(slot) {
 }
 
 async function generateForSlot(slot, adminId = 'usr-system-cron') {
-  if (await checkSlotExists(slot)) {
-    return { success: true, status: 'SUCCESS_NOOP', message: `Slot ${slot} already generated.` };
-  }
-
   const settings = await getAutomationSettings();
   const mode = settings.mode;
 
@@ -138,7 +134,8 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
       const createdDraft = await createQuestion({ 
         ...generated,
         status: targetStatus,
-        is_active: true
+        is_active: true,
+        generation_slot: slot
       }, adminId);
       
       createdDraftId = createdDraft.id;
@@ -155,6 +152,9 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
         message: `AI challenge for slot ${slot} generated successfully as ${targetStatus}.` 
       };
     } catch (dbErr) {
+      if (dbErr.message && dbErr.message.includes('UNIQUE') && dbErr.message.includes('generation_slot')) {
+        return { success: true, status: 'SUCCESS_NOOP', message: `Slot ${slot} already claimed.` };
+      }
       await getRepo().execute(
         `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, failure_category, details) VALUES (?, ?, ?, ?, ?, ?)`,
         [`auto-log-${uuidv4().slice(0, 8)}`, slot, mode, 'failed', 'DATABASE_ERROR', dbErr.message]

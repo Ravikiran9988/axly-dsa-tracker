@@ -56,6 +56,7 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   if (user?.role !== 'admin') {
     conditions.push('q.is_active = TRUE');
     conditions.push('q.is_practice = TRUE');
+    conditions.push("q.status != 'draft'");
   }
   if (difficulty) {
     conditions.push('LOWER(q.difficulty) = ?');

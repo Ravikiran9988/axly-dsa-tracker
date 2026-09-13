@@ -302,17 +302,6 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_metadata_date ON daily_challenge_metadata(scheduled_date);
     CREATE INDEX IF NOT EXISTS idx_daily_challenge_metadata_status ON daily_challenge_metadata(status);
 
-    CREATE TABLE IF NOT EXISTS daily_questions (
-      id TEXT PRIMARY KEY,
-      question_id TEXT,
-      
-      date TEXT NOT NULL UNIQUE,
-      created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_daily_questions_date ON daily_questions(date);
-
     CREATE TABLE IF NOT EXISTS daily_challenge_automation_settings (
       id TEXT PRIMARY KEY,
       mode TEXT NOT NULL DEFAULT 'ai_assist' CHECK (mode IN ('manual', 'ai_assist', 'auto_fill')),
@@ -451,46 +440,12 @@ function initSchema() {
   try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_patterns_topic_id ON patterns(topic_id);`);
   } catch (e) {}
-  addColumnIfNotExists('daily_challenge_problems', 'custom_topic', 'TEXT');
-  addColumnIfNotExists('daily_questions', 'challenge_id', 'TEXT');
-  addColumnIfNotExists('daily_challenge_problems', 'created_via', "TEXT NOT NULL DEFAULT 'manual'");
-  addColumnIfNotExists('daily_challenge_problems', 'editorial', 'TEXT');
-  addColumnIfNotExists('daily_challenge_problems', 'complexity', 'TEXT');
-  addColumnIfNotExists('daily_challenge_problems', 'examples', "TEXT DEFAULT '[]'");
-  addColumnIfNotExists('daily_challenge_problems', 'source_question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
-  addColumnIfNotExists('daily_challenge_problems', 'reference_solution', 'TEXT');
   addColumnIfNotExists('daily_challenge_metadata', 'status', "TEXT NOT NULL DEFAULT 'draft'");
   addColumnIfNotExists('daily_challenge_automation_logs', 'question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
   
   try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_daily_challenge_metadata_status ON daily_challenge_metadata(status);`);
   } catch (e) {}
-  try {
-    const info = db.prepare('PRAGMA table_info(daily_questions)').all();
-    const qidCol = info.find(c => c.name === 'question_id');
-    const fks = db.prepare('PRAGMA foreign_key_list(daily_questions)').all();
-    const hasQuestionFk = fks.some(f => f.table === 'questions');
-    if (hasQuestionFk || (qidCol && qidCol.notnull === 1)) {
-      db.pragma('foreign_keys = OFF');
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS daily_questions_new (
-          id TEXT PRIMARY KEY,
-          question_id TEXT,
-          challenge_id TEXT,
-          date TEXT NOT NULL UNIQUE,
-          created_by TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-          created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );
-        INSERT OR IGNORE INTO daily_questions_new (id, question_id, challenge_id, date, created_by, created_at)
-        SELECT id, question_id, challenge_id, date, created_by, created_at FROM daily_questions;
-        DROP TABLE daily_questions;
-        ALTER TABLE daily_questions_new RENAME TO daily_questions;
-        CREATE INDEX IF NOT EXISTS idx_daily_questions_date ON daily_questions(date);
-      `);
-      db.pragma('foreign_keys = ON');
-    }
-  } catch (e) {}
-
   try {
     const fks = db.prepare('PRAGMA foreign_key_list(submissions)').all();
     const hasQuestionFk = fks.some(f => f.table === 'questions');
@@ -896,23 +851,6 @@ function initSchema() {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_challenge_metadata_unique_active_date 
       ON daily_challenge_metadata(scheduled_date) 
       WHERE scheduled_date IS NOT NULL AND status != 'archived'
-    `).run();
-  } catch (e) {
-    // ignore
-  }
-
-  try {
-    const tableInfo = db.prepare("PRAGMA table_info(daily_challenge_problems)").all();
-    const colNames = tableInfo.map(c => c.name);
-    if (!colNames.includes('problem_signature')) {
-      db.prepare("ALTER TABLE daily_challenge_problems ADD COLUMN problem_signature TEXT").run();
-    }
-    if (!colNames.includes('problem_concept')) {
-      db.prepare("ALTER TABLE daily_challenge_problems ADD COLUMN problem_concept TEXT").run();
-    }
-    db.prepare(`
-      CREATE INDEX IF NOT EXISTS idx_daily_challenge_problem_signature 
-      ON daily_challenge_problems(problem_signature)
     `).run();
   } catch (e) {
     // ignore

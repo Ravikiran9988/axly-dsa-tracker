@@ -1,31 +1,35 @@
-const { generateQuestion } = require('../services/aiQuestionService');
-const { findSimilarQuestions, THRESHOLD } = require('../services/questionSimilarityService');
+const { generateUniqueProblem, checkDuplicateChallenge } = require('../services/aiSharedGenerationService');
 const auditService = require('../services/auditService');
 
 async function generate(req, res, next) {
   try {
     const { topic, difficulty, count } = req.body;
-    const data = await generateQuestion({ 
-      topic, 
-      difficulty, 
-      count: Number(count) || 8,
-      skipSandbox: process.env.NODE_ENV !== 'production'
-    });
-    const items = Array.isArray(data) ? data : [data];
-    const checked = [];
+    const results = [];
+    const numToGenerate = Math.min(Number(count) || 1, 4);
 
-    for (const q of items) {
-      let duplicateCheck = { configured: false, threshold: THRESHOLD, matches: [] };
+    for (let i = 0; i < numToGenerate; i++) {
+      const result = await generateUniqueProblem({
+        topic,
+        difficulty,
+        skipSandbox: process.env.NODE_ENV !== 'production',
+        destination: 'ai_preview'
+      });
+      results.push(result.data);
+    }
+
+    const checked = [];
+    for (const q of results) {
+      let duplicateCheck = { isDuplicate: false };
       try {
-        duplicateCheck = await findSimilarQuestions({ title: q.title, description: q.description });
+        duplicateCheck = await checkDuplicateChallenge(q, q.description, null);
       } catch (e) {
-        duplicateCheck = { configured: false, threshold: THRESHOLD, matches: [], error: e.message };
+        duplicateCheck = { isDuplicate: false, error: e.message };
       }
       checked.push({
         ...q,
         status: 'draft',
         duplicate_check: duplicateCheck,
-        duplicate_flag: duplicateCheck.matches.length > 0
+        duplicate_flag: duplicateCheck.isDuplicate
       });
     }
 
@@ -44,7 +48,7 @@ async function generate(req, res, next) {
       userAgent: req.get('user-agent')
     });
 
-    return res.status(200).json({ data: Array.isArray(data) ? checked : checked[0] });
+    return res.status(200).json({ data: numToGenerate === 1 ? checked[0] : checked });
   } catch (e) {
     next(e);
   }
