@@ -170,57 +170,81 @@ async function runAutomationPipeline(options = {}) {
   return runDailyScheduledAutomation();
 }
 
-let schedulerTimer = null;
-let schedulerRunning = false;
+let expireTimer = null;
+let publishTimer = null;
 
-function isPastGenerationTime(now = new Date()) {
-  const hour = now.getUTCHours();
-  const minute = now.getUTCMinutes();
-  return hour > GENERATION_HOUR_UTC || (hour === GENERATION_HOUR_UTC && minute >= GENERATION_MINUTE_UTC);
+async function runDailyExpiration() {
+  try {
+    const targetDate = getCanonicalIstDate();
+    await getRepo().execute(`
+      UPDATE daily_challenge_problems 
+      SET status = 'expired', updated_at = CURRENT_TIMESTAMP 
+      WHERE scheduled_date <= ? AND status = 'published' AND is_active = TRUE
+    `, [targetDate]);
+    console.log(`✅ [00:29 IST] Daily Challenge Expiration job completed. targetDate=${targetDate}`);
+  } catch (err) {
+    console.error(`❌ [00:29 IST] Error in Daily Challenge Expiration:`, err.message);
+  }
 }
 
-async function runScheduledAutomationWithRecovery() {
-  if (schedulerRunning) return null;
+function scheduleNextJob(targetHourUTC, targetMinuteUTC, jobFunction, jobName, timerRefHolder) {
+  const now = new Date();
+  let target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), targetHourUTC, targetMinuteUTC, 0, 0));
+  
+  if (now.getTime() >= target.getTime()) {
+    target.setUTCDate(target.getUTCDate() + 1);
+  }
+  
+  const delayMs = target.getTime() - now.getTime();
+  console.log(`[Scheduler] Next ${jobName} scheduled in ${(delayMs / 60000).toFixed(2)} minutes (at ${target.toISOString()})`);
+  
+  const timer = setTimeout(async () => {
+    await jobFunction();
+    timerRefHolder.timer = scheduleNextJob(targetHourUTC, targetMinuteUTC, jobFunction, jobName, timerRefHolder);
+  }, delayMs);
+  
+  if (typeof timer.unref === 'function') timer.unref();
+  return timer;
+}
+
+let publishRunning = false;
+async function runScheduledPublicationWithRecovery() {
+  if (publishRunning) return null;
   const settings = await getAutomationSettings();
   if (!settings.is_enabled || settings.mode === 'manual') return null;
-  if (!isPastGenerationTime()) return null;
 
-  const todayDate = getCanonicalIstDate();
-  const latestLog = await getRepo().one(`SELECT status, created_at FROM daily_challenge_automation_logs WHERE target_date = ? AND mode IN ('scheduled_automation', 'ai_assist', 'auto_fill') ORDER BY created_at DESC LIMIT 1`, [getNextCanonicalIstDate()]);
-  if (latestLog?.status === 'success' || latestLog?.status === 'skipped') return null;
-  if (latestLog?.status === 'failed') {
-    const lastAttemptMs = new Date(latestLog.created_at).getTime();
-    if (Number.isFinite(lastAttemptMs) && Date.now() - lastAttemptMs < FAILED_RUN_RETRY_DELAY_MS) return null;
-  }
-
-  schedulerRunning = true;
+  publishRunning = true;
   try {
-    console.log(`⏰ Running Daily Challenge automation at 12:30 AM IST (19:00 UTC): publish ${todayDate}, generate ${getNextCanonicalIstDate()}.`);
+    console.log(`⏰ [00:30 IST] Running Daily Challenge Publication + Generation.`);
     return await runDailyScheduledAutomation();
   } finally {
-    schedulerRunning = false;
+    publishRunning = false;
   }
 }
 
 function startAutomationScheduler() {
   stopAutomationScheduler();
-  console.log('⏰ Daily Challenge Automation Scheduler starting. 12:30 AM IST: publish today + generate tomorrow.');
-  runScheduledAutomationWithRecovery().catch(err => console.error('❌ Daily Challenge scheduler startup check failed:', err.message));
-  schedulerTimer = setInterval(async () => {
-    try {
-      const result = await runScheduledAutomationWithRecovery();
-      if (result) console.log(`✅ Daily Challenge scheduler check completed with status: ${result.status}.`);
-    } catch (err) {
-      console.error('❌ Error executing Daily Challenge scheduler check:', err.message);
-    }
-  }, SCHEDULER_CHECK_INTERVAL_MS);
-  if (typeof schedulerTimer.unref === 'function') schedulerTimer.unref();
+  console.log('⏰ Daily Challenge Automation Scheduler starting.');
+  
+  // Expiration runs at 18:59 UTC (00:29 IST)
+  const expireHolder = { timer: null };
+  expireHolder.timer = scheduleNextJob(18, 59, runDailyExpiration, 'Expiration (00:29 IST)', expireHolder);
+  expireTimer = expireHolder;
+  
+  // Publication + Generation runs at 19:00 UTC (00:30 IST)
+  const publishHolder = { timer: null };
+  publishHolder.timer = scheduleNextJob(19, 0, runScheduledPublicationWithRecovery, 'Publication (00:30 IST)', publishHolder);
+  publishTimer = publishHolder;
 }
 
 function stopAutomationScheduler() {
-  if (schedulerTimer) {
-    clearInterval(schedulerTimer);
-    schedulerTimer = null;
+  if (expireTimer && expireTimer.timer) {
+    clearTimeout(expireTimer.timer);
+    expireTimer = null;
+  }
+  if (publishTimer && publishTimer.timer) {
+    clearTimeout(publishTimer.timer);
+    publishTimer = null;
   }
 }
 

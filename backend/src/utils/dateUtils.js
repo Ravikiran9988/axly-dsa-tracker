@@ -12,8 +12,12 @@ function getActualUtcDate(date = new Date()) {
 }
 
 function getCanonicalIstDate(date = new Date()) {
-  const d = date instanceof Date ? date : new Date(date);
-  if (isNaN(d.getTime())) return getCanonicalIstDate(new Date());
+  const input = date instanceof Date ? date : new Date(date);
+  if (isNaN(input.getTime())) return getCanonicalIstDate(new Date());
+  
+  // Shift time by -30 minutes to enforce the 00:30 IST daily challenge boundary.
+  const d = new Date(input.getTime() - 30 * 60 * 1000);
+
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
