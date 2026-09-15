@@ -265,17 +265,19 @@ async function createDailyChallengeFromPractice(data, admin_id) {
   if (difficulty && difficulty !== question.difficulty) { updates.push('difficulty = ?'); params.push(difficulty); }
   if (points && points !== question.points) { updates.push('points = ?'); params.push(points); }
 
+  const newStatus = scheduled_date ? 'scheduled' : 'draft';
+  updates.push('status = ?');
+  params.push(newStatus);
+
   await getRepo().transaction(async tx => {
-    if (updates.length > 0) {
-      params.push(question_id);
-      await tx.execute(`UPDATE questions SET ${updates.join(', ')} WHERE id = ?`, params);
-    }
+    params.push(question_id);
+    await tx.execute(`UPDATE questions SET ${updates.join(', ')} WHERE id = ?`, params);
     
     // We insert into metadata, NOT questions! That's the power of canonical mapping!
     await tx.execute(`
       INSERT INTO daily_challenge_metadata (question_id, scheduled_date, status, created_via)
       VALUES (?, ?, ?, 'manual')
-    `, [question_id, scheduled_date || null, scheduled_date ? 'scheduled' : 'draft']);
+    `, [question_id, scheduled_date || null, newStatus]);
   });
 
   return getDailyChallengeById(question_id, true);

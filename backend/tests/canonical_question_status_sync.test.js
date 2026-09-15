@@ -233,6 +233,58 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
     expect(res.body.data.title).toBe(challenge.title);
   });
 
+  test('9. createDailyChallengeFromPractice WITHOUT scheduled_date syncs status to draft', async () => {
+    const qid = 'test-prac-draft';
+    await repo.execute(
+      "INSERT INTO questions (id, title, slug, difficulty, status, is_practice, is_active, url) VALUES (?, ?, ?, 'medium', 'published', 1, 1, 'http://test')",
+      [qid, 'Practice to Draft DC Test', 'practice-to-draft-dc']
+    );
+
+    await require('../src/services/dailyChallengeService').createDailyChallengeFromPractice({
+      question_id: qid
+    }, 'usr-admin-sync');
+
+    // Assert questions table
+    const questionRow = await repo.one('SELECT id, status FROM questions WHERE id = ?', [qid]);
+    expect(questionRow.status).toBe('draft');
+
+    // Assert metadata table
+    const metaRow = await repo.one('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [qid]);
+    expect(metaRow.status).toBe('draft');
+    expect(metaRow.scheduled_date).toBeNull();
+    
+    // Assert 1 row
+    const countRow = await repo.one('SELECT COUNT(*) as c FROM questions WHERE id = ?', [qid]);
+    expect(Number(countRow.c)).toBe(1);
+  });
+
+  test('10. createDailyChallengeFromPractice WITH scheduled_date syncs status to scheduled', async () => {
+    const qid = 'test-prac-sched';
+    await repo.execute(
+      "INSERT INTO questions (id, title, slug, difficulty, status, is_practice, is_active, url) VALUES (?, ?, ?, 'medium', 'published', 1, 1, 'http://test2')",
+      [qid, 'Practice to Sched DC Test', 'practice-to-sched-dc']
+    );
+
+    const futureDate = '2036-12-01';
+    await require('../src/services/dailyChallengeService').createDailyChallengeFromPractice({
+      question_id: qid,
+      scheduled_date: futureDate
+    }, 'usr-admin-sync');
+
+    // Assert questions table
+    const questionRow = await repo.one('SELECT id, status FROM questions WHERE id = ?', [qid]);
+    expect(questionRow.status).toBe('scheduled');
+
+    // Assert metadata table
+    const metaRow = await repo.one('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [qid]);
+    expect(metaRow.status).toBe('scheduled');
+    expect(metaRow.scheduled_date).toBe(futureDate);
+    
+    // Assert 1 row
+    const countRow = await repo.one('SELECT COUNT(*) as c FROM questions WHERE id = ?', [qid]);
+    expect(Number(countRow.c)).toBe(1);
+  });
+
   afterAll(async () => {
     const testSlugs = [
       'canonical-draft-sync-test',
@@ -241,7 +293,9 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
       'canonical-expiry-sync-test',
       'admin-listing-draft-verification',
       'student-isolation-draft',
-      'practice-availability-after-expiry'
+      'practice-availability-after-expiry',
+      'practice-to-draft-dc',
+      'practice-to-sched-dc'
     ];
     for (const slug of testSlugs) {
       const q = await repo.one('SELECT id FROM questions WHERE slug = ?', [slug]);
