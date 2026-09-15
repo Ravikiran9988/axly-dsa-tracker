@@ -95,8 +95,7 @@ Hidden test cases are never returned to the frontend, regardless of the executio
 ## Database Architecture
 
 - **`users`**: Profiles, RBAC roles, leaderboard points, streaks.
-- **`practice_problems` / `practice_progress`**: 80 curated problems and per-user state mapping (isolated from competitive scoring).
-- **`questions`**: Single source of truth for all DSA problems (both Daily Challenge and Practice).
+- **`questions`**: Single source of truth for all DSA problems (both Daily Challenge and Practice, differentiated by `is_practice`).
 - **`daily_challenge_metadata`**: Maps questions to daily challenge dates, tracks publish/expire lifecycle and automation state.
 - **`submissions` / `code_submissions_log`**: Historical execution logs and code snapshot preservation.
 - **`dsa_knowledge_graph`**: Verified hints and complexity answers for deterministic AI matching.

@@ -46,10 +46,9 @@ Sequential fallback across 5 configured providers:
 3. Schema Validation
    → Validate contract against JSON schema
    ↓
-4. Starter Code Validation
-   → Run each language in sandbox
-   → Block pipeline if JS/Python fail
-   → Warn only for TS/Java/C++
+4. Starter Code Validation (Publishability Gate)
+   → Run ONLY starter code in sandbox (JS/Python block on compile/runtime error)
+   → Reference solutions receive structural, presence, and leak checks but are NOT sandbox-executed
    ↓
 5. Duplicate Detection (3 layers)
    → Layer 1: Clean base title comparison

@@ -82,10 +82,10 @@ The question system manages a unified corpus of DSA problems shared across both 
 - Empty function templates per language
 - Includes function signature and docstring
 
-### Phase 7: Starter Code Validation
-- Run each language's starter code in sandbox
-- JS/Python: blocked on failure
-- TS/Java/C/C++: warn only
+### Phase 7: Starter Code Validation (Publishability Gate)
+- Run ONLY the starter code in the sandbox
+- Block generation if JS/Python starter code fails to compile or run
+- Reference solutions are NOT executed (they receive only structural/leak checks)
 
 ### Phase 8: Duplicate Detection
 - Clean base title match
@@ -151,12 +151,12 @@ buildEmbeddingDocument(question)
 | C | `#include <stdio.h>\nchar* solve(const char* input) { return ""; }` |
 | C++ | `#include <iostream>\nusing namespace std;\nstring solve(string input) { return ""; }` |
 
-### Validation
-- Run starter code in sandbox
-- Verify it runs without error
-- Verify output is valid for the given test cases
-- **Block:** JS and Python failures block pipeline
-- **Warn:** TS/Java/C/C++ failures warn only
+### Validation (Publishability Gate)
+- Run ONLY starter code in sandbox
+- Verify it compiles/runs without syntax errors
+- **Block:** JS and Python compile/runtime failures block the pipeline
+- **Warn:** TS/Java/C/C++ failures warn only (due to environment limits)
+- **Note:** Reference solutions bypass sandbox execution completely to avoid blocking generation on LLM hallucinations.
 
 ---
 

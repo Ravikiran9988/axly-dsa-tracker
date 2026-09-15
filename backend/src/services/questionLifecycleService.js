@@ -63,7 +63,10 @@ function assertPublishable(question) {
 }
 
 /**
- * Validates reference solution execution against all test cases.
+ * Executes a reference solution in the sandbox.
+ * NOTE: This is no longer a strict validation requirement for publishing.
+ * Reference solutions receive structural/presence/leak checks but are NOT 
+ * sandbox-executed as a publishability gate.
  */
 async function validateReferenceSolution({ language = 'javascript', sourceCode, testCases }) {
   if (!sourceCode || !sourceCode.trim()) {

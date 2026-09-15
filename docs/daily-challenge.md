@@ -18,7 +18,7 @@ Draft → Scheduled → Published → Archived
 | `draft` | Created but not scheduled |
 | `scheduled` | Assigned to a future IST date |
 | `published` | Active and visible to students |
-| `archived` | Expired, moved to practice bank |
+| `archived` | Expired Daily Challenge metadata (does NOT mean the canonical question is archived) |
 
 ---
 
@@ -81,10 +81,10 @@ Draft → Scheduled → Published → Archived
 - Makes DC visible to students
 - Sets status to `published`
 
-### Archive
-- Moves DC to practice bank
-- Sets `is_practice = 1` on question
-- Sets status to `archived`
+### Archive (Daily Challenge Expiration)
+- Moves DC to practice bank (`is_practice = 1` on question)
+- Sets `daily_challenge_metadata.status` to `archived`
+- **Invariant:** `questions.status` MUST NEVER become `archived`. The canonical question preserves its status (e.g., `published`) for the practice bank.
 
 ---
 
@@ -117,8 +117,9 @@ Draft → Scheduled → Published → Archived
 ### Automatic (`runDailyExpiration`)
 - Runs at 00:29 IST
 - Finds published DCs with `scheduled_date < today`
-- Sets status to `archived`
+- Sets `daily_challenge_metadata.status` to `archived`
 - Sets `is_practice = 1` on question (moves to practice)
+- Does NOT alter the canonical `questions.status`
 
 ### After Expiration
 - DC problems available in Practice bank
@@ -155,6 +156,12 @@ Draft → Scheduled → Published → Archived
 | `status` | draft/scheduled/published/archived |
 | `created_via` | manual/ai/ai_automation |
 | `custom_topic` | Optional topic override |
+
+### Canonical Status Invariants
+- **Metadata Ownership:** `daily_challenge_metadata` owns the Daily Challenge lifecycle state (draft → scheduled → published → archived).
+- **Synchronization:** When creating a Daily Challenge from Practice, the canonical `questions.status` remains synchronized with the metadata status (`draft` or `scheduled`).
+- **Archive Invariant:** When a Daily Challenge expires, its metadata becomes `archived`, but the canonical `questions.status` must **never** become `archived`. Archived metadata does not mean the canonical question is archived.
+- **Transition:** Practice ↔ Daily Challenge transitions strictly preserve the single canonical-question model.
 
 ---
 

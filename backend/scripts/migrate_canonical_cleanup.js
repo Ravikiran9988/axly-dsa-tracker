@@ -8,7 +8,7 @@
  * 
  * PREREQUISITES:
  *   - Backup created: data/axly_dsa_backup_before_migration.db
- *   - Data verification passed (see db_phase0_analysis.js output)
+ *   - Data verification passed
  * 
  * SAFETY:
  *   - This migration is REVERSIBLE (see rollback_daily_cleanup.js)
@@ -16,7 +16,7 @@
  *   - All canonical data remains in questions, test_cases, daily_challenge_metadata
  * 
  * VERIFICATION:
- *   - Run: node scripts/db_verify_migration.js
+ *   - Run: node scripts/migrate_canonical_cleanup.js
  */
 
 const Database = require('better-sqlite3');
