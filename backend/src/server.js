@@ -1,6 +1,7 @@
 const app = require('./app');
 const { assertProductionDatabase } = require('./config/runtimeDatabase');
 const { checkPostgresHealth } = require('./db/postgres');
+const { recoverStaleAutomationRun } = require('./services/automationRunLease');
 
 const PORT = process.env.PORT || 5000;
 
@@ -28,6 +29,14 @@ async function startServer() {
     initSchema();
     seedDatabase();
     seedPracticeProblems();
+  }
+
+  // A crashed background automation can leave last_run_status='running'.
+  // Recover it before exposing the API or starting a new scheduler cycle.
+  try {
+    await recoverStaleAutomationRun();
+  } catch (err) {
+    console.error('[DailyAutomation] Startup stale-run recovery failed:', err.message);
   }
 
   // Initialize Background 00:00 UTC Daily Challenge Automation Scheduler
@@ -59,6 +68,3 @@ if (require.main === module) {
 }
 
 module.exports = { startServer };
-
-// touch
-// touch 2
