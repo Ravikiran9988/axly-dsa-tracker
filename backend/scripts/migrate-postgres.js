@@ -35,12 +35,13 @@ async function verifyTables(activePool) {
       'cohorts',
       'cohort_members',
       'live_sessions',
-      'submission_score_audit'
+      'submission_score_audit',
+      'question_embeddings'
     ];
 
     const result = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
+      SELECT table_name
+      FROM information_schema.tables
       WHERE table_schema = 'public'
     `);
 
@@ -51,12 +52,39 @@ async function verifyTables(activePool) {
       throw new Error(`Verification failed. Missing tables: ${missing.join(', ')}`);
     }
 
+    const requiredColumns = [
+      ['daily_challenge_automation_logs', 'question_id'],
+      ['questions', 'embedding_indexed_at'],
+      ['daily_challenge_metadata', 'status'],
+      ['daily_challenge_metadata', 'scheduled_date']
+    ];
+
+    const missingColumns = [];
+    for (const [tableName, columnName] of requiredColumns) {
+      const columnResult = await client.query(`
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = $1
+          AND column_name = $2
+      `, [tableName, columnName]);
+
+      if (columnResult.rowCount === 0) {
+        missingColumns.push(`${tableName}.${columnName}`);
+      }
+    }
+
+    if (missingColumns.length > 0) {
+      throw new Error(`Verification failed. Missing columns: ${missingColumns.join(', ')}`);
+    }
+
     const questionCountRes = await client.query('SELECT COUNT(*) AS count FROM questions');
     const topicCountRes = await client.query('SELECT COUNT(*) AS count FROM topics');
     const badgeCountRes = await client.query('SELECT COUNT(*) AS count FROM badges');
 
     console.log('3. Verifying schema and seed counts:');
     console.log(`   - Verified ${requiredTables.length} required tables exist.`);
+    console.log(`   - Verified ${requiredColumns.length} required columns exist.`);
     console.log(`   - Questions: ${questionCountRes.rows[0].count}`);
     console.log(`   - Topics: ${topicCountRes.rows[0].count}`);
     console.log(`   - Badges: ${badgeCountRes.rows[0].count}`);
@@ -70,30 +98,32 @@ async function main() {
   const activePool = pool || createPostgresPool();
   if (!activePool) {
     console.error('❌ PostgreSQL is not configured. Please ensure DATABASE_URL or SUPABASE_DB_URL is set in backend/.env.');
-    process.exit(0);
+    process.exit(1);
   }
 
   const health = await checkPostgresHealth();
   if (!health.healthy) {
     console.error('❌ PostgreSQL connection failed:', health.reason || 'Unavailable');
-    process.exit(0);
+    process.exit(1);
   }
   console.log('✅ PostgreSQL connection verified.');
 
-  console.log('1. Initializing schema migrations...');
-  await initPostgresSchema(activePool);
+  try {
+    console.log('1. Initializing schema migrations...');
+    await initPostgresSchema(activePool);
 
-  console.log('2. Seeding practice problems and reference data...');
-  await seedPostgresDatabase(activePool);
+    console.log('2. Seeding practice problems and reference data...');
+    await seedPostgresDatabase(activePool);
 
-  await verifyTables(activePool);
+    await verifyTables(activePool);
 
-  console.log('✅ PostgreSQL Migration, Seeding, and Verification Complete!');
-  await activePool.end();
-  process.exit(0);
+    console.log('✅ PostgreSQL Migration, Seeding, and Verification Complete!');
+  } finally {
+    await activePool.end();
+  }
 }
 
 main().catch(err => {
   console.error('Fatal error during migration:', err.message || err);
-  process.exit(0);
+  process.exit(1);
 });
