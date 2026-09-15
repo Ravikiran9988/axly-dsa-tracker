@@ -220,6 +220,8 @@ async function getDailyChallengeById(question_id, isPrivileged = false) {
     id: challenge.id,
     topic_name: challenge.custom_topic ? challenge.custom_topic : (challenge.topic_name || challenge.topic_id || 'Other'),
     pattern_name: challenge.pattern_name || challenge.pattern_id || null,
+    topic: challenge.custom_topic ? challenge.custom_topic : (challenge.topic_name || challenge.topic_id || 'Other'),
+    pattern: challenge.pattern_name || challenge.pattern_id || null,
     hints: parseHints(challenge.hints),
     tags: safeParseJson(challenge.tags, []),
     examples: safeParseJson(challenge.examples, []),
@@ -286,7 +288,8 @@ async function createDailyChallenge(data, admin_id) {
     estimated_time = 30, points = 100, description, problem_statement, constraints,
     input_format, output_format, example_input, example_output, examples,
     hints, tags, solution_approach, editorial, complexity, starter_code, reference_solution,
-    supported_languages, created_via = 'manual', status = 'draft', scheduled_date = null, test_cases = []
+    supported_languages, created_via = 'manual', status = 'draft', scheduled_date = null, test_cases = [],
+    topic, pattern
   } = data;
 
   if (!title || !String(title).trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
@@ -295,6 +298,39 @@ async function createDailyChallenge(data, admin_id) {
   const validDifficulties = ['easy', 'medium', 'hard'];
   if (difficulty && !validDifficulties.includes(String(difficulty).toLowerCase())) {
     throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
+  }
+
+  let finalTopicId = topic_id || null;
+  if (finalTopicId) {
+    const existing = await getRepo().one('SELECT id FROM topics WHERE id = ?', [finalTopicId]);
+    if (!existing) finalTopicId = null;
+  }
+  if (!finalTopicId && (topic || custom_topic)) {
+    const topicToFind = topic || custom_topic;
+    const matched = await getRepo().one(
+      'SELECT id FROM topics WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)',
+      [String(topicToFind).trim(), String(topicToFind).trim()]
+    );
+    if (matched) finalTopicId = matched.id;
+  }
+
+  let finalPatternId = pattern_id || null;
+  if (finalPatternId) {
+    const existing = await getRepo().one('SELECT id FROM patterns WHERE id = ?', [finalPatternId]);
+    if (!existing) finalPatternId = null;
+  }
+  if (!finalPatternId && pattern) {
+    let matched = await getRepo().one(
+      'SELECT id FROM patterns WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)',
+      [String(pattern).trim(), String(pattern).trim()]
+    );
+    if (!matched) {
+      matched = await getRepo().one(
+        'SELECT id FROM patterns WHERE LOWER(name) LIKE ? OR LOWER(id) LIKE ? LIMIT 1',
+        [`%${String(pattern).trim().toLowerCase()}%`, `%${String(pattern).trim().toLowerCase()}%`]
+      );
+    }
+    if (matched) finalPatternId = matched.id;
   }
 
   if (starter_code) {
@@ -334,7 +370,7 @@ async function createDailyChallenge(data, admin_id) {
         reference_solution, supported_languages, is_practice, created_by
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
     `, [
-      question_id, title.trim(), finalSlug, `internal://${finalSlug}`, difficulty.toLowerCase(), topic_id || null, pattern_id || null,
+      question_id, title.trim(), finalSlug, `internal://${finalSlug}`, difficulty.toLowerCase(), finalTopicId, finalPatternId,
       Number(estimated_time) || 30, Number(points) || 100, description.trim(), problem_statement || null, constraints || null,
       input_format || null, output_format || null, String(example_input || ''), String(example_output || ''), normalizeJsonArray(examples, '[]'),
       normalizeJsonArray(hints, '[]'), normalizeJsonArray(tags, '[]'), solution_approach || editorial || null,
@@ -539,7 +575,7 @@ async function deleteDailyChallenge(id, permanent = false) {
     await tx.execute('UPDATE daily_challenge_automation_logs SET question_id = NULL WHERE question_id = ?', [id]);
     await tx.execute('UPDATE question_bank_automation_logs SET question_id = NULL WHERE question_id = ?', [id]);
 
-    const isExclusiveDaily = !q || q.is_practice === 0 || q.is_practice === false;
+    const isExclusiveDaily = !q || q.is_practice === 0 || q.is_practice === false || String(id).startsWith('dc-');
     if (isExclusiveDaily || permanent) {
       const safeDelete = async (table) => {
         try {

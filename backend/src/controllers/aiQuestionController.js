@@ -22,6 +22,7 @@ async function generate(req, res, next) {
       });
     }
 
+    const checked = results;
     auditService.logAction({
       actorId: req.user?.id,
       actorEmail: req.user?.email,

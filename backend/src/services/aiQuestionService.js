@@ -1,5 +1,91 @@
+const fs = require('fs');
+const path = require('path');
 const llmRouter = require('./llm/llmRouter');
 const { executeCode } = require('./executionService');
+
+let canonicalTopicsCache = null;
+let canonicalPatternsCache = null;
+
+function getCanonicalTaxonomy() {
+  if (!canonicalTopicsCache) {
+    try {
+      const topicsPath = path.join(__dirname, '..', 'db', 'data', 'topics.json');
+      canonicalTopicsCache = JSON.parse(fs.readFileSync(topicsPath, 'utf8'));
+    } catch (_) {
+      canonicalTopicsCache = [
+        { id: 'arrays', name: 'Arrays' },
+        { id: 'trees', name: 'Trees' },
+        { id: 'graphs', name: 'Graphs' },
+        { id: 'dynamic-programming', name: 'Dynamic Programming' },
+        { id: 'strings', name: 'Strings' }
+      ];
+    }
+  }
+  if (!canonicalPatternsCache) {
+    try {
+      const patternsPath = path.join(__dirname, '..', 'db', 'data', 'patterns.json');
+      canonicalPatternsCache = JSON.parse(fs.readFileSync(patternsPath, 'utf8'));
+    } catch (_) {
+      canonicalPatternsCache = [
+        { id: 'two-pointers', name: 'Two Pointers' },
+        { id: 'sliding-window', name: 'Sliding Window' },
+        { id: 'tree-bfs', name: 'Tree BFS (Level Order)' },
+        { id: '1d-dp', name: '1D DP' }
+      ];
+    }
+  }
+  return { topics: canonicalTopicsCache, patterns: canonicalPatternsCache };
+}
+
+function resolveCanonicalTaxonomy(rawTopic, rawPattern) {
+  const { topics, patterns } = getCanonicalTaxonomy();
+
+  const cleanTopicStr = String(rawTopic || '').trim();
+  const cleanPatternStr = String(rawPattern || '').trim();
+
+  let matchedTopic = null;
+  if (cleanTopicStr) {
+    matchedTopic = topics.find(t => 
+      t.name.toLowerCase() === cleanTopicStr.toLowerCase() || 
+      t.id.toLowerCase() === cleanTopicStr.toLowerCase()
+    );
+    if (!matchedTopic) {
+      matchedTopic = topics.find(t => 
+        t.name.toLowerCase().includes(cleanTopicStr.toLowerCase()) || 
+        cleanTopicStr.toLowerCase().includes(t.name.toLowerCase())
+      );
+    }
+  }
+
+  let matchedPattern = null;
+  if (cleanPatternStr) {
+    matchedPattern = patterns.find(p => 
+      p.name.toLowerCase() === cleanPatternStr.toLowerCase() || 
+      p.id.toLowerCase() === cleanPatternStr.toLowerCase()
+    );
+    if (!matchedPattern) {
+      matchedPattern = patterns.find(p => 
+        p.name.toLowerCase().includes(cleanPatternStr.toLowerCase()) || 
+        cleanPatternStr.toLowerCase().includes(p.name.toLowerCase())
+      );
+    }
+  }
+
+  const topicName = matchedTopic ? matchedTopic.name : (cleanTopicStr || 'Arrays');
+  const topicId = matchedTopic ? matchedTopic.id : (cleanTopicStr ? cleanTopicStr.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'arrays');
+
+  let patternName = cleanPatternStr;
+  if (!patternName && matchedPattern) {
+    patternName = matchedPattern.name;
+  }
+  if (!patternName) {
+    patternName = 'Two Pointers';
+  }
+
+  const patternId = matchedPattern ? matchedPattern.id : null;
+
+  return { topicName, topicId, patternName, patternId };
+}
 
 function extractJson(content) {
   try {
@@ -15,8 +101,8 @@ function extractJson(content) {
 
 async function generateContract({ title, topic, pattern, difficulty, description, constraints, exclusionText, instructions }) {
   const prompt = `Create the canonical problem contract for an original algorithmic coding problem for Axly DSA Tracker.
-Topic: ${topic || 'General'}
-Pattern: ${pattern || 'Appropriate for topic'}
+Target Topic: ${topic || 'Appropriate canonical topic'}
+Target Pattern: ${pattern || 'Appropriate canonical pattern'}
 Difficulty: ${difficulty || 'medium'}
 ${title ? `\nTitle: ${title}\nCRITICAL INSTRUCTION: You MUST generate the problem for EXACTLY this Title. Do NOT invent a different problem.` : ''}
 ${description ? `\nProblem Statement Constraints: ${description}` : ''}
@@ -24,8 +110,13 @@ ${constraints ? `\nConstraint rules: ${constraints}\nCRITICAL INSTRUCTION: Ensur
 ${exclusionText ? `\n\nCRITICAL UNIQUENESS INSTRUCTIONS:\n- The generated problem MUST be materially and conceptually different from every problem in the exclusion list unless you are explicitly given a Title that matches.\n- Do NOT create variants of existing problems by changing numbers, variable names, constraints, examples, or adding a Variant ID.\n- The underlying algorithmic task and data structures must be genuinely distinct.${exclusionText}` : ''}
 ${instructions ? `\n\nExtra Instructions: ${instructions}` : ''}
 
+CANONICAL TOPIC & PATTERN INSTRUCTIONS:
+- You MUST generate both the canonical "topic" and "pattern" together with the question itself.
+- "topic": The canonical DSA topic name for this problem (e.g., "Trees", "Arrays", "Graphs", "Dynamic Programming", "Strings", "Two Pointers", "Sliding Window", "Stack", "Queue", "Linked List", "Binary Search", "Sorting", "Heap / Priority Queue", "Greedy", "Backtracking", "Bit Manipulation", "Math", "Prefix Sum", "Monotonic Stack", "Tries", "Intervals").
+- "pattern": The canonical algorithmic pattern/technique (e.g., "BFS", "DFS", "Two Pointers", "Sliding Window", "Fast & Slow Pointers", "Hash Map Lookup", "Prefix Sum", "Kadane's Algorithm", "Monotonic Stack", "Binary Search", "Binary Search on Answer", "1D DP", "2D DP", "Dijkstra's Shortest Path", "Topological Sort", "Disjoint Set Union (DSU)", "Knapsack DP", "Subsequence DP", "Interval Scheduling", "Subsets & Permutations Backtracking", "Top K Elements / Heap").
+
 Return exactly one JSON object with these keys:
-title, difficulty, description, constraints, input_format, output_format, examples, time_limit_ms, memory_limit_mb, function_signature.
+title, topic, pattern, difficulty, description, constraints, input_format, output_format, examples, time_limit_ms, memory_limit_mb, function_signature.
 
 examples MUST be an array of objects shaped as {"input": "...", "output": "...", "explanation": "..."}.
 function_signature MUST be an object shaped as {"name": "...", "params": [{"name": "...", "type": "..."}], "return_type": "..."}.
@@ -60,6 +151,11 @@ The examples MUST strictly match this exact plain text format without any labels
     }
   }
 
+  const taxonomy = resolveCanonicalTaxonomy(data.topic || topic, data.pattern || pattern);
+  data.topic = taxonomy.topicName;
+  data.pattern = taxonomy.patternName;
+  data.topic_id = taxonomy.topicId;
+  data.pattern_id = taxonomy.patternId;
   data.difficulty = data.difficulty || difficulty || 'medium';
   return data;
 }
@@ -485,6 +581,9 @@ async function generateQuestion(options) {
     }
     
     return {
+      title: contract.title,
+      topic: contract.topic || topic || 'Arrays',
+      pattern: contract.pattern || 'Two Pointers',
       difficulty: contract.difficulty || difficulty || 'medium',
       ...contract,
       ...solutions,

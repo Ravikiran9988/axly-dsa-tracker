@@ -1308,28 +1308,35 @@ print(find_median(nums1, nums2))`
       is_hidden = excluded.is_hidden
   `);
 
-  try {
-    db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date IN (?, ?)").run(yesterdayUtc, todayUtc);
-  } catch (_) {}
+  db.exec(`CREATE TABLE IF NOT EXISTS app_seed_meta (key TEXT PRIMARY KEY, seeded_at TEXT);`);
+  const alreadySeededDaily = db.prepare("SELECT key FROM app_seed_meta WHERE key = 'daily_challenges_initial_seed'").get();
 
-  dailyChallenges.forEach(dc => {
-    const signature = generateProblemSignature(dc);
-    const concept = extractProblemConcept(dc.title, dc.description);
-    const url = 'internal://' + dc.id;
-    insertDailyChallenge.run(
-      dc.id, dc.title, dc.slug, url, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, dc.estimated_time,
-      dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format,
-      dc.example_input, dc.example_output, dc.hints, dc.tags, dc.solution_approach, 'published'
-    );
-    insertDailyChallengeMeta.run(
-      dc.id, dc.scheduled_date, dc.status
-    );
-    if (dc.test_cases && dc.test_cases.length > 0) {
-      dc.test_cases.forEach(tc => {
-        insertDailyTestCase.run(tc.id, dc.id, tc.input, tc.expected_output, tc.is_hidden);
-      });
-    }
-  });
+  if (!alreadySeededDaily) {
+    try {
+      db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date IN (?, ?)").run(yesterdayUtc, todayUtc);
+    } catch (_) {}
+
+    dailyChallenges.forEach(dc => {
+      const signature = generateProblemSignature(dc);
+      const concept = extractProblemConcept(dc.title, dc.description);
+      const url = 'internal://' + dc.id;
+      insertDailyChallenge.run(
+        dc.id, dc.title, dc.slug, url, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, dc.estimated_time,
+        dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format,
+        dc.example_input, dc.example_output, dc.hints, dc.tags, dc.solution_approach, 'published'
+      );
+      insertDailyChallengeMeta.run(
+        dc.id, dc.scheduled_date, dc.status
+      );
+      if (dc.test_cases && dc.test_cases.length > 0) {
+        dc.test_cases.forEach(tc => {
+          insertDailyTestCase.run(tc.id, dc.id, tc.input, tc.expected_output, tc.is_hidden);
+        });
+      }
+    });
+
+    db.prepare("INSERT OR REPLACE INTO app_seed_meta (key, seeded_at) VALUES ('daily_challenges_initial_seed', datetime('now'))").run();
+  }
 
   console.log('Database seeded successfully with in-platform coding problems, notifications & independent daily challenges.');
 }

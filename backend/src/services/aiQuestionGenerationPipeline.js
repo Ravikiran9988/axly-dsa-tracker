@@ -716,10 +716,19 @@ async function _generateCanonicalQuestionInternal(options = {}) {
   const cleanTitle = stripVariantIdentifiers(contract.title);
   const candidateSlug = generateSlug(cleanTitle);
 
+  const finalTopic = contract.topic || targetTopic || 'Arrays';
+  const finalPattern = contract.pattern || targetPattern || 'Two Pointers';
+  const finalTopicId = contract.topic_id || (targetTopic ? String(targetTopic).toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'arrays');
+  const finalPatternId = contract.pattern_id || (targetPattern ? String(targetPattern).toLowerCase().replace(/[^a-z0-9]+/g, '-') : null);
+
   const candidate = {
     title: cleanTitle,
-    slug: candidateSlug,
+    topic: finalTopic,
+    pattern: finalPattern,
     difficulty: contract.difficulty || normDifficulty,
+    slug: candidateSlug,
+    topic_id: finalTopicId,
+    pattern_id: finalPatternId,
     description: contract.description,
     problem_statement: contract.problem_statement || contract.description,
     constraints: contract.constraints,
@@ -736,8 +745,6 @@ async function _generateCanonicalQuestionInternal(options = {}) {
     complexity: solutions.complexity || '',
     test_cases: testCases,
     supported_languages: SUPPORTED_LANGUAGES,
-    topic: targetTopic,
-    pattern: targetPattern || 'Appropriate for topic',
     points: finalPoints,
     estimated_time: '30 mins',
     created_via: 'ai',

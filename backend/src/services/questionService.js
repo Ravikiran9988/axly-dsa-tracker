@@ -168,6 +168,8 @@ async function getQuestionById(id, user = null) {
 
   return {
     ...q,
+    topic: q.topic_name || q.custom_topic || q.topic_id || null,
+    pattern: q.pattern_name || q.pattern_id || null,
     is_daily_challenge: isDailyChallenge,
     hints: parseHints(q.hints),
     is_active: Boolean(q.is_active),
@@ -198,10 +200,42 @@ async function createQuestion(input) {
     constraints, input_format, output_format, example_input, example_output, examples,
     hints, tags, estimated_time, points, assigned_date, due_date, status,
     supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, test_cases = [],
-    is_practice, generation_slot, created_via
+    is_practice, generation_slot, created_via, topic, pattern
   } = input;
 
-  await validateQuestionInput({ title, difficulty, topic_id });
+  let finalTopicId = topic_id || null;
+  if (finalTopicId) {
+    const existing = await repo.one('SELECT id FROM topics WHERE id = ?', [finalTopicId]);
+    if (!existing) finalTopicId = null;
+  }
+  if (!finalTopicId && topic) {
+    const matched = await repo.one(
+      'SELECT id FROM topics WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)',
+      [String(topic).trim(), String(topic).trim()]
+    );
+    if (matched) finalTopicId = matched.id;
+  }
+
+  let finalPatternId = pattern_id || null;
+  if (finalPatternId) {
+    const existing = await repo.one('SELECT id FROM patterns WHERE id = ?', [finalPatternId]);
+    if (!existing) finalPatternId = null;
+  }
+  if (!finalPatternId && pattern) {
+    let matched = await repo.one(
+      'SELECT id FROM patterns WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)',
+      [String(pattern).trim(), String(pattern).trim()]
+    );
+    if (!matched) {
+      matched = await repo.one(
+        'SELECT id FROM patterns WHERE LOWER(name) LIKE ? OR LOWER(id) LIKE ? LIMIT 1',
+        [`%${String(pattern).trim().toLowerCase()}%`, `%${String(pattern).trim().toLowerCase()}%`]
+      );
+    }
+    if (matched) finalPatternId = matched.id;
+  }
+
+  await validateQuestionInput({ title, difficulty, topic_id: finalTopicId });
   const duplicate = await repo.one(
     'SELECT id FROM questions WHERE (LOWER(title) = LOWER(?) OR (slug IS NOT NULL AND slug = ?)) AND is_active = TRUE',
     [(title || '').trim(), (slug || '').trim()]
@@ -228,8 +262,8 @@ async function createQuestion(input) {
       (title || '').trim(),
       finalSlug,
       (difficulty || 'easy').toLowerCase(),
-      topic_id || null,
-      pattern_id || null,
+      finalTopicId,
+      finalPatternId,
       fallbackUrl,
       description || null,
       problem_statement || null,
