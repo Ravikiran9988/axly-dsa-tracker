@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, CheckCircle2, Clock3, Trophy, AlertCircle, Zap, Code2, ArrowRight, Flame, RefreshCw, Award } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock3, Zap, Code2, ArrowRight, Flame, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
 import { Spinner, ErrorState } from '../components/ui/index.jsx';
 import { formatIstDate } from '../utils/dateUtils';
@@ -17,7 +17,11 @@ export default function DailyChallenge({ onSelectProblem }) {
     setError('');
     try {
       const [res, profRes] = await Promise.all([
-        api.getTodayDailyChallenge().catch(() => api.getDailyQuestion()),
+        api.getDailyQuestion().catch((err) => {
+          // A missing daily challenge is a valid empty state, not a page error.
+          if (err?.status === 404) return { data: null };
+          throw err;
+        }),
         api.getMyProfile().catch(() => ({ data: null }))
       ]);
       setDaily(res.data || null);
@@ -29,18 +33,29 @@ export default function DailyChallenge({ onSelectProblem }) {
     }
   }
 
+  const pageHeader = (
+    <div>
+      <h1 className="text-xl font-bold text-theme-text1 tracking-tight">Daily Challenge</h1>
+      <p className="text-sm text-theme-text2 mt-0.5">Competitive &middot; earn points &middot; build your challenge streak</p>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto flex flex-col items-center justify-center py-24 space-y-3">
-        <Spinner size="md" />
-        <p className="text-sm text-theme-text3">Loading today's challenge...</p>
+      <div className="max-w-2xl mx-auto space-y-4 animate-fade-in">
+        {pageHeader}
+        <div className="flex flex-col items-center justify-center py-20 space-y-3">
+          <Spinner size="md" />
+          <p className="text-sm text-theme-text3">Loading today's challenge...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-2xl mx-auto py-8">
+      <div className="max-w-2xl mx-auto space-y-4 animate-fade-in py-8">
+        {pageHeader}
         <ErrorState message={error} onRetry={load} />
       </div>
     );
@@ -49,10 +64,7 @@ export default function DailyChallenge({ onSelectProblem }) {
   if (!daily) {
     return (
       <div className="max-w-2xl mx-auto space-y-4 animate-fade-in">
-        <div>
-          <h1 className="text-xl font-bold text-theme-text1 tracking-tight">Daily Challenge</h1>
-          <p className="text-sm text-theme-text2 mt-0.5">Competitive &middot; earn points &middot; build your streak</p>
-        </div>
+        {pageHeader}
         <div className="card p-12 flex flex-col items-center text-center space-y-3">
           <Calendar className="w-10 h-10 text-slate-600" strokeWidth={1.5} />
           <h2 className="text-base font-semibold text-theme-text2">No challenge scheduled for today yet.</h2>
@@ -82,10 +94,7 @@ export default function DailyChallenge({ onSelectProblem }) {
     <div className="max-w-2xl mx-auto space-y-5 animate-fade-in">
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-theme-text1 tracking-tight">Daily Challenge</h1>
-          <p className="text-sm text-theme-text2 mt-0.5">Competitive &middot; earn points &middot; build your challenge streak</p>
-        </div>
+        {pageHeader}
         <div className="flex flex-wrap items-center gap-2">
           <div className="badge text-cyan-400 bg-cyan-500/10 border-cyan-500/20">
             <Zap className="w-3.5 h-3.5" /> +{displayPoints} pts
