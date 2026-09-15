@@ -1,4 +1,5 @@
 const { getRepository } = require('./repositoryFactory');
+const { v4: uuidv4 } = require('uuid');
 
 function parseHints(val) {
   if (!val) return [];
@@ -62,7 +63,7 @@ function questionRepository() {
     async insertTestCases(questionId, cases) {
       for (const tc of cases || []) {
         if (!tc) continue;
-        const id = tc.id || require('uuid').v4();
+        const id = tc.id || uuidv4();
         const isHidden = Boolean(tc.is_hidden);
         await repo.execute(
           'INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden) VALUES (?, ?, ?, ?, ?)',

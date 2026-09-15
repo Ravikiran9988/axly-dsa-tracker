@@ -1,5 +1,6 @@
 const { db } = require('./db');
 const { v4: uuidv4 } = require('uuid');
+const { getCanonicalIstDate, getNextCanonicalIstDate } = require('../utils/dateUtils');
 
 function seedDatabase() {
   const fs = require('fs');
@@ -1158,9 +1159,10 @@ print(find_median(nums1, nums2))`
     insertNotif.run(n.id, n.user_id, n.title, n.message, n.category, n.type, n.link, n.is_read, n.created_at);
   }
   // Dedicated Daily Challenge Problems (Independent from Practice bank)
-  const todayUtc = new Date().toISOString().split('T')[0];
-  const tomorrowUtc = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  const yesterdayUtc = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  // All dates use Asia/Kolkata (IST) canonical timezone via dateUtils
+  const todayUtc = getCanonicalIstDate();
+  const tomorrowUtc = getNextCanonicalIstDate();
+  const yesterdayUtc = getCanonicalIstDate(new Date(Date.now() - 86400000));
 
   const dailyChallenges = [
     {
@@ -1262,12 +1264,12 @@ print(find_median(nums1, nums2))`
   const { generateProblemSignature, extractProblemConcept } = require('../services/aiDailyChallengeService');
 
   const insertDailyChallenge = db.prepare(`
-    INSERT INTO daily_challenge_problems (
-      id, title, slug, difficulty, topic_id, pattern_id, points, estimated_time,
+    INSERT INTO questions (
+      id, title, slug, url, difficulty, topic_id, pattern_id, points, estimated_time,
       description, problem_statement, constraints, input_format, output_format,
       example_input, example_output, hints, tags, solution_approach, status,
-      scheduled_date, problem_signature, problem_concept, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      is_active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
       difficulty = excluded.difficulty,
@@ -1285,14 +1287,20 @@ print(find_median(nums1, nums2))`
       hints = excluded.hints,
       tags = excluded.tags,
       solution_approach = excluded.solution_approach,
-      status = excluded.status,
+      status = excluded.status
+  `);
+
+  const insertDailyChallengeMeta = db.prepare(`
+    INSERT INTO daily_challenge_metadata (
+      question_id, scheduled_date, status, created_via
+    ) VALUES (?, ?, ?, 'manual')
+    ON CONFLICT(question_id) DO UPDATE SET
       scheduled_date = excluded.scheduled_date,
-      problem_signature = excluded.problem_signature,
-      problem_concept = excluded.problem_concept
+      status = excluded.status
   `);
 
   const insertDailyTestCase = db.prepare(`
-    INSERT INTO daily_challenge_test_cases (id, challenge_id, input, expected_output, is_hidden)
+    INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden)
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       input = excluded.input,
@@ -1300,32 +1308,35 @@ print(find_median(nums1, nums2))`
       is_hidden = excluded.is_hidden
   `);
 
-  try {
-    db.prepare("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date IN (?, ?)").run(yesterdayUtc, todayUtc);
-  } catch (_) {}
+  db.exec(`CREATE TABLE IF NOT EXISTS app_seed_meta (key TEXT PRIMARY KEY, seeded_at TEXT);`);
+  const alreadySeededDaily = db.prepare("SELECT key FROM app_seed_meta WHERE key = 'daily_challenges_initial_seed'").get();
 
-  dailyChallenges.forEach(dc => {
-    const signature = generateProblemSignature(dc);
-    const concept = extractProblemConcept(dc.title, dc.description);
-    insertDailyChallenge.run(
-      dc.id, dc.title, dc.slug, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, dc.estimated_time,
-      dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format,
-      dc.example_input, dc.example_output, dc.hints, dc.tags, dc.solution_approach, dc.status,
-      dc.scheduled_date, signature, concept, dc.created_by
-    );
-    if (dc.test_cases && dc.test_cases.length > 0) {
-      dc.test_cases.forEach(tc => {
-        insertDailyTestCase.run(tc.id, dc.id, tc.input, tc.expected_output, tc.is_hidden);
-      });
-    }
-  });
+  if (!alreadySeededDaily) {
+    try {
+      db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date IN (?, ?)").run(yesterdayUtc, todayUtc);
+    } catch (_) {}
 
-  // Today's Daily Challenge Link (UTC date)
-  db.prepare('DELETE FROM daily_questions WHERE id = ? OR date = ?').run('daily-today', todayUtc);
-  db.prepare(`
-    INSERT INTO daily_questions (id, question_id, challenge_id, date, created_by)
-    VALUES (?, ?, ?, ?, ?)
-  `).run('daily-today', 'dc-002', 'dc-002', todayUtc, 'usr-admin-01');
+    dailyChallenges.forEach(dc => {
+      const signature = generateProblemSignature(dc);
+      const concept = extractProblemConcept(dc.title, dc.description);
+      const url = 'internal://' + dc.id;
+      insertDailyChallenge.run(
+        dc.id, dc.title, dc.slug, url, dc.difficulty, dc.topic_id, dc.pattern_id, dc.points, dc.estimated_time,
+        dc.description, dc.problem_statement, dc.constraints, dc.input_format, dc.output_format,
+        dc.example_input, dc.example_output, dc.hints, dc.tags, dc.solution_approach, 'published'
+      );
+      insertDailyChallengeMeta.run(
+        dc.id, dc.scheduled_date, dc.status
+      );
+      if (dc.test_cases && dc.test_cases.length > 0) {
+        dc.test_cases.forEach(tc => {
+          insertDailyTestCase.run(tc.id, dc.id, tc.input, tc.expected_output, tc.is_hidden);
+        });
+      }
+    });
+
+    db.prepare("INSERT OR REPLACE INTO app_seed_meta (key, seeded_at) VALUES ('daily_challenges_initial_seed', datetime('now'))").run();
+  }
 
   console.log('Database seeded successfully with in-platform coding problems, notifications & independent daily challenges.');
 }

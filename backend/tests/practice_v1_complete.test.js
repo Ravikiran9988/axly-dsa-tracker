@@ -18,6 +18,12 @@ describe('Practice V1 Complete Test Suite & Seed Verification', () => {
 
   beforeAll(async () => {
     initSchema();
+    await repo.execute('DELETE FROM daily_challenge_metadata');
+    await repo.execute('DELETE FROM test_cases');
+    await repo.execute('DELETE FROM question_embeddings');
+    await repo.execute('DELETE FROM submissions');
+    await repo.execute('DELETE FROM points_ledger');
+    await repo.execute('DELETE FROM questions');
     seedDatabase();
     seedPracticeProblems();
 
@@ -253,7 +259,7 @@ describe('Practice V1 Complete Test Suite & Seed Verification', () => {
         .get('/api/v1/practice/progress')
         .set('Authorization', `Bearer ${userAToken}`);
       expect(res.status).toBe(200);
-      expect(res.body.data.total).toBe(80);
+      expect(res.body.data.total).toBe(93);
       expect(res.body.data.solved).toBeGreaterThanOrEqual(1);
       expect(res.body.data.topics.length).toBe(8);
       expect(res.body.data.difficulties.length).toBe(3);

@@ -8,14 +8,19 @@ function getAuthHeader() {
 }
 
 async function request(endpoint, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...getAuthHeader(), ...options.headers };
+  const headers = { 
+    'Content-Type': 'application/json', 
+    ...getAuthHeader(), 
+    ...options.headers 
+  };
   try {
-    const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    const response = await fetch(`${API_BASE}${endpoint}`, { cache: 'no-store', ...options, headers });
     const data = await response.json().catch(() => null);
     if (!response.ok) {
-      const error = new Error(data?.error?.message || 'An unexpected error occurred');
+      const errorMsg = data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || 'An unexpected error occurred';
+      const error = new Error(errorMsg);
       error.status = response.status;
-      error.code = data?.error?.code;
+      error.code = data?.error?.code || data?.failure_category;
       error.details = data?.error?.details;
       throw error;
     }
@@ -51,8 +56,12 @@ export const api = {
   async compareQuestionVersions(id, v1, v2) { return request(`/questions/${id}/versions/compare?v1=${v1}&v2=${v2}`); },
   async restoreQuestionVersion(id, version) { return request(`/questions/${id}/versions/${version}/restore`, { method: 'POST' }); },
   async generateAIQuestion(data) { return request('/ai-questions/generate', { method: 'POST', body: JSON.stringify(data) }); },
+  async generateQuestionBankManualAI() { return request('/ai-questions/question-bank/manual', { method: 'POST' }); },
+  async getQuestionBankGenerationStatus() { return request('/ai-questions/question-bank/status'); },
+  async getQuestionBankAutomationSettings() { return request('/ai-questions/question-bank/automation/settings'); },
+  async updateQuestionBankAutomationSettings(data) { return request('/ai-questions/question-bank/automation/settings', { method: 'PATCH', body: JSON.stringify(data) }); },
+  async getQuestionBankAutomationLogs(limit = 20) { return request(`/ai-questions/question-bank/automation/logs?limit=${limit}`); },
   async getDailyQuestion() { return request('/daily-challenges/today'); },
-  async getTodayDailyChallenge() { return request('/daily-challenges/today'); },
   async getDailyChallenges(params = {}) { const q = new URLSearchParams(); for (const k of ['status', 'difficulty', 'topic_id', 'search', 'date', 'page', 'limit']) { if (params[k]) q.append(k, params[k]); } return request(`/daily-challenges?${q}`); },
   async getDailyChallenge(id) { return request(`/daily-challenges/${id}`); },
   async createDailyChallenge(data) { return request('/daily-challenges', { method: 'POST', body: JSON.stringify(data) }); },
@@ -65,7 +74,6 @@ export const api = {
   async publishDailyChallenge(id) { return request(`/daily-challenges/${id}/publish`, { method: 'POST' }); },
   async publishNowDailyChallenge(id) { return request(`/daily-challenges/${id}/publish-now`, { method: 'POST' }); },
   async unpublishDailyChallenge(id) { return request(`/daily-challenges/${id}/unpublish`, { method: 'POST' }); },
-  async archiveDailyChallenge(id) { return request(`/daily-challenges/${id}/archive`, { method: 'POST' }); },
   async getDailyChallengeTopics() { return request('/daily-challenges/topics'); },
   async recommendDailyChallengeTopic(params = {}) { return request('/daily-challenges/recommend-topic', { method: 'POST', body: JSON.stringify(params) }); },
   async deleteDailyChallenge(id) { return request(`/daily-challenges/${id}`, { method: 'DELETE' }); },

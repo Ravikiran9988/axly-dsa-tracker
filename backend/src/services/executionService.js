@@ -94,6 +94,22 @@ async function executeCode({ language, sourceCode, testCases = [], isSubmit = fa
   }
 }
 
+function ensureExecutableDriver(sourceCode, language) {
+  if (typeof sourceCode !== 'string') return sourceCode;
+  const lang = String(language || '').toLowerCase();
+  
+  if (lang.includes('javascript') || lang.includes('typescript') || lang === 'js' || lang === 'ts' || lang === 'node') {
+    if (!sourceCode.includes('console.log') && !sourceCode.includes('process.stdout')) {
+      return `${sourceCode}\n\nconst _fs = require('fs');\ntry {\n  const _raw = _fs.readFileSync(0, 'utf-8').trim();\n  if (_raw) {\n    const _tokens = _raw.split(/\\s+/).map(x => isNaN(Number(x)) ? x : Number(x));\n    const _fn = typeof solve === 'function' ? solve : typeof solution === 'function' ? solution : null;\n    if (_fn) { const _res = _fn(..._tokens); if (_res !== undefined) console.log(_res); }\n  }\n} catch (_) {}\n`;
+    }
+  } else if (lang.includes('python') || lang === 'py') {
+    if (!sourceCode.includes('print(') && !sourceCode.includes('sys.stdout')) {
+      return `${sourceCode}\n\nimport sys\ntry:\n    _input = sys.stdin.read().split()\n    if _input:\n        _args = [int(x) if x.lstrip('-').isdigit() else x for x in _input]\n        _fn = globals().get('solve') or globals().get('solution')\n        if _fn:\n            _res = _fn(*_args)\n            if _res is not None: print(_res)\nexcept Exception: pass\n`;
+    }
+  }
+  return sourceCode;
+}
+
 // Development/test-only fallback. Production must always use the isolated runner.
 async function executeLocally({ language, sourceCode, testCases }) {
   const { spawn } = require('child_process');
@@ -110,24 +126,50 @@ async function executeLocally({ language, sourceCode, testCases }) {
       const started = Date.now();
       let timer;
       const finish = result => { if (settled) return; settled = true; clearTimeout(timer); resolve({ ...result, executionTimeMs: Date.now() - started }); };
-      try { child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }); }
-      catch (err) { return finish({ status: 'Runtime Error', stdout, stderr: err.message }); }
+      const isWin = process.platform === 'win32';
+      try {
+        const spawnOptions = { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true };
+        if (isWin && (typeof command === 'string' && (command.endsWith('.cmd') || command.endsWith('.bat') || command === 'cmd'))) {
+          spawnOptions.shell = true;
+        }
+        child = spawn(command, args, spawnOptions);
+      }
+      catch (err) {
+        if (err.code === 'ENOENT' || err.message.includes('ENOENT') || err.message.includes('EINVAL')) {
+          return finish({ status: 'Compiler Missing', stdout, stderr: err.message });
+        }
+        return finish({ status: 'Runtime Error', stdout, stderr: err.message });
+      }
       timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch {} finish({ status: 'Time Limit Exceeded', stdout, stderr: 'Time Limit Exceeded (5s limit)' }); }, timeoutMs);
       child.stdout.on('data', data => { stdout += data.toString(); if (Buffer.byteLength(stdout) > MAX_OUTPUT_BYTES) { try { child.kill('SIGKILL'); } catch {} finish({ status: 'Output Limit Exceeded', stdout: stdout.slice(0, MAX_OUTPUT_BYTES), stderr: 'Output limit exceeded (64KB max)' }); } });
       child.stderr.on('data', data => { stderr += data.toString(); });
-      child.on('error', err => finish({ status: 'Runtime Error', stdout, stderr: err.message }));
-      child.on('close', code => finish({ status: code === 0 ? 'Passed' : 'Runtime Error', stdout, stderr }));
-      try { child.stdin.end(input || ''); } catch (err) { finish({ status: 'Runtime Error', stdout, stderr: err.message }); }
+      child.on('error', err => {
+        if (err.code === 'ENOENT' || err.message.includes('ENOENT') || err.message.includes('EINVAL')) {
+          return finish({ status: 'Compiler Missing', stdout, stderr: err.message });
+        }
+        finish({ status: 'Runtime Error', stdout, stderr: err.message });
+      });
+      child.on('close', code => {
+        if (code !== 0 && (stderr.includes('is not recognized') || stderr.includes('command not found') || stderr.includes('Cannot find module') || stderr.includes('spawn EINVAL') || stderr.includes('ENOENT'))) {
+          return finish({ status: 'Compiler Missing', stdout, stderr });
+        }
+        finish({ status: code === 0 ? 'Passed' : 'Runtime Error', stdout, stderr });
+      });
+      try { 
+        const inputStr = String(input ?? '');
+        child.stdin.end(inputStr ? (inputStr.endsWith('\n') ? inputStr : inputStr + '\n') : ''); 
+      } catch (err) { finish({ status: 'Runtime Error', stdout, stderr: err.message }); }
     });
   }
 
   try {
-    fs.writeFileSync(filePath, sourceCode, 'utf-8');
+    const codeToRun = ensureExecutableDriver(sourceCode, lang);
+    fs.writeFileSync(filePath, codeToRun, 'utf-8');
     let command = 'node', args = [filePath];
     const isWin = process.platform === 'win32';
     const shellCmd = isWin ? 'cmd' : 'sh', shellArg = isWin ? '/c' : '-c';
     if (lang.includes('python') || lang === 'py') { command = isWin ? 'python' : 'python3'; }
-    else if (lang === 'typescript' || lang === 'ts') { command = isWin ? 'npx.cmd' : 'npx'; args = ['ts-node', '--skip-project', filePath]; }
+    else if (lang === 'typescript' || lang === 'ts') { command = 'node'; args = ['--no-warnings', '--experimental-strip-types', filePath]; }
     else if (lang === 'java') { command = shellCmd; args = [shellArg, `javac "${filePath}" && java -cp "${tempDir}" Main`]; }
     else if (lang === 'cpp' || lang === 'c++') { const out = path.join(tempDir, isWin ? 'a.exe' : 'a.out'); command = shellCmd; args = [shellArg, `g++ -O2 -o "${out}" "${filePath}" && "${out}"`]; }
     else if (lang === 'c') { const out = path.join(tempDir, isWin ? 'a.exe' : 'a.out'); command = shellCmd; args = [shellArg, `gcc -o "${out}" "${filePath}" && "${out}"`]; }
@@ -143,7 +185,7 @@ async function executeLocally({ language, sourceCode, testCases }) {
       if (ok) passed.push(i + 1);
       results.push({ test_index: i + 1, status, is_hidden: Boolean(tc.is_hidden), input: tc.is_hidden ? '[Hidden Test Case]' : tc.input, expected_output: tc.is_hidden ? '[Hidden Output]' : tc.expected_output, actual_output: tc.is_hidden ? (ok ? '[Output Passed]' : '[Output Failed]') : actual, stderr: tc.is_hidden ? undefined : (exec.stderr || undefined), execution_time_ms: exec.executionTimeMs });
     }
-    const status = passed.length === testCases.length ? 'Accepted' : results.some(r => r.status === 'Time Limit Exceeded') ? 'Time Limit Exceeded' : results.some(r => r.status === 'Runtime Error') ? 'Runtime Error' : 'Wrong Answer';
+    const status = passed.length === testCases.length ? 'Accepted' : results.some(r => r.status === 'Compiler Missing') ? 'Compiler Missing' : results.some(r => r.status === 'Time Limit Exceeded') ? 'Time Limit Exceeded' : results.some(r => r.status === 'Runtime Error') ? 'Runtime Error' : 'Wrong Answer';
     return { status, passed_tests: passed.length, total_tests: testCases.length, execution_time_ms: maxTimeMs, results };
   } finally {
     try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}

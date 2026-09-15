@@ -27,7 +27,7 @@ module.exports = defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 30000,
       env: {
-        NODE_ENV: 'development',
+        NODE_ENV: 'e2e',
         PORT: '5000'
       }
     },

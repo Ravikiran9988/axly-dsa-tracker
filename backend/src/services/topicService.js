@@ -88,11 +88,12 @@ async function recommendTopicForDailyChallenge({ difficulty = 'medium' } = {}) {
 
   // Query recent challenges (last 15) to evaluate topic frequency
   const recent = await repo.many(`
-    SELECT dc.topic_id, dc.custom_topic, t.name AS topic_name, dc.created_at
-    FROM daily_challenge_problems dc
-    LEFT JOIN topics t ON dc.topic_id = t.id
-    WHERE dc.status != 'archived' AND dc.is_active = TRUE
-    ORDER BY dc.created_at DESC
+    SELECT q.topic_id, dcm.custom_topic, t.name AS topic_name, dcm.created_at
+    FROM daily_challenge_metadata dcm
+    JOIN questions q ON dcm.question_id = q.id
+    LEFT JOIN topics t ON q.topic_id = t.id
+    WHERE dcm.status != 'archived' AND q.is_active = TRUE
+    ORDER BY dcm.created_at DESC
     LIMIT 15
   `);
 

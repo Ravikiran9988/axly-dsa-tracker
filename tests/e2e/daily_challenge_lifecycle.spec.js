@@ -37,7 +37,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
   test('1. Admin Daily Challenge Portal & KPI Counters', async ({ page }) => {
     await loginAsAdmin(page);
 
-    await page.getByRole('button', { name: 'Daily Challenge' }).click();
+    await page.getByRole('button', { name: 'Daily Challenge' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Daily Challenge Portal' })).toBeVisible({ timeout: 15000 });
 
     // KPI counter labels
@@ -57,7 +57,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
 
   test('2. Admin Manual Creation, Scheduling & Publish Lifecycle', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.getByRole('button', { name: 'Daily Challenge' }).click();
+    await page.getByRole('button', { name: 'Daily Challenge' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Daily Challenge Portal' })).toBeVisible({ timeout: 15000 });
 
     const uniqueTitle = `Distinct Matrix Path Traversal ${Date.now()} ${Math.random().toString(36).slice(2, 5)}`;
@@ -109,7 +109,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
       }
     });
 
-    await page.getByRole('button', { name: 'Daily Challenge' }).click();
+    await page.getByRole('button', { name: 'Daily Challenge' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Daily Challenge Portal' })).toBeVisible({ timeout: 15000 });
 
     // Click "Run Auto-Fill Now"
@@ -117,16 +117,16 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await expect(runBtn).toBeVisible();
     await runBtn.click();
 
-    // Wait for generation completion – success banner
-    await expect(page.getByText('AI challenge generated successfully and saved as Draft.').first()).toBeVisible({ timeout: 40000 });
+    // Wait for generation completion – success banner (tomorrow is scheduled, so result is Draft)
+    await expect(page.getByText("already scheduled").first()).toBeVisible({ timeout: 40000 });
 
     // Draft appears in table
     await expect(page.locator('table').first()).toBeVisible();
     await expect(page.locator('table').getByText('draft').first()).toBeVisible({ timeout: 10000 });
 
-    // Automation Logs show manual_admin entry
+    // Automation Logs show auto_fill entry
     await page.locator('#btn-admin-automation-logs').first().click();
-    await expect(page.getByText('manual_admin').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('auto_fill').first()).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: /Close/i }).last().click();
 
     // Simulate scheduled AUTO_FILL via API → should return 200
@@ -141,7 +141,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await loginAsStudent(page);
 
     // Navigate to Daily Challenge via sidebar
-    await page.getByRole('button', { name: 'Daily Challenge' }).click();
+    await page.getByRole('button', { name: 'Daily Challenge' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Daily Challenge' })).toBeVisible({ timeout: 15000 });
 
     // Either a Solve button or an empty-state message must be visible

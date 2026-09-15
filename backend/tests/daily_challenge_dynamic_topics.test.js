@@ -3,6 +3,48 @@ const app = require('../src/app');
 const { db, initSchema } = require('../src/db/db');
 const { seedDatabase } = require('../src/db/seed');
 
+// Isolate DB tests from real Gemini embedding API limits
+jest.mock('../src/services/embeddingService', () => {
+  return {
+    defaultProvider: {
+      getEmbedding: jest.fn().mockResolvedValue(new Array(3072).fill(0.1)),
+      getEmbeddings: jest.fn().mockResolvedValue([new Array(3072).fill(0.1)]),
+      isConfigured: jest.fn().mockReturnValue(true)
+    },
+    cosineSimilarity: jest.fn().mockReturnValue(0.5),
+    normalizeVector: jest.fn().mockImplementation(v => v),
+    EMBEDDING_MODEL: 'gemini-embedding-mock',
+    EMBEDDING_DIMENSIONS: 3072
+  };
+});
+
+const { getTemplate } = require('../src/services/fallbackTemplates');
+
+// Isolate DB tests from real LLM API limits
+jest.mock('../src/services/llm/llmRouter', () => {
+  return {
+    generate: jest.fn().mockImplementation(async (prompt) => {
+      // Lazy load to avoid initialization order issues
+      const { getTemplate } = require('../src/services/fallbackTemplates');
+      const tmpl = getTemplate('Arrays', 'Easy');
+      
+      const strPrompt = JSON.stringify(prompt);
+      if (strPrompt.includes('Sliding Window')) tmpl.pattern_name = 'Sliding Window';
+      if (strPrompt.includes('BFS')) tmpl.pattern_name = 'BFS';
+      
+      if (strPrompt.includes('Target Topic: Graphs')) tmpl.topic = 'Graphs';
+      else if (strPrompt.includes('Target Topic: Dynamic Programming')) tmpl.topic = 'Dynamic Programming';
+      
+      if (strPrompt.includes('hard')) tmpl.difficulty = 'hard';
+      else tmpl.difficulty = 'medium';
+
+      return {
+        text: JSON.stringify(tmpl)
+      };
+    })
+  };
+});
+
 let adminToken;
 let userToken;
 
@@ -60,7 +102,7 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       difficulty: 'medium',
       topic_id: 'arrays',
       topic_name: 'Arrays',
-      pattern_name: 'Sliding Window',
+      pattern: 'Sliding Window',
       points: 100,
       description: 'Find maximum subarray sum under sliding window constraints.',
       constraints: '1 <= N <= 10^5',
@@ -70,7 +112,14 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       test_cases: [
         { input: '[1, 2, 3]', expected_output: '6', is_hidden: false },
         { input: '[0, 0, 0]', expected_output: '0', is_hidden: true }
-      ]
+      ],
+      starter_code: {
+        javascript: 'function solve() {}',
+        python: 'def solve(): pass'
+      },
+      reference_solution: {
+        python: 'def solve(): pass'
+      }
     };
 
     const res = await request(app)
@@ -88,8 +137,7 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       title: 'Manual Graph BFS Shortest Path Test ' + Date.now(),
       difficulty: 'hard',
       topic_id: 'graphs',
-      topic_name: 'Graphs',
-      pattern_name: 'BFS',
+      pattern_id: 'bfs-shortest-path',
       points: 150,
       description: 'Find shortest path in an unweighted graph using BFS level order traversal.',
       constraints: '1 <= V <= 1000',
@@ -99,7 +147,14 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       test_cases: [
         { input: '[[1], [0]]', expected_output: '1', is_hidden: false },
         { input: '[[0]]', expected_output: '0', is_hidden: true }
-      ]
+      ],
+      starter_code: {
+        javascript: 'function solve() {}',
+        python: 'def solve(): pass'
+      },
+      reference_solution: {
+        python: 'def solve(): pass'
+      }
     };
 
     const res = await request(app)
@@ -109,7 +164,7 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data.topic_id).toBe('graphs');
-    expect(res.body.data.pattern_name).toBe('BFS');
+    expect(res.body.data.pattern_name).toBe('BFS Shortest Path');
   });
 
   test('4. Create Manual Daily Challenge with Primary Topic = Other & Custom Topic', async () => {
@@ -119,7 +174,7 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       topic_id: 'other',
       topic_name: 'Other',
       custom_topic: 'Quantum Trie Hashing',
-      pattern_name: 'Trie Insertion',
+      pattern: 'Trie Insertion',
       points: 100,
       description: 'Implement a specialized quantum trie hashing algorithm.',
       constraints: '1 <= N <= 100',
@@ -129,7 +184,14 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
       test_cases: [
         { input: 'axly', expected_output: '42', is_hidden: false },
         { input: 'test', expected_output: '10', is_hidden: true }
-      ]
+      ],
+      starter_code: {
+        javascript: 'function solve() {}',
+        python: 'def solve(): pass'
+      },
+      reference_solution: {
+        python: 'def solve(): pass'
+      }
     };
 
     const res = await request(app)
@@ -153,6 +215,9 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
         points: 150
       });
 
+    if (res.status === 422) {
+      console.log('Test 5 body:', JSON.stringify(res.body, null, 2));
+    }
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.topic).toBe('Graphs');
@@ -170,6 +235,9 @@ describe('Dynamic Daily Challenge Topics & AI Recommendation System', () => {
         points: 100
       });
 
+    if (res.status === 422) {
+      console.log('Test 6 body:', JSON.stringify(res.body, null, 2));
+    }
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.topic).toBe('Dynamic Programming');

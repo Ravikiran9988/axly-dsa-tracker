@@ -77,14 +77,14 @@ class GroqProvider extends BaseLLMProvider {
       systemPrompt,
       maxTokens = 800,
       temperature = 0.4,
-      timeoutMs = 8000
+      timeoutMs = 20000
     } = options;
 
     const messages = [];
     if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
     messages.push({ role: 'user', content: prompt });
 
-    const isDailyChallenge = /Principal DSA Problem Author/i.test(systemPrompt || '');
+    const isJsonRequested = /JSON/i.test(systemPrompt || '');
     const payload = {
       model: this.model,
       messages,
@@ -92,10 +92,7 @@ class GroqProvider extends BaseLLMProvider {
       temperature
     };
 
-    // GPT-OSS supports structured JSON output. Using JSON mode for Daily
-    // Challenge generation prevents the frequent truncated/fenced JSON seen in
-    // production while leaving normal AI Coach responses unchanged.
-    if (isDailyChallenge) {
+    if (isJsonRequested) {
       payload.response_format = { type: 'json_object' };
     }
 

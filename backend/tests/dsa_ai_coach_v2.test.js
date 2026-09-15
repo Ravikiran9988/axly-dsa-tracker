@@ -45,7 +45,16 @@ describe('DSA AI Coach V2 — Conversation History, Source Labels & Prompt Quali
 
   beforeEach(() => {
     aiCache.clear();
-    llmRouter.initializeDefaultProviders();
+    const mockCoachProvider = new MockProvider({
+      name: 'mock-coach',
+      customText: JSON.stringify({
+        intent: 'HINT',
+        answer: 'Here is a hint from the AI (V2)',
+        code: null
+      })
+    });
+    llmRouter.registerProvider('mock-coach', mockCoachProvider);
+    llmRouter.setProviderOrder(['mock-coach']);
   });
 
   // ─────────────────────────────────────────────────────────────────

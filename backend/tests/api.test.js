@@ -16,7 +16,7 @@ describe('Axly DSA Tracker — Acceptance Criteria & API Contract Tests', () => 
     initSchema();
 
     // Clean up tables
-    db.prepare('DELETE FROM daily_questions').run();
+    db.prepare('DELETE FROM daily_challenge_metadata').run();
     db.prepare('DELETE FROM submissions').run();
     db.prepare('DELETE FROM assignments').run();
     db.prepare('DELETE FROM questions').run();

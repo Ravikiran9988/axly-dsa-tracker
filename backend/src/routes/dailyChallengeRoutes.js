@@ -14,7 +14,6 @@ const {
   publishDailyChallenge,
   publishNowDailyChallenge,
   unpublishDailyChallenge,
-  archiveDailyChallenge,
   deleteDailyChallenge,
   getDailyChallengeTopics,
   recommendTopic,
@@ -52,8 +51,6 @@ router.post('/:id/schedule', requireRole('admin'), scheduleDailyChallenge);
 router.post('/:id/publish', requireRole('admin'), publishDailyChallenge);
 router.post('/:id/publish-now', requireRole('admin'), publishNowDailyChallenge);
 router.post('/:id/unpublish', requireRole('admin'), unpublishDailyChallenge);
-router.patch('/:id/unpublish', requireRole('admin'), unpublishDailyChallenge);
-router.post('/:id/archive', requireRole('admin'), archiveDailyChallenge);
 router.delete('/:id/permanent', requireRole('admin'), deleteDailyChallenge);
 router.delete('/:id', requireRole('admin'), deleteDailyChallenge);
 

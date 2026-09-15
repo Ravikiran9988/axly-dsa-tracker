@@ -1,6 +1,7 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
+const noveltyService = require('./questionNoveltyService');
 
 const repo = getRepository();
 
@@ -49,12 +50,26 @@ async function validateQuestionInput({ title, difficulty, topic_id }, currentRep
   }
 }
 
-async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit = 20, search }) {
+async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit = 20, search, status, is_practice }) {
   const conditions = [];
   const params = [];
 
+  // Question Bank manages practice problems (is_practice = 1).
+  // Daily Challenges have is_practice = 0 until expired, when they become practice problems.
+  if (is_practice !== undefined && is_practice !== null && is_practice !== '') {
+    const isPracticeStr = String(is_practice).toLowerCase();
+    if (isPracticeStr !== 'all') {
+      const isPracticeBool = isPracticeStr === 'true' || isPracticeStr === '1';
+      conditions.push(isPracticeBool ? 'q.is_practice = TRUE' : 'q.is_practice = FALSE');
+    }
+  } else {
+    // Question Bank default: practice-available questions
+    conditions.push('q.is_practice = TRUE');
+  }
+
   if (user?.role !== 'admin') {
     conditions.push('q.is_active = TRUE');
+    conditions.push("q.status != 'draft'");
   }
   if (difficulty) {
     conditions.push('LOWER(q.difficulty) = ?');
@@ -63,6 +78,10 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   if (topic_id) {
     conditions.push('q.topic_id = ?');
     params.push(topic_id);
+  }
+  if (status && status.trim()) {
+    conditions.push('LOWER(q.status) = ?');
+    params.push(status.trim().toLowerCase());
   }
   if (assigned !== undefined && assigned !== null && assigned !== '') {
     const isAssigned = String(assigned).toLowerCase() === 'true';
@@ -77,10 +96,14 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
     params.push(`%${search.trim().toLowerCase()}%`, `%${search.trim().toLowerCase()}%`);
   }
 
+  const combinedQuestionsQuery = `
+    SELECT q.id, q.title, q.difficulty, q.topic_id, q.url, q.is_active, q.created_at, q.description, q.problem_statement, q.constraints, q.input_format, q.output_format, q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points, q.assigned_date, q.due_date, COALESCE(dcm.status, q.status) AS status, q.supported_languages, q.starter_code, q.is_practice, CASE WHEN dcm.question_id IS NOT NULL THEN 1 ELSE 0 END AS is_daily_challenge FROM questions q LEFT JOIN daily_challenge_metadata dcm ON dcm.question_id = q.id
+  `;
+
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const countRow = await repo.one(`
     SELECT COUNT(DISTINCT q.id) AS total
-    FROM questions q
+    FROM (${combinedQuestionsQuery}) q
     LEFT JOIN assignments a ON a.question_id = q.id AND a.user_id = ? AND a.status != 'unassigned'
     ${whereSql}
   `, [user?.id || null, ...params]);
@@ -96,13 +119,14 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
       q.description, q.problem_statement, q.constraints, q.input_format, q.output_format,
       q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points,
       q.assigned_date, q.due_date, q.status, q.supported_languages, q.starter_code,
+      q.is_practice, q.is_daily_challenge,
       t.name AS topic_name,
       a.id AS assignment_id, a.status AS assignment_status,
       s.id AS submission_id, s.status AS submission_status,
       s.review_status, s.feedback, s.attempted_at, s.solved_at,
       (SELECT COUNT(*) FROM assignments x WHERE x.question_id = q.id AND x.status != 'unassigned') AS active_assignees_count,
       (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = q.id) AS total_test_cases_count
-    FROM questions q
+    FROM (${combinedQuestionsQuery}) q
     LEFT JOIN topics t ON q.topic_id = t.id
     LEFT JOIN assignments a ON a.question_id = q.id AND a.user_id = ? AND a.status != 'unassigned'
     LEFT JOIN submissions s ON s.question_id = q.id AND s.user_id = ?
@@ -132,33 +156,21 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
 
 async function getQuestionById(id, user = null) {
   let q = await repo.one(
-    'SELECT q.*, t.name AS topic_name FROM questions q LEFT JOIN topics t ON q.topic_id = t.id WHERE q.id = ?',
-    [id]
+    'SELECT q.*, t.name AS topic_name, p.name AS pattern_name FROM questions q LEFT JOIN topics t ON q.topic_id = t.id LEFT JOIN patterns p ON q.pattern_id = p.id WHERE q.id = ? OR q.slug = ?',
+    [id, id]
   );
-  let isDailyChallenge = false;
+  if (!q) return null;
 
-  if (!q) {
-    // Check if this ID belongs to a Daily Challenge Problem
-    const dc = await repo.one(
-      'SELECT dc.*, t.name AS topic_name, p.name AS pattern_name FROM daily_challenge_problems dc LEFT JOIN topics t ON dc.topic_id = t.id LEFT JOIN patterns p ON dc.pattern_id = p.id WHERE dc.id = ? OR dc.slug = ?',
-      [id, id]
-    );
-    if (!dc) return null;
-    q = dc;
-    isDailyChallenge = true;
+  const dcm = await repo.one('SELECT scheduled_date, status, custom_topic, created_via FROM daily_challenge_metadata WHERE question_id = ?', [q.id]);
+  if (dcm) {
+    q = { ...q, ...dcm };
   }
+  const isDailyChallenge = Boolean(dcm);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'mentor';
-  let testCaseSql = '';
-  if (isDailyChallenge) {
-    testCaseSql = isAdmin
-      ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC'
-      : 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND is_hidden = FALSE ORDER BY created_at ASC';
-  } else {
-    testCaseSql = isAdmin
-      ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC'
-      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC';
-  }
+  const testCaseSql = isAdmin
+    ? 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC'
+    : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC';
 
   const testCases = await repo.many(testCaseSql, [q.id]);
   const formattedTestCases = testCases.map(tc => ({
@@ -172,10 +184,13 @@ async function getQuestionById(id, user = null) {
 
   return {
     ...q,
+    topic: q.topic_name || q.custom_topic || q.topic_id || null,
+    pattern: q.pattern_name || q.pattern_id || null,
     is_daily_challenge: isDailyChallenge,
     hints: parseHints(q.hints),
     is_active: Boolean(q.is_active),
     starter_code: q.starter_code ? safeParseJson(q.starter_code) : null,
+    reference_solution: isAdmin && q.reference_solution ? safeParseJson(q.reference_solution) : null,
     supported_languages: q.supported_languages ? safeParseJson(q.supported_languages) : ['javascript', 'python'],
     tags: q.tags ? safeParseJson(q.tags) : [],
     test_cases: formattedTestCases,
@@ -197,37 +212,80 @@ async function insertTestCases(questionId, testCases = [], currentRepo = repo) {
 
 async function createQuestion(input) {
   const {
-    title, difficulty, topic_id, url, description, problem_statement,
-    constraints, input_format, output_format, example_input, example_output,
+    title, slug, difficulty, topic_id, pattern_id, url, description, problem_statement,
+    constraints, input_format, output_format, example_input, example_output, examples,
     hints, tags, estimated_time, points, assigned_date, due_date, status,
-    supported_languages, starter_code, test_cases = []
+    supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, test_cases = [],
+    is_practice, generation_slot, created_via, topic, pattern
   } = input;
 
-  await validateQuestionInput({ title, difficulty, topic_id });
+  // Design invariant: questions.status is NEVER set to 'archived'.
+  // Archive is a daily_challenge_metadata lifecycle state, not a question status.
+  if (status === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
+
+  let finalTopicId = topic_id || null;
+  if (finalTopicId) {
+    const existing = await repo.one('SELECT id FROM topics WHERE id = ?', [finalTopicId]);
+    if (!existing) finalTopicId = null;
+  }
+  if (!finalTopicId && topic) {
+    const matched = await repo.one(
+      'SELECT id FROM topics WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)',
+      [String(topic).trim(), String(topic).trim()]
+    );
+    if (matched) finalTopicId = matched.id;
+  }
+
+  let finalPatternId = pattern_id || null;
+  if (finalPatternId) {
+    const existing = await repo.one('SELECT id FROM patterns WHERE id = ?', [finalPatternId]);
+    if (!existing) finalPatternId = null;
+  }
+  if (!finalPatternId && pattern) {
+    let matched = await repo.one(
+      'SELECT id FROM patterns WHERE LOWER(name) = LOWER(?) OR LOWER(id) = LOWER(?)',
+      [String(pattern).trim(), String(pattern).trim()]
+    );
+    if (!matched) {
+      matched = await repo.one(
+        'SELECT id FROM patterns WHERE LOWER(name) LIKE ? OR LOWER(id) LIKE ? LIMIT 1',
+        [`%${String(pattern).trim().toLowerCase()}%`, `%${String(pattern).trim().toLowerCase()}%`]
+      );
+    }
+    if (matched) finalPatternId = matched.id;
+  }
+
+  await validateQuestionInput({ title, difficulty, topic_id: finalTopicId });
   const duplicate = await repo.one(
-    'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND is_active = TRUE',
-    [(title || '').trim()]
+    'SELECT id FROM questions WHERE (LOWER(title) = LOWER(?) OR (slug IS NOT NULL AND slug = ?)) AND is_active = TRUE',
+    [(title || '').trim(), (slug || '').trim()]
   );
   if (duplicate) {
-    throw new AppError(`A question with title "${title}" already exists.`, 409, 'CONFLICT', 'title');
+    throw new AppError(`A question with title or slug "${title || slug}" already exists.`, 409, 'CONFLICT', 'title');
   }
 
   const id = input.id || uuidv4();
   const fallbackUrl = url?.trim() || `https://dsatracker.axly.in/questions/${id}`;
+  const finalSlug = (slug || '').trim() || null;
 
   await repo.transaction(async tx => {
     await tx.execute(`
       INSERT INTO questions (
-        id, title, difficulty, topic_id, url, description, problem_statement,
-        constraints, input_format, output_format, example_input, example_output,
+        id, title, slug, difficulty, topic_id, pattern_id, url, description, problem_statement,
+        constraints, input_format, output_format, example_input, example_output, examples,
         hints, tags, estimated_time, points, assigned_date, due_date, status,
-        supported_languages, starter_code, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+        supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity,
+        is_active, is_practice, generation_slot, created_via
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?, ?)
     `, [
       id,
       (title || '').trim(),
+      finalSlug,
       (difficulty || 'easy').toLowerCase(),
-      topic_id || null,
+      finalTopicId,
+      finalPatternId,
       fallbackUrl,
       description || null,
       problem_statement || null,
@@ -236,6 +294,7 @@ async function createQuestion(input) {
       output_format || null,
       example_input || null,
       example_output || null,
+      normalizeJsonArray(examples, '[]'),
       Array.isArray(hints) ? JSON.stringify(hints) : (hints || null),
       normalizeJsonArray(tags, '[]'),
       estimated_time || '30 mins',
@@ -244,99 +303,159 @@ async function createQuestion(input) {
       due_date || null,
       status || 'published',
       normalizeJsonArray(supported_languages, ['javascript', 'python']),
-      normalizeStarterCode(starter_code)
+      normalizeStarterCode(starter_code),
+      normalizeStarterCode(reference_solution),
+      editorial || null,
+      solution_approach || null,
+      complexity || null,
+      is_practice === false || is_practice === 0 ? 0 : 1,
+      generation_slot || null,
+      created_via || 'manual'
     ]);
 
     await insertTestCases(id, test_cases, tx);
   });
 
-  return getQuestionById(id, { role: 'admin' });
+  // Index question for novelty detection (async, non-blocking)
+  const createdQuestion = await getQuestionById(id, { role: 'admin' });
+  noveltyService.indexAcceptedQuestion(id, createdQuestion).catch(err => {
+    console.warn(`[QuestionService] Failed to index question ${id} for novelty detection:`, err.message);
+  });
+
+  return createdQuestion;
 }
 
-async function updateQuestion(id, updates) {
-  const existing = await getQuestionById(id, { role: 'admin' });
-  if (!existing) throw new AppError('Question not found', 404, 'NOT_FOUND');
+async function updateQuestion(id, input) {
+  const {
+    title, slug, difficulty, topic_id, pattern_id, description, problem_statement,
+    constraints, input_format, output_format, example_input, example_output,
+    hints, tags, estimated_time, points, assigned_date, due_date, status,
+    supported_languages, starter_code, reference_solution, editorial, solution_approach, complexity, test_cases
+  } = input;
 
-  if (updates.title && updates.title.trim().toLowerCase() !== existing.title.toLowerCase()) {
+  const existing = await repo.one('SELECT id FROM questions WHERE id = ?', [id]);
+  if (!existing) throw new AppError('Question not found', 404);
+
+  // Design invariant: questions.status is NEVER set to 'archived'.
+  // Archive is a daily_challenge_metadata lifecycle state, not a question status.
+  if (status === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
+
+  if (title || slug) {
     const duplicate = await repo.one(
-      'SELECT id FROM questions WHERE LOWER(title) = LOWER(?) AND id != ? AND is_active = TRUE',
-      [updates.title.trim(), id]
+      'SELECT id FROM questions WHERE (LOWER(title) = LOWER(?) OR (slug IS NOT NULL AND slug = ?)) AND id != ? AND is_active = TRUE',
+      [(title || '').trim(), (slug || '').trim(), id]
     );
     if (duplicate) {
-      throw new AppError(`A question with title "${updates.title}" already exists.`, 409, 'CONFLICT', 'title');
+      throw new AppError(`A question with title or slug "${title || slug}" already exists.`, 409, 'CONFLICT', 'title');
     }
   }
 
-  if (updates.difficulty !== undefined || updates.topic_id !== undefined) {
-    await validateQuestionInput({
-      title: updates.title || existing.title,
-      difficulty: updates.difficulty || existing.difficulty,
-      topic_id: updates.topic_id !== undefined ? updates.topic_id : existing.topic_id
-    });
-  }
-
-  const columnMap = {
-    title: 'title', difficulty: 'difficulty', topic_id: 'topic_id', url: 'url', description: 'description',
-    problem_statement: 'problem_statement', constraints: 'constraints', input_format: 'input_format', output_format: 'output_format',
-    example_input: 'example_input', example_output: 'example_output', hints: 'hints', estimated_time: 'estimated_time',
-    points: 'points', assigned_date: 'assigned_date', due_date: 'due_date', status: 'status', is_active: 'is_active'
-  };
-
-  const fields = [];
-  const params = [];
-  for (const [key, column] of Object.entries(columnMap)) {
-    if (updates[key] !== undefined) {
-      fields.push(`${column} = ?`);
-      let val = updates[key];
-      if (key === 'difficulty') val = String(val).toLowerCase();
-      else if (key === 'is_active') val = Boolean(val);
-      else if (key === 'hints' && Array.isArray(val)) val = JSON.stringify(val);
-      params.push(val);
-    }
-  }
-
-  if (updates.tags !== undefined) {
-    fields.push('tags = ?');
-    params.push(normalizeJsonArray(updates.tags, '[]'));
-  }
-  if (updates.supported_languages !== undefined) {
-    fields.push('supported_languages = ?');
-    params.push(normalizeJsonArray(updates.supported_languages, ['javascript', 'python']));
-  }
-  if (updates.starter_code !== undefined) {
-    fields.push('starter_code = ?');
-    params.push(normalizeStarterCode(updates.starter_code));
-  }
+  const finalSlug = slug !== undefined ? (slug.trim() || null) : undefined;
 
   await repo.transaction(async tx => {
-    if (fields.length) {
-      await tx.execute(`UPDATE questions SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+    const updatesArray = [];
+    const params = [];
+
+    const addField = (field, value) => {
+      if (value !== undefined) {
+        updatesArray.push(`${field} = ?`);
+        params.push(value);
+      }
+    };
+
+    addField('title', title?.trim());
+    addField('slug', finalSlug);
+    addField('difficulty', difficulty?.toLowerCase());
+    addField('topic_id', topic_id || null);
+    addField('pattern_id', pattern_id || null);
+    addField('description', description);
+    addField('problem_statement', problem_statement);
+    addField('constraints', constraints);
+    addField('input_format', input_format);
+    addField('output_format', output_format);
+    addField('example_input', example_input);
+    addField('example_output', example_output);
+    
+    if (hints !== undefined) {
+      updatesArray.push('hints = ?');
+      params.push(Array.isArray(hints) ? JSON.stringify(hints) : hints);
     }
-    if (Array.isArray(updates.test_cases)) {
+    if (tags !== undefined) {
+      updatesArray.push('tags = ?');
+      params.push(normalizeJsonArray(tags, '[]'));
+    }
+    
+    addField('estimated_time', estimated_time);
+    if (points !== undefined) addField('points', Number(points));
+    addField('assigned_date', assigned_date);
+    addField('due_date', due_date);
+    addField('status', status);
+    
+    if (supported_languages !== undefined) {
+      updatesArray.push('supported_languages = ?');
+      params.push(normalizeJsonArray(supported_languages, ['javascript', 'python']));
+    }
+    if (starter_code !== undefined) {
+      updatesArray.push('starter_code = ?');
+      params.push(normalizeStarterCode(starter_code));
+    }
+    if (reference_solution !== undefined) {
+      updatesArray.push('reference_solution = ?');
+      params.push(normalizeStarterCode(reference_solution));
+    }
+    addField('editorial', editorial);
+    addField('solution_approach', solution_approach);
+    addField('complexity', complexity);
+
+    if (updatesArray.length) {
+      await tx.execute(`UPDATE questions SET ${updatesArray.join(', ')} WHERE id = ?`, [...params, id]);
+    }
+    if (Array.isArray(test_cases)) {
       await tx.execute('DELETE FROM test_cases WHERE question_id = ?', [id]);
-      await insertTestCases(id, updates.test_cases, tx);
+      await insertTestCases(id, test_cases, tx);
     }
   });
 
-  return getQuestionById(id, { role: 'admin' });
+  // Re-index question for novelty detection (async, non-blocking)
+  const updatedQuestion = await getQuestionById(id, { role: 'admin' });
+  noveltyService.indexAcceptedQuestion(id, updatedQuestion, { force: true }).catch(err => {
+    console.warn(`[QuestionService] Failed to re-index question ${id} for novelty detection:`, err.message);
+  });
+
+  return updatedQuestion;
 }
 
 async function deleteQuestion(id) {
   const q = await repo.one('SELECT id, is_active FROM questions WHERE id = ?', [id]);
   if (!q) throw new AppError('Question not found', 404, 'NOT_FOUND');
 
-  const today = new Date().toISOString().split('T')[0];
-  const daily = await repo.one('SELECT id FROM daily_questions WHERE question_id = ? AND date = ?', [id, today]);
-  if (daily) {
-    throw new AppError('Cannot delete the current daily question — change it first', 409, 'CONFLICT');
-  }
-
-  await repo.execute("UPDATE questions SET is_active = FALSE, status = 'archived' WHERE id = ?", [id]);
-  return { message: 'Question successfully deactivated (soft-deleted)', id, is_active: false };
+  // Hard delete the question
+  await repo.execute("DELETE FROM questions WHERE id = ?", [id]);
+  return { message: 'Question successfully deleted', id };
 }
 
 async function listTopics() {
   return repo.many('SELECT id, name FROM topics ORDER BY name ASC');
+}
+
+async function updateQuestionStatus(id, status) {
+  const existing = await repo.one('SELECT id, status FROM questions WHERE id = ?', [id]);
+  if (!existing) throw new AppError('Question not found', 404);
+
+  // Design invariant: questions.status is NEVER set to 'archived'.
+  // Archive is a daily_challenge_metadata lifecycle state, not a question status.
+  if (status === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
+
+  await repo.execute(
+    'UPDATE questions SET status = ? WHERE id = ?',
+    [status, id]
+  );
+
+  return getQuestionById(id, { role: 'admin' });
 }
 
 module.exports = {
@@ -344,6 +463,7 @@ module.exports = {
   getQuestionById,
   createQuestion,
   updateQuestion,
+  updateQuestionStatus,
   deleteQuestion,
   listTopics,
   validateQuestionInput

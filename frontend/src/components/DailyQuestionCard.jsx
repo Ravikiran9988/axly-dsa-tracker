@@ -26,7 +26,7 @@ export default function DailyQuestionCard({ dailyQuestion, dailyData, onOpenInPl
   return (
     <div className={`card overflow-hidden border-l-2 ${solved ? 'border-l-emerald-500' : 'border-l-amber-500'}`}>
       <div className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-2 flex-1 min-w-0">
+        <div className="space-y-2 flex-1 min-w-0 w-full">
           <div className="flex flex-wrap items-center gap-2">
             <span className={diffCls}>{question.difficulty}</span>
             {question.topic_name && (
@@ -57,7 +57,7 @@ export default function DailyQuestionCard({ dailyQuestion, dailyData, onOpenInPl
         <button
           id="btn-open-daily-challenge"
           onClick={onOpenInPlatform}
-          className={`shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+          className={`shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold transition-colors w-full sm:w-auto ${
             solved
               ? 'bg-emerald-700 hover:bg-emerald-600 text-white'
               : 'bg-amber-600 hover:bg-amber-500 text-white'

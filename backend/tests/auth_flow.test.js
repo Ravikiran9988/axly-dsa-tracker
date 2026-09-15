@@ -247,10 +247,11 @@ describe('Axly DSA Tracker — End-to-End Registration & OTP Verification Suite'
       resetRawToken = 'raw-reset-token-xyz987';
       const resetHash = hashToken(resetRawToken);
       db.prepare('DELETE FROM auth_tokens WHERE user_id = ? OR id = ? OR token_hash = ?').run('usr-reset-1', 'tok-rst-1', resetHash);
+      const expiresAt = new Date(Date.now() + 3600000).toISOString();
       db.prepare(`
         INSERT INTO auth_tokens (id, user_id, token_hash, token_type, expires_at)
-        VALUES ('tok-rst-1', 'usr-reset-1', ?, 'password_reset', datetime('now', '+1 hour'))
-      `).run(resetHash);
+        VALUES ('tok-rst-1', 'usr-reset-1', ?, 'password_reset', ?)
+      `).run(resetHash, expiresAt);
     });
 
     test('9. Forgot password returns safe message preventing email enumeration', async () => {
@@ -270,6 +271,7 @@ describe('Axly DSA Tracker — End-to-End Registration & OTP Verification Suite'
           password: 'BrandNewPass999'
         });
 
+      if (res.status !== 200) console.log(res.body);
       expect(res.status).toBe(200);
       expect(res.body.message).toContain('Password has been reset successfully');
 

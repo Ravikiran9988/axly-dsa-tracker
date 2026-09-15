@@ -41,7 +41,7 @@ class BaseLLMProvider {
   /**
    * Standardized helper to build HTTP post request with timeout
    */
-  async fetchWithTimeout(url, payload, headers = {}, timeoutMs = 8000) {
+  async fetchWithTimeout(url, payload, headers = {}, timeoutMs = 20000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 

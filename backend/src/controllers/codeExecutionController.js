@@ -19,25 +19,15 @@ async function runCode(req, res, next) {
       'SELECT * FROM questions WHERE id = ? AND is_active = TRUE',
       [question_id]
     );
-    let isDailyChallenge = false;
-
     if (!question) {
-      const dc = await repo.one(
-        'SELECT * FROM daily_challenge_problems WHERE id = ? AND is_active = TRUE',
-        [question_id]
-      );
-      if (!dc) throw new AppError('Question not found', 404, 'NOT_FOUND');
-      question = dc;
-      isDailyChallenge = true;
+      throw new AppError('Question not found', 404, 'NOT_FOUND');
     }
 
     let testCasesToRun = [];
     if (custom_input !== undefined && custom_input !== null && custom_input.trim() !== '') {
       testCasesToRun = [{ id: 'custom', input: custom_input, expected_output: '', is_hidden: 0 }];
     } else {
-      const tcSql = isDailyChallenge
-        ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? AND is_hidden = FALSE ORDER BY created_at ASC'
-        : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC';
+      const tcSql = 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? AND is_hidden = FALSE ORDER BY created_at ASC, id ASC';
       testCasesToRun = await repo.many(tcSql, [question_id]);
       if (testCasesToRun.length === 0 && question.example_input) {
         testCasesToRun = [{ id: 'example-1', input: question.example_input, expected_output: question.example_output || '', is_hidden: 0 }];
@@ -79,21 +69,11 @@ async function submitSolution(req, res, next) {
       'SELECT * FROM questions WHERE id = ? AND is_active = TRUE',
       [question_id]
     );
-    let isDailyChallenge = false;
-
     if (!question) {
-      const dc = await repo.one(
-        'SELECT * FROM daily_challenge_problems WHERE id = ? AND is_active = TRUE',
-        [question_id]
-      );
-      if (!dc) throw new AppError('Question not found', 404, 'NOT_FOUND');
-      question = dc;
-      isDailyChallenge = true;
+      throw new AppError('Question not found', 404, 'NOT_FOUND');
     }
 
-    const allTcSql = isDailyChallenge
-      ? 'SELECT id, input, expected_output, is_hidden FROM daily_challenge_test_cases WHERE challenge_id = ? ORDER BY is_hidden ASC, created_at ASC'
-      : 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC';
+    const allTcSql = 'SELECT id, input, expected_output, is_hidden FROM test_cases WHERE question_id = ? ORDER BY is_hidden ASC, created_at ASC, id ASC';
 
     let allTestCases = await repo.many(allTcSql, [question_id]);
     if (allTestCases.length === 0 && question.example_input) {

@@ -155,13 +155,13 @@ describe('Phase 4: Comprehensive PostgreSQL/Runtime Parity & Production Verifica
     const testDate = getCanonicalUtcDate();
 
     beforeAll(async () => {
-      await repo.execute('DELETE FROM daily_challenge_problems WHERE scheduled_date = ?', [testDate]);
+      await repo.execute('DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?', [testDate]);
 
       const q = await repo.one('SELECT id FROM questions WHERE (is_active = 1 OR is_active = TRUE) LIMIT 1');
       // Clean up existing challenges for today to avoid conflict with seed data (e.g. dc-002)
-      await repo.execute("DELETE FROM daily_questions WHERE challenge_id = 'dc-002' OR date = ?", [testDate]);
-      await repo.execute("DELETE FROM daily_challenge_problems WHERE id = 'dc-002' OR title = 'Test DC'");
-      await repo.execute("UPDATE daily_challenge_problems SET scheduled_date = NULL WHERE scheduled_date = ?", [testDate]);
+      await repo.execute("DELETE FROM daily_challenge_metadata WHERE question_id = 'dc-002' OR scheduled_date = ?", [testDate]);
+      await repo.execute("DELETE FROM questions WHERE id = 'dc-002' OR title = 'Test DC'");
+      await repo.execute("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?", [testDate]);
 
       const res = await request(app)
         .post('/api/v1/daily-challenges/from-practice')
@@ -184,8 +184,8 @@ describe('Phase 4: Comprehensive PostgreSQL/Runtime Parity & Production Verifica
     });
 
     it('Returns same Daily Challenge for all students on a given UTC date', async () => {
-      const checkDcp = await repo.query('SELECT * FROM daily_challenge_problems WHERE id = ?', [dailyQId]);
-      const checkDq = await repo.query('SELECT * FROM daily_questions WHERE date = ?', [testDate]);
+      const checkDcp = await repo.query('SELECT * FROM daily_challenge_metadata WHERE question_id = ?', [dailyQId]);
+      const checkDq = await repo.query('SELECT * FROM daily_challenge_metadata WHERE scheduled_date = ?', [testDate]);
       console.log("Check DCP:", checkDcp);
       console.log("Check DQ:", checkDq);
       console.log("Test Date:", testDate);

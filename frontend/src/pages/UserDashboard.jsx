@@ -100,7 +100,7 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
           { label: 'Total Score', value: totalPoints, icon: Award, color: 'var(--cyan-400)', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' },
           { label: 'Global Rank', value: analytics?.rank ? `#${analytics.rank}` : '—', icon: Trophy, color: 'var(--indigo-400)', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
         ].map((s, i) => (
-          <Card key={i} className="p-5 flex flex-col justify-between hover:shadow-md transition-all hover:-translate-y-0.5">
+          <Card key={i} className="p-5 flex flex-col justify-between hover:shadow-md transition-all hover:-translate-y-0.5 bg-theme-surface border border-theme-border">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-theme-text3 font-semibold uppercase tracking-wider">{s.label}</span>
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${s.bg} ${s.border} border`}>
@@ -117,21 +117,21 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
       <div className="grid lg:grid-cols-12 gap-8">
         
         {/* Left Column: Daily Challenge & Recommended */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="lg:col-span-8 space-y-8 min-w-0">
           
           {/* 3. Today's Challenge */}
           <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
                   <Flame className="w-5 h-5" />
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-theme-text1">Daily Challenge</h2>
-                  <p className="text-xs text-theme-text2 font-medium">One focused problem. Build the habit.</p>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-theme-text1 truncate">Daily Challenge</h2>
+                  <p className="text-xs text-theme-text2 font-medium truncate">One focused problem. Build the habit.</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => onNavigate('daily')} className="text-theme-text2 hover:text-theme-text1 shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => onNavigate('daily')} className="text-theme-text2 hover:text-theme-text1 shrink-0 self-start sm:self-auto">
                 View Past <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
@@ -158,13 +158,13 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
 
           {/* 4. Recommended Practice */}
           <section className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-theme-text1">Recommended For You</h2>
-                <p className="text-xs text-theme-text2 font-medium">Based on your recent activity and weaknesses.</p>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-theme-text1 truncate">Recommended For You</h2>
+                <p className="text-xs text-theme-text2 font-medium truncate">Based on your recent activity and weaknesses.</p>
               </div>
             </div>
             
@@ -206,17 +206,17 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
         </div>
 
         {/* Right Column: Progress & Activity */}
-        <div className="lg:col-span-4 space-y-8">
+        <div className="lg:col-span-4 space-y-8 min-w-0">
           
           {/* 5. Learning Progress */}
           <section className="space-y-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="flex items-center gap-3 mb-4 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
                 <TrendingUp className="w-5 h-5" />
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-theme-text1">Library Progress</h2>
-                <p className="text-xs text-theme-text2 font-medium">Difficulty breakdown</p>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-theme-text1 truncate">Library Progress</h2>
+                <p className="text-xs text-theme-text2 font-medium truncate">Difficulty breakdown</p>
               </div>
             </div>
 
@@ -265,13 +265,13 @@ export default function UserDashboard({ user, onNavigate, onOpenChallenge }) {
 
           {/* 6. Recent Activity */}
           <section className="space-y-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <div className="flex items-center gap-3 mb-4 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
                 <Clock className="w-5 h-5" />
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-theme-text1">Recent Activity</h2>
-                <p className="text-xs text-theme-text2 font-medium">Your latest submissions</p>
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-theme-text1 truncate">Recent Activity</h2>
+                <p className="text-xs text-theme-text2 font-medium truncate">Your latest submissions</p>
               </div>
             </div>
 
