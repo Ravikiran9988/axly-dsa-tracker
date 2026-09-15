@@ -695,14 +695,23 @@ async function updateDailyChallengeStatus(id, status, scheduledDate = null) {
   }
   params.push(id);
 
+  // Design invariant:
+  //   dcm.status  → DC lifecycle (draft | scheduled | published | archived)
+  //   questions.status → canonical content status (draft | scheduled | published)
+  //                      NEVER set to 'archived'
+  //   questions.is_practice → practice availability (set to 1 on archive/expiry)
+  //
+  // When archiving: dcm becomes 'archived', question stays 'published', is_practice = 1
+  const questionStatus = status === 'archived' ? 'published' : status;
+
   await getRepo().transaction(async tx => {
     await tx.execute(
       `UPDATE daily_challenge_metadata SET ${updates.join(', ')} WHERE question_id = ?`,
       params
     );
     await tx.execute(
-      `UPDATE questions SET status = ? WHERE id = ?`,
-      [status, id]
+      `UPDATE questions SET status = ?${status === 'archived' ? ', is_practice = 1' : ''} WHERE id = ?`,
+      [questionStatus, id]
     );
   });
 
