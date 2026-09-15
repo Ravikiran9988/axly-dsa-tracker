@@ -119,13 +119,13 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
       q.description, q.problem_statement, q.constraints, q.input_format, q.output_format,
       q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points,
       q.assigned_date, q.due_date, q.status, q.supported_languages, q.starter_code,
+      q.is_practice, q.is_daily_challenge,
       t.name AS topic_name,
       a.id AS assignment_id, a.status AS assignment_status,
       s.id AS submission_id, s.status AS submission_status,
       s.review_status, s.feedback, s.attempted_at, s.solved_at,
       (SELECT COUNT(*) FROM assignments x WHERE x.question_id = q.id AND x.status != 'unassigned') AS active_assignees_count,
-      (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = q.id) AS total_test_cases_count,
-      q.is_daily_challenge
+      (SELECT COUNT(*) FROM test_cases tc WHERE tc.question_id = q.id) AS total_test_cases_count
     FROM (${combinedQuestionsQuery}) q
     LEFT JOIN topics t ON q.topic_id = t.id
     LEFT JOIN assignments a ON a.question_id = q.id AND a.user_id = ? AND a.status != 'unassigned'
@@ -433,7 +433,7 @@ async function updateQuestionStatus(id, status) {
   if (!existing) throw new AppError('Question not found', 404);
 
   await repo.execute(
-    'UPDATE questions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    'UPDATE questions SET status = ? WHERE id = ?',
     [status, id]
   );
 

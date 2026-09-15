@@ -276,8 +276,14 @@ async function updateSubmission({ submission_id, question_id, user_id, status })
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [id, user_id, question_id, status, attemptedAt, startedAt, solvedAt, now, now]);
 
-  if (!isPractice && ['solved', 'completed'].includes(status)) {
-    await awardSolve(user_id, question_id, startedAt);
+  if (['solved', 'completed'].includes(status)) {
+    if (isDaily) {
+      await awardDailyChallengeSolve(user_id, question_id, startedAt);
+    } else if (isPractice) {
+      await awardPracticeSolve(user_id, question_id);
+    } else {
+      await awardSolve(user_id, question_id, startedAt);
+    }
   }
 
   return repo.one('SELECT * FROM submissions WHERE id = ?', [id]);

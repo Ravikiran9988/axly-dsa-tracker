@@ -130,9 +130,13 @@ async function upsertDailyChallengeMetadata(questionId, { status, scheduledDate,
   }
 
   if (status) {
+    // Design invariant: questions.status is NEVER set to 'archived'.
+    // On archive: dcm → 'archived', question → 'published' + is_practice = 1
+    const questionStatus = status === 'archived' ? 'published' : status;
+    const extraSet = status === 'archived' ? ', is_practice = 1' : '';
     await getRepo().execute(
-      'UPDATE questions SET status = ? WHERE id = ?',
-      [status, questionId]
+      `UPDATE questions SET status = ?${extraSet} WHERE id = ?`,
+      [questionStatus, questionId]
     );
   }
 }
