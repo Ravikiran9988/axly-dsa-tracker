@@ -7,7 +7,8 @@ const {
   getAutomationLogs: fetchAutoLogs,
   runAdminAutoFillNow,
   runDailyScheduledAutomation,
-  runAutomationPipeline
+  runAutomationPipeline,
+  persistRunStatus
 } = require('../services/dailyChallengeAutomationService');
 const { getNextCanonicalUtcDate, getCanonicalUtcDate } = require('../utils/dateUtils');
 
@@ -73,7 +74,11 @@ async function runAutomationNow(req, res, next) {
     `, [new Date().toISOString()]);
 
     void runAdminAutoFillNow({ topic, difficulty, adminId })
-      .catch(err => console.error('❌ Background Daily Challenge automation failed:', err))
+      .catch(async (err) => {
+        console.error('❌ Background Daily Challenge automation failed:', err);
+        // Ensure the status is never left stuck as 'running' even on unexpected throws.
+        try { await persistRunStatus('failed'); } catch (_) {}
+      })
       .finally(() => { manualAutomationInFlight = false; });
 
     return res.status(202).json({

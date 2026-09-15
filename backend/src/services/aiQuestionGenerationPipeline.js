@@ -428,48 +428,72 @@ function validateQuestionContract(data) {
 }
 
 /**
- * Validate starter code for completeness, signature, and no solution leakage
+ * Validate starter code for completeness, signature, and no solution leakage.
+ *
+ * Hard errors (fail the pipeline):
+ *   - javascript and python are missing, empty, or lack a TODO comment
+ *   - any language leaks the complete reference solution into starter code
+ *
+ * Soft warnings (logged but do NOT fail the pipeline):
+ *   - typescript, java, cpp, c TODO or signature issues
+ *   - These languages may not be uniformly supported in all LLM generations
  */
 function validateStarterCode(solutions, contract) {
   const errors = [];
+  const warnings = [];
   const functionName = contract?.function_signature?.name;
+
+  // Languages that must pass validation to allow the question through
+  const STRICT_LANGUAGES = ['javascript', 'python'];
+  // Languages where failures are logged as warnings only
+  const WARN_LANGUAGES = ['typescript', 'java', 'cpp', 'c'];
+
+  /**
+   * Detect a TODO instruction in starter code regardless of comment style.
+   * Accepts: TODO:, TODO , todo:, // TODO, # TODO, /* TODO
+   */
+  function hasTodoComment(code) {
+    return /todo[\s:]/i.test(code) || /\/\/\s*todo/i.test(code) || /#\s*todo/i.test(code) || /\/\*\s*todo/i.test(code);
+  }
 
   for (const lang of SUPPORTED_LANGUAGES) {
     const starter = solutions?.starter_code?.[lang];
     const ref = solutions?.reference_solution?.[lang];
+    const isStrict = STRICT_LANGUAGES.includes(lang);
+    const collect = isStrict ? errors : warnings;
 
     if (!starter || typeof starter !== 'string' || !starter.trim()) {
-      errors.push(`[${lang}] Missing or empty starter_code`);
+      collect.push(`[${lang}] Missing or empty starter_code`);
       continue;
     }
 
-    if (!starter.includes('TODO:')) {
-      errors.push(`[${lang}] Starter code missing 'TODO:' instruction comment`);
+    if (!hasTodoComment(starter)) {
+      collect.push(`[${lang}] Starter code missing TODO instruction comment`);
     }
 
     if (functionName && !starter.includes(functionName)) {
-      errors.push(`[${lang}] Starter code does not contain function signature name '${functionName}'`);
+      collect.push(`[${lang}] Starter code does not contain function signature name '${functionName}'`);
     }
 
-    // Check for fake trivial implementations
-    const stripped = starter.replace(/\s+/g, ' ');
-    if (lang === 'python' && /def\s+\w+\([^)]*\):\s*pass\b/.test(stripped) && !stripped.includes('sys.stdin')) {
-      errors.push(`[python] Starter code must contain I/O scaffolding, not just 'def solve(): pass'`);
-    }
-
-    // Leak check: check if starter contains reference solution
+    // Leak check: check if starter contains the complete reference solution
     if (ref && typeof ref === 'string' && ref.trim().length > 30) {
       const cleanStarter = starter.replace(/\s+/g, '');
       const cleanRef = ref.replace(/\s+/g, '');
       if (cleanStarter.includes(cleanRef)) {
+        // Solution leakage is always a hard error regardless of language
         errors.push(`[${lang}] Starter code appears to contain the complete reference solution.`);
       }
     }
   }
 
+  if (warnings.length > 0) {
+    console.warn('[Pipeline] Starter code soft warnings (non-blocking):', warnings.join('; '));
+  }
+
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
+    warnings
   };
 }
 

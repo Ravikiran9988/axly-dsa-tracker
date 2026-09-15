@@ -88,32 +88,53 @@ async function runAdminAutoFillNow(options = {}) {
   let createdDraft = null;
   let failureReason = 'Unknown failure during AI synthesis';
   let failureCategory = 'UNKNOWN';
-  try {
-    const generated = await generateUniqueChallenge({ topic, difficulty, instructions: 'Create a genuinely original problem. Do not use a variant of an existing challenge.' });
-    createdDraft = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: null, created_via: 'ai_automation' }, adminId);
+  let finalStatus = 'failed';
 
-    // Required embedding/indexing — must succeed before the draft is considered usable
-    const indexResult = await noveltyService.indexAcceptedQuestion(createdDraft.id, createdDraft);
-    if (!indexResult || !indexResult.success) {
-      const indexReason = indexResult?.reason || 'unknown_indexing_failure';
-      failureReason = `Required embedding/indexing failed: ${indexReason}`;
-      failureCategory = 'INDEXING_FAILED';
+  try {
+    try {
+      const generated = await generateUniqueChallenge({ topic, difficulty, instructions: 'Create a genuinely original problem. Do not use a variant of an existing challenge.' });
+      createdDraft = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: null, created_via: 'ai_automation' }, adminId);
+
+      // Required embedding/indexing — must succeed before the draft is considered usable
+      const indexResult = await noveltyService.indexAcceptedQuestion(createdDraft.id, createdDraft);
+      if (!indexResult || !indexResult.success) {
+        const indexReason = indexResult?.reason || 'unknown_indexing_failure';
+        failureReason = `Required embedding/indexing failed: ${indexReason}`;
+        failureCategory = 'INDEXING_FAILED';
+        createdDraft = null;
+      }
+    } catch (err) {
+      failureReason = err.message || failureReason;
+      failureCategory = err.code || 'PIPELINE_ERROR';
       createdDraft = null;
     }
-  } catch (err) {
-    failureReason = err.message || failureReason;
-    failureCategory = err.code || 'PIPELINE_ERROR';
+
+    const logId = `auto-log-${uuidv4().slice(0, 8)}`;
+    const targetDate = getCanonicalIstDate();
+
+    if (createdDraft) {
+      finalStatus = 'success';
+      await getRepo().execute(
+        `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, 'manual_admin', 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`,
+        [logId, targetDate, createdDraft.id, `AI challenge "${createdDraft.title}" generated through the five-slot LLM fallback chain and saved as Draft.`]
+      );
+      return { success: true, status: 'success', attempts: 1, challenge: createdDraft, message: 'AI challenge generated successfully and saved as Draft.' };
+    }
+
+    await getRepo().execute(
+      `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at) VALUES (?, ?, 'manual_admin', 1, 'Failed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)`,
+      [logId, targetDate, failureCategory, `Admin Auto-Fill generation failed: ${failureReason}`]
+    );
+    return { success: false, status: 'failed', attempts: 1, error: failureReason, failure_category: failureCategory };
+  } finally {
+    // Always update the automation settings run status, even on unexpected throws.
+    // This prevents the UI from staying stuck in 'running' state indefinitely.
+    try {
+      await persistRunStatus(createdDraft ? 'success' : finalStatus);
+    } catch (persistErr) {
+      console.error('[DailyAutomation] Failed to persist run status in finally block:', persistErr.message);
+    }
   }
-  const logId = `auto-log-${uuidv4().slice(0, 8)}`;
-  const targetDate = getCanonicalIstDate();
-  if (createdDraft) {
-    await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, 'manual_admin', 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`, [logId, targetDate, createdDraft.id, `AI challenge "${createdDraft.title}" generated through the five-slot LLM fallback chain and saved as Draft.`]);
-    await persistRunStatus('success');
-    return { success: true, status: 'success', attempts: 1, challenge: createdDraft, message: 'AI challenge generated successfully and saved as Draft.' };
-  }
-  await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at) VALUES (?, ?, 'manual_admin', 1, 'Failed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)`, [logId, targetDate, failureCategory, `Admin Auto-Fill generation failed: ${failureReason}`]);
-  await persistRunStatus('failed');
-  return { success: false, status: 'failed', attempts: 1, error: failureReason, failure_category: failureCategory };
 }
 
 async function runDailyScheduledAutomation() {
@@ -315,5 +336,6 @@ module.exports = {
   runAutomationPipeline,
   startAutomationScheduler,
   stopAutomationScheduler,
-  toBooleanFlag
+  toBooleanFlag,
+  persistRunStatus
 };

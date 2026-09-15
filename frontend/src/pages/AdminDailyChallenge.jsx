@@ -159,7 +159,9 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
       if (res.success) {
         setActionSuccess(res.message || 'Auto-fill pipeline started in background. Waiting for completion...');
         
-        // Start polling for up to 60 seconds (since this is a background job)
+        // Poll every 5 seconds for up to 3 minutes.
+        // Full AI generation (contract + tests + 6-language solutions + embedding) can take 90-120s.
+        const POLL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
         const pollInterval = setInterval(async () => {
           await loadData();
           const statusRes = await loadAutomationStatus();
@@ -171,20 +173,21 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
                clearInterval(pollInterval);
                setIsRunningAutomation(false);
                if (currentStatus === 'success') {
-                  setActionSuccess('Auto-fill pipeline completed successfully!');
+                  setActionSuccess('Auto-fill pipeline completed successfully! A new Draft challenge has been created.');
                } else {
-                  setActionError('Pipeline finished with errors. Check logs.');
+                  setActionError('Pipeline finished with errors. Check automation logs for details.');
                }
-               setTimeout(() => setActionSuccess(null), 4000);
+               setTimeout(() => setActionSuccess(null), 5000);
                return;
             }
           }
           
-          // Timeout after 60s
-          if (new Date() - startTime > 60000) {
+          // Stop polling after 3 minutes — job may still complete in background
+          if (new Date() - startTime > POLL_TIMEOUT_MS) {
             clearInterval(pollInterval);
             setIsRunningAutomation(false);
-            setActionError('Pipeline is taking longer than expected. Check logs later.');
+            setActionSuccess('Generation is taking longer than expected. Check the Automation Logs in a minute to see the result.');
+            setTimeout(() => setActionSuccess(null), 8000);
           }
         }, 5000);
 
@@ -319,7 +322,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
       <AdminDailyChallengeModal isOpen={isCreateModalOpen || Boolean(editingChallenge)} onClose={() => { setIsCreateModalOpen(false); setEditingChallenge(null); }} challengeToEdit={editingChallenge} initialMode={createModalInitialMode} topics={topics} patterns={patterns} onSaved={loadData} />
       {schedulingChallenge && <AdminScheduleDailyModal isOpen={Boolean(schedulingChallenge)} onClose={() => setSchedulingChallenge(null)} challenge={schedulingChallenge} onScheduled={loadData} />}
       {previewChallenge && <AdminQuestionPreview itemId={previewChallenge.id} type="daily" onClose={() => setPreviewChallenge(null)} />}
-      {showLogsModal && <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/90 dark:bg-black/90 backdrop-blur-md animate-fade-in"><div className="bg-theme-surface w-full h-full max-w-full max-h-full overflow-y-auto custom-scrollbar p-6 sm:p-10 space-y-6"><div className="flex items-center justify-between pb-4 border-b border-theme-border"><div className="flex items-center gap-3"><Bot className="w-6 h-6 text-purple-400" /><h3 className="text-xl font-bold text-theme-text1">Daily Challenge Automation Logs</h3></div><button onClick={() => setShowLogsModal(false)} className="p-2 rounded-full hover:bg-theme-surface2 text-theme-text2 hover:text-theme-text1 transition-colors"><X className="w-6 h-6" /></button></div><div className="space-y-3 max-w-5xl mx-auto pt-4">{automationLogs.length === 0 ? <div className="py-12 text-center text-theme-text3 text-sm">No automation run logs found.</div> : automationLogs.map((log) => <div key={log.id} className="p-4 rounded-xl bg-theme-surface border border-theme-border text-sm flex items-start sm:items-center justify-between flex-col sm:flex-row gap-4"><div className="space-y-2"><div className="flex items-center flex-wrap gap-2"><span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase ${log.status === 'success' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : log.status === 'failed' ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-theme-text2 bg-theme-surface2'}`}>{log.status}</span><span className="font-mono text-cyan-400 font-bold">Target: {log.target_date}</span><span className="text-theme-text3 px-2">|</span><span className="text-theme-text3">Mode: {log.mode}</span>{log.attempt_count > 0 && <span className="text-theme-text2 px-2">| Attempts: {log.attempt_count}</span>}</div><p className="text-sm text-theme-text2 max-w-3xl leading-relaxed">{log.status === 'failed' ? (log.details || log.failure_category || 'Failed: Unknown reason') : log.details}</p></div><div className="text-xs text-theme-text3 font-mono shrink-0 bg-theme-surface2 px-3 py-1.5 rounded-lg border border-theme-border">{new Date(log.created_at.includes('Z') ? log.created_at : log.created_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}</div></div>)}</div></div></div>}
+      {showLogsModal && <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/90 dark:bg-black/90 backdrop-blur-md animate-fade-in"><div className="bg-theme-surface w-full h-full max-w-full max-h-full overflow-y-auto custom-scrollbar p-6 sm:p-10 space-y-6"><div className="flex items-center justify-between pb-4 border-b border-theme-border"><div className="flex items-center gap-3"><Bot className="w-6 h-6 text-purple-400" /><h3 className="text-xl font-bold text-theme-text1">Daily Challenge Automation Logs</h3></div><button onClick={() => setShowLogsModal(false)} className="p-2 rounded-full hover:bg-theme-surface2 text-theme-text2 hover:text-theme-text1 transition-colors"><X className="w-6 h-6" /></button></div><div className="space-y-3 max-w-5xl mx-auto pt-4">{automationLogs.length === 0 ? <div className="py-12 text-center text-theme-text3 text-sm">No automation run logs found.</div> : automationLogs.map((log) => <div key={log.id} className="p-4 rounded-xl bg-theme-surface border border-theme-border text-sm flex items-start sm:items-center justify-between flex-col sm:flex-row gap-4"><div className="space-y-2"><div className="flex items-center flex-wrap gap-2"><span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase ${log.status === 'success' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : log.status === 'failed' ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-theme-text2 bg-theme-surface2'}`}>{log.status}</span><span className="font-mono text-cyan-400 font-bold">Target: {log.target_date || log.target_slot || 'Manual Run'}</span><span className="text-theme-text3 px-2">|</span><span className="text-theme-text3">Mode: {log.mode || '—'}</span>{log.attempt_count > 0 && <span className="text-theme-text2 px-2">| Attempts: {log.attempt_count}</span>}</div><p className="text-sm text-theme-text2 max-w-3xl leading-relaxed">{log.status === 'failed' ? (log.details || log.failure_category || 'Failed: Unknown reason') : log.details}</p></div><div className="text-xs text-theme-text3 font-mono shrink-0 bg-theme-surface2 px-3 py-1.5 rounded-lg border border-theme-border">{new Date(log.created_at.includes('Z') ? log.created_at : log.created_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}</div></div>)}</div></div></div>}
       {deletingChallenge && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm animate-fade-in"><div className="bg-theme-surface border border-rose-500/30 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl"><div className="flex items-center gap-3 text-rose-400"><div className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20"><Trash2 className="w-5 h-5" /></div><div><h3 className="text-sm font-bold text-theme-text1">Delete Daily Challenge?</h3><p className="text-[11px] text-theme-text2">This action will permanently delete the problem and its test cases.</p></div></div><div className="p-3.5 rounded-xl bg-theme-surface border border-theme-border text-xs"><strong className="text-theme-text1">{deletingChallenge.title}</strong><div className="text-theme-text3 text-[11px] mt-0.5">{deletingChallenge.id} &middot; {deletingChallenge.difficulty}</div></div><div className="flex items-center justify-end gap-2 pt-2"><button onClick={() => setDeletingChallenge(null)} className="btn-secondary btn-sm text-xs">Cancel</button><button onClick={handleDeleteConfirm} className="btn-primary btn-sm text-xs bg-rose-600 hover:bg-rose-500 text-white font-bold">Confirm Delete</button></div></div></div>}
     </div>
   );
