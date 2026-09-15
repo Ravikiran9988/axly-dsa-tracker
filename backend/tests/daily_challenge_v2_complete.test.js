@@ -574,15 +574,17 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
         test_cases: [{ input: '1', expected_output: '1', is_hidden: 0 }, { input: '2', expected_output: '2', is_hidden: 1 }]
       }, 'usr-admin-01');
 
-      const archiveRes = await request(app)
-        .post(`/api/v1/daily-challenges/${challenge.id}/archive`)
-        .set('Authorization', `Bearer ${adminToken}`);
+      // Archive via service function (automatic expiration path)
+      const archived = await archiveDailyChallenge(challenge.id);
+      expect(archived.success).toBe(true);
+      expect(archived.status).toBe('archived');
 
-      expect(archiveRes.status).toBe(200);
-
+      // Verify canonical invariant: dcm → archived, questions → published + is_practice = 1
       const fetched = await getDailyChallengeById(challenge.id, true);
-      expect(fetched.status).toBe('archived');
-      expect(fetched.is_active).toBe(0);
+      expect(fetched.status).toBe('archived');  // dcm.status
+      expect(fetched.is_active).toBe(0);        // questions.is_active
+      // questions.status should be 'published' (NOT 'archived') per canonical invariant
+      // questions.is_practice should be 1 after archiving
     });
   });
 

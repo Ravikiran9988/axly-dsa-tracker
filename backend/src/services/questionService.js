@@ -219,6 +219,12 @@ async function createQuestion(input) {
     is_practice, generation_slot, created_via, topic, pattern
   } = input;
 
+  // Design invariant: questions.status is NEVER set to 'archived'.
+  // Archive is a daily_challenge_metadata lifecycle state, not a question status.
+  if (status === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
+
   let finalTopicId = topic_id || null;
   if (finalTopicId) {
     const existing = await repo.one('SELECT id FROM topics WHERE id = ?', [finalTopicId]);
@@ -330,6 +336,12 @@ async function updateQuestion(id, input) {
   const existing = await repo.one('SELECT id FROM questions WHERE id = ?', [id]);
   if (!existing) throw new AppError('Question not found', 404);
 
+  // Design invariant: questions.status is NEVER set to 'archived'.
+  // Archive is a daily_challenge_metadata lifecycle state, not a question status.
+  if (status === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
+
   if (title || slug) {
     const duplicate = await repo.one(
       'SELECT id FROM questions WHERE (LOWER(title) = LOWER(?) OR (slug IS NOT NULL AND slug = ?)) AND id != ? AND is_active = TRUE',
@@ -431,6 +443,12 @@ async function listTopics() {
 async function updateQuestionStatus(id, status) {
   const existing = await repo.one('SELECT id, status FROM questions WHERE id = ?', [id]);
   if (!existing) throw new AppError('Question not found', 404);
+
+  // Design invariant: questions.status is NEVER set to 'archived'.
+  // Archive is a daily_challenge_metadata lifecycle state, not a question status.
+  if (status === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
 
   await repo.execute(
     'UPDATE questions SET status = ? WHERE id = ?',

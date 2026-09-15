@@ -139,7 +139,7 @@ function initSchema() {
       points INTEGER DEFAULT 20,
       assigned_date TEXT,
       due_date TEXT,
-      status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'scheduled', 'published', 'archived')),
+      status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('draft', 'scheduled', 'published')),
       supported_languages TEXT DEFAULT '["python", "javascript", "java", "cpp", "c", "typescript"]',
       starter_code TEXT,
       reference_solution TEXT,

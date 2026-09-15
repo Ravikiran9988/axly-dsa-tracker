@@ -292,6 +292,12 @@ async function createDailyChallenge(data, admin_id) {
     topic, pattern
   } = data;
 
+  // Design invariant: questions.status is NEVER set to 'archived'.
+  // Archive is a daily_challenge_metadata lifecycle state, not a question status.
+  if (status === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
+
   if (!title || !String(title).trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
   if (!description || !String(description).trim()) throw new AppError('Description is required', 400, 'VALIDATION_ERROR', 'description');
 
@@ -412,6 +418,12 @@ async function createDailyChallenge(data, admin_id) {
 async function updateDailyChallenge(id, data, admin_id) {
   const meta = await getRepo().one('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [id]);
   if (!meta) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+
+  // Design invariant: questions.status is NEVER set to 'archived'.
+  // Archive is a daily_challenge_metadata lifecycle state, not a question status.
+  if (data.status === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
 
   const isPublished = meta.status === 'published';
 
@@ -730,5 +742,6 @@ module.exports = {
   publishNowDailyChallenge,
   unpublishDailyChallenge,
   deleteDailyChallenge,
+  archiveDailyChallenge,
   getTodayDailyChallenge
 };
