@@ -1,4 +1,5 @@
 const { getRepository } = require('../db/repositoryFactory');
+const { getCanonicalIstDate } = require('../utils/dateUtils');
 
 // Manual AI generation is asynchronous. Keep the database timestamp fresh while
 // the Node process is alive so a real long-running job is not mistaken for a
@@ -73,7 +74,7 @@ async function recoverStaleAutomationRun() {
       VALUES (?, ?, ?, 0, 'Failed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)
     `, [
       `auto-recovery-${Date.now()}`,
-      null,
+      getCanonicalIstDate(),
       'auto_fill',
       'STALE_RUN_RECOVERED',
       `Recovered a stale Daily Challenge automation run after ${Math.round(ageMs / 60000)} minutes without a heartbeat. The previous process likely terminated before persisting its final status.`
