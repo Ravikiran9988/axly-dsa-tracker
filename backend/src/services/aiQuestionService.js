@@ -443,11 +443,7 @@ async function validateGeneratedQuestionAsync(jsonString, timeoutSeconds = 30) {
     });
     return { valid: true, candidate };
   } catch (err) {
-    let reason = err.message;
-    if (reason.includes('failed verification')) {
-      reason = 'Sandbox verification failed: Reference solution resulted in Wrong Answer';
-    }
-    return { valid: false, reason };
+    return { valid: false, reason: err.message };
   }
 }
 

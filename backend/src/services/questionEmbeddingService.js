@@ -1,5 +1,6 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { createHash } = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 const { defaultProvider, normalizeVector, EMBEDDING_MODEL } = require('./embeddingService');
 
 /**
@@ -182,7 +183,7 @@ async function storeEmbedding(questionId, embedding, contentHash, options = {}) 
   }
   
   // Insert new embedding
-  const id = require('uuid').v4();
+  const id = uuidv4();
   await repo.execute(
     `INSERT INTO question_embeddings (id, question_id, embedding, content_hash, embedding_model, embedding_version)
      VALUES (?, ?, ?, ?, ?, ?)`,

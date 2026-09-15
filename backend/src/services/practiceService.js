@@ -221,7 +221,7 @@ async function recordPracticeSubmission({ user, questionId, submissionId, passed
 async function getPracticeProgress({ user }) {
   ensurePracticeSchema();
   const totalRow = await repo.one(
-    'SELECT COUNT(*) AS total FROM questions WHERE is_practice = TRUE AND is_active = TRUE'
+    "SELECT COUNT(*) AS total FROM questions WHERE is_practice = TRUE AND is_active = TRUE AND status != 'draft'"
   );
   const total = Number(totalRow?.total || 0);
 

@@ -174,15 +174,30 @@ async function classifyCandidate(candidateData, options = {}) {
     const maxSimilarity = similarQuestions[0].similarity;
     
     if (maxSimilarity >= duplicateThreshold) {
+      const topTitle = String(similarQuestions[0].title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const candTitle = String(candidateData.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const isTitleMatch = !candTitle || !topTitle || candTitle === topTitle;
+
+      if (isTitleMatch) {
+        return {
+          classification: 'DUPLICATE',
+          maxSimilarity,
+          similarQuestions: similarQuestions.filter(q => q.similarity >= duplicateThreshold),
+          reason: `Semantic duplicate detected (similarity: ${maxSimilarity}). Most similar: "${similarQuestions[0].title}"`,
+          embeddingAvailable: true
+        };
+      }
+
+      // If titles differ, treat as BORDERLINE so downstream structural checks evaluate material equivalence
       return {
-        classification: 'DUPLICATE',
+        classification: 'BORDERLINE',
         maxSimilarity,
-        similarQuestions: similarQuestions.filter(q => q.similarity >= duplicateThreshold),
-        reason: `Semantic duplicate detected (similarity: ${maxSimilarity}). Most similar: "${similarQuestions[0].title}"`,
+        similarQuestions: similarQuestions.filter(q => q.similarity >= borderlineThreshold),
+        reason: `Borderline similarity (similarity: ${maxSimilarity}). May need structural validation. Similar: "${similarQuestions[0].title}"`,
         embeddingAvailable: true
       };
     }
-    
+
     if (maxSimilarity >= borderlineThreshold) {
       return {
         classification: 'BORDERLINE',

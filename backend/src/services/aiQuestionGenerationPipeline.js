@@ -70,7 +70,7 @@ const STOP_WORDS = new Set([
   'constraints', 'integers', 'integer', 'elements', 'element', 'two', 'three', 'four',
   'pair', 'pairs', 'first', 'second', 'third', 'equal', 'equals', 'large', 'small',
   'numbers', 'number', 'k', 'n', 'such', 'that',
-  'problem', 'challenge', 'algorithm', 'function', 'solution'
+  'problem', 'challenge', 'algorithm', 'function', 'solution', 'mock', 'mocked', 'generate', 'generated', 'test'
 ]);
 
 const GENERIC_DSA_TERMS = new Set([
@@ -102,7 +102,7 @@ function extractProblemConcept(title, description = '') {
   const cleanTitle = stripVariantIdentifiers(title || '');
   const combined = `${cleanTitle} ${description || ''}`.toLowerCase();
   const words = combined
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[^a-z0-9_\s]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 2 && !STOP_WORDS.has(w));
 
@@ -275,9 +275,13 @@ async function checkDuplicateProblem(candidate, description = '', excludeId = nu
       };
     }
 
-    // Layer 3b: Substring containment (if >= 3 words)
-    if (cleanTitle.split(/\s+/).length >= 3 && existingCleanTitle.split(/\s+/).length >= 3) {
-      if (normTitle.includes(existingNormTitle) || existingNormTitle.includes(normTitle)) {
+    // Layer 3b: Substring / Root Concept containment (word-boundary matched)
+    const wordsCandidate = cleanTitle.toLowerCase().split(/\s+/).filter(w => !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+    const wordsExisting = existingCleanTitle.toLowerCase().split(/\s+/).filter(w => !STOP_WORDS.has(w) && !/^\d+$/.test(w));
+    if (wordsCandidate.length >= 2 && wordsExisting.length >= 2) {
+      const candStr = wordsCandidate.join(' ');
+      const existStr = wordsExisting.join(' ');
+      if (candStr === existStr || existStr.startsWith(candStr + ' ') || candStr.startsWith(existStr + ' ')) {
         return {
           isDuplicate: true,
           reason: `Root algorithmic concept overlaps with Daily Challenge "${c.title}".`,
