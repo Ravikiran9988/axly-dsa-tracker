@@ -526,15 +526,37 @@ async function archiveDailyChallenge(id) {
   return { success: true, status: 'archived', message: 'Daily challenge archived' };
 }
 
-async function deleteDailyChallenge(id) {
+async function deleteDailyChallenge(id, permanent = false) {
   const meta = await getRepo().one('SELECT question_id FROM daily_challenge_metadata WHERE question_id = ?', [id]);
-  if (!meta) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+  const q = await getRepo().one('SELECT id, is_practice FROM questions WHERE id = ?', [id]);
+  if (!meta && !q) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
   await getRepo().transaction(async tx => {
-    // We only delete the metadata. The canonical question STAYS! That's the architecture!
-    await tx.execute('DELETE FROM daily_challenge_metadata WHERE question_id = ?', [id]);
+    if (meta) {
+      await tx.execute('DELETE FROM daily_challenge_metadata WHERE question_id = ?', [id]);
+    }
+    // Safeguard automation log foreign key references
+    await tx.execute('UPDATE daily_challenge_automation_logs SET question_id = NULL WHERE question_id = ?', [id]);
+    await tx.execute('UPDATE question_bank_automation_logs SET question_id = NULL WHERE question_id = ?', [id]);
+
+    const isExclusiveDaily = !q || q.is_practice === 0 || q.is_practice === false;
+    if (isExclusiveDaily || permanent) {
+      const safeDelete = async (table) => {
+        try {
+          await tx.execute(`DELETE FROM ${table} WHERE question_id = ?`, [id]);
+        } catch (_) {}
+      };
+      await safeDelete('test_cases');
+      await safeDelete('question_embeddings');
+      await safeDelete('submissions');
+      await safeDelete('code_submissions_log');
+      await safeDelete('practice_progress');
+      await safeDelete('assignments');
+      await safeDelete('question_versions');
+      await tx.execute('DELETE FROM questions WHERE id = ?', [id]);
+    }
   });
-  return { success: true, message: `Daily challenge unlinked successfully` };
+  return { success: true, message: 'Daily challenge deleted successfully' };
 }
 
 async function getTodayDailyChallenge(user = null, targetDate = null) {
