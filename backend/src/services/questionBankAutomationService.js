@@ -115,7 +115,7 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
       instructions: 'Create a genuinely original algorithm problem for the practice library.',
       destination: 'question_bank',
       generation_slot: slot,
-      skipSandbox: true
+      skipSandbox: false
     });
 
     if (!result || !result.success || !result.data) {

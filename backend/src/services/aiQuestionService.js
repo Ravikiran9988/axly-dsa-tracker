@@ -442,6 +442,7 @@ async function validateAllSolutions(contract, testCases, solutions) {
     }
 
     // ── Starter code sandbox ─────────────────────────────────────────────────
+    // Starter code sandbox is the publishability gate.
     try {
       const starterExec = await executeCode({
         language: lang,
@@ -467,31 +468,7 @@ async function validateAllSolutions(contract, testCases, solutions) {
     }
 
     // ── Reference solution sandbox ────────────────────────────────────────────
-    try {
-      const refExec = await executeCode({
-        language: lang,
-        sourceCode: ref,
-        testCases: unhiddenTestCases,
-        isSubmit: false
-      });
-
-      if (refExec.status === 'Compiler Missing') {
-        console.warn(`[${lang}] Skipping reference solution validation: Compiler/runtime missing in environment.`);
-      } else if (refExec.status !== 'Accepted') {
-        const failingTest = refExec.results?.find(r => r.status !== 'Passed');
-        const errorMsg = failingTest
-          ? `Status: ${failingTest.status} on test ${failingTest.test_index}. Input: ${failingTest.input}, Expected: ${failingTest.expected_output}, Actual: ${failingTest.actual_output}, Stderr: ${failingTest.stderr || 'None'}`
-          : refExec.status;
-        // TypeScript-specific syntax errors → warning only
-        if (lang === 'typescript' && /ERR_INVALID_TYPESCRIPT_SYNTAX|SyntaxError/i.test(errorMsg)) {
-          warnings.push(`[typescript] Skipping ref solution validation: Node.js TS stripping failed`);
-        } else {
-          collect.push(`[${lang}] Reference solution failed verification. ${errorMsg}`);
-        }
-      }
-    } catch (err) {
-      collect.push(`[${lang}] Reference solution execution service error: ${err.message}`);
-    }
+    // Reference solutions are not sandbox-executed by product rule.
   }
 
   if (warnings.length > 0) {

@@ -210,7 +210,7 @@ describe('Unified AI Question Generation Pipeline', () => {
       .rejects.toThrow(/\[javascript\] Starter code does not contain the function signature name 'solve'/);
   }, 10000);
 
-  it('fails validation if sandbox execution is not Accepted', async () => {
+  it('fails validation if starter code fails to compile', async () => {
     const mockOutput = {
       title: 'Mocked Question Title',
       description: 'Mocked description.',
@@ -218,35 +218,37 @@ describe('Unified AI Question Generation Pipeline', () => {
       input_format: 'Number N',
       output_format: 'Number result',
       examples: [{ input: '1', expected_output: '1', explanation: 'Base case' }],
-      solution_approach: 'Use DP.',
-      complexity: 'Time O(N), Space O(N)',
-      test_cases: [
-        { input: '1', expected_output: '1', is_hidden: false },
-        { input: '2', expected_output: '2', is_hidden: false }
-      ],
-      time_limit_ms: 2000,
-      memory_limit_mb: 256,
+      topic: 'Arrays',
+      difficulty: 'medium',
+      pattern: 'Appropriate for topic',
       function_signature: {
         name: 'solve',
         params: [{ name: 'N', type: 'integer' }],
         return_type: 'integer'
       },
+      test_cases: [
+        { input: '1', expected_output: '1', is_hidden: false },
+        { input: '2', expected_output: '2', is_hidden: true }
+      ],
       starter_code: {
         javascript: 'function solve() { // TODO: }',
-        typescript: 'function solve() { // TODO: }',
-        python: 'def solve():\\n    # TODO:\\n    pass',
-        java: 'class Main { public static int solve(int N) { // TODO:\\nreturn 0; } }',
-        cpp: 'int solve(int N) { // TODO:\\nreturn 0; }\\nint main() {}',
-        c: 'int solve(int N) { // TODO:\\nreturn 0; }\\nint main() {}'
+        python: 'def solve():\n    # TODO:\n    pass',
+        java: 'class Main { public static int solve(int N) { // TODO:\nreturn 0; } }',
+        cpp: 'int solve(int N) { // TODO:\nreturn 0; }\nint main() {}',
+        c: 'int solve(int N) { // TODO:\nreturn 0; }\nint main() {}',
+        typescript: 'function solve() { // TODO: }'
       },
       reference_solution: {
         javascript: 'function solve() { return 1; }',
-        typescript: 'function solve(): number { return 1; }',
         python: 'def solve(): return 1',
         java: 'class Main { public static int solve(int N) { return 1; } }',
         cpp: 'int solve(int N) { return 1; }',
-        c: 'int solve(int N) { return 1; }'
+        c: 'int solve(int N) { return 1; }',
+        typescript: 'function solve(): number { return 1; }'
       },
+      solution_approach: 'Use DP.',
+      editorial: 'Use DP.',
+      complexity: 'Time O(N), Space O(N)',
       hints: []
     };
 
@@ -255,10 +257,10 @@ describe('Unified AI Question Generation Pipeline', () => {
       text: JSON.stringify(mockOutput)
     });
 
-    executeCode.mockResolvedValue({ status: 'Wrong Answer' });
+    executeCode.mockResolvedValue({ status: 'Compile Error', results: [{ stderr: 'Syntax Error' }] });
 
     await expect(generateCanonicalQuestion({ topic: 'Arrays', difficulty: 'Medium', destination: 'ai_preview' }))
-      .rejects.toThrow(/\[javascript\] Reference solution failed verification/);
+      .rejects.toThrow(/\[javascript\] Starter code failed to compile/);
   }, 10000);
 
   it('fails validation if reference solution is leaked in starter code', async () => {

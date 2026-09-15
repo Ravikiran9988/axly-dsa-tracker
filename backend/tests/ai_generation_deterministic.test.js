@@ -39,17 +39,16 @@ describe('AI Generation Deterministic Validations', () => {
     expect(result.reason).toContain('INVALID_GENERATION: Solution leakage detected');
   });
   
-  it('should fail sandbox verification if reference solution is wrong', async () => {
+  it('should pass sandbox verification even if reference solution logic is broken', async () => {
     const template = getTemplate('Arrays', 'Easy');
     const brokenTemplate = {
       ...template,
       reference_solution: {
         ...template.reference_solution,
-        python: 'def sumEven(nums): return sum(nums)' // Incorrect, sum of all nums, not even nums
+        python: 'def sumEven(nums): return sum(nums)' // Incorrect logic
       }
     };
     const result = await validateGeneratedQuestionAsync(JSON.stringify(brokenTemplate), 4);
-    expect(result.valid).toBe(false);
-    expect(result.reason).toContain('Reference solution failed verification. Status: Wrong Answer');
+    expect(result.valid).toBe(true); // Should pass since reference solutions are not executed
   });
 });

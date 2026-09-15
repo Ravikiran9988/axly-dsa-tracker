@@ -26,20 +26,18 @@ describe('AI Question Strict Validation Pipeline', () => {
     }
   });
 
-  it('rejects Python missing import (NameError)', async () => {
+  it('Reference solution Runtime/NameError does NOT block generation', async () => {
     const contract = getBaseContract();
     contract.reference_solution.python = 'def twoSum(nums, target):\n    return math.sqrt(4)'; 
     const res = await validateGeneratedQuestionAsync(JSON.stringify(contract));
-    expect(res.valid).toBe(false);
-    expect(res.reason).toMatch(/Sandbox verification failed|Reference solution failed verification/);
+    expect(res.valid).toBe(true); // Should pass because ref solution is not executed
   });
 
-  it('rejects JavaScript syntax error', async () => {
+  it('Reference solution JavaScript syntax error does NOT block generation', async () => {
     const contract = getBaseContract();
     contract.reference_solution.javascript = 'function twoSum(nums, target) { return 0;';
     const res = await validateGeneratedQuestionAsync(JSON.stringify(contract));
-    expect(res.valid).toBe(false);
-    expect(res.reason).toMatch(/Reference solution failed verification|Compile Error|Runtime Error/);
+    expect(res.valid).toBe(true); // Should pass
   });
 
   it('rejects starter code missing TODO instruction', async () => {
@@ -50,12 +48,19 @@ describe('AI Question Strict Validation Pipeline', () => {
     expect(res.reason).toContain('Starter code missing TODO instruction');
   });
 
-  it('rejects logic failing test cases', async () => {
+  it('Reference solution logic failing test cases (Wrong Answer) does NOT block generation', async () => {
     const contract = getBaseContract();
     contract.reference_solution.javascript = 'function twoSum(nums, target) { return [0, 1]; }';
     const res = await validateGeneratedQuestionAsync(JSON.stringify(contract));
+    expect(res.valid).toBe(true); // Should pass
+  });
+
+  it('rejects starter code compile/syntax error (Blocks generation)', async () => {
+    const contract = getBaseContract();
+    contract.starter_code.javascript = 'function twoSum(nums, target) { \n  // TODO: implement\n return 0;';
+    const res = await validateGeneratedQuestionAsync(JSON.stringify(contract));
     expect(res.valid).toBe(false);
-    expect(res.reason).toMatch(/Sandbox verification failed|Reference solution failed verification/);
+    expect(res.reason).toMatch(/Starter code failed to compile|Starter code Runtime Error/);
   });
 });
 
