@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app');
 const { generateTestToken } = require('../src/middleware/auth');
+const authUserRepository = require('../src/db/authUserRepository');
 const { getRepository } = require('../src/db/repositoryFactory');
 const {
   createDailyChallenge,
@@ -18,9 +19,22 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
   beforeAll(async () => {
     repo = getRepository();
 
+    // authenticate() resolves the role from the persisted user record rather than
+    // trusting the role claim in the JWT. Provision the test identity explicitly so
+    // this suite exercises the real admin authorization path in CI as well as locally.
+    const adminId = 'eba97636-6160-4787-bb23-2db2d4081f4f';
+    const adminEmail = 'medicharlaravikiran88@gmail.com';
+    await authUserRepository.provisionUser({
+      id: adminId,
+      email: adminEmail,
+      name: 'Admin',
+      email_verified: true
+    });
+    await repo.execute('UPDATE users SET role = ? WHERE id = ?', ['admin', adminId]);
+
     adminToken = generateTestToken({
-      id: 'eba97636-6160-4787-bb23-2db2d4081f4f',
-      email: 'medicharlaravikiran88@gmail.com',
+      id: adminId,
+      email: adminEmail,
       name: 'Admin',
       role: 'admin'
     });
@@ -288,8 +302,8 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
   afterAll(async () => {
     const testSlugs = [
       'canonical-draft-sync-test',
-      'canonical-schedule-sync-test',
-      'canonical-publish-sync-test',
+      'canonical-scheduled-sync-test',
+      'canonical-published-sync-test',
       'canonical-expiry-sync-test',
       'admin-listing-draft-verification',
       'student-isolation-draft',
