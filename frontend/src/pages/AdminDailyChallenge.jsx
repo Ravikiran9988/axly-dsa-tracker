@@ -178,7 +178,13 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
           pollRef.current = null;
           setIsRunningAutomation(false);
           if (currentStatus === 'success') {
-            setActionSuccess('Auto-fill pipeline completed successfully!');
+            const latestLog = (statusRes.recent_logs || [])[0];
+            const details = latestLog?.details || '';
+            if (details.includes('already scheduled')) {
+              setActionSuccess("Tomorrow's challenge is already scheduled. A new Auto-Fill candidate was generated as Draft for review.");
+            } else {
+              setActionSuccess("Auto-fill generated and scheduled tomorrow's Daily Challenge successfully.");
+            }
           } else {
             setActionError('Pipeline finished with errors. Check automation logs for details.');
           }
@@ -254,8 +260,26 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
 
       <div className="p-5 rounded-3xl bg-theme-surface border border-purple-500/30 space-y-4 backdrop-blur-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-theme-border min-w-0">
-          <div className="flex items-center gap-2.5 min-w-0"><div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 shrink-0"><Bot className="w-4 h-4" /></div><div className="min-w-0"><div className="flex items-center gap-2"><h3 className="text-sm font-bold text-theme-text1 truncate">DAILY CHALLENGE AUTOMATION</h3><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase shrink-0 ${automationSettings.is_enabled ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-theme-surface2 text-theme-text2'}`}>{automationSettings.is_enabled ? 'Enabled' : 'Disabled'}</span></div><p className="text-[11px] text-theme-text2 truncate">Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare tomorrow's challenge ({automationMeta.next_target_date || 'Next UTC Day'})</p></div></div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0"><button id="btn-run-autofill-now" onClick={handleRunAutoFillNow} disabled={isRunningAutomation} className="btn-primary btn-sm inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shrink-0">{isRunningAutomation ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Running Pipeline...</span></> : <><Play className="w-3.5 h-3.5 fill-current" /><span>Run Auto-Fill Now</span></>}</button><button id="btn-admin-automation-logs" onClick={() => setShowLogsModal(true)} className="btn-secondary btn-sm text-xs text-theme-text2 hover:text-theme-text1 shrink-0">Logs ({automationLogs.length})</button></div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 shrink-0"><Bot className="w-4 h-4" /></div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-theme-text1 truncate">DAILY CHALLENGE AUTOMATION</h3>
+                <button
+                  onClick={handleToggleAutomationEnabled}
+                  title={automationSettings.is_enabled ? "Click to Disable AI Automation" : "Click to Enable AI Automation"}
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase shrink-0 cursor-pointer transition-all hover:opacity-80 active:scale-95 ${automationSettings.is_enabled ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'}`}
+                >
+                  {automationSettings.is_enabled ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+              <p className="text-[11px] text-theme-text2 truncate">Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare tomorrow's challenge ({automationMeta.next_target_date || 'Next UTC Day'})</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button id="btn-run-autofill-now" onClick={handleRunAutoFillNow} disabled={isRunningAutomation} className="btn-primary btn-sm inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shrink-0">{isRunningAutomation ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Running Pipeline...</span></> : <><Play className="w-3.5 h-3.5 fill-current" /><span>Run Auto-Fill Now</span></>}</button>
+            <button id="btn-admin-automation-logs" onClick={() => setShowLogsModal(true)} className="btn-secondary btn-sm text-xs text-theme-text2 hover:text-theme-text1 shrink-0">Logs ({automationLogs.length})</button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
@@ -267,8 +291,31 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border space-y-1 font-mono"><div className="text-[10px] text-theme-text2 uppercase">Timing & Target Date</div><div className="text-theme-text1 font-bold">00:00 UTC &rarr; Next Day</div><div className="text-[11px] text-cyan-400">Target: {automationMeta.next_target_date || 'Tomorrow (UTC)'}</div></div>
-          <div className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border space-y-1 font-mono"><div className="text-[10px] text-theme-text2 uppercase">Last Execution Status</div><div className="flex items-center gap-2"><span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${automationSettings.last_run_status === 'success' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : automationSettings.last_run_status === 'failed' ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-theme-text2 bg-theme-surface2'}`}>{automationSettings.last_run_status || 'Never Run'}</span><span className="text-[10px] text-theme-text3">{automationSettings.last_run_at ? new Date(automationSettings.last_run_at).toLocaleTimeString() : ''}</span></div><div className="text-[10px] text-theme-text3">Retry limit: {automationSettings.retry_limit || 3} attempts</div></div>
+          <div className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border space-y-1 font-mono">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] text-theme-text2 uppercase">Timing & Target Date</div>
+              <button
+                id="btn-toggle-dc-power"
+                onClick={handleToggleAutomationEnabled}
+                className="text-xs text-purple-400 hover:text-purple-300 font-sans font-medium transition-colors cursor-pointer"
+              >
+                Toggle Power
+              </button>
+            </div>
+            <div className="text-theme-text1 font-bold pt-0.5">12:30 AM IST &rarr; Next Day</div>
+            <div className="text-[11px] text-cyan-400">Target: {automationMeta.next_target_date || 'Next Day (IST)'}</div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-theme-surface border border-theme-border space-y-1 font-mono">
+            <div className="text-[10px] text-theme-text2 uppercase">Last Execution Status</div>
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${automationSettings.last_run_status === 'success' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : automationSettings.last_run_status === 'failed' ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-theme-text2 bg-theme-surface2'}`}>
+                {automationSettings.last_run_status || 'Never Run'}
+              </span>
+              <span className="text-[10px] text-theme-text3">{automationSettings.last_run_at ? new Date(automationSettings.last_run_at).toLocaleTimeString() : ''}</span>
+            </div>
+            <div className="text-[10px] text-theme-text3">Retry limit: {automationSettings.retry_limit || 3} attempts</div>
+          </div>
         </div>
       </div>
 

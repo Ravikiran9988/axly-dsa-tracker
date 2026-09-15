@@ -567,31 +567,37 @@ describe('Centralized AI Question Generation Pipeline', () => {
     expect(list.data[0].title).toBe('Practice Binary Search');
   });
 
-  // ── Auto-Fill Lifecycle: Existing Question Reuse vs New Generation ────────
+  // ── Auto-Fill Lifecycle: Tomorrow Scheduled vs Not Scheduled ──────────────
 
-  // CASE A: Existing suitable question → no generation, DRAFT, no duplicate
-  test('CASE A: Auto-Fill with existing suitable question reuses it without generating', async () => {
+  // CASE A: Tomorrow already scheduled → generate NEW question → DRAFT
+  test('CASE A: Auto-Fill when tomorrow already scheduled generates NEW question as Draft', async () => {
     const aiQuestionService = require('../src/services/aiQuestionService');
-    const spyContract = jest.spyOn(aiQuestionService, 'generateContract');
+    const spyContract = jest.spyOn(aiQuestionService, 'generateContract').mockResolvedValue(validContract);
+    const spyTests = jest.spyOn(aiQuestionService, 'generateTestCasesForContract').mockResolvedValue(validTestCases);
+    const spySolutions = jest.spyOn(aiQuestionService, 'generateSolutionsForContract').mockResolvedValue(validSolutions);
+    const spyHints = jest.spyOn(aiQuestionService, 'generateHintsForContract').mockResolvedValue(validHints);
 
-    // 1. Insert a practice question directly into the mock DB (avoids service-layer mocking complexity)
-    const existingId = `q-reuse-${Date.now()}`;
+    // 1. Insert a scheduled challenge for tomorrow
+    const { getNextCanonicalIstDate } = require('../src/utils/dateUtils');
+    const tomorrowDate = getNextCanonicalIstDate();
+    const existingId = `q-scheduled-${Date.now()}`;
     mockTestDb.prepare(`
       INSERT INTO questions (id, title, slug, difficulty, url, description, problem_statement,
         constraints, input_format, output_format, example_input, example_output, examples,
         hints, tags, estimated_time, points, status, supported_languages,
         starter_code, reference_solution, is_active, is_practice, created_via)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 'manual')
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 'manual')
     `).run(
-      existingId, 'Reusable Two Pointer Sum', 'reusable-two-pointer-sum', 'medium',
-      'https://test.com', 'Find two numbers in a sorted array that add up to a target using two pointers.',
-      'Find two numbers.', '2 <= nums.length <= 10^4', 'Input format', 'Output format',
+      existingId, 'Already Scheduled Challenge', 'already-scheduled-challenge', 'medium',
+      'https://test.com', 'A challenge already scheduled for tomorrow.',
+      'Already scheduled.', '2 <= n <= 10^4', 'Input format', 'Output format',
       '1', '1', '[]', '[]', '[]', '30 mins', 100, 'published', '["javascript","python"]',
       JSON.stringify(validSolutions.starter_code), JSON.stringify(validSolutions.reference_solution)
     );
-    mockTestDb.prepare('INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden) VALUES (?, ?, ?, ?, ?)').run(`tc-reuse-${Date.now()}`, existingId, '1', '1', 0);
+    mockTestDb.prepare('INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden) VALUES (?, ?, ?, ?, ?)').run(`tc-scheduled-${Date.now()}`, existingId, '1', '1', 0);
+    mockTestDb.prepare(`INSERT INTO daily_challenge_metadata (question_id, scheduled_date, status, created_via) VALUES (?, ?, 'scheduled', 'manual')`).run(existingId, tomorrowDate);
 
-    // 2. Run admin auto-fill — should find the existing question
+    // 2. Run admin auto-fill — tomorrow is scheduled, so should generate NEW as DRAFT
     const result = await dcAutomationService.runAdminAutoFillNow({
       adminId: 'usr-admin-01',
       difficulty: 'medium',
@@ -599,25 +605,28 @@ describe('Centralized AI Question Generation Pipeline', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.usedExisting).toBe(true);
-    expect(result.challenge.id).toBe(existingId);
+    expect(result.resultType).toBe('GENERATED_AS_DRAFT');
+    expect(result.challenge.id).not.toBe(existingId);
 
-    // 3. Verify AI generator was NOT called
-    expect(spyContract).not.toHaveBeenCalled();
+    // 3. Verify AI generator WAS called (new question generated)
+    expect(spyContract).toHaveBeenCalled();
 
-    // 4. Verify status = draft (existing question found → admin review required)
-    const meta = mockTestDb.prepare('SELECT status, created_via FROM daily_challenge_metadata WHERE question_id = ?').get(existingId);
+    // 4. Verify new question status = draft, scheduled_date = null
+    const meta = mockTestDb.prepare('SELECT status, scheduled_date, created_via FROM daily_challenge_metadata WHERE question_id = ?').get(result.challenge.id);
     expect(meta.status).toBe('draft');
+    expect(meta.scheduled_date).toBeNull();
     expect(meta.created_via).toBe('ai_automation');
 
-    // 5. Verify no duplicate question was created
-    const questionCount = mockTestDb.prepare('SELECT COUNT(*) as c FROM questions').get();
-    expect(questionCount.c).toBe(1);
+    // 5. Verify existing scheduled challenge is unchanged
+    const existingMeta = mockTestDb.prepare('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?').get(existingId);
+    expect(existingMeta.status).toBe('scheduled');
+    expect(existingMeta.scheduled_date).toBe(tomorrowDate);
 
-    // 6. Verify automation log mode = auto_fill
-    const log = mockTestDb.prepare('SELECT mode, status FROM daily_challenge_automation_logs ORDER BY created_at DESC LIMIT 1').get();
+    // 6. Verify automation log
+    const log = mockTestDb.prepare('SELECT mode, status, details FROM daily_challenge_automation_logs ORDER BY created_at DESC LIMIT 1').get();
     expect(log.mode).toBe('auto_fill');
     expect(log.status).toBe('success');
+    expect(log.details).toContain('already scheduled');
   });
 
   // CASE B: No suitable question → generate new, SCHEDULED, target date = tomorrow
@@ -636,7 +645,7 @@ describe('Centralized AI Question Generation Pipeline', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.usedExisting).toBe(false);
+    expect(result.resultType).toBe('GENERATED_AND_SCHEDULED');
     expect(result.challenge).toBeDefined();
 
     // 2. Verify AI generator WAS called

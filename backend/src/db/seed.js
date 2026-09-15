@@ -1,5 +1,6 @@
 const { db } = require('./db');
 const { v4: uuidv4 } = require('uuid');
+const { getCanonicalIstDate, getNextCanonicalIstDate } = require('../utils/dateUtils');
 
 function seedDatabase() {
   const fs = require('fs');
@@ -1158,9 +1159,10 @@ print(find_median(nums1, nums2))`
     insertNotif.run(n.id, n.user_id, n.title, n.message, n.category, n.type, n.link, n.is_read, n.created_at);
   }
   // Dedicated Daily Challenge Problems (Independent from Practice bank)
-  const todayUtc = new Date().toISOString().split('T')[0];
-  const tomorrowUtc = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  const yesterdayUtc = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  // All dates use Asia/Kolkata (IST) canonical timezone via dateUtils
+  const todayUtc = getCanonicalIstDate();
+  const tomorrowUtc = getNextCanonicalIstDate();
+  const yesterdayUtc = getCanonicalIstDate(new Date(Date.now() - 86400000));
 
   const dailyChallenges = [
     {

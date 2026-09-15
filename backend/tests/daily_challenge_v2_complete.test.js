@@ -447,7 +447,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
   describe('6. Automation Pipeline: Workflow A (Admin) vs Workflow B (00:00 UTC Scheduled)', () => {
     const testTomorrow = getNextCanonicalUtcDate();
 
-    test('6.1 Test A & E: Existing challenge + manual Run Auto-Fill creates new Draft with scheduled_date = null and leaves existing challenge unchanged', async () => {
+    test('6.1 Test A & E: Existing scheduled challenge + manual Run Auto-Fill generates NEW Draft and leaves existing unchanged', async () => {
       // Create Challenge A for tomorrow
       db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
       db.prepare("DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?").run(testTomorrow);
@@ -472,13 +472,13 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
 
       expect(adminRes.success).toBe(true);
       expect(adminRes.status).toBe('success');
-      expect(adminRes.message).toBe('Existing suitable question found and saved as Draft for admin review.');
+      expect(adminRes.resultType).toBe('GENERATED_AS_DRAFT');
+      expect(adminRes.message).toContain('already scheduled');
       expect(adminRes.challenge).toBeDefined();
       expect(adminRes.challenge.id).not.toBe(challengeA.id);
       expect(adminRes.challenge.status).toBe('draft');
-      expect(adminRes.challenge.created_via).toBe('ai_automation');
+      expect(adminRes.challenge.created_via).toBe('ai');
       expect(adminRes.challenge.scheduled_date).toBeNull();
-      expect(adminRes.usedExisting).toBe(true);
 
       // Verify Challenge A remains unchanged
       const freshChallengeA = await getDailyChallengeById(challengeA.id, true);
@@ -486,14 +486,19 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       expect(freshChallengeA.scheduled_date).toBe(testTomorrow);
     }, 25000);
 
-    test('6.2 Test B: No existing challenge + manual Run Auto-Fill creates new Draft', async () => {
+    test('6.2 Test B: No existing scheduled challenge + manual Run Auto-Fill generates and schedules', async () => {
+      // Clear tomorrow to ensure no scheduled challenge
+      db.prepare("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?").run(testTomorrow);
+      db.prepare("DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?").run(testTomorrow);
+
       const { runAdminAutoFillNow } = require('../src/services/dailyChallengeAutomationService');
       const res = await runAdminAutoFillNow({ adminId: 'usr-admin-01' });
 
       expect(res.success).toBe(true);
       expect(res.status).toBe('success');
-      expect(res.challenge.status).toBe('draft');
-      expect(res.challenge.scheduled_date).toBeNull();
+      expect(res.resultType).toBe('GENERATED_AND_SCHEDULED');
+      expect(res.challenge.status).toBe('scheduled');
+      expect(res.challenge.scheduled_date).toBe(testTomorrow);
     }, 25000);
 
     test('6.3 Test C & I: Existing challenge + scheduled AUTO_FILL returns SUCCESS_NOOP and never overwrites Admin challenge', async () => {
@@ -679,11 +684,9 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
     });
 
     test('8.7 Multi-Generation Test: 10 successive generations yield unique challenges without variant collisions', async () => {
-      // Force CASE B (new generation) by marking all existing active questions as already having DC metadata.
-      // To block Case A, the metadata must have status != 'archived' AND scheduled_date IS NOT NULL
-      // (the findSuitableExistingQuestion NOT EXISTS filter checks for exactly that).
-      // Each question gets a unique scheduled_date to satisfy the UNIQUE constraint on scheduled_date.
-      // First, clear ALL existing DC metadata to avoid UNIQUE collisions.
+      // Force new generation by ensuring tomorrow has no scheduled challenge.
+      // The new auto-fill logic checks tomorrow's scheduled status, not QB question availability.
+      // First, clear ALL existing DC metadata to avoid UNIQUE collisions on scheduled_date.
       db.prepare(`DELETE FROM daily_challenge_metadata`).run();
       const activeQs = db.prepare(`SELECT id FROM questions WHERE is_active = 1`).all();
       for (let i = 0; i < activeQs.length; i++) {
@@ -705,7 +708,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
         });
 
         if (res.success && res.challenge) {
-          expect(res.usedExisting).toBe(false);
+          // Every iteration generates a NEW question (never reuses existing QB questions)
           expect(res.challenge.title).not.toMatch(/variant\s*\d+/i);
           expect(generatedTitles.has(res.challenge.title)).toBe(false);
           generatedTitles.add(res.challenge.title);

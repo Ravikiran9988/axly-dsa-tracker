@@ -117,8 +117,8 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await expect(runBtn).toBeVisible();
     await runBtn.click();
 
-    // Wait for generation completion – success banner
-    await expect(page.getByText('Auto-fill pipeline completed successfully!').first()).toBeVisible({ timeout: 40000 });
+    // Wait for generation completion – success banner (tomorrow is scheduled, so result is Draft)
+    await expect(page.getByText("already scheduled").first()).toBeVisible({ timeout: 40000 });
 
     // Draft appears in table
     await expect(page.locator('table').first()).toBeVisible();
