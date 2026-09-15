@@ -224,7 +224,7 @@ async function getDailyChallengeById(question_id, isPrivileged = false) {
     tags: safeParseJson(challenge.tags, []),
     examples: safeParseJson(challenge.examples, []),
     supported_languages: safeParseJson(challenge.supported_languages, ['javascript', 'python']),
-    created_via: challenge.created_via || 'manual',
+    created_via: challenge.created_via === 'ai_automation' ? 'ai' : (challenge.created_via || 'manual'),
     editorial: challenge.editorial || challenge.solution_approach || '',
     complexity: challenge.complexity || '',
     test_cases: visibleTestCases,
@@ -356,10 +356,11 @@ async function createDailyChallenge(data, admin_id) {
     }
 
     // 3. Insert into daily_challenge_metadata
+    const metaCreatedVia = (created_via === 'ai' || created_via === 'ai_automation') ? 'ai_automation' : 'manual';
     await tx.execute(`
       INSERT INTO daily_challenge_metadata (question_id, scheduled_date, custom_topic, created_via, status)
       VALUES (?, ?, ?, ?, ?)
-    `, [question_id, scheduled_date || null, custom_topic || null, created_via, status]);
+    `, [question_id, scheduled_date || null, custom_topic || null, metaCreatedVia, status]);
   });
 
   // Index question for novelty detection (async, non-blocking)
@@ -385,6 +386,7 @@ async function updateDailyChallenge(id, data, admin_id) {
     await assertDateAvailable(data.scheduled_date, id);
   }
 
+  let updatedQuestionFields = [];
   await getRepo().transaction(async tx => {
     // 1. Update questions table
     const qFields = [];
@@ -407,6 +409,7 @@ async function updateDailyChallenge(id, data, admin_id) {
     if (data.supported_languages !== undefined) { qFields.push('supported_languages = ?'); qValues.push(normalizeJsonArray(data.supported_languages, '["javascript", "python"]')); }
     
     if (qFields.length > 0) {
+      updatedQuestionFields = qFields;
       qValues.push(id);
       await tx.execute(`UPDATE questions SET ${qFields.join(', ')} WHERE id = ?`, qValues);
     }
@@ -439,7 +442,7 @@ async function updateDailyChallenge(id, data, admin_id) {
   });
 
   // Re-index question for novelty detection if question content was updated
-  if (qFields.length > 0) {
+  if (updatedQuestionFields.length > 0) {
     const updatedQuestion = await getRepo().one('SELECT * FROM questions WHERE id = ?', [id]);
     indexAcceptedQuestion(id, updatedQuestion, { force: true }).catch(err => {
       console.warn(`[DailyChallengeService] Failed to re-index question ${id} for novelty detection:`, err.message);
@@ -516,11 +519,11 @@ async function archiveDailyChallenge(id) {
     `, [id]);
     await tx.execute(`
       UPDATE questions 
-      SET is_practice = 1, is_active = 1
+      SET is_practice = 1, is_active = 0
       WHERE id = ?
     `, [id]);
   });
-  return { success: true, message: 'Daily challenge archived' };
+  return { success: true, status: 'archived', message: 'Daily challenge archived' };
 }
 
 async function deleteDailyChallenge(id) {

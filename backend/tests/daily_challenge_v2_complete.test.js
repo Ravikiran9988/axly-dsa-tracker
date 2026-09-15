@@ -69,7 +69,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       const uniqueTitle = `Mocked Generated Challenge ${mockGenCount}`;
       const mockOutput = {
         title: uniqueTitle,
-        description: 'Mocked generated challenge description.',
+        description: `Mocked generated challenge description unique concept token_${mockGenCount} distinct_task_${mockGenCount}.`,
         constraints: '1 <= N <= 100',
         input_format: 'Number N',
         output_format: 'Number result',

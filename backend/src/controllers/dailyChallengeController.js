@@ -20,7 +20,12 @@ async function listDailyChallenges(req, res, next) {
     return res.status(200).json(result);
   } catch (err) { next(err); }
 }
-async function getTodayDailyChallenge(req, res, next) { try { return res.status(200).json(await dailyChallengeService.getTodayDailyChallenge(req.user)); } catch (err) { next(err); } }
+async function getTodayDailyChallenge(req, res, next) {
+  try {
+    const challenge = await dailyChallengeService.getTodayDailyChallenge(req.user);
+    return res.status(200).json({ success: true, data: challenge, ...(challenge || {}) });
+  } catch (err) { next(err); }
+}
 async function getDailyChallenge(req, res, next) { try { const { id } = req.params; const isPrivileged = req.user?.role === 'admin' || req.user?.role === 'mentor'; return res.status(200).json({ data: await dailyChallengeService.getDailyChallengeById(id, isPrivileged) }); } catch (err) { next(err); } }
 async function createDailyChallenge(req, res, next) { try { return res.status(201).json({ data: await dailyChallengeService.createDailyChallenge(req.body, req.user.id), message: 'Daily challenge created successfully' }); } catch (err) { next(err); } }
 async function generateAiChallenge(req, res, next) { try { const { title, description, constraints, topic, difficulty, pattern, points, instructions, scheduled_date, skipSandbox } = req.body; return res.status(200).json(await generateDailyChallenge({ title, description, constraints, topic, difficulty, pattern, points, instructions, scheduled_date, skipSandbox: Boolean(skipSandbox) })); } catch (err) { if (err?.code === 'DUPLICATE_COLLISION') return res.status(409).json({ success: false, code: 'NO_UNIQUE_PROBLEM', error: 'NO_UNIQUE_PROBLEM', message: 'No unused Daily Challenge problem is currently available.' }); next(err); } }

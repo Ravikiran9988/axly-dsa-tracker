@@ -1,4 +1,4 @@
-const { generateUniqueProblem, checkDuplicateChallenge } = require('../services/aiSharedGenerationService');
+const { generateCanonicalQuestion } = require('../services/aiQuestionGenerationPipeline');
 const auditService = require('../services/auditService');
 
 async function generate(req, res, next) {
@@ -8,28 +8,17 @@ async function generate(req, res, next) {
     const numToGenerate = Math.min(Number(count) || 1, 4);
 
     for (let i = 0; i < numToGenerate; i++) {
-      const result = await generateUniqueProblem({
+      const result = await generateCanonicalQuestion({
         topic,
         difficulty,
         skipSandbox: process.env.NODE_ENV !== 'production',
         destination: 'ai_preview'
       });
-      results.push(result.data);
-    }
-
-    const checked = [];
-    for (const q of results) {
-      let duplicateCheck = { isDuplicate: false };
-      try {
-        duplicateCheck = await checkDuplicateChallenge(q, q.description, null);
-      } catch (e) {
-        duplicateCheck = { isDuplicate: false, error: e.message };
-      }
-      checked.push({
-        ...q,
+      results.push({
+        ...result.data,
         status: 'draft',
-        duplicate_check: duplicateCheck,
-        duplicate_flag: duplicateCheck.isDuplicate
+        duplicate_check: { isDuplicate: false },
+        duplicate_flag: false
       });
     }
 

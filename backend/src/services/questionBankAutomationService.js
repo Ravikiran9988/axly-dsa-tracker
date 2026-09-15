@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { getCanonicalIstDate } = require('../utils/dateUtils');
 const { generateUniqueProblem, stripVariantIdentifiers } = require('./aiSharedGenerationService');
 const { createQuestion, updateQuestionStatus } = require('./questionService');
-const { indexAcceptedQuestion } = require('./questionNoveltyService');
+const noveltyService = require('./questionNoveltyService');
 
 // Run every 2 hours in IST (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
 // Checks every 30 minutes to see if generation is needed
@@ -142,7 +142,7 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
       createdDraftId = createdDraft.id;
 
       // Required embedding/indexing — must succeed before question is considered published
-      const indexResult = await indexAcceptedQuestion(createdDraftId, createdDraft);
+      const indexResult = await noveltyService.indexAcceptedQuestion(createdDraftId, createdDraft);
       if (!indexResult || !indexResult.success) {
         const indexReason = indexResult?.reason || 'unknown_indexing_failure';
         await getRepo().execute(

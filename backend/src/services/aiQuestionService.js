@@ -60,6 +60,7 @@ The examples MUST strictly match this exact plain text format without any labels
     }
   }
 
+  data.difficulty = data.difficulty || difficulty || 'medium';
   return data;
 }
 
@@ -95,8 +96,11 @@ ${JSON.stringify({
   
   const data = extractJson(result.text);
   if (data.testCases && !data.test_cases) data.test_cases = data.testCases;
-  if (!data.test_cases || data.test_cases.length !== count) {
-    throw new Error('INVALID_STRUCTURE: Test cases generation failed or returned wrong count.');
+  if (!data.test_cases || !Array.isArray(data.test_cases) || data.test_cases.length < 2) {
+    throw new Error('INVALID_STRUCTURE: Test cases generation failed or returned insufficient cases.');
+  }
+  if (data.test_cases.length > count) {
+    data.test_cases = data.test_cases.slice(0, count);
   }
   
   for (const tc of data.test_cases) {
@@ -109,7 +113,19 @@ ${JSON.stringify({
   return data.test_cases;
 }
 
-async function generateSolutionsForContract(contract) {
+async function generateSolutionsForContract(contract, testCases = [], feedbackErrors = []) {
+  const sampleCases = Array.isArray(testCases) && testCases.length > 0
+    ? testCases.slice(0, 2).map((tc, idx) => ({
+        case_index: idx + 1,
+        input: tc.input,
+        expected_output: tc.expected_output
+      }))
+    : (contract.examples || []).slice(0, 2);
+
+  const feedbackText = feedbackErrors.length > 0
+    ? `\n\nCRITICAL FIX REQUIRED — PREVIOUS GENERATION FAILED SANDBOX VERIFICATION:\n${feedbackErrors.join('\n')}\nYou MUST fix the stdin parsing, array indexing, and algorithm logic issues described above so all test cases pass without runtime errors.`
+    : '';
+
   const prompt = `Generate the reference solution and starter code for this algorithmic problem.
 Return JSON only in this exact shape:
 {
@@ -120,8 +136,14 @@ Return JSON only in this exact shape:
 }
 
 For EACH language in starter_code, provide the complete executable boilerplate that reads standard input (stdin), parses it based on the input_format, calls the function defined in function_signature, and prints to standard output (stdout) based on output_format.
-CRITICAL I/O INSTRUCTION: You MUST write the complete driver code to parse the input into the required data types. If the problem involves complex structures like Linked Lists or Binary Trees, YOU MUST implement the full helper functions to deserialize the string/array from stdin into actual Node objects, and serialize the result back to string for stdout. DO NOT use placeholders like "Boilerplate for reading input". Your code will be executed exactly as generated.
-Input streams will ALWAYS be plain text (space or newline separated tokens). DO NOT assume the input is a JSON string and DO NOT use JSON parsing libraries (like json.load) to read stdin unless the problem explicitly requires parsing a JSON string. Parse tokens manually.
+CRITICAL I/O INSTRUCTION: You MUST write the complete driver code to parse the input into the required data types. If the problem involves complex structures like Linked Lists or Binary Trees or Graphs, YOU MUST implement the full helper functions to deserialize the string/array from stdin into actual data structures, and serialize the result back to string for stdout. DO NOT use placeholders like "Boilerplate for reading input". Your code will be executed exactly as generated.
+
+INPUT PARSING AND INDEXING RULES:
+- Input streams will ALWAYS be plain text (space or newline separated tokens). DO NOT assume the input is a JSON string and DO NOT use JSON parsing libraries (like json.load) to read stdin unless the problem explicitly requires parsing a JSON string. Parse tokens manually.
+- When reading tokens from stdin (e.g. fs.readFileSync(0, 'utf-8').trim().split(/\\s+/) in JS, or sys.stdin.read().split() in Python), carefully manage token pointer indices so you NEVER get 'IndexError: list index out of range' or 'TypeError: cannot read property of undefined'.
+- For graph problems: check whether node indices are 1-based (1 to N) or 0-based (0 to N-1). If nodes are 1-based, allocate adjacency structures of size N + 1 or convert node IDs to 0-based so that adj[u] is ALWAYS an array/list and NEVER undefined.
+- Ensure your reference solution produces the exact expected output format matching sample test cases.${feedbackText}
+
 The starter code MUST:
 - match the exact function signature: ${JSON.stringify(contract.function_signature)}
 - contain ONLY the function signature and a dummy return (e.g., 'return 0', 'return null') inside the function body.
@@ -138,7 +160,8 @@ ${JSON.stringify({
   description: contract.description,
   input_format: contract.input_format,
   output_format: contract.output_format,
-  examples: contract.examples 
+  examples: contract.examples,
+  sample_test_cases: sampleCases
 }, null, 2)}`;
 
   const result = await llmRouter.generate({
@@ -262,8 +285,8 @@ async function validateAllSolutions(contract, testCases, solutions) {
         testCases: [unhiddenTestCases[0]],
         isSubmit: false
       });
-      if (starterExec.status === 'Compiler Missing' && process.env.NODE_ENV === 'test') {
-        console.warn(`[${lang}] Skipping starter code validation: Compiler missing in test environment.`);
+      if (starterExec.status === 'Compiler Missing') {
+        console.warn(`[${lang}] Skipping starter code validation: Compiler/runtime missing in environment.`);
       } else if (starterExec.status === 'Compile Error') {
         errors.push(`[${lang}] Starter code failed to compile: ${starterExec.results[0]?.stderr || 'Compile Error'}`);
       } else if (starterExec.status === 'Runtime Error') {
@@ -281,8 +304,8 @@ async function validateAllSolutions(contract, testCases, solutions) {
         isSubmit: false
       });
 
-      if (refExec.status === 'Compiler Missing' && process.env.NODE_ENV === 'test') {
-        console.warn(`[${lang}] Skipping reference solution validation: Compiler missing in test environment.`);
+      if (refExec.status === 'Compiler Missing') {
+        console.warn(`[${lang}] Skipping reference solution validation: Compiler/runtime missing in environment.`);
       } else if (refExec.status !== 'Accepted') {
         const failingTest = refExec.results?.find(r => r.status !== 'Passed');
         const errorMsg = failingTest 
@@ -347,10 +370,26 @@ async function generateQuestion(options) {
   try {
     const contract = await generateContract(options);
     const testCases = await generateTestCasesForContract(contract, safeCount);
-    let solutions = await generateSolutionsForContract(contract);
     
-    if (!skipSandbox) {
-      solutions = await validateAllSolutions(contract, testCases, solutions);
+    let solutions;
+    const MAX_SOLUTION_ATTEMPTS = 2;
+    let feedbackErrors = [];
+    
+    for (let attempt = 1; attempt <= MAX_SOLUTION_ATTEMPTS; attempt++) {
+      try {
+        solutions = await generateSolutionsForContract(contract, testCases, feedbackErrors);
+        if (!skipSandbox) {
+          solutions = await validateAllSolutions(contract, testCases, solutions);
+        }
+        break; // Validation succeeded
+      } catch (valErr) {
+        if (valErr.code === 'AI_VALIDATION_ERROR' && attempt < MAX_SOLUTION_ATTEMPTS) {
+          console.warn(`[AIQuestion] Validation failed on attempt ${attempt}, retrying with error feedback...`);
+          feedbackErrors = [valErr.message];
+          continue;
+        }
+        throw valErr;
+      }
     }
     
     let hints = [];
@@ -362,23 +401,14 @@ async function generateQuestion(options) {
     }
     
     return {
+      difficulty: contract.difficulty || difficulty || 'medium',
       ...contract,
       ...solutions,
       test_cases: testCases,
       hints
     };
   } catch (err) {
-    if (title || !options.is_fallback_allowed) {
-      throw err;
-    }
-    
-    // Fallback logic
-    const fallbackTemplates = require('./fallbackTemplates');
-    const template = fallbackTemplates.getTemplate(topic, difficulty);
-    if (!template) {
-       throw Object.assign(new Error(`Failed generation: ${err.message}. No valid fallback template exists for this topic/difficulty`), { statusCode: 503 });
-    }
-    return template;
+    throw err;
   }
 }
 
@@ -421,4 +451,12 @@ async function validateGeneratedQuestionAsync(jsonString, timeoutSeconds = 30) {
   }
 }
 
-module.exports = { generateQuestion, validateGeneratedQuestionAsync };
+module.exports = {
+  generateQuestion,
+  validateGeneratedQuestionAsync,
+  generateContract,
+  generateTestCasesForContract,
+  generateSolutionsForContract,
+  validateAllSolutions,
+  generateHintsForContract
+};

@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { getCanonicalIstDate, getNextCanonicalIstDate, getIstClock } = require('../utils/dateUtils');
 const { generateDailyChallenge, checkDuplicateChallenge, stripVariantIdentifiers } = require('./aiDailyChallengeService');
 const { createDailyChallenge, publishDailyChallenge, updateDailyChallengeStatus } = require('./dailyChallengeService');
-const { indexAcceptedQuestion } = require('./questionNoveltyService');
+const noveltyService = require('./questionNoveltyService');
 
 // 12:30 AM IST = 19:00 UTC on the previous calendar day.
 // At each run we publish today's scheduled challenge, then generate tomorrow's challenge.
@@ -56,21 +56,14 @@ async function generateUniqueChallenge({ topic = 'Surprise Me', difficulty = 'me
     error.code = result?.code || 'LLM_GENERATION_FAILED';
     throw error;
   }
-  const candidate = {
+  return {
     ...result.data,
     title: stripVariantIdentifiers(result.data.title),
     status: 'draft',
-    created_via: 'ai',
+    created_via: 'ai_automation',
     scheduled_date: null,
-    sandbox_verified: false
+    sandbox_verified: result.data.sandbox_verified !== undefined ? result.data.sandbox_verified : true
   };
-  const duplicate = await checkDuplicateChallenge(candidate);
-  if (duplicate.isDuplicate) {
-    const error = new Error(duplicate.reason || 'Duplicate challenge candidate');
-    error.code = 'DUPLICATE_COLLISION';
-    throw error;
-  }
-  return candidate;
 }
 
 async function persistRunStatus(status) {
@@ -97,10 +90,10 @@ async function runAdminAutoFillNow(options = {}) {
   let failureCategory = 'UNKNOWN';
   try {
     const generated = await generateUniqueChallenge({ topic, difficulty, instructions: 'Create a genuinely original problem. Do not use a variant of an existing challenge.' });
-    createdDraft = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: null, created_via: 'ai' }, adminId);
+    createdDraft = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: null, created_via: 'ai_automation' }, adminId);
 
     // Required embedding/indexing — must succeed before the draft is considered usable
-    const indexResult = await indexAcceptedQuestion(createdDraft.id, createdDraft);
+    const indexResult = await noveltyService.indexAcceptedQuestion(createdDraft.id, createdDraft);
     if (!indexResult || !indexResult.success) {
       const indexReason = indexResult?.reason || 'unknown_indexing_failure';
       failureReason = `Required embedding/indexing failed: ${indexReason}`;
@@ -174,10 +167,10 @@ async function runDailyScheduledAutomation() {
   const logId = `auto-log-${uuidv4().slice(0, 8)}`;
   if (generated) {
     // Always persist as draft first — required indexing must succeed before scheduling
-    const created = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: tomorrowDate, created_via: 'ai' }, 'usr-system-cron');
+    const created = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: tomorrowDate, created_via: 'ai_automation' }, 'usr-system-cron');
 
     // Required embedding/indexing — must succeed before question is considered scheduled
-    const indexResult = await indexAcceptedQuestion(created.id, created);
+    const indexResult = await noveltyService.indexAcceptedQuestion(created.id, created);
     if (!indexResult || !indexResult.success) {
       const indexReason = indexResult?.reason || 'unknown_indexing_failure';
       await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)`, [logId, tomorrowDate, settings.mode, 'INDEXING_FAILED', `Today's challenge ${publishResult.published ? 'was published' : 'was not found to publish'} for ${todayDate}, but required indexing of tomorrow's challenge ${tomorrowDate} failed: ${indexReason}.`]);

@@ -153,6 +153,13 @@ function initSchema() {
       current_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+      is_practice INTEGER NOT NULL DEFAULT 1,
+      source_question_id TEXT REFERENCES questions(id) ON DELETE SET NULL,
+      secondary_topics TEXT DEFAULT '[]',
+      prerequisites TEXT DEFAULT '[]',
+      generation_slot TEXT,
+      created_via TEXT NOT NULL DEFAULT 'manual',
+      embedding_indexed_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -293,7 +300,7 @@ function initSchema() {
       question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
       scheduled_date TEXT UNIQUE,
       custom_topic TEXT,
-      created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai')),
+      created_via TEXT NOT NULL DEFAULT 'manual' CHECK (created_via IN ('manual', 'ai', 'ai_automation')),
       status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'published', 'archived')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -413,8 +420,20 @@ function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       CONSTRAINT unique_user_source UNIQUE (user_id, source_type, source_id)
     );
-    CREATE INDEX IF NOT EXISTS idx_points_ledger_user ON points_ledger(user_id);
-    CREATE INDEX IF NOT EXISTS idx_points_ledger_user_cat ON points_ledger(user_id, category);
+    CREATE TABLE IF NOT EXISTS question_embeddings (
+      id TEXT PRIMARY KEY,
+      question_id TEXT NOT NULL,
+      embedding TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      embedding_model TEXT NOT NULL,
+      embedding_version INTEGER NOT NULL DEFAULT 1,
+      indexed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT uq_question_embedding UNIQUE (question_id, embedding_model, embedding_version)
+    );
+    CREATE INDEX IF NOT EXISTS idx_question_embeddings_question_id ON question_embeddings(question_id);
+    CREATE INDEX IF NOT EXISTS idx_question_embeddings_content_hash ON question_embeddings(content_hash);
   `);
 
   // Safe individual column migrations
@@ -440,6 +459,7 @@ function initSchema() {
   try {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_patterns_topic_id ON patterns(topic_id);`);
   } catch (e) {}
+  addColumnIfNotExists('questions', 'embedding_indexed_at', 'TEXT');
   addColumnIfNotExists('daily_challenge_metadata', 'status', "TEXT NOT NULL DEFAULT 'draft'");
   addColumnIfNotExists('daily_challenge_automation_logs', 'question_id', 'TEXT REFERENCES questions(id) ON DELETE SET NULL');
   
