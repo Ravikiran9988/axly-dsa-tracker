@@ -540,10 +540,11 @@ describe('Centralized AI Question Generation Pipeline', () => {
     // Publish
     const published = await dcBusinessService.publishDailyChallenge(created.id, 'usr-admin-01');
     expect(published.status).toBe('published');
-
-    // Archive
-    const archived = await dcBusinessService.archiveDailyChallenge(created.id);
-    expect(archived.success).toBe(true);
+    // Archive (Simulate automated expiration)
+    const { getRepository } = require('../src/db/repositoryFactory');
+    await getRepository().execute(`UPDATE daily_challenge_metadata SET status = 'archived' WHERE question_id = ?`, [created.id]);
+    await getRepository().execute(`UPDATE questions SET is_practice = 1 WHERE id = ?`, [created.id]);
+    const archived = await dcBusinessService.getDailyChallengeById(created.id, true);
     expect(archived.status).toBe('archived');
   });
 

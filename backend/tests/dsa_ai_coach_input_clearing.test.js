@@ -3,6 +3,15 @@ const app = require('../src/app');
 const { getRepo } = require('../src/db/db');
 const jwt = require('jsonwebtoken');
 
+// Isolate DB tests from real LLM API limits
+jest.mock('../src/services/llm/llmRouter', () => {
+  return {
+    generate: jest.fn().mockResolvedValue({
+      text: 'Mocked AI Coach response for testing.'
+    })
+  };
+});
+
 describe('DSA AI Coach — Input Handling, Multi-Turn Chat & Request Integrity', () => {
   let studentToken;
 

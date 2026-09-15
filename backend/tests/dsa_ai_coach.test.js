@@ -34,7 +34,16 @@ describe('Phase 3: DSA AI Coach & Code Verification Suite', () => {
 
   beforeEach(() => {
     aiCache.clear();
-    llmRouter.initializeDefaultProviders();
+    const mockCoachProvider = new MockProvider({
+      name: 'mock-coach',
+      customText: JSON.stringify({
+        intent: 'HINT',
+        answer: 'Here is a hint from the AI',
+        code: null
+      })
+    });
+    llmRouter.registerProvider('mock-coach', mockCoachProvider);
+    llmRouter.setProviderOrder(['mock-coach']);
   });
 
   describe('1. Progressive Hint System', () => {

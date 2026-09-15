@@ -22,12 +22,12 @@ const FALLBACK_TEMPLATES = [
       return_type: "integer"
     },
     starter_code: {
-      javascript: "const fs = require('fs');\n\nfunction sumEven(nums) {\n  return 0;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif(raw) {\n  const nums = JSON.parse(raw);\n  console.log(sumEven(nums));\n}",
-      typescript: "import * as fs from 'fs';\n\nfunction sumEven(nums: number[]): number {\n  return 0;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif(raw) {\n  const nums = JSON.parse(raw);\n  console.log(sumEven(nums));\n}",
-      python: "import sys\nimport json\n\ndef sumEven(nums):\n    pass\n\nif __name__ == '__main__':\n    raw = sys.stdin.read().strip()\n    if raw:\n        nums = json.loads(raw)\n        print(sumEven(nums))",
-      java: "import java.util.*;\n\npublic class Solution {\n    public static int sumEven(int[] nums) {\n        return 0;\n    }\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (sc.hasNextLine()) {\n            String line = sc.nextLine();\n            // simple parsing placeholder\n            System.out.println(0);\n        }\n    }\n}",
-      cpp: "#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    int sumEven(vector<int>& nums) {\n        return 0;\n    }\n};\n\nint main() {\n    // simple parsing placeholder\n    cout << 0 << endl;\n    return 0;\n}",
-      c: "#include <stdio.h>\n\nint sumEven(int* nums, int numsSize) {\n    return 0;\n}\n\nint main() {\n    printf(\"0\\n\");\n    return 0;\n}"
+      javascript: "const fs = require('fs');\n\nfunction sumEven(nums) {\n  // TODO: implement sumEven\n  return 0;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif(raw) {\n  const nums = JSON.parse(raw);\n  console.log(sumEven(nums));\n}",
+      typescript: "import * as fs from 'fs';\n\nfunction sumEven(nums: number[]): number {\n  // TODO: implement sumEven\n  return 0;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif(raw) {\n  const nums = JSON.parse(raw);\n  console.log(sumEven(nums));\n}",
+      python: "import sys\nimport json\n\ndef sumEven(nums):\n    # TODO: implement sumEven\n    pass\n\nif __name__ == '__main__':\n    raw = sys.stdin.read().strip()\n    if raw:\n        nums = json.loads(raw)\n        print(sumEven(nums))",
+      java: "import java.util.*;\n\npublic class Solution {\n    public static int sumEven(int[] nums) {\n        // TODO: implement sumEven\n        return 0;\n    }\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (sc.hasNextLine()) {\n            String line = sc.nextLine();\n            // simple parsing placeholder\n            System.out.println(0);\n        }\n    }\n}",
+      cpp: "#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    int sumEven(vector<int>& nums) {\n        // TODO: implement sumEven\n        return 0;\n    }\n};\n\nint main() {\n    // simple parsing placeholder\n    cout << 0 << endl;\n    return 0;\n}",
+      c: "#include <stdio.h>\n\nint sumEven(int* nums, int numsSize) {\n    // TODO: implement sumEven\n    return 0;\n}\n\nint main() {\n    printf(\"0\\n\");\n    return 0;\n}"
     },
     reference_solution: {
       javascript: "const fs = require('fs');\n\nfunction sumEven(nums) {\n  let sum = 0;\n  for(let n of nums) {\n    if(n % 2 === 0) sum += n;\n  }\n  return sum;\n}\n\nconst raw = fs.readFileSync(0, 'utf-8').trim();\nif(raw) {\n  const nums = JSON.parse(raw);\n  console.log(sumEven(nums));\n}",

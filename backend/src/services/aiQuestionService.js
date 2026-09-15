@@ -543,57 +543,6 @@ ${JSON.stringify({ title: contract.title, description: contract.description }, n
   throw new Error(`INVALID_HINTS: ${lastErr.message}`);
 }
 
-async function generateQuestion(options) {
-  const { title, skipSandbox = false, count = 8, topic, difficulty } = options;
-  const safeCount = Math.min(Math.max(Number(count) || 8, 1), 12);
-  
-  try {
-    const contract = await generateContract(options);
-    const testCases = await generateTestCasesForContract(contract, safeCount);
-    
-    let solutions;
-    const MAX_SOLUTION_ATTEMPTS = 2;
-    let feedbackErrors = [];
-    
-    for (let attempt = 1; attempt <= MAX_SOLUTION_ATTEMPTS; attempt++) {
-      try {
-        solutions = await generateSolutionsForContract(contract, testCases, feedbackErrors);
-        if (!skipSandbox) {
-          solutions = await validateAllSolutions(contract, testCases, solutions);
-        }
-        break; // Validation succeeded
-      } catch (valErr) {
-        if (valErr.code === 'AI_VALIDATION_ERROR' && attempt < MAX_SOLUTION_ATTEMPTS) {
-          console.warn(`[AIQuestion] Validation failed on attempt ${attempt}, retrying with error feedback...`);
-          feedbackErrors = [valErr.message];
-          continue;
-        }
-        throw valErr;
-      }
-    }
-    
-    let hints = [];
-    try {
-      hints = await generateHintsForContract(contract);
-    } catch (err) {
-      if (title) throw err; 
-      hints = ["Understand the problem constraints.", "Think about optimal data structures.", "Implement carefully considering edge cases."];
-    }
-    
-    return {
-      title: contract.title,
-      topic: contract.topic || topic || 'Arrays',
-      pattern: contract.pattern || 'Two Pointers',
-      difficulty: contract.difficulty || difficulty || 'medium',
-      ...contract,
-      ...solutions,
-      test_cases: testCases,
-      hints
-    };
-  } catch (err) {
-    throw err;
-  }
-}
 
 async function validateGeneratedQuestionAsync(jsonString, timeoutSeconds = 30) {
   let candidate;
@@ -631,7 +580,6 @@ async function validateGeneratedQuestionAsync(jsonString, timeoutSeconds = 30) {
 }
 
 module.exports = {
-  generateQuestion,
   validateGeneratedQuestionAsync,
   generateContract,
   generateTestCasesForContract,

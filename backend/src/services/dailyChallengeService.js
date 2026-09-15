@@ -591,22 +591,6 @@ async function unpublishDailyChallenge(id, admin_id) {
   return getDailyChallengeById(id, true);
 }
 
-async function archiveDailyChallenge(id) {
-  await getRepo().transaction(async tx => {
-    await tx.execute(`
-      UPDATE daily_challenge_metadata 
-      SET status = 'archived', updated_at = CURRENT_TIMESTAMP 
-      WHERE question_id = ?
-    `, [id]);
-    await tx.execute(`
-      UPDATE questions 
-      SET is_practice = 1, is_active = 0
-      WHERE id = ?
-    `, [id]);
-  });
-  return { success: true, status: 'archived', message: 'Daily challenge archived' };
-}
-
 async function deleteDailyChallenge(id, permanent = false) {
   const meta = await getRepo().one('SELECT question_id FROM daily_challenge_metadata WHERE question_id = ?', [id]);
   const q = await getRepo().one('SELECT id, is_practice FROM questions WHERE id = ?', [id]);
@@ -742,6 +726,5 @@ module.exports = {
   publishNowDailyChallenge,
   unpublishDailyChallenge,
   deleteDailyChallenge,
-  archiveDailyChallenge,
   getTodayDailyChallenge
 };

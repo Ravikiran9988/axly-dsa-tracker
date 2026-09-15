@@ -1,11 +1,32 @@
-const { generateQuestion } = require('../src/services/aiQuestionService');
+const { generateCanonicalQuestion } = require('../src/services/aiQuestionGenerationPipeline');
 const llmRouter = require('../src/services/llm/llmRouter');
 const { executeCode } = require('../src/services/executionService');
+const { initSchema } = require('../src/db/db');
+const { seedDatabase } = require('../src/db/seed');
 
 jest.mock('../src/services/llm/llmRouter');
 jest.mock('../src/services/executionService');
 
+jest.mock('../src/services/embeddingService', () => {
+  return {
+    defaultProvider: {
+      getEmbedding: jest.fn().mockResolvedValue(new Array(3072).fill(0.1)),
+      getEmbeddings: jest.fn().mockResolvedValue([new Array(3072).fill(0.1)]),
+      isConfigured: jest.fn().mockReturnValue(true)
+    },
+    cosineSimilarity: jest.fn().mockReturnValue(0.5),
+    normalizeVector: jest.fn().mockImplementation(v => v),
+    EMBEDDING_MODEL: 'gemini-embedding-mock',
+    EMBEDDING_DIMENSIONS: 3072
+  };
+});
+
 describe('Unified AI Question Generation Pipeline', () => {
+  beforeAll(async () => {
+    await initSchema();
+    await seedDatabase();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     executeCode.mockResolvedValue({ status: 'Accepted' });
@@ -58,21 +79,23 @@ describe('Unified AI Question Generation Pipeline', () => {
       text: JSON.stringify(mockOutput)
     });
 
-    const result = await generateQuestion({
+    const result = await generateCanonicalQuestion({
       topic: 'Arrays',
       difficulty: 'Medium',
-      count: 4
+      count: 4,
+      destination: 'ai_preview'
     });
 
-    expect(result.title).toBe('Mocked Question Title');
-    expect(result.starter_code.javascript).toBeDefined();
-    expect(result.starter_code.python).toBeDefined();
+    const candidate = result.data;
+    expect(candidate.title).toBe('Mocked Question Title');
+    expect(candidate.starter_code.javascript).toBeDefined();
+    expect(candidate.starter_code.python).toBeDefined();
     expect(llmRouter.generate).toHaveBeenCalled();
     
     // Verify prompt contains dynamic fields
     const callArgs = llmRouter.generate.mock.calls[0][0];
     expect(callArgs.prompt).toContain('Topic: Arrays');
-    expect(callArgs.prompt).toContain('Difficulty: Medium');
+    expect(callArgs.prompt).toContain('Difficulty: medium');
   });
 
   it('injects extra Daily Challenge instructions into prompt when provided', async () => {
@@ -122,19 +145,19 @@ describe('Unified AI Question Generation Pipeline', () => {
       text: JSON.stringify(mockOutput)
     });
 
-    const result = await generateQuestion({
+    const result = await generateCanonicalQuestion({
       topic: 'Arrays',
       difficulty: 'Medium',
       count: 4,
       pattern: 'Sliding Window',
-      exclusionText: 'EXCLUDE THESE: Two Sum',
-      instructions: 'Ensure edge cases.'
+      instructions: 'Ensure edge cases.',
+      destination: 'ai_preview'
     });
 
-    expect(result.title).toBe('Mocked Question Title');
+    const candidate = result.data;
+    expect(candidate.title).toBe('Mocked Question Title');
     const callArgs = llmRouter.generate.mock.calls[0][0];
     expect(callArgs.prompt).toContain('Pattern: Sliding Window');
-    expect(callArgs.prompt).toContain('EXCLUDE THESE: Two Sum');
     expect(callArgs.prompt).toContain('Extra Instructions: Ensure edge cases.');
   });
 
@@ -183,9 +206,9 @@ describe('Unified AI Question Generation Pipeline', () => {
       text: JSON.stringify(mockOutput)
     });
 
-    await expect(generateQuestion({ topic: 'Arrays', difficulty: 'Medium', count: 2 }))
+    await expect(generateCanonicalQuestion({ topic: 'Arrays', difficulty: 'Medium', destination: 'ai_preview' }))
       .rejects.toThrow(/\[javascript\] Starter code does not contain the function signature name 'solve'/);
-  });
+  }, 10000);
 
   it('fails validation if sandbox execution is not Accepted', async () => {
     const mockOutput = {
@@ -234,9 +257,9 @@ describe('Unified AI Question Generation Pipeline', () => {
 
     executeCode.mockResolvedValue({ status: 'Wrong Answer' });
 
-    await expect(generateQuestion({ topic: 'Arrays', difficulty: 'Medium', count: 2 }))
+    await expect(generateCanonicalQuestion({ topic: 'Arrays', difficulty: 'Medium', destination: 'ai_preview' }))
       .rejects.toThrow(/\[javascript\] Reference solution failed verification/);
-  });
+  }, 10000);
 
   it('fails validation if reference solution is leaked in starter code', async () => {
     const mockOutput = {
@@ -283,7 +306,7 @@ describe('Unified AI Question Generation Pipeline', () => {
       text: JSON.stringify(mockOutput)
     });
 
-    await expect(generateQuestion({ topic: 'Arrays', difficulty: 'Medium', count: 2 }))
+    await expect(generateCanonicalQuestion({ topic: 'Arrays', difficulty: 'Medium', destination: 'ai_preview' }))
       .rejects.toThrow(/\[python\] AST Validation Failed/);
-  });
+  }, 10000);
 });

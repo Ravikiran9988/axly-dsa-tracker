@@ -681,10 +681,25 @@ async function _generateCanonicalQuestionInternal(options = {}) {
     testCases = await aiQuestionService.generateTestCasesForContract(contract, 4);
 
     // 3. Generate Solutions (Starter Code + Reference Solution for 6 languages)
-    // 3. Generate Solutions (Starter Code + Reference Solution for 6 languages)
-    // PRODUCT RULE: Reference solutions do not need automatic sandbox validation.
-    // Admin manually validates the reference solution. Automatic starter-code validation is the gate.
-    solutions = await aiQuestionService.generateSolutionsForContract(contract, testCases);
+    const MAX_SOLUTION_ATTEMPTS = 2;
+    let feedbackErrors = [];
+    
+    for (let attempt = 1; attempt <= MAX_SOLUTION_ATTEMPTS; attempt++) {
+      try {
+        solutions = await aiQuestionService.generateSolutionsForContract(contract, testCases, feedbackErrors);
+        if (!skipSandbox) {
+          solutions = await aiQuestionService.validateAllSolutions(contract, testCases, solutions);
+        }
+        break; // Validation succeeded
+      } catch (valErr) {
+        if (valErr.code === 'AI_VALIDATION_ERROR' && attempt < MAX_SOLUTION_ATTEMPTS) {
+          console.warn(`[Pipeline] Sandbox validation failed on attempt ${attempt}, retrying with error feedback...`);
+          feedbackErrors = [valErr.message];
+          continue;
+        }
+        throw valErr; // Exhausted attempts or other error
+      }
+    }
 
     // 4. Generate Hints
     try {

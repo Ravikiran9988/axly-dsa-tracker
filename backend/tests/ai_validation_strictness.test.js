@@ -47,7 +47,7 @@ describe('AI Question Strict Validation Pipeline', () => {
     contract.starter_code.javascript = 'function twoSum(nums, target) { }';
     const res = await validateGeneratedQuestionAsync(JSON.stringify(contract));
     expect(res.valid).toBe(false);
-    expect(res.reason).toMatch(/Starter code missing 'TODO:' instruction/);
+    expect(res.reason).toContain('Starter code missing TODO instruction');
   });
 
   it('rejects logic failing test cases', async () => {

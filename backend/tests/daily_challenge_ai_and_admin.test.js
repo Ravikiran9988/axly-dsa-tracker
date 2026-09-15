@@ -14,6 +14,41 @@ const {
   getDailyChallengeById
 } = require('../src/services/dailyChallengeService');
 
+// Isolate DB tests from real Gemini embedding API limits
+jest.mock('../src/services/embeddingService', () => {
+  return {
+    defaultProvider: {
+      getEmbedding: jest.fn().mockResolvedValue(new Array(3072).fill(0.1)),
+      getEmbeddings: jest.fn().mockResolvedValue([new Array(3072).fill(0.1)]),
+      isConfigured: jest.fn().mockReturnValue(true)
+    },
+    cosineSimilarity: jest.fn().mockReturnValue(0.5),
+    normalizeVector: jest.fn().mockImplementation(v => v),
+    EMBEDDING_MODEL: 'gemini-embedding-mock',
+    EMBEDDING_DIMENSIONS: 3072
+  };
+});
+
+const { getTemplate } = require('../src/services/fallbackTemplates');
+
+// Isolate DB tests from real LLM API limits
+jest.mock('../src/services/llm/llmRouter', () => {
+  return {
+    generate: jest.fn().mockImplementation(async (prompt, options) => {
+      // Lazy load to avoid initialization order issues
+      const { getTemplate } = require('../src/services/fallbackTemplates');
+      const tmpl = getTemplate('Arrays', 'Easy');
+      
+      // The tests expect the pipeline to respect requested difficulty
+      tmpl.difficulty = 'medium'; // explicitly what the admin test requests
+      
+      return {
+        text: JSON.stringify(tmpl)
+      };
+    })
+  };
+});
+
 describe('Daily Challenge Admin Portal & AI Generation Suite', () => {
   let adminToken;
   let studentToken;

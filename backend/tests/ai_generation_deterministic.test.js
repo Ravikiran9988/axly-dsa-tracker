@@ -50,6 +50,6 @@ describe('AI Generation Deterministic Validations', () => {
     };
     const result = await validateGeneratedQuestionAsync(JSON.stringify(brokenTemplate), 4);
     expect(result.valid).toBe(false);
-    expect(result.reason).toContain('Sandbox verification failed: Reference solution resulted in Wrong Answer');
+    expect(result.reason).toContain('Reference solution failed verification. Status: Wrong Answer');
   });
 });
