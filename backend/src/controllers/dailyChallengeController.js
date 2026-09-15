@@ -10,6 +10,11 @@ const {
   runAutomationPipeline,
   persistRunStatus
 } = require('../services/dailyChallengeAutomationService');
+const {
+  startAutomationRunHeartbeat,
+  stopAutomationRunHeartbeat,
+  recoverStaleAutomationRun
+} = require('../services/automationRunLease');
 const { getNextCanonicalUtcDate, getCanonicalUtcDate } = require('../utils/dateUtils');
 
 let manualAutomationInFlight = false;
@@ -49,9 +54,10 @@ async function deleteDailyChallenge(req, res, next) { try { const isPermanent = 
 async function getDailyChallengeTopics(req, res, next) { try { const topicService = require('../services/topicService'); return res.status(200).json({ success: true, data: await topicService.listDailyChallengeTopics() }); } catch (err) { next(err); } }
 async function recommendTopic(req, res, next) { try { const topicService = require('../services/topicService'); const { difficulty } = req.body || req.query || {}; return res.status(200).json({ success: true, data: await topicService.recommendTopicForDailyChallenge({ difficulty }) }); } catch (err) { next(err); } }
 async function createDailyChallengeFromPractice(req, res, next) { try { return res.status(201).json({ data: await dailyChallengeService.createDailyChallengeFromPractice(req.body, req.user.id), message: 'Daily challenge created from practice question' }); } catch (err) { next(err); } }
-async function getAutomationStatus(req, res, next) { try { const settings = await getAutomationSettings(); const logs = await fetchAutoLogs(10); return res.status(200).json({ success: true, data: { settings, today_utc: getCanonicalUtcDate(), next_target_date: getNextCanonicalUtcDate(), generation_time_utc: '19:00 UTC (12:30 AM IST)', generation_time_ist: '12:30 AM IST', recent_logs: logs } }); } catch (err) { next(err); } }
+async function getAutomationStatus(req, res, next) { try { await recoverStaleAutomationRun(); const settings = await getAutomationSettings(); const logs = await fetchAutoLogs(10); return res.status(200).json({ success: true, data: { settings, today_utc: getCanonicalUtcDate(), next_target_date: getNextCanonicalUtcDate(), generation_time_utc: '19:00 UTC (12:30 AM IST)', generation_time_ist: '12:30 AM IST', recent_logs: logs } }); } catch (err) { next(err); } }
 async function updateAutomationSettings(req, res, next) { try { const { mode, is_enabled, retry_limit } = req.body; const updated = await updateAutoSettings({ mode, is_enabled: is_enabled !== undefined ? is_enabled : (mode === 'ai_assist' || mode === 'auto_fill' ? true : undefined), retry_limit }); return res.status(200).json({ success: true, data: updated, message: 'Automation settings updated successfully' }); } catch (err) { next(err); } }
 async function runAutomationNow(req, res, next) {
+  let heartbeat = null;
   try {
     if (manualAutomationInFlight) {
       return res.status(409).json({
@@ -72,20 +78,29 @@ async function runAutomationNow(req, res, next) {
       WHERE id = 'global-settings'
     `, [new Date().toISOString()]);
 
+    heartbeat = startAutomationRunHeartbeat();
     const settings = await getAutomationSettings();
     void runAdminAutoFillNow({ topic, difficulty, adminId, mode: settings.mode })
       .catch(async (err) => {
         console.error('❌ Background Daily Challenge automation failed:', err);
         try { await persistRunStatus('failed'); } catch (_) {}
       })
-      .finally(() => { manualAutomationInFlight = false; });
+      .finally(() => {
+        stopAutomationRunHeartbeat(heartbeat);
+        heartbeat = null;
+        manualAutomationInFlight = false;
+      });
 
     return res.status(202).json({
       success: true,
       status: 'running',
       message: 'Daily Challenge automation started. Check the automation status/logs for the result.'
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    stopAutomationRunHeartbeat(heartbeat);
+    manualAutomationInFlight = false;
+    next(err);
+  }
 }
 async function getAutomationLogs(req, res, next) { try { const { limit } = req.query; return res.status(200).json({ success: true, data: await fetchAutoLogs(limit || 50) }); } catch (err) { next(err); } }
 
