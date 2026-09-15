@@ -1,0 +1,11 @@
+-- Final additive parity guard for legacy PostgreSQL databases.
+-- Safe and idempotent; no data or tables are removed.
+ALTER TABLE questions
+  ADD COLUMN IF NOT EXISTS editorial TEXT,
+  ADD COLUMN IF NOT EXISTS reference_solution TEXT,
+  ADD COLUMN IF NOT EXISTS solution_approach TEXT,
+  ADD COLUMN IF NOT EXISTS complexity TEXT,
+  ADD COLUMN IF NOT EXISTS examples JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS url TEXT,
+  ADD COLUMN IF NOT EXISTS generation_slot TEXT,
+  ADD COLUMN IF NOT EXISTS created_via TEXT NOT NULL DEFAULT 'manual';
