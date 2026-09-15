@@ -475,7 +475,7 @@ Draft → Scheduled → Published → Archived
 2. **Dual Sidebar Components:** `Sidebar.jsx` vs `StudentSidebar.jsx`/`AdminSidebar.jsx` — inconsistent mobile support
 3. **Legacy Tables:** `daily_questions`, `daily_challenge_problems` (dropped in migration 022) — some references remain
 4. **Migration Conflicts:** Duplicate migration numbers (011, 012) with different content
-5. **Scratch Files:** 12+ scratch/utility scripts in backend root (not cleaned up)
+5. **Scratch Files:** (Resolved) Temporary scratch files, trace artifacts, and test dumps removed in repository cleanup
 6. **Unused Services:** `questionSimilarityService.js` (legacy, not used by main pipeline)
 7. **SQLite/PG Divergence:** Schema has subtle differences in defaults and column types
 

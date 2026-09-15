@@ -146,11 +146,11 @@
 - **Impact:** Dead code
 - **Suggested Fix:** Remove or mark as deprecated
 
-### 21. Scratch Files in Backend Root
+### 21. Scratch Files in Backend Root (Resolved)
 - **Component:** `backend/` root directory
-- **Evidence:** 12+ scratch/utility scripts (`scratch.js`, `scratch-scheduler*.js`, etc.)
-- **Impact:** Repository clutter
-- **Suggested Fix:** Move to `scripts/` or remove
+- **Evidence:** Scratch and temporary utility scripts previously accumulated in repository root and backend
+- **Status:** Resolved in repository cleanup — all obsolete scratch scripts, test dumps, and trace artifacts safely removed
+
 
 ---
 
