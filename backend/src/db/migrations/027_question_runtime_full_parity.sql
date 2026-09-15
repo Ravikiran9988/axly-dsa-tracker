@@ -1,17 +1,13 @@
 -- =============================================================================
 -- Axly DSA Tracker — PostgreSQL Question Runtime Parity
--- Migration 025: Repair legacy databases that were baselined without all
--- question columns now required by the canonical Question Bank / Daily
--- Challenge services.
+-- Migration 027: Final additive parity guard for fields required by the
+-- canonical Question Bank / Daily Challenge runtime.
 --
--- Additive + idempotent. No data or legacy tables are dropped.
+-- Safe to run after 025/026. Idempotent and non-destructive.
 -- =============================================================================
 
 BEGIN;
 
--- Columns required by current Question Bank / Daily Challenge queries and
--- inserts. These may be absent on older production databases even though the
--- database was historically considered migrated.
 ALTER TABLE questions
   ADD COLUMN IF NOT EXISTS url TEXT,
   ADD COLUMN IF NOT EXISTS examples JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -35,8 +31,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_questions_generation_slot
   ON questions(generation_slot)
   WHERE generation_slot IS NOT NULL;
 
--- Keep legacy rows usable by the current Question Bank semantics without
--- changing existing publication decisions.
 UPDATE questions
 SET status = 'published'
 WHERE status IS NULL OR status = '';
