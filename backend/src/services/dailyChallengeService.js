@@ -358,17 +358,18 @@ async function createDailyChallenge(data, admin_id) {
 
   const question_id = `q-${uuidv4().slice(0, 8)}`;
   const finalSlug = slug ? generateSlug(slug) : generateSlug(title);
+  const targetStatus = status || 'draft';
 
   await getRepo().transaction(async tx => {
-    // 1. Insert into questions table (canonical row, not practice yet, wait - let's default is_practice=0 if created as standalone DC? Or 1? Let's say is_practice=0 until published? We can just leave it as 0.)
+    // 1. Insert into questions table (canonical row, explicitly storing targetStatus lifecycle)
     await tx.execute(`
       INSERT INTO questions (
         id, title, slug, url, difficulty, topic_id, pattern_id,
         estimated_time, points, description, problem_statement, constraints,
         input_format, output_format, example_input, example_output, examples,
         hints, tags, solution_approach, editorial, complexity, starter_code,
-        reference_solution, supported_languages, is_practice, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+        reference_solution, supported_languages, is_practice, created_by, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
     `, [
       question_id, title.trim(), finalSlug, `internal://${finalSlug}`, difficulty.toLowerCase(), finalTopicId, finalPatternId,
       Number(estimated_time) || 30, Number(points) || 100, description.trim(), problem_statement || null, constraints || null,
@@ -376,7 +377,7 @@ async function createDailyChallenge(data, admin_id) {
       normalizeJsonArray(hints, '[]'), normalizeJsonArray(tags, '[]'), solution_approach || editorial || null,
       editorial || solution_approach || null, complexity || null, typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null),
       typeof reference_solution === 'object' ? JSON.stringify(reference_solution) : (reference_solution || null),
-      normalizeJsonArray(supported_languages, '["javascript", "python"]'), admin_id || null
+      normalizeJsonArray(supported_languages, '["javascript", "python"]'), admin_id || null, targetStatus
     ]);
 
     // 2. Insert into test_cases
@@ -396,7 +397,7 @@ async function createDailyChallenge(data, admin_id) {
     await tx.execute(`
       INSERT INTO daily_challenge_metadata (question_id, scheduled_date, custom_topic, created_via, status)
       VALUES (?, ?, ?, ?, ?)
-    `, [question_id, scheduled_date || null, custom_topic || null, metaCreatedVia, status]);
+    `, [question_id, scheduled_date || null, custom_topic || null, metaCreatedVia, targetStatus]);
   });
 
   // Index question for novelty detection (async, non-blocking)
@@ -475,6 +476,10 @@ async function updateDailyChallenge(id, data, admin_id) {
       mValues.push(id);
       await tx.execute(`UPDATE daily_challenge_metadata SET ${mFields.join(', ')} WHERE question_id = ?`, mValues);
     }
+
+    if (data.status !== undefined) {
+      await tx.execute('UPDATE questions SET status = ? WHERE id = ?', [data.status, id]);
+    }
   });
 
   // Re-index question for novelty detection if question content was updated
@@ -494,11 +499,18 @@ async function scheduleDailyChallenge(id, date, admin_id) {
 
   await assertDateAvailable(date, id);
 
-  await getRepo().execute(`
-    UPDATE daily_challenge_metadata 
-    SET scheduled_date = ?, status = 'scheduled', updated_at = CURRENT_TIMESTAMP 
-    WHERE question_id = ?
-  `, [date, id]);
+  await getRepo().transaction(async tx => {
+    await tx.execute(`
+      UPDATE daily_challenge_metadata 
+      SET scheduled_date = ?, status = 'scheduled', updated_at = CURRENT_TIMESTAMP 
+      WHERE question_id = ?
+    `, [date, id]);
+    await tx.execute(`
+      UPDATE questions 
+      SET status = 'scheduled' 
+      WHERE id = ?
+    `, [id]);
+  });
 
   return getDailyChallengeById(id, true);
 }
@@ -510,11 +522,18 @@ async function publishDailyChallenge(id, admin_id) {
   const targetDate = meta.scheduled_date || getCanonicalUtcDate();
   await assertDateAvailable(targetDate, id);
 
-  await getRepo().execute(`
-    UPDATE daily_challenge_metadata 
-    SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
-    WHERE question_id = ?
-  `, [targetDate, id]);
+  await getRepo().transaction(async tx => {
+    await tx.execute(`
+      UPDATE daily_challenge_metadata 
+      SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE question_id = ?
+    `, [targetDate, id]);
+    await tx.execute(`
+      UPDATE questions 
+      SET status = 'published' 
+      WHERE id = ?
+    `, [id]);
+  });
 
   return getDailyChallengeById(id, true);
 }
@@ -522,11 +541,18 @@ async function publishDailyChallenge(id, admin_id) {
 async function publishNowDailyChallenge(id, admin_id) {
   const todayUtc = getCanonicalUtcDate();
   await assertDateAvailable(todayUtc, id);
-  await getRepo().execute(`
-    UPDATE daily_challenge_metadata 
-    SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
-    WHERE question_id = ?
-  `, [todayUtc, id]);
+  await getRepo().transaction(async tx => {
+    await tx.execute(`
+      UPDATE daily_challenge_metadata 
+      SET status = 'published', scheduled_date = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE question_id = ?
+    `, [todayUtc, id]);
+    await tx.execute(`
+      UPDATE questions 
+      SET status = 'published' 
+      WHERE id = ?
+    `, [id]);
+  });
   return getDailyChallengeById(id, true);
 }
 
@@ -537,11 +563,18 @@ async function unpublishDailyChallenge(id, admin_id) {
   const todayUtc = getCanonicalUtcDate();
   const nextStatus = (meta.scheduled_date && meta.scheduled_date > todayUtc) ? 'scheduled' : 'draft';
 
-  await getRepo().execute(`
-    UPDATE daily_challenge_metadata 
-    SET status = ?, updated_at = CURRENT_TIMESTAMP 
-    WHERE question_id = ?
-  `, [nextStatus, id]);
+  await getRepo().transaction(async tx => {
+    await tx.execute(`
+      UPDATE daily_challenge_metadata 
+      SET status = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE question_id = ?
+    `, [nextStatus, id]);
+    await tx.execute(`
+      UPDATE questions 
+      SET status = ? 
+      WHERE id = ?
+    `, [nextStatus, id]);
+  });
 
   return getDailyChallengeById(id, true);
 }
@@ -662,10 +695,16 @@ async function updateDailyChallengeStatus(id, status, scheduledDate = null) {
   }
   params.push(id);
 
-  await getRepo().execute(
-    `UPDATE daily_challenge_metadata SET ${updates.join(', ')} WHERE question_id = ?`,
-    params
-  );
+  await getRepo().transaction(async tx => {
+    await tx.execute(
+      `UPDATE daily_challenge_metadata SET ${updates.join(', ')} WHERE question_id = ?`,
+      params
+    );
+    await tx.execute(
+      `UPDATE questions SET status = ? WHERE id = ?`,
+      [status, id]
+    );
+  });
 
   return getDailyChallengeById(id, true);
 }

@@ -16,7 +16,7 @@ async function ensureVersioning() {
 
 async function getQuestions(req, res, next) {
   try {
-    const { difficulty, topic_id, assigned, page, limit, search } = req.query;
+    const { difficulty, topic_id, assigned, page, limit, search, status, is_practice } = req.query;
     const result = await questionService.listQuestions({
       user: req.user,
       difficulty,
@@ -24,7 +24,9 @@ async function getQuestions(req, res, next) {
       assigned,
       page,
       limit,
-      search
+      search,
+      status,
+      is_practice
     });
     return res.status(200).json(result);
   } catch (err) {

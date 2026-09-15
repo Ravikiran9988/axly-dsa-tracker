@@ -37,7 +37,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
   test('1. Admin Daily Challenge Portal & KPI Counters', async ({ page }) => {
     await loginAsAdmin(page);
 
-    await page.getByRole('button', { name: 'Daily Challenge' }).click();
+    await page.getByRole('button', { name: 'Daily Challenge' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Daily Challenge Portal' })).toBeVisible({ timeout: 15000 });
 
     // KPI counter labels
@@ -57,7 +57,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
 
   test('2. Admin Manual Creation, Scheduling & Publish Lifecycle', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.getByRole('button', { name: 'Daily Challenge' }).click();
+    await page.getByRole('button', { name: 'Daily Challenge' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Daily Challenge Portal' })).toBeVisible({ timeout: 15000 });
 
     const uniqueTitle = `Distinct Matrix Path Traversal ${Date.now()} ${Math.random().toString(36).slice(2, 5)}`;
@@ -109,7 +109,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
       }
     });
 
-    await page.getByRole('button', { name: 'Daily Challenge' }).click();
+    await page.getByRole('button', { name: 'Daily Challenge' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Daily Challenge Portal' })).toBeVisible({ timeout: 15000 });
 
     // Click "Run Auto-Fill Now"
@@ -141,7 +141,7 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await loginAsStudent(page);
 
     // Navigate to Daily Challenge via sidebar
-    await page.getByRole('button', { name: 'Daily Challenge' }).click();
+    await page.getByRole('button', { name: 'Daily Challenge' }).first().click();
     await expect(page.getByRole('heading', { level: 1, name: 'Daily Challenge' })).toBeVisible({ timeout: 15000 });
 
     // Either a Solve button or an empty-state message must be visible

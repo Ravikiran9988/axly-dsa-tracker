@@ -50,13 +50,25 @@ async function validateQuestionInput({ title, difficulty, topic_id }, currentRep
   }
 }
 
-async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit = 20, search }) {
+async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, limit = 20, search, status, is_practice }) {
   const conditions = [];
   const params = [];
 
+  // Question Bank manages practice problems (is_practice = 1).
+  // Daily Challenges have is_practice = 0 until expired, when they become practice problems.
+  if (is_practice !== undefined && is_practice !== null && is_practice !== '') {
+    const isPracticeStr = String(is_practice).toLowerCase();
+    if (isPracticeStr !== 'all') {
+      const isPracticeBool = isPracticeStr === 'true' || isPracticeStr === '1';
+      conditions.push(isPracticeBool ? 'q.is_practice = TRUE' : 'q.is_practice = FALSE');
+    }
+  } else {
+    // Question Bank default: practice-available questions
+    conditions.push('q.is_practice = TRUE');
+  }
+
   if (user?.role !== 'admin') {
     conditions.push('q.is_active = TRUE');
-    conditions.push('q.is_practice = TRUE');
     conditions.push("q.status != 'draft'");
   }
   if (difficulty) {
@@ -66,6 +78,10 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   if (topic_id) {
     conditions.push('q.topic_id = ?');
     params.push(topic_id);
+  }
+  if (status && status.trim()) {
+    conditions.push('LOWER(q.status) = ?');
+    params.push(status.trim().toLowerCase());
   }
   if (assigned !== undefined && assigned !== null && assigned !== '') {
     const isAssigned = String(assigned).toLowerCase() === 'true';
@@ -81,7 +97,7 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   }
 
   const combinedQuestionsQuery = `
-    SELECT q.id, q.title, q.difficulty, q.topic_id, q.url, q.is_active, q.created_at, q.description, q.problem_statement, q.constraints, q.input_format, q.output_format, q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points, q.assigned_date, q.due_date, q.status, q.supported_languages, q.starter_code, q.is_practice, CASE WHEN dcm.question_id IS NOT NULL THEN 1 ELSE 0 END AS is_daily_challenge FROM questions q LEFT JOIN daily_challenge_metadata dcm ON dcm.question_id = q.id
+    SELECT q.id, q.title, q.difficulty, q.topic_id, q.url, q.is_active, q.created_at, q.description, q.problem_statement, q.constraints, q.input_format, q.output_format, q.example_input, q.example_output, q.hints, q.tags, q.estimated_time, q.points, q.assigned_date, q.due_date, COALESCE(dcm.status, q.status) AS status, q.supported_languages, q.starter_code, q.is_practice, CASE WHEN dcm.question_id IS NOT NULL THEN 1 ELSE 0 END AS is_daily_challenge FROM questions q LEFT JOIN daily_challenge_metadata dcm ON dcm.question_id = q.id
   `;
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -392,7 +408,7 @@ async function updateQuestion(id, input) {
 
   // Re-index question for novelty detection (async, non-blocking)
   const updatedQuestion = await getQuestionById(id, { role: 'admin' });
-  indexAcceptedQuestion(id, updatedQuestion, { force: true }).catch(err => {
+  noveltyService.indexAcceptedQuestion(id, updatedQuestion, { force: true }).catch(err => {
     console.warn(`[QuestionService] Failed to re-index question ${id} for novelty detection:`, err.message);
   });
 

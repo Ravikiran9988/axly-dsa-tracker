@@ -128,6 +128,13 @@ async function upsertDailyChallengeMetadata(questionId, { status, scheduledDate,
       params
     );
   }
+
+  if (status) {
+    await getRepo().execute(
+      'UPDATE questions SET status = ? WHERE id = ?',
+      [status, questionId]
+    );
+  }
 }
 
 async function runAdminAutoFillNow(options = {}) {
@@ -356,10 +363,10 @@ async function runDailyExpiration(now = new Date()) {
           WHERE question_id IN (${expiredIds.map(() => '?').join(',')})
         `, expiredIds);
         
-        // Expose to practice by setting is_practice = 1 and status = archived
+        // Expose to practice by setting is_practice = 1, is_active = 1, and status = 'published'
         await tx.execute(`
           UPDATE questions 
-          SET is_practice = 1, is_active = 1, updated_at = CURRENT_TIMESTAMP 
+          SET is_practice = 1, is_active = 1, status = 'published' 
           WHERE id IN (${expiredIds.map(() => '?').join(',')})
         `, expiredIds);
       });
@@ -442,6 +449,7 @@ module.exports = {
   runAutomationPipeline,
   startAutomationScheduler,
   stopAutomationScheduler,
+  runDailyExpiration,
   toBooleanFlag,
   persistRunStatus
 };

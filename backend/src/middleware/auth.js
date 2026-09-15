@@ -11,11 +11,12 @@ function getSqliteRepository() {
 }
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 const isProduction = process.env.NODE_ENV === 'production';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || (isProduction ? null : process.env.SUPABASE_ANON_KEY);
 const JWT_SECRET = process.env.JWT_SECRET || (isProduction ? null : 'axly-dsa-tracker-dev-secret-key-32-chars-minimum');
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 if (isProduction && !JWT_SECRET) throw new Error('JWT_SECRET must be configured in production.');
+if (isProduction && SUPABASE_URL && !process.env.SUPABASE_SERVICE_ROLE_KEY) console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY not set in production. Supabase auth fallback will use anon key (may bypass RLS).');
 let supabaseClient = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && !SUPABASE_URL.includes('mock')) {
   try { supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } }); }
