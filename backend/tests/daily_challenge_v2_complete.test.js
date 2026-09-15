@@ -472,12 +472,13 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
 
       expect(adminRes.success).toBe(true);
       expect(adminRes.status).toBe('success');
-      expect(adminRes.message).toBe('AI challenge generated successfully and saved as Draft.');
+      expect(adminRes.message).toBe('Existing suitable question found and saved as Draft for admin review.');
       expect(adminRes.challenge).toBeDefined();
       expect(adminRes.challenge.id).not.toBe(challengeA.id);
       expect(adminRes.challenge.status).toBe('draft');
-      expect(adminRes.challenge.created_via).toBe('ai');
+      expect(adminRes.challenge.created_via).toBe('ai_automation');
       expect(adminRes.challenge.scheduled_date).toBeNull();
+      expect(adminRes.usedExisting).toBe(true);
 
       // Verify Challenge A remains unchanged
       const freshChallengeA = await getDailyChallengeById(challengeA.id, true);
@@ -678,6 +679,21 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
     });
 
     test('8.7 Multi-Generation Test: 10 successive generations yield unique challenges without variant collisions', async () => {
+      // Force CASE B (new generation) by marking all existing active questions as already having DC metadata.
+      // To block Case A, the metadata must have status != 'archived' AND scheduled_date IS NOT NULL
+      // (the findSuitableExistingQuestion NOT EXISTS filter checks for exactly that).
+      // Each question gets a unique scheduled_date to satisfy the UNIQUE constraint on scheduled_date.
+      // First, clear ALL existing DC metadata to avoid UNIQUE collisions.
+      db.prepare(`DELETE FROM daily_challenge_metadata`).run();
+      const activeQs = db.prepare(`SELECT id FROM questions WHERE is_active = 1`).all();
+      for (let i = 0; i < activeQs.length; i++) {
+        const futureDate = `2099-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`;
+        db.prepare(`
+          INSERT INTO daily_challenge_metadata (question_id, status, scheduled_date, created_via)
+          VALUES (?, 'draft', ?, 'manual')
+        `).run(activeQs[i].id, futureDate);
+      }
+
       const generatedTitles = new Set();
       const generatedSignatures = new Set();
 
@@ -689,6 +705,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
         });
 
         if (res.success && res.challenge) {
+          expect(res.usedExisting).toBe(false);
           expect(res.challenge.title).not.toMatch(/variant\s*\d+/i);
           expect(generatedTitles.has(res.challenge.title)).toBe(false);
           generatedTitles.add(res.challenge.title);

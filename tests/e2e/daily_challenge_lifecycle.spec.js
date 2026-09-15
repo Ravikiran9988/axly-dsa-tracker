@@ -118,15 +118,15 @@ test.describe('Daily Challenge V2 — Complete Lifecycle, Automation & Student D
     await runBtn.click();
 
     // Wait for generation completion – success banner
-    await expect(page.getByText('AI challenge generated successfully and saved as Draft.').first()).toBeVisible({ timeout: 40000 });
+    await expect(page.getByText('Auto-fill pipeline completed successfully!').first()).toBeVisible({ timeout: 40000 });
 
     // Draft appears in table
     await expect(page.locator('table').first()).toBeVisible();
     await expect(page.locator('table').getByText('draft').first()).toBeVisible({ timeout: 10000 });
 
-    // Automation Logs show manual_admin entry
+    // Automation Logs show auto_fill entry
     await page.locator('#btn-admin-automation-logs').first().click();
-    await expect(page.getByText('manual_admin').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('auto_fill').first()).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: /Close/i }).last().click();
 
     // Simulate scheduled AUTO_FILL via API → should return 200

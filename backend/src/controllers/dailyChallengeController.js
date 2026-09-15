@@ -73,10 +73,10 @@ async function runAutomationNow(req, res, next) {
       WHERE id = 'global-settings'
     `, [new Date().toISOString()]);
 
-    void runAdminAutoFillNow({ topic, difficulty, adminId })
+    const settings = await getAutomationSettings();
+    void runAdminAutoFillNow({ topic, difficulty, adminId, mode: settings.mode })
       .catch(async (err) => {
         console.error('❌ Background Daily Challenge automation failed:', err);
-        // Ensure the status is never left stuck as 'running' even on unexpected throws.
         try { await persistRunStatus('failed'); } catch (_) {}
       })
       .finally(() => { manualAutomationInFlight = false; });

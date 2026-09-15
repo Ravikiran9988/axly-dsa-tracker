@@ -178,7 +178,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
           pollRef.current = null;
           setIsRunningAutomation(false);
           if (currentStatus === 'success') {
-            setActionSuccess('Auto-fill pipeline completed successfully! A new Draft challenge has been created.');
+            setActionSuccess('Auto-fill pipeline completed successfully!');
           } else {
             setActionError('Pipeline finished with errors. Check automation logs for details.');
           }

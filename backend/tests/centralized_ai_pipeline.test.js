@@ -566,4 +566,128 @@ describe('Centralized AI Question Generation Pipeline', () => {
     expect(list.data.length).toBe(1);
     expect(list.data[0].title).toBe('Practice Binary Search');
   });
+
+  // ── Auto-Fill Lifecycle: Existing Question Reuse vs New Generation ────────
+
+  // CASE A: Existing suitable question → no generation, DRAFT, no duplicate
+  test('CASE A: Auto-Fill with existing suitable question reuses it without generating', async () => {
+    const aiQuestionService = require('../src/services/aiQuestionService');
+    const spyContract = jest.spyOn(aiQuestionService, 'generateContract');
+
+    // 1. Insert a practice question directly into the mock DB (avoids service-layer mocking complexity)
+    const existingId = `q-reuse-${Date.now()}`;
+    mockTestDb.prepare(`
+      INSERT INTO questions (id, title, slug, difficulty, url, description, problem_statement,
+        constraints, input_format, output_format, example_input, example_output, examples,
+        hints, tags, estimated_time, points, status, supported_languages,
+        starter_code, reference_solution, is_active, is_practice, created_via)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 'manual')
+    `).run(
+      existingId, 'Reusable Two Pointer Sum', 'reusable-two-pointer-sum', 'medium',
+      'https://test.com', 'Find two numbers in a sorted array that add up to a target using two pointers.',
+      'Find two numbers.', '2 <= nums.length <= 10^4', 'Input format', 'Output format',
+      '1', '1', '[]', '[]', '[]', '30 mins', 100, 'published', '["javascript","python"]',
+      JSON.stringify(validSolutions.starter_code), JSON.stringify(validSolutions.reference_solution)
+    );
+    mockTestDb.prepare('INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden) VALUES (?, ?, ?, ?, ?)').run(`tc-reuse-${Date.now()}`, existingId, '1', '1', 0);
+
+    // 2. Run admin auto-fill — should find the existing question
+    const result = await dcAutomationService.runAdminAutoFillNow({
+      adminId: 'usr-admin-01',
+      difficulty: 'medium',
+      mode: 'auto_fill'
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.usedExisting).toBe(true);
+    expect(result.challenge.id).toBe(existingId);
+
+    // 3. Verify AI generator was NOT called
+    expect(spyContract).not.toHaveBeenCalled();
+
+    // 4. Verify status = draft (existing question found → admin review required)
+    const meta = mockTestDb.prepare('SELECT status, created_via FROM daily_challenge_metadata WHERE question_id = ?').get(existingId);
+    expect(meta.status).toBe('draft');
+    expect(meta.created_via).toBe('ai_automation');
+
+    // 5. Verify no duplicate question was created
+    const questionCount = mockTestDb.prepare('SELECT COUNT(*) as c FROM questions').get();
+    expect(questionCount.c).toBe(1);
+
+    // 6. Verify automation log mode = auto_fill
+    const log = mockTestDb.prepare('SELECT mode, status FROM daily_challenge_automation_logs ORDER BY created_at DESC LIMIT 1').get();
+    expect(log.mode).toBe('auto_fill');
+    expect(log.status).toBe('success');
+  });
+
+  // CASE B: No suitable question → generate new, SCHEDULED, target date = tomorrow
+  test('CASE B: Auto-Fill with no suitable question generates new and schedules', async () => {
+    const aiQuestionService = require('../src/services/aiQuestionService');
+    const spyContract = jest.spyOn(aiQuestionService, 'generateContract').mockResolvedValue(validContract);
+    const spyTests = jest.spyOn(aiQuestionService, 'generateTestCasesForContract').mockResolvedValue(validTestCases);
+    const spySolutions = jest.spyOn(aiQuestionService, 'generateSolutionsForContract').mockResolvedValue(validSolutions);
+    const spyHints = jest.spyOn(aiQuestionService, 'generateHintsForContract').mockResolvedValue(validHints);
+
+    // 1. No existing questions in DB — auto-fill must generate new
+    const result = await dcAutomationService.runAdminAutoFillNow({
+      adminId: 'usr-admin-01',
+      difficulty: 'medium',
+      mode: 'auto_fill'
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.usedExisting).toBe(false);
+    expect(result.challenge).toBeDefined();
+
+    // 2. Verify AI generator WAS called
+    expect(spyContract).toHaveBeenCalled();
+
+    // 3. Verify status = scheduled
+    const meta = mockTestDb.prepare('SELECT status, scheduled_date, created_via FROM daily_challenge_metadata WHERE question_id = ?').get(result.challenge.id);
+    expect(meta.status).toBe('scheduled');
+    expect(meta.created_via).toBe('ai_automation');
+
+    // 4. Verify scheduled_date = tomorrow
+    const { getNextCanonicalIstDate } = require('../src/utils/dateUtils');
+    const expectedDate = getNextCanonicalIstDate();
+    expect(meta.scheduled_date).toBe(expectedDate);
+
+    // 5. Verify question was indexed
+    const emb = mockTestDb.prepare('SELECT * FROM question_embeddings WHERE question_id = ?').get(result.challenge.id);
+    expect(emb).toBeTruthy();
+
+    // 6. Verify automation log mode = auto_fill
+    const log = mockTestDb.prepare('SELECT mode, status, target_date FROM daily_challenge_automation_logs ORDER BY created_at DESC LIMIT 1').get();
+    expect(log.mode).toBe('auto_fill');
+    expect(log.status).toBe('success');
+    expect(log.target_date).toBe(expectedDate);
+  });
+
+  // DC automation logs are separate from QB automation logs
+  test('DC and QB automation logs are written to separate tables', async () => {
+    // Write a DC log
+    await mockTestDb.prepare(
+      `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, status, details) VALUES (?, ?, ?, ?, ?)`
+    ).run('dc-log-test', '2026-09-16', 'auto_fill', 'success', 'DC test log');
+
+    // Write a QB log
+    await mockTestDb.prepare(
+      `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, details) VALUES (?, ?, ?, ?, ?)`
+    ).run('qb-log-test', '2026-09-15-14', 'auto_fill', 'success', 'QB test log');
+
+    const dcLogs = mockTestDb.prepare('SELECT COUNT(*) as c FROM daily_challenge_automation_logs').get();
+    const qbLogs = mockTestDb.prepare('SELECT COUNT(*) as c FROM question_bank_automation_logs').get();
+
+    expect(dcLogs.c).toBe(1);
+    expect(qbLogs.c).toBe(1);
+
+    // Verify they don't cross-contaminate
+    const dcEntry = mockTestDb.prepare('SELECT * FROM daily_challenge_automation_logs WHERE id = ?').get('dc-log-test');
+    expect(dcEntry).toBeTruthy();
+    expect(dcEntry.target_date).toBe('2026-09-16');
+
+    const qbEntry = mockTestDb.prepare('SELECT * FROM question_bank_automation_logs WHERE id = ?').get('qb-log-test');
+    expect(qbEntry).toBeTruthy();
+    expect(qbEntry.target_slot).toBe('2026-09-15-14');
+  });
 });

@@ -83,54 +83,196 @@ async function publishTodaysScheduledChallenge(todayDate) {
   return { published: true, challenge: published };
 }
 
+/**
+ * Find a suitable existing canonical question that can be reused for the target Daily Challenge date.
+ *
+ * A question is suitable when ALL of the following hold:
+ *   - is_active = 1 (not deactivated)
+ *   - Has at least one test case (valid canonical question)
+ *   - Is NOT already linked to a non-archived Daily Challenge for the target date
+ *   - Is NOT already linked to a non-archived Daily Challenge on a conflicting date
+ *     (scheduled_date UNIQUE constraint means only one non-archived per date)
+ *
+ * Returns the first suitable question or null.
+ */
+async function findSuitableExistingQuestion(targetDate, difficulty = null) {
+  const difficultyFilter = difficulty && ['easy', 'medium', 'hard'].includes(difficulty)
+    ? 'AND LOWER(q.difficulty) = ?'
+    : '';
+  const difficultyParam = difficulty && ['easy', 'medium', 'hard'].includes(difficulty)
+    ? [difficulty.toLowerCase()]
+    : [];
+
+  try {
+    const candidates = await getRepo().many(`
+      SELECT q.id, q.title, q.difficulty, q.topic_id, q.description,
+             q.starter_code, q.reference_solution,
+             q.problem_signature, q.problem_concept
+      FROM questions q
+      WHERE q.is_active = 1
+        AND EXISTS (SELECT 1 FROM test_cases tc WHERE tc.question_id = q.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM daily_challenge_metadata dcm
+          WHERE dcm.question_id = q.id
+            AND dcm.status != 'archived'
+            AND dcm.scheduled_date IS NOT NULL
+        )
+        ${difficultyFilter}
+      ORDER BY q.created_at DESC
+      LIMIT 5
+    `, difficultyParam);
+
+    for (const candidate of candidates) {
+      const conflict = await getRepo().one(`
+        SELECT 1 FROM daily_challenge_metadata dcm
+        WHERE dcm.question_id = ?
+          AND dcm.scheduled_date = ?
+          AND dcm.status != 'archived'
+        LIMIT 1
+      `, [candidate.id, targetDate]);
+      if (!conflict) return candidate;
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[DailyAutomation] Error finding suitable existing question:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Create or update a Daily Challenge metadata record for an existing canonical question.
+ *
+ * Handles:
+ *   - Question has no existing metadata → INSERT new metadata row
+ *   - Question has archived metadata → UPDATE archived row back to target status
+ *   - Question has existing non-archived metadata → UPDATE status/scheduled_date
+ */
+async function upsertDailyChallengeMetadata(questionId, { status, scheduledDate, customTopic = null, createdVia = 'ai_automation' }) {
+  const existing = await getRepo().one(
+    'SELECT question_id, status AS current_status FROM daily_challenge_metadata WHERE question_id = ?',
+    [questionId]
+  );
+
+  if (!existing) {
+    await getRepo().execute(
+      `INSERT INTO daily_challenge_metadata (question_id, scheduled_date, status, custom_topic, created_via)
+       VALUES (?, ?, ?, ?, ?)`,
+      [questionId, scheduledDate || null, status, customTopic, createdVia]
+    );
+  } else {
+    const updates = ['status = ?', 'updated_at = CURRENT_TIMESTAMP'];
+    const params = [status];
+    if (scheduledDate !== undefined) { updates.push('scheduled_date = ?'); params.push(scheduledDate); }
+    if (customTopic !== undefined) { updates.push('custom_topic = ?'); params.push(customTopic); }
+    if (createdVia !== undefined) { updates.push('created_via = ?'); params.push(createdVia); }
+    params.push(questionId);
+    await getRepo().execute(
+      `UPDATE daily_challenge_metadata SET ${updates.join(', ')} WHERE question_id = ?`,
+      params
+    );
+  }
+}
+
 async function runAdminAutoFillNow(options = {}) {
-  const { adminId = 'usr-admin-01', difficulty = 'medium', topic = 'Surprise Me' } = options;
-  let createdDraft = null;
+  const { adminId = 'usr-admin-01', difficulty = 'medium', topic = 'Surprise Me', mode = 'auto_fill' } = options;
+  const targetDate = getNextCanonicalIstDate();
+  let resultChallenge = null;
   let failureReason = 'Unknown failure during AI synthesis';
   let failureCategory = 'UNKNOWN';
   let finalStatus = 'failed';
+  let usedExistingQuestion = false;
 
   try {
-    try {
-      const generated = await generateUniqueChallenge({ topic, difficulty, instructions: 'Create a genuinely original problem. Do not use a variant of an existing challenge.' });
-      createdDraft = await createDailyChallenge({ ...generated, status: 'draft', scheduled_date: null, created_via: 'ai_automation' }, adminId);
+    // ── STEP 1: Check for a suitable existing canonical question ──────────────
+    const existingQuestion = await findSuitableExistingQuestion(targetDate, difficulty);
 
-      // Required embedding/indexing — must succeed before the draft is considered usable
-      const indexResult = await noveltyService.indexAcceptedQuestion(createdDraft.id, createdDraft);
-      if (!indexResult || !indexResult.success) {
-        const indexReason = indexResult?.reason || 'unknown_indexing_failure';
-        failureReason = `Required embedding/indexing failed: ${indexReason}`;
-        failureCategory = 'INDEXING_FAILED';
-        createdDraft = null;
+    if (existingQuestion) {
+      // ── CASE A: Existing suitable question found — reuse, do not duplicate ──
+      try {
+        await upsertDailyChallengeMetadata(existingQuestion.id, {
+          status: 'draft',
+          scheduledDate: null,
+          createdVia: 'ai_automation'
+        });
+        resultChallenge = await getRepo().one(`
+          SELECT q.*, dcm.scheduled_date, dcm.status, dcm.custom_topic, dcm.created_via,
+                 dcm.created_at AS dc_created_at, dcm.updated_at AS dc_updated_at,
+                 t.name AS topic_name, p.name AS pattern_name
+          FROM daily_challenge_metadata dcm
+          JOIN questions q ON q.id = dcm.question_id
+          LEFT JOIN topics t ON q.topic_id = t.id
+          LEFT JOIN patterns p ON q.pattern_id = p.id
+          WHERE dcm.question_id = ?
+        `, [existingQuestion.id]);
+        usedExistingQuestion = true;
+      } catch (metaErr) {
+        failureReason = metaErr.message || failureReason;
+        failureCategory = metaErr.code || 'METADATA_ERROR';
       }
-    } catch (err) {
-      failureReason = err.message || failureReason;
-      failureCategory = err.code || 'PIPELINE_ERROR';
-      createdDraft = null;
+    } else {
+      // ── CASE B: No suitable question — generate new via central AI pipeline ──
+      try {
+        const generated = await generateUniqueChallenge({
+          topic, difficulty,
+          instructions: 'Create a genuinely original problem. Do not use a variant of an existing challenge.'
+        });
+
+        // Create with status='scheduled' directly (avoids unnecessary intermediate transition)
+        resultChallenge = await createDailyChallenge({
+          ...generated,
+          status: 'scheduled',
+          scheduled_date: targetDate,
+          created_via: 'ai_automation'
+        }, adminId);
+
+        // Required embedding/indexing — must succeed before the question is considered usable
+        const indexResult = await noveltyService.indexAcceptedQuestion(resultChallenge.id, resultChallenge);
+        if (!indexResult || !indexResult.success) {
+          const indexReason = indexResult?.reason || 'unknown_indexing_failure';
+          failureReason = `Required embedding/indexing failed: ${indexReason}`;
+          failureCategory = 'INDEXING_FAILED';
+          resultChallenge = null;
+        }
+      } catch (err) {
+        failureReason = err.message || failureReason;
+        failureCategory = err.code || 'PIPELINE_ERROR';
+        resultChallenge = null;
+      }
     }
 
+    // ── STEP 3: Write automation log ─────────────────────────────────────────
     const logId = `auto-log-${uuidv4().slice(0, 8)}`;
-    const targetDate = getCanonicalIstDate();
 
-    if (createdDraft) {
+    if (resultChallenge) {
       finalStatus = 'success';
+      const details = usedExistingQuestion
+        ? `Existing suitable question "${resultChallenge.title}" found and reused. Draft created for admin review.`
+        : `AI challenge "${resultChallenge.title}" generated, validated, indexed, and scheduled for ${targetDate}.`;
       await getRepo().execute(
-        `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, 'manual_admin', 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`,
-        [logId, targetDate, createdDraft.id, `AI challenge "${createdDraft.title}" generated through the five-slot LLM fallback chain and saved as Draft.`]
+        `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`,
+        [logId, targetDate, mode, resultChallenge.id, details]
       );
-      return { success: true, status: 'success', attempts: 1, challenge: createdDraft, message: 'AI challenge generated successfully and saved as Draft.' };
+      return {
+        success: true,
+        status: 'success',
+        attempts: 1,
+        challenge: resultChallenge,
+        usedExisting: usedExistingQuestion,
+        message: usedExistingQuestion
+          ? 'Existing suitable question found and saved as Draft for admin review.'
+          : 'AI challenge generated, validated, and scheduled successfully.'
+      };
     }
 
     await getRepo().execute(
-      `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at) VALUES (?, ?, 'manual_admin', 1, 'Failed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)`,
-      [logId, targetDate, failureCategory, `Admin Auto-Fill generation failed: ${failureReason}`]
+      `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at) VALUES (?, ?, ?, 1, 'Failed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)`,
+      [logId, targetDate, mode, failureCategory, `Admin Auto-Fill generation failed: ${failureReason}`]
     );
     return { success: false, status: 'failed', attempts: 1, error: failureReason, failure_category: failureCategory };
   } finally {
-    // Always update the automation settings run status, even on unexpected throws.
-    // This prevents the UI from staying stuck in 'running' state indefinitely.
     try {
-      await persistRunStatus(createdDraft ? 'success' : finalStatus);
+      await persistRunStatus(resultChallenge ? 'success' : finalStatus);
     } catch (persistErr) {
       console.error('[DailyAutomation] Failed to persist run status in finally block:', persistErr.message);
     }
