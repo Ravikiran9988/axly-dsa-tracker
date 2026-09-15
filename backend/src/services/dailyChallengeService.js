@@ -729,7 +729,6 @@ module.exports = {
   publishDailyChallenge,
   publishNowDailyChallenge,
   unpublishDailyChallenge,
-  archiveDailyChallenge,
   deleteDailyChallenge,
   getTodayDailyChallenge
 };

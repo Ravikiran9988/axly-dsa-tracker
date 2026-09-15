@@ -45,7 +45,6 @@ async function scheduleDailyChallenge(req, res, next) { try { const { id } = req
 async function publishDailyChallenge(req, res, next) { try { const { id } = req.params; return res.status(200).json({ data: await dailyChallengeService.publishDailyChallenge(id, req.user.id), message: 'Daily challenge published successfully' }); } catch (err) { next(err); } }
 async function publishNowDailyChallenge(req, res, next) { try { const { id } = req.params; return res.status(200).json({ data: await dailyChallengeService.publishNowDailyChallenge(req.params.id, req.user.id), message: "Daily challenge published for today's active challenge" }); } catch (err) { next(err); } }
 async function unpublishDailyChallenge(req, res, next) { try { const { id } = req.params; return res.status(200).json({ data: await dailyChallengeService.unpublishDailyChallenge(id, req.user.id), message: 'Daily challenge unpublished successfully' }); } catch (err) { next(err); } }
-async function archiveDailyChallenge(req, res, next) { try { return res.status(200).json(await dailyChallengeService.archiveDailyChallenge(req.params.id)); } catch (err) { next(err); } }
 async function deleteDailyChallenge(req, res, next) { try { const isPermanent = req.path.endsWith('/permanent') || req.query.permanent === 'true'; return res.status(200).json(await dailyChallengeService.deleteDailyChallenge(req.params.id, isPermanent)); } catch (err) { next(err); } }
 async function getDailyChallengeTopics(req, res, next) { try { const topicService = require('../services/topicService'); return res.status(200).json({ success: true, data: await topicService.listDailyChallengeTopics() }); } catch (err) { next(err); } }
 async function recommendTopic(req, res, next) { try { const topicService = require('../services/topicService'); const { difficulty } = req.body || req.query || {}; return res.status(200).json({ success: true, data: await topicService.recommendTopicForDailyChallenge({ difficulty }) }); } catch (err) { next(err); } }
@@ -97,6 +96,6 @@ function getRepoForController() {
 module.exports = {
   listDailyChallenges, getTodayDailyChallenge, getDailyChallenge, createDailyChallenge, createDailyChallengeFromPractice,
   generateAiChallenge, generateAiTestCases, generateAiHints, validateDuplicate, updateDailyChallenge, scheduleDailyChallenge,
-  publishDailyChallenge, publishNowDailyChallenge, unpublishDailyChallenge, archiveDailyChallenge, deleteDailyChallenge,
+  publishDailyChallenge, publishNowDailyChallenge, unpublishDailyChallenge, deleteDailyChallenge,
   getDailyChallengeTopics, recommendTopic, getAutomationStatus, updateAutomationSettings, runAutomationNow, getAutomationLogs
 };

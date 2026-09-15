@@ -6,7 +6,6 @@ const {
   createDailyChallenge,
   scheduleDailyChallenge,
   publishDailyChallenge,
-  archiveDailyChallenge,
   getDailyChallengeById
 } = require('../src/services/dailyChallengeService');
 const { runDailyExpiration } = require('../src/services/dailyChallengeAutomationService');
@@ -218,9 +217,11 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
       test_cases: [{ input: '4', expected_output: '8', is_hidden: false }]
     }, 'usr-admin-sync');
 
-    // Archive it (lifecycle expiration)
-    await archiveDailyChallenge(challenge.id);
-    // Ensure practice availability flags
+    // Simulate lifecycle expiration: dcm → archived, question → published + practice
+    await repo.execute(
+      `UPDATE daily_challenge_metadata SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE question_id = ?`,
+      [challenge.id]
+    );
     await repo.execute('UPDATE questions SET is_practice = 1, is_active = 1, status = \'published\' WHERE id = ?', [challenge.id]);
 
     const res = await request(app)
