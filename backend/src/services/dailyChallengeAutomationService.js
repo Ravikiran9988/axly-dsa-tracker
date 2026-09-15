@@ -180,13 +180,14 @@ async function runDailyScheduledAutomation() {
 
     // Indexing succeeded — promote to target status
     const targetStatus = settings.mode === 'auto_fill' ? 'scheduled' : 'draft';
+    let finalChallenge = created;
     if (targetStatus !== 'draft') {
-      await updateDailyChallengeStatus(created.id, targetStatus, tomorrowDate);
+      finalChallenge = await updateDailyChallengeStatus(created.id, targetStatus, tomorrowDate);
     }
 
     await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`, [logId, tomorrowDate, settings.mode, created.id, settings.mode === 'auto_fill' ? `Published today's challenge for ${todayDate} and generated/indexed/scheduled tomorrow's challenge for ${tomorrowDate}.` : `Published today's challenge for ${todayDate}; generated tomorrow's challenge for ${tomorrowDate} as a draft for admin review.`]);
     await persistRunStatus('success');
-    return { success: true, status: 'SUCCESS', target_date: tomorrowDate, attempts: 1, published_today: publishResult.published, published_challenge: publishResult.challenge, challenge: created };
+    return { success: true, status: 'SUCCESS', target_date: tomorrowDate, attempts: 1, published_today: publishResult.published, published_challenge: publishResult.challenge, challenge: finalChallenge || created };
   }
 
   await getRepo().execute(`INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, failure_category, details, created_at) VALUES (?, ?, ?, 1, 'Failed', 'Not used', 'failed', ?, ?, CURRENT_TIMESTAMP)`, [logId, tomorrowDate, settings.mode, failureCategory, `Today's challenge ${publishResult.published ? 'was published' : 'was not found to publish'} for ${todayDate}, but generation of tomorrow's challenge ${tomorrowDate} failed: ${failureReason}.`]);

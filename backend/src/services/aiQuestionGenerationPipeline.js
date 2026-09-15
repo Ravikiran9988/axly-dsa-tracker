@@ -3,6 +3,7 @@ const { AppError } = require('../middleware/errorHandler');
 const { executeCode } = require('./executionService');
 const aiQuestionService = require('./aiQuestionService');
 const noveltyService = require('./questionNoveltyService');
+const { recommendTopicForDailyChallenge } = require('./topicService');
 
 function getRepo() {
   return getRepository();
@@ -304,7 +305,7 @@ async function checkDuplicateProblem(candidate, description = '', excludeId = nu
       if (qNormTitle === normTitle) {
         return {
           isDuplicate: true,
-          reason: `A question with title "${q.title}" already exists in the question bank (ID: ${q.id}).`,
+          reason: `A Practice problem with title "${q.title}" already exists in the question bank (ID: ${q.id}).`,
           duplicateOf: q,
           layer: 1
         };
@@ -315,7 +316,7 @@ async function checkDuplicateProblem(candidate, description = '', excludeId = nu
       if (qSig && candidateSignature && qSig === candidateSignature) {
         return {
           isDuplicate: true,
-          reason: `Problem signature collides with Question Bank item "${q.title}".`,
+          reason: `Problem signature collides with Practice question "${q.title}".`,
           duplicateOf: q,
           layer: 2
         };
@@ -326,7 +327,7 @@ async function checkDuplicateProblem(candidate, description = '', excludeId = nu
       if (sim.sharedCount >= 2 && (sim.overlap >= 0.70 || sim.jaccard >= 0.50)) {
         return {
           isDuplicate: true,
-          reason: `Semantic collision with Question Bank item "${q.title}".`,
+          reason: `Semantic collision with Practice question "${q.title}".`,
           duplicateOf: q,
           layer: 3
         };
@@ -587,7 +588,6 @@ async function _generateCanonicalQuestionInternal(options = {}) {
   // Topic auto-recommendation if not provided
   if (!targetTopic) {
     try {
-      const { recommendTopicForDailyChallenge } = require('./topicService');
       const rec = await recommendTopicForDailyChallenge({ difficulty: normDifficulty });
       targetTopic = rec.topic_name;
       targetPattern = rec.pattern_name || pattern;
