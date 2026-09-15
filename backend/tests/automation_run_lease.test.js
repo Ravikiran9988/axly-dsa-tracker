@@ -30,7 +30,7 @@ describe('Daily automation run lease', () => {
     expect(result.recovered).toBe(true);
     expect(mockRepo.execute).toHaveBeenCalledTimes(2);
     expect(mockRepo.execute.mock.calls[0][0]).toContain("last_run_status = 'failed'");
-    expect(mockRepo.execute.mock.calls[1][0]).toContain('STALE_RUN_RECOVERED');
+    expect(mockRepo.execute.mock.calls[1][1]).toContain('STALE_RUN_RECOVERED');
   });
 
   test('does not recover a fresh RUNNING run', async () => {
