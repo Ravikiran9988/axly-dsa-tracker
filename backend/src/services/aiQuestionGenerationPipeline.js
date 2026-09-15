@@ -428,25 +428,18 @@ function validateQuestionContract(data) {
 }
 
 /**
- * Validate starter code for completeness, signature, and no solution leakage.
- *
- * Hard errors (fail the pipeline):
- *   - javascript and python are missing, empty, or lack a TODO comment
- *   - any language leaks the complete reference solution into starter code
- *
- * Soft warnings (logged but do NOT fail the pipeline):
- *   - typescript, java, cpp, c TODO or signature issues
- *   - These languages may not be uniformly supported in all LLM generations
+ * Validate starter code for completeness, signature, and no solution leakage across ALL supported languages.
+ * Every supported language must have valid starter code:
+ *   - Non-empty starter_code
+ *   - Expected function signature name present
+ *   - Clear TODO instruction comment present
+ *   - Incomplete / no reference solution leakage
+ *   - Problem-specific (no generic placeholders like 'def solve(): pass')
  */
 function validateStarterCode(solutions, contract) {
   const errors = [];
   const warnings = [];
   const functionName = contract?.function_signature?.name;
-
-  // Languages that must pass validation to allow the question through
-  const STRICT_LANGUAGES = ['javascript', 'python'];
-  // Languages where failures are logged as warnings only
-  const WARN_LANGUAGES = ['typescript', 'java', 'cpp', 'c'];
 
   /**
    * Detect a TODO instruction in starter code regardless of comment style.
@@ -459,20 +452,18 @@ function validateStarterCode(solutions, contract) {
   for (const lang of SUPPORTED_LANGUAGES) {
     const starter = solutions?.starter_code?.[lang];
     const ref = solutions?.reference_solution?.[lang];
-    const isStrict = STRICT_LANGUAGES.includes(lang);
-    const collect = isStrict ? errors : warnings;
 
     if (!starter || typeof starter !== 'string' || !starter.trim()) {
-      collect.push(`[${lang}] Missing or empty starter_code`);
+      errors.push(`[${lang}] Missing or empty starter_code`);
       continue;
     }
 
     if (!hasTodoComment(starter)) {
-      collect.push(`[${lang}] Starter code missing TODO instruction comment`);
+      errors.push(`[${lang}] Starter code missing TODO instruction comment`);
     }
 
     if (functionName && !starter.includes(functionName)) {
-      collect.push(`[${lang}] Starter code does not contain function signature name '${functionName}'`);
+      errors.push(`[${lang}] Starter code does not contain function signature name '${functionName}'`);
     }
 
     // Leak check: check if starter contains the complete reference solution
@@ -480,14 +471,14 @@ function validateStarterCode(solutions, contract) {
       const cleanStarter = starter.replace(/\s+/g, '');
       const cleanRef = ref.replace(/\s+/g, '');
       if (cleanStarter.includes(cleanRef)) {
-        // Solution leakage is always a hard error regardless of language
         errors.push(`[${lang}] Starter code appears to contain the complete reference solution.`);
       }
     }
-  }
 
-  if (warnings.length > 0) {
-    console.warn('[Pipeline] Starter code soft warnings (non-blocking):', warnings.join('; '));
+    // Generic placeholder check: reject generic solve() or empty pass when signature is distinct
+    if (/def\s+solve\s*\(\s*\)\s*:\s*pass/i.test(starter) && functionName && functionName !== 'solve') {
+      errors.push(`[${lang}] Starter code contains generic placeholder solve() instead of function '${functionName}'`);
+    }
   }
 
   return {
@@ -526,7 +517,7 @@ async function getRecentTaxonomyHistory(limit = 15) {
 /**
  * Maximum number of regeneration attempts when a candidate is rejected as duplicate
  */
-const MAX_REGENERATION_ATTEMPTS = Number(process.env.NOVELTY_MAX_REGENERATION_ATTEMPTS) || 2;
+const MAX_REGENERATION_ATTEMPTS = Number(process.env.NOVELTY_MAX_REGENERATION_ATTEMPTS) || 3;
 
 /**
  * Generate a Canonical AI Question
@@ -602,7 +593,8 @@ async function _generateCanonicalQuestionInternal(options = {}) {
     generation_slot = null,
     destination = 'daily_challenge',
     skipSandbox = false,
-    _regenerationAttempt = 0
+    _regenerationAttempt = 0,
+    _rejectedTitles = []       // accumulated rejected problem titles across retries
   } = options;
 
   const normDifficulty = ['easy', 'medium', 'hard'].includes(String(difficulty).toLowerCase())
@@ -655,10 +647,14 @@ async function _generateCanonicalQuestionInternal(options = {}) {
   }
 
   // Combine token exclusion with embedding exclusion
+  // Also include any titles that were rejected during previous retry attempts in this call chain
+  const rejectedTitleText = _rejectedTitles.length > 0
+    ? `\n\nPREVIOUSLY REJECTED (do NOT regenerate these problems or any variant):\n${_rejectedTitles.map(t => `- "${t}"`).join('\n')}`
+    : '';
   const tokenExclusionText = recentTitles.length > 0
     ? `\n\nEXCLUSION LIST (DO NOT GENERATE OR CREATE VARIANTS OF THESE):\n${recentTitles.map(t => `- ${t}`).join('\n')}`
     : '';
-  const combinedExclusionText = tokenExclusionText + noveltyExclusionText;
+  const combinedExclusionText = tokenExclusionText + noveltyExclusionText + rejectedTitleText;
 
   // ============================================================
   // PHASE 2 & 3: LLM Generation (Contract, Test Cases, Solutions, Hints)
@@ -685,24 +681,10 @@ async function _generateCanonicalQuestionInternal(options = {}) {
     testCases = await aiQuestionService.generateTestCasesForContract(contract, 4);
 
     // 3. Generate Solutions (Starter Code + Reference Solution for 6 languages)
-    const MAX_SOLUTION_ATTEMPTS = 2;
-    let feedbackErrors = [];
-    for (let attempt = 1; attempt <= MAX_SOLUTION_ATTEMPTS; attempt++) {
-      try {
-        solutions = await aiQuestionService.generateSolutionsForContract(contract, testCases, feedbackErrors);
-        if (!skipSandbox) {
-          solutions = await aiQuestionService.validateAllSolutions(contract, testCases, solutions);
-        }
-        break;
-      } catch (valErr) {
-        if (valErr.code === 'AI_VALIDATION_ERROR' && attempt < MAX_SOLUTION_ATTEMPTS) {
-          console.warn(`[Pipeline] Solution validation failed on attempt ${attempt}, retrying with feedback: ${valErr.message}`);
-          feedbackErrors = [valErr.message];
-          continue;
-        }
-        throw new PipelineError(`Reference solution failed verification: ${valErr.message}`, 422, ERROR_CODES.REFERENCE_SOLUTION_INVALID);
-      }
-    }
+    // 3. Generate Solutions (Starter Code + Reference Solution for 6 languages)
+    // PRODUCT RULE: Reference solutions do not need automatic sandbox validation.
+    // Admin manually validates the reference solution. Automatic starter-code validation is the gate.
+    solutions = await aiQuestionService.generateSolutionsForContract(contract, testCases);
 
     // 4. Generate Hints
     try {
@@ -720,7 +702,8 @@ async function _generateCanonicalQuestionInternal(options = {}) {
       console.warn(`[Pipeline] Generation failed (attempt ${_regenerationAttempt + 1}/${MAX_REGENERATION_ATTEMPTS}), retrying: ${genErr.message}`);
       return _generateCanonicalQuestionInternal({
         ...options,
-        _regenerationAttempt: _regenerationAttempt + 1
+        _regenerationAttempt: _regenerationAttempt + 1,
+        _rejectedTitles
       });
     }
     throw new PipelineError(`AI Generation failed: ${genErr.message}`, 422, ERROR_CODES.GENERATION_FAILED);
@@ -771,12 +754,28 @@ async function _generateCanonicalQuestionInternal(options = {}) {
   // Schema Validation
   const contractVal = validateQuestionContract(candidate);
   if (!contractVal.isValid) {
+    if (_regenerationAttempt < MAX_REGENERATION_ATTEMPTS) {
+      console.warn(`[Pipeline] Schema validation failed (attempt ${_regenerationAttempt + 1}/${MAX_REGENERATION_ATTEMPTS}): ${contractVal.errors.join(', ')}`);
+      return _generateCanonicalQuestionInternal({
+        ...options,
+        _regenerationAttempt: _regenerationAttempt + 1,
+        _rejectedTitles: candidate.title ? [..._rejectedTitles, candidate.title] : _rejectedTitles
+      });
+    }
     throw new PipelineError(`INVALID_STRUCTURE: ${contractVal.errors.join(', ')}`, 422, ERROR_CODES.VALIDATION_FAILED);
   }
 
-  // Starter Code Validation
+  // Starter Code Validation (Required quality gate for all supported languages)
   const starterVal = validateStarterCode(solutions, contract);
   if (!starterVal.isValid) {
+    if (_regenerationAttempt < MAX_REGENERATION_ATTEMPTS) {
+      console.warn(`[Pipeline] Starter code validation failed (attempt ${_regenerationAttempt + 1}/${MAX_REGENERATION_ATTEMPTS}): ${starterVal.errors.join(', ')}`);
+      return _generateCanonicalQuestionInternal({
+        ...options,
+        _regenerationAttempt: _regenerationAttempt + 1,
+        _rejectedTitles: candidate.title ? [..._rejectedTitles, candidate.title] : _rejectedTitles
+      });
+    }
     throw new PipelineError(`STARTER_CODE_INVALID: ${starterVal.errors.join(', ')}`, 422, ERROR_CODES.STARTER_CODE_INVALID);
   }
 
@@ -786,10 +785,12 @@ async function _generateCanonicalQuestionInternal(options = {}) {
   const dupCheck = await checkDuplicateProblem(candidate);
   if (dupCheck.isDuplicate) {
     if (_regenerationAttempt < MAX_REGENERATION_ATTEMPTS) {
+      const rejectedTitle = candidate.title;
       console.warn(`[Pipeline] Duplicate collision detected (attempt ${_regenerationAttempt + 1}/${MAX_REGENERATION_ATTEMPTS}): ${dupCheck.reason}`);
       return _generateCanonicalQuestionInternal({
         ...options,
-        _regenerationAttempt: _regenerationAttempt + 1
+        _regenerationAttempt: _regenerationAttempt + 1,
+        _rejectedTitles: [..._rejectedTitles, rejectedTitle]
       });
     }
     throw new PipelineError(`DUPLICATE_PROBLEM: ${dupCheck.reason}`, 409, ERROR_CODES.DUPLICATE_PROBLEM);
@@ -807,10 +808,12 @@ async function _generateCanonicalQuestionInternal(options = {}) {
 
     if (noveltyClassification === 'DUPLICATE') {
       if (_regenerationAttempt < MAX_REGENERATION_ATTEMPTS) {
+        const rejectedTitle = candidate.title;
         console.warn(`[Pipeline] Post-LLM DUPLICATE detected (attempt ${_regenerationAttempt + 1}/${MAX_REGENERATION_ATTEMPTS}): ${noveltyResult.reason}`);
         return _generateCanonicalQuestionInternal({
           ...options,
-          _regenerationAttempt: _regenerationAttempt + 1
+          _regenerationAttempt: _regenerationAttempt + 1,
+          _rejectedTitles: [..._rejectedTitles, rejectedTitle]
         });
       }
       throw new PipelineError(`SEMANTIC_DUPLICATE: ${noveltyResult.reason}`, 409, ERROR_CODES.DUPLICATE_PROBLEM);
@@ -844,7 +847,7 @@ async function _generateCanonicalQuestionInternal(options = {}) {
     embeddingAvailable: noveltyResult?.embeddingAvailable || false
   };
 
-  candidate.sandbox_verified = !skipSandbox;
+  candidate.sandbox_verified = false;
 
   return {
     success: true,

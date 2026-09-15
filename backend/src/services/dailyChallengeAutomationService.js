@@ -50,7 +50,7 @@ async function getAutomationLogs(limit = 20) {
 }
 
 async function generateUniqueChallenge({ topic = 'Surprise Me', difficulty = 'medium', instructions = '' } = {}) {
-  const result = await generateDailyChallenge({ topic, difficulty, instructions, skipSandbox: false });
+  const result = await generateDailyChallenge({ topic, difficulty, instructions });
   if (!result || !result.success || !result.data) {
     const error = new Error(result?.error || 'All configured LLM fallback slots failed and no unique challenge was available.');
     error.code = result?.code || 'LLM_GENERATION_FAILED';
@@ -62,7 +62,7 @@ async function generateUniqueChallenge({ topic = 'Surprise Me', difficulty = 'me
     status: 'draft',
     created_via: 'ai_automation',
     scheduled_date: null,
-    sandbox_verified: result.data.sandbox_verified !== undefined ? result.data.sandbox_verified : true
+    sandbox_verified: result.data.sandbox_verified !== undefined ? result.data.sandbox_verified : false
   };
 }
 

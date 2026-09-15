@@ -386,25 +386,29 @@ describe('Centralized AI Question Generation Pipeline', () => {
     expect(fullVal.isValid).toBe(true);
   });
 
-  // I: Reference solution validation
-  test('I: Reference solution execution validation catches failing solutions', async () => {
+  // I: Reference solution handling (generated and stored, but sandbox execution is NOT a generation blocker)
+  test('I: Reference solution is generated, stored, and NOT required to pass automatic sandbox execution for generation acceptance', async () => {
     const aiQuestionService = require('../src/services/aiQuestionService');
     jest.spyOn(aiQuestionService, 'generateContract').mockResolvedValue(validContract);
     jest.spyOn(aiQuestionService, 'generateTestCasesForContract').mockResolvedValue(validTestCases);
     
-    // Inject failing reference solution
-    const failingSolutions = {
+    // Unverified/untested reference solution (admin validates manually)
+    const unverifiedSolutions = {
       ...validSolutions,
       reference_solution: {
         ...validSolutions.reference_solution,
-        javascript: 'FAIL_EXECUTION_WRONG_ANSWER'
+        javascript: '// Reference solution pending admin manual verification\nfunction isBalanced(s) { return false; }'
       }
     };
-    jest.spyOn(aiQuestionService, 'generateSolutionsForContract').mockResolvedValue(failingSolutions);
+    jest.spyOn(aiQuestionService, 'generateSolutionsForContract').mockResolvedValue(unverifiedSolutions);
     jest.spyOn(aiQuestionService, 'generateHintsForContract').mockResolvedValue(validHints);
 
-    await expect(pipeline.generateCanonicalQuestion({ topic: 'Stack', difficulty: 'medium' }))
-      .rejects.toThrow(/Reference solution failed verification/);
+    const result = await pipeline.generateCanonicalQuestion({ topic: 'Stack', difficulty: 'medium' });
+    expect(result.success).toBe(true);
+    expect(result.data.reference_solution).toBeDefined();
+    expect(result.data.reference_solution.javascript).toBeDefined();
+    expect(result.data.reference_solution.python).toBeDefined();
+    expect(result.data.sandbox_verified).toBe(false);
   });
 
   // J: Test-case validation

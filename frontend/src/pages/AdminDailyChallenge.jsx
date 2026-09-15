@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import AdminQuestionPreview from '../components/AdminQuestionPreview';
 import AdminDailyChallengeModal from '../components/AdminDailyChallengeModal';
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 export default function AdminDailyChallenge({ onSelectProblem }) {
+  const pollRef = useRef(null);
   const [challenges, setChallenges] = useState([]);
   const [stats, setStats] = useState({ total: 0, draft: 0, published: 0, scheduled: 0, active: 0, archived: 0 });
   const [todayChallenge, setTodayChallenge] = useState(null);
@@ -46,7 +47,17 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
   const [previewChallenge, setPreviewChallenge] = useState(null);
   const [deletingChallenge, setDeletingChallenge] = useState(null);
 
-  useEffect(() => { loadTaxonomy(); loadAutomationStatus(); }, []);
+  useEffect(() => {
+    loadTaxonomy();
+    loadAutomationStatus().then(data => {
+      if (data?.settings?.last_run_status === 'running') {
+        startPolling();
+      }
+    });
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
   useEffect(() => { loadData(); }, [difficulty, topicId, statusFilter, dateFilter]);
 
   async function loadTaxonomy() {
@@ -151,46 +162,49 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
     } catch (err) { setActionError(err.message || 'Failed to toggle automation'); }
   };
 
+  const startPolling = (startTime = new Date()) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    setIsRunningAutomation(true);
+    const POLL_TIMEOUT_MS = 3 * 60 * 1000;
+
+    pollRef.current = setInterval(async () => {
+      await loadData();
+      const statusRes = await loadAutomationStatus();
+
+      if (statusRes && statusRes.settings) {
+        const currentStatus = statusRes.settings.last_run_status;
+        if (currentStatus && currentStatus !== 'running') {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setIsRunningAutomation(false);
+          if (currentStatus === 'success') {
+            setActionSuccess('Auto-fill pipeline completed successfully! A new Draft challenge has been created.');
+          } else {
+            setActionError('Pipeline finished with errors. Check automation logs for details.');
+          }
+          setTimeout(() => setActionSuccess(null), 5000);
+          return;
+        }
+      }
+
+      if (new Date() - startTime > POLL_TIMEOUT_MS) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        setIsRunningAutomation(false);
+        setActionSuccess('Generation is taking longer than expected. Check the Automation Logs in a minute to see the result.');
+        setTimeout(() => setActionSuccess(null), 8000);
+      }
+    }, 4000);
+  };
+
   const handleRunAutoFillNow = async () => {
-    setIsRunningAutomation(true); setActionError(null);
+    setIsRunningAutomation(true);
+    setActionError(null);
     try {
-      const startTime = new Date();
       const res = await api.runDailyChallengeAutomationNow();
       if (res.success) {
         setActionSuccess(res.message || 'Auto-fill pipeline started in background. Waiting for completion...');
-        
-        // Poll every 5 seconds for up to 3 minutes.
-        // Full AI generation (contract + tests + 6-language solutions + embedding) can take 90-120s.
-        const POLL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
-        const pollInterval = setInterval(async () => {
-          await loadData();
-          const statusRes = await loadAutomationStatus();
-          
-          if (statusRes && statusRes.settings) {
-            const currentStatus = statusRes.settings.last_run_status;
-            // The backend sets this to 'running' instantly, then updates to 'success'/'failed' when done.
-            if (currentStatus && currentStatus !== 'running') {
-               clearInterval(pollInterval);
-               setIsRunningAutomation(false);
-               if (currentStatus === 'success') {
-                  setActionSuccess('Auto-fill pipeline completed successfully! A new Draft challenge has been created.');
-               } else {
-                  setActionError('Pipeline finished with errors. Check automation logs for details.');
-               }
-               setTimeout(() => setActionSuccess(null), 5000);
-               return;
-            }
-          }
-          
-          // Stop polling after 3 minutes — job may still complete in background
-          if (new Date() - startTime > POLL_TIMEOUT_MS) {
-            clearInterval(pollInterval);
-            setIsRunningAutomation(false);
-            setActionSuccess('Generation is taking longer than expected. Check the Automation Logs in a minute to see the result.');
-            setTimeout(() => setActionSuccess(null), 8000);
-          }
-        }, 5000);
-
+        startPolling(new Date());
       } else {
         setActionError(res.error || 'Automatic challenge generation failed. Admin action required.');
         setIsRunningAutomation(false);
