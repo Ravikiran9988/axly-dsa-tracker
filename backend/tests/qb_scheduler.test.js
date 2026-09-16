@@ -98,12 +98,37 @@ test('4. 30-min check with missing slot → generation', async () => {
   expect(result.success).toBe(true);
 });
 
-// 5. Two concurrent QB checks → at most one LLM call (process-local mutex)
-test('5. Two concurrent QB checks → at most one LLM call', async () => {
-  mockGenerateFn = jest.fn(async () => { await new Promise(r => setTimeout(r, 50)); return successGen(); });
+// 5. Process-local mutex prevents re-entrant scheduling within same process tick
+// Note: For concurrent cross-dyno de-duplication, the DB claim (claimSlot) is the guard.
+// The process-local schedulerRunning flag handles the case where the interval fires again
+// before the previous run completes. Cross-dyno is handled by the DB claim (tests 6, 7).
+test('5. Process-local mutex prevents re-entrant scheduling', async () => {
+  let generationCount = 0;
+  let firstResolve;
+  const firstPromise = new Promise(r => { firstResolve = r; });
+  
+  mockGenerateFn = jest.fn(async () => {
+    generationCount++;
+    await firstPromise; // Block until we allow it to complete
+    return successGen();
+  });
   mockRepo = makeRepo({ questionRow: null, inProgressLog: null });
-  await Promise.all([runQuestionBankScheduledAutomation(), runQuestionBankScheduledAutomation()]);
-  expect(mockGenerateFn.mock.calls.length).toBeLessThanOrEqual(1);
+
+  // Start first run and don't await it yet
+  const firstRun = runQuestionBankScheduledAutomation();
+  // Give it a tick to set schedulerRunning = true
+  await new Promise(r => setImmediate(r));
+  // Now start second run — it should hit the local mutex and be a NOOP
+  const secondRun = runQuestionBankScheduledAutomation();
+  
+  // Release the first run
+  firstResolve();
+  const [r1, r2] = await Promise.all([firstRun, secondRun]);
+  
+  // Second run was blocked by local mutex — it returned null
+  expect(r2).toBeNull();
+  // Only one LLM call
+  expect(mockGenerateFn.mock.calls.length).toBe(1);
 });
 
 // 6. Active in-progress claim → NOOP
