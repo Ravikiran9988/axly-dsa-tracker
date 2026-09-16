@@ -150,7 +150,8 @@ class LLMRouter {
       maxTokens = 800,
       temperature = 0.4,
       timeoutMs = 20000,
-      validateResponse = null
+      validateResponse = null,
+      schema = null
     } = options;
 
     const isDailyChallenge = Boolean(systemPrompt && /Principal DSA Problem Author/i.test(systemPrompt));
@@ -176,7 +177,8 @@ class LLMRouter {
           systemPrompt,
           maxTokens,
           temperature,
-          timeoutMs
+          timeoutMs,
+          schema
         });
 
         if (!response || !response.text || response.text.trim().length === 0) {

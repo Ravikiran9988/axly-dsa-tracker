@@ -77,7 +77,8 @@ class GroqProvider extends BaseLLMProvider {
       systemPrompt,
       maxTokens = 800,
       temperature = 0.4,
-      timeoutMs = 20000
+      timeoutMs = 20000,
+      schema = null
     } = options;
 
     const messages = [];
@@ -93,7 +94,18 @@ class GroqProvider extends BaseLLMProvider {
     };
 
     if (isJsonRequested) {
-      payload.response_format = { type: 'json_object' };
+      if (schema && (this.model === 'openai/gpt-oss-120b' || this.model.includes('llama-3.1'))) {
+        payload.response_format = {
+          type: 'json_schema',
+          json_schema: {
+            name: schema.name || 'structured_output',
+            strict: true,
+            schema: schema.schema
+          }
+        };
+      } else {
+        payload.response_format = { type: 'json_object' };
+      }
     }
 
     const candidateIndices = [];
@@ -141,7 +153,19 @@ class GroqProvider extends BaseLLMProvider {
         };
       } catch (err) {
         this.markKeyCooldown(keyIndex, err);
-        const sanitizedMsg = this.sanitizeError(err?.message || 'Request failed');
+        let sanitizedMsg = this.sanitizeError(err?.message || 'Request failed');
+        
+        if (err.failed_generation) {
+          const mode = payload.response_format?.type || 'none';
+          const schemaName = payload.response_format?.json_schema?.name || 'none';
+          const sanitizedFailedGen = this.sanitizeError(
+            typeof err.failed_generation === 'string' ? err.failed_generation : JSON.stringify(err.failed_generation)
+          );
+          
+          console.error(`[Groq] Structured output rejected model=${this.model} mode=${mode} schema=${schemaName} reason=${sanitizedFailedGen}`);
+          sanitizedMsg += ` | failed_generation: ${sanitizedFailedGen}`;
+        }
+        
         errors.push(`${keyLabel}: ${sanitizedMsg}`);
       }
     }

@@ -66,6 +66,11 @@ class BaseLLMProvider {
         error.status = response.status;
         error.provider = this.name;
         error.isQuotaOrRateLimit = response.status === 429 || response.status === 402 || /quota|rate\s*limit|credit/i.test(errorMessage);
+        
+        if (data?.error?.failed_generation) {
+          error.failed_generation = data.error.failed_generation;
+        }
+        
         throw error;
       }
 
