@@ -46,6 +46,7 @@ async function generate(req, res, next) {
 
 const { 
   generateForSlot, 
+  getSlotState,
   getCurrentIstSlot, 
   getQuestionBankGenerationStatus: fetchQbStatus,
   getAutomationSettings,
@@ -58,6 +59,23 @@ async function generateQuestionBankManual(req, res, next) {
   try {
     const slot = getCurrentIstSlot();
     const adminId = req.user?.id || 'usr-admin-manual';
+
+    // Inspect slot state before dispatching — avoid unnecessary LLM calls
+    const slotState = await getSlotState(slot);
+    if (slotState.state === 'completed') {
+      return res.status(200).json({
+        success: true,
+        status: 'SUCCESS_NOOP',
+        message: `Slot ${slot} already has a completed question. No generation needed.`
+      });
+    }
+    if (slotState.state === 'in_progress') {
+      return res.status(202).json({
+        success: true,
+        status: 'already_running',
+        message: `Generation for slot ${slot} is already in progress.`
+      });
+    }
     
     // Execute generation in background to prevent Heroku 30s H12 router timeout
     setImmediate(async () => {
@@ -67,14 +85,14 @@ async function generateQuestionBankManual(req, res, next) {
           await persistRunStatus(result.status);
         }
       } catch (err) {
-        console.error('Manual generation failed in background:', err);
+        console.error('Manual QB generation failed in background:', err.message);
       }
     });
 
     return res.status(202).json({
       success: true,
       status: 'pending',
-      message: 'Question generation started in the background.'
+      message: `Question generation for slot ${slot} started in the background.`
     });
   } catch (e) {
     next(e);
