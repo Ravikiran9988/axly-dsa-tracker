@@ -332,16 +332,14 @@ ${JSON.stringify({
   return data;
 }
 
-function validatePythonAst(code) {
-  return new Promise((resolve) => {
-    const { spawn } = require('child_process');
-    const pyCode = `
+async function validatePythonAst(code) {
+  const pyCode = `
 import ast
 import sys
 
 try:
-    code = sys.stdin.read()
-    tree = ast.parse(code)
+    code_text = sys.stdin.read()
+    tree = ast.parse(code_text)
     
     uses_deque = False
     imports_deque = False
@@ -357,6 +355,7 @@ try:
         print("NameError: 'deque' is used but not imported from collections", file=sys.stderr)
         sys.exit(1)
         
+    print("VALID")
     sys.exit(0)
 except SyntaxError as e:
     print(f"SyntaxError: {e}", file=sys.stderr)
@@ -366,22 +365,30 @@ except Exception as e:
     sys.exit(1)
 `;
 
-    const proc = spawn('python', ['-c', pyCode]);
-    let stderr = '';
-    
-    proc.stderr.on('data', data => { stderr += data.toString(); });
-    
-    proc.on('close', code => {
-      if (code !== 0) {
-        resolve({ valid: false, error: stderr.trim() });
-      } else {
-        resolve({ valid: true });
-      }
+  try {
+    const execResult = await executeCode({
+      language: 'python',
+      sourceCode: pyCode,
+      testCases: [{ input: code, expected_output: 'VALID', is_hidden: false }],
+      isSubmit: false
     });
 
-    proc.stdin.write(code);
-    proc.stdin.end();
-  });
+    if (execResult.status === 'Accepted' || execResult.status === 'Passed') {
+      return { valid: true };
+    }
+    
+    const stderr = execResult.results?.[0]?.stderr || '';
+    const actual_output = execResult.results?.[0]?.actual_output || '';
+    
+    let errorMsg = stderr.trim();
+    if (!errorMsg && actual_output && actual_output !== '[Output Failed]' && actual_output !== '[Output Passed]') {
+      errorMsg = actual_output.trim();
+    }
+    
+    return { valid: false, error: errorMsg || execResult.status };
+  } catch (err) {
+    return { valid: false, error: `Sandbox validation failed: ${err.message}` };
+  }
 }
 
 async function validateAllSolutions(contract, testCases, solutions) {
