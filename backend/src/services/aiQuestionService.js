@@ -129,7 +129,65 @@ The examples MUST strictly match this exact plain text format without any labels
     prompt,
     systemPrompt: 'You generate reliable, original algorithmic programming problem definitions. Return strict JSON only. Never return markdown fences or commentary.',
     maxTokens: 4000,
-    temperature: 0.2
+    temperature: 0.2,
+    schema: {
+      name: "canonical_question_contract",
+      schema: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          topic: { type: "string" },
+          pattern: { type: "string" },
+          difficulty: { type: "string" },
+          description: { type: "string" },
+          constraints: { type: "string" },
+          input_format: { type: "string" },
+          output_format: { type: "string" },
+          examples: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                input: { type: "string" },
+                output: { type: "string" },
+                explanation: { type: "string" }
+              },
+              required: ["input", "output", "explanation"],
+              additionalProperties: false
+            }
+          },
+          time_limit_ms: { type: ["number", "null"] },
+          memory_limit_mb: { type: ["number", "null"] },
+          function_signature: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              params: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    type: { type: "string" }
+                  },
+                  required: ["name", "type"],
+                  additionalProperties: false
+                }
+              },
+              return_type: { type: "string" }
+            },
+            required: ["name", "params", "return_type"],
+            additionalProperties: false
+          }
+        },
+        required: [
+          "title", "topic", "pattern", "difficulty", "description",
+          "constraints", "input_format", "output_format", "examples",
+          "time_limit_ms", "memory_limit_mb", "function_signature"
+        ],
+        additionalProperties: false
+      }
+    }
   });
 
   if (!result || !result.text) throw new Error('Failed to generate problem contract.');
@@ -184,7 +242,30 @@ ${JSON.stringify({
     prompt,
     systemPrompt: 'You are a senior competitive-programming test engineer. Generate ONLY valid JSON for test cases. Do not execute code or mention sandbox verification.',
     maxTokens: 1500,
-    temperature: 0.1
+    temperature: 0.1,
+    schema: {
+      name: "test_cases_array",
+      schema: {
+        type: "object",
+        properties: {
+          test_cases: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                input: { type: "string" },
+                expected_output: { type: "string" },
+                is_hidden: { type: "boolean" }
+              },
+              required: ["input", "expected_output", "is_hidden"],
+              additionalProperties: false
+            }
+          }
+        },
+        required: ["test_cases"],
+        additionalProperties: false
+      }
+    }
   });
 
   if (!result || !result.text) throw new Error('Failed to generate test cases.');
@@ -314,7 +395,45 @@ ${JSON.stringify({
     prompt,
     systemPrompt: 'You are an expert algorithm developer. Generate clean, bug-free reference solutions and starter code templates. Return strict JSON only.',
     maxTokens: 8192,
-    temperature: 0.1
+    temperature: 0.1,
+    schema: {
+      name: "solutions_contract",
+      schema: {
+        type: "object",
+        properties: {
+          starter_code: {
+            type: "object",
+            properties: {
+              javascript: { type: ["string", "null"] },
+              typescript: { type: ["string", "null"] },
+              python: { type: ["string", "null"] },
+              java: { type: ["string", "null"] },
+              cpp: { type: ["string", "null"] },
+              c: { type: ["string", "null"] }
+            },
+            required: ["javascript", "typescript", "python", "java", "cpp", "c"],
+            additionalProperties: false
+          },
+          reference_solution: {
+            type: "object",
+            properties: {
+              javascript: { type: ["string", "null"] },
+              typescript: { type: ["string", "null"] },
+              python: { type: ["string", "null"] },
+              java: { type: ["string", "null"] },
+              cpp: { type: ["string", "null"] },
+              c: { type: ["string", "null"] }
+            },
+            required: ["javascript", "typescript", "python", "java", "cpp", "c"],
+            additionalProperties: false
+          },
+          solution_approach: { type: "string" },
+          complexity: { type: "string" }
+        },
+        required: ["starter_code", "reference_solution", "solution_approach", "complexity"],
+        additionalProperties: false
+      }
+    }
   });
   
   if (!result || !result.text) throw new Error('Failed to generate solutions.');
@@ -507,7 +626,21 @@ ${JSON.stringify({ title: contract.title, description: contract.description }, n
         prompt,
         systemPrompt: 'You are a DSA coach. Return ONLY valid JSON. Hints must guide reasoning without revealing the final algorithm or code.',
         maxTokens: 500,
-        temperature: 0.2
+        temperature: 0.2,
+        schema: {
+          name: "hints_array",
+          schema: {
+            type: "object",
+            properties: {
+              hints: {
+                type: "array",
+                items: { type: "string" }
+              }
+            },
+            required: ["hints"],
+            additionalProperties: false
+          }
+        }
       });
       if (!result || !result.text) throw new Error('Failed to generate hints.');
       if (result.error) throw new Error(`LLM_ROUTER_ERROR: ${result.error}. Details: ${JSON.stringify(result.providerErrors || [])}`);

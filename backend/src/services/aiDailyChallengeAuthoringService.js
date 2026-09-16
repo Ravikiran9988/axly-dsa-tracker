@@ -52,6 +52,29 @@ async function generateTestCases(input = {}) {
     systemPrompt,
     maxTokens: 1200,
     temperature: 0.1,
+    schema: {
+      name: "test_cases_array",
+      schema: {
+        type: "object",
+        properties: {
+          test_cases: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                input: { type: "string" },
+                expected_output: { type: "string" },
+                is_hidden: { type: "boolean" }
+              },
+              required: ["input", "expected_output", "is_hidden"],
+              additionalProperties: false
+            }
+          }
+        },
+        required: ["test_cases"],
+        additionalProperties: false
+      }
+    },
     validateResponse: async (text) => {
       let data;
       try { data = parseJson(text); } catch (err) { return { valid: false, reason: `Invalid JSON: ${err.message}` }; }
@@ -84,6 +107,20 @@ async function generateHints(input = {}) {
     systemPrompt,
     maxTokens: 650,
     temperature: 0.2,
+    schema: {
+      name: "hints_array",
+      schema: {
+        type: "object",
+        properties: {
+          hints: {
+            type: "array",
+            items: { type: "string" }
+          }
+        },
+        required: ["hints"],
+        additionalProperties: false
+      }
+    },
     validateResponse: async (text) => {
       let data;
       try { data = parseJson(text); } catch (err) { return { valid: false, reason: `Invalid JSON: ${err.message}` }; }

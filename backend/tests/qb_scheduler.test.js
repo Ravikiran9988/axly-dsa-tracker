@@ -257,3 +257,99 @@ test('getCurrentIstSlot floors to nearest even hour in IST', () => {
   jest.useRealTimers();
   expect(slot).toMatch(/^2026-09-16-08$/);
 });
+
+// ============================================================================
+// REGRESSION TESTS A-J (Schema/Constraint & Scheduler Logic Fixes)
+// ============================================================================
+
+const { getQuestionBankGenerationStatus } = require('../src/services/questionBankAutomationService');
+
+// A. Current slot missing → scheduler MUST NOT return SUCCESS_NOOP.
+test('A. Current slot missing → scheduler MUST NOT return SUCCESS_NOOP', async () => {
+  mockRepo = makeRepo({ questionRow: null, inProgressLog: null });
+  const result = await runQuestionBankScheduledAutomation();
+  expect(result.status).not.toBe('SUCCESS_NOOP');
+});
+
+// B. Current slot missing → LLM generation is invoked.
+test('B. Current slot missing → LLM generation is invoked', async () => {
+  mockRepo = makeRepo({ questionRow: null, inProgressLog: null });
+  await runQuestionBankScheduledAutomation();
+  expect(mockGenerateFn).toHaveBeenCalledTimes(1);
+});
+
+// C. Current slot has valid generated question → SUCCESS_NOOP.
+test('C. Current slot has valid generated question → SUCCESS_NOOP', async () => {
+  mockRepo = makeRepo({ questionRow: published() });
+  const result = await runQuestionBankScheduledAutomation();
+  expect(result.status).toBe('SUCCESS_NOOP');
+});
+
+// D. Current slot has unrelated/manual/imported question → must NOT incorrectly return SUCCESS_NOOP if it does not satisfy QB slot requirements.
+test('D. Current slot has unrelated/manual/imported question → must NOT incorrectly return SUCCESS_NOOP if draft_recoverable', async () => {
+  mockRepo = makeRepo({ questionRow: draft() }); // draft is considered recoverable, not satisfied
+  const result = await runQuestionBankScheduledAutomation();
+  expect(result.status).not.toBe('SUCCESS_NOOP');
+  expect(result.status).toBe('success'); // Re-indexing attempt
+});
+
+// E. Quota count matches actual successful QB generations according to the existing quota definition.
+test('E. Quota count matches actual successful QB generations (status=published)', async () => {
+  mockRepo = {
+    many: jest.fn(async (sql) => {
+      if (sql.includes('generation_slot LIKE')) {
+        return [published('2026-09-16-08'), draft('2026-09-16-10')];
+      }
+      return [];
+    }),
+    one: jest.fn(async () => null)
+  };
+  const status = await getQuestionBankGenerationStatus();
+  expect(status.generated_today).toBe(1); // Only the published one
+  expect(status.draft_count_today).toBe(1);
+});
+
+// F. Timezone calculation correctly maps IST.
+test('F. Timezone calculation correctly maps IST: 10:00 -> 10, 11:00 -> 10, 12:00 -> 12', () => {
+  // IST 10:30 = UTC 05:00
+  jest.useFakeTimers().setSystemTime(new Date('2026-09-16T05:00:00Z'));
+  expect(getCurrentIstSlot()).toMatch(/-10$/);
+  
+  // IST 11:30 = UTC 06:00
+  jest.useFakeTimers().setSystemTime(new Date('2026-09-16T06:00:00Z'));
+  expect(getCurrentIstSlot()).toMatch(/-10$/);
+  
+  // IST 12:30 = UTC 07:00
+  jest.useFakeTimers().setSystemTime(new Date('2026-09-16T07:00:00Z'));
+  expect(getCurrentIstSlot()).toMatch(/-12$/);
+  jest.useRealTimers();
+});
+
+// G. Startup recovery generates a missing current slot.
+test('G. Startup recovery generates a missing current slot', async () => {
+  mockRepo = makeRepo({ questionRow: null, inProgressLog: null });
+  await runQbStartupCheck();
+  expect(mockGenerateFn).toHaveBeenCalledTimes(1);
+});
+
+// H. 30-minute checker generates a missing slot.
+test('H. 30-minute checker generates a missing slot', async () => {
+  mockRepo = makeRepo({ questionRow: null, inProgressLog: null });
+  await runQuestionBankScheduledAutomation();
+  expect(mockGenerateFn).toHaveBeenCalledTimes(1);
+});
+
+// I. Existing slot does not cause an unnecessary LLM call.
+test('I. Existing slot does not cause an unnecessary LLM call', async () => {
+  mockRepo = makeRepo({ questionRow: published() });
+  await runQuestionBankScheduledAutomation();
+  expect(mockGenerateFn).not.toHaveBeenCalled();
+});
+
+// J. Manual Run remains separate from scheduled slot generation.
+test('J. Manual Run allows generation for a slot if not completed', async () => {
+  mockRepo = makeRepo({ questionRow: null, inProgressLog: null, settings: { ...defaultSettings, mode: 'auto_fill' } });
+  const result = await generateForSlot('2026-09-16-10', 'usr-manual');
+  expect(mockGenerateFn).toHaveBeenCalledTimes(1);
+  expect(result.success).toBe(true);
+});
