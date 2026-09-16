@@ -143,9 +143,14 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
     try {
       const res = await api.generateQuestionBankManualAI();
       if (res && res.success) {
-        setActionSuccess('Auto-fill generated 1 new question successfully!');
-        loadQuestions();
+        setActionSuccess('Auto-fill started in the background. It may take a minute to complete.');
         loadAutomationStatus();
+        
+        // Check for updates shortly after
+        setTimeout(() => {
+          loadQuestions();
+          loadAutomationStatus();
+        }, 15000);
       } else {
         alert(res?.error || 'Automatic challenge generation failed. Admin action required.');
       }

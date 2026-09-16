@@ -57,11 +57,25 @@ const {
 async function generateQuestionBankManual(req, res, next) {
   try {
     const slot = getCurrentIstSlot();
-    const result = await generateForSlot(slot, req.user?.id || 'usr-admin-manual');
-    if (result && result.status) {
-      await persistRunStatus(result.status);
-    }
-    return res.status(result.success ? 200 : 400).json(result);
+    const adminId = req.user?.id || 'usr-admin-manual';
+    
+    // Execute generation in background to prevent Heroku 30s H12 router timeout
+    setImmediate(async () => {
+      try {
+        const result = await generateForSlot(slot, adminId);
+        if (result && result.status) {
+          await persistRunStatus(result.status);
+        }
+      } catch (err) {
+        console.error('Manual generation failed in background:', err);
+      }
+    });
+
+    return res.status(202).json({
+      success: true,
+      status: 'pending',
+      message: 'Question generation started in the background.'
+    });
   } catch (e) {
     next(e);
   }
