@@ -39,6 +39,16 @@ function normalizeStarterCode(starter_code) {
   return typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null);
 }
 
+function normalizeEstimatedTime(value, fallback = 30) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+  const text = String(value).trim().toLowerCase();
+  const match = text.match(/\d+(?:\.\d+)?/);
+  if (!match) return fallback;
+  const minutes = Number(match[0]);
+  return Number.isFinite(minutes) && minutes >= 0 ? Math.round(minutes) : fallback;
+}
+
 async function validateQuestionInput({ title, difficulty, topic_id }, currentRepo = repo) {
   if (!title || !title.trim()) throw new AppError('Title is required', 400, 'VALIDATION_ERROR', 'title');
   if (!['easy', 'medium', 'hard'].includes(String(difficulty || '').toLowerCase())) {
@@ -269,6 +279,7 @@ async function createQuestion(input) {
   const id = input.id || uuidv4();
   const fallbackUrl = url?.trim() || `https://dsatracker.axly.in/questions/${id}`;
   const finalSlug = (slug || '').trim() || null;
+  const finalEstimatedTime = normalizeEstimatedTime(estimated_time);
 
   await repo.transaction(async tx => {
     await tx.execute(`
@@ -297,7 +308,7 @@ async function createQuestion(input) {
       normalizeJsonArray(examples, '[]'),
       Array.isArray(hints) ? JSON.stringify(hints) : (hints || null),
       normalizeJsonArray(tags, '[]'),
-      estimated_time || '30 mins',
+      finalEstimatedTime,
       Number(points) || 20,
       assigned_date || null,
       due_date || null,
@@ -387,7 +398,9 @@ async function updateQuestion(id, input) {
       params.push(normalizeJsonArray(tags, '[]'));
     }
     
-    addField('estimated_time', estimated_time);
+    if (estimated_time !== undefined) {
+      addField('estimated_time', normalizeEstimatedTime(estimated_time));
+    }
     if (points !== undefined) addField('points', Number(points));
     addField('assigned_date', assigned_date);
     addField('due_date', due_date);
