@@ -39,12 +39,21 @@ async function startServer() {
     console.error('[DailyAutomation] Startup stale-run recovery failed:', err.message);
   }
 
-  // Initialize Background 00:00 UTC Daily Challenge Automation Scheduler
+  // Initialize Background Schedulers (timers only — no immediate generation)
+  let startupError = null;
   try {
-    const { startAutomationScheduler } = require('./services/dailyChallengeAutomationService');
-    const { startQuestionBankScheduler } = require('./services/questionBankAutomationService');
+    const { startAutomationScheduler, runQcStartupCheck } = require('./services/dailyChallengeAutomationService');
+    const { startQuestionBankScheduler, runQbStartupCheck } = require('./services/questionBankAutomationService');
     startAutomationScheduler();
     startQuestionBankScheduler();
+
+    // Startup state checks — DB-driven, safe on every restart.
+    // Only generates if the slot/date has no valid question and no active claim.
+    // Runs in background so the web process binds to PORT immediately.
+    setImmediate(async () => {
+      try { await runQbStartupCheck(); } catch (err) { console.error('[QB] Startup check error:', err.message); }
+      try { await runQcStartupCheck(); } catch (err) { console.error('[QC] Startup check error:', err.message); }
+    });
   } catch (err) {
     console.error('Failed to start scheduler:', err);
   }
