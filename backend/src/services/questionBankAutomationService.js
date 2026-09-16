@@ -60,7 +60,25 @@ async function getAutomationLogs(limit = 20) {
      ORDER BY al.created_at DESC LIMIT ?`, 
     [l]
   );
-  return logs.map(log => ({ ...log, validation_result: log.validation_result || 'Passed', sandbox_result: 'Not used' }));
+  return logs.map(log => {
+    let normalizedCreatedAt = log.created_at;
+    if (normalizedCreatedAt) {
+      // In SQLite, datetime('now') returns 'YYYY-MM-DD HH:MM:SS' (UTC), without the 'Z'.
+      // In PostgreSQL, it may return a Date object or string.
+      if (normalizedCreatedAt instanceof Date) {
+        normalizedCreatedAt = normalizedCreatedAt.toISOString();
+      } else if (typeof normalizedCreatedAt === 'string') {
+        normalizedCreatedAt = new Date(normalizedCreatedAt.includes('Z') || normalizedCreatedAt.includes('+') ? normalizedCreatedAt : normalizedCreatedAt.replace(' ', 'T') + 'Z').toISOString();
+      }
+    }
+    
+    return {
+      ...log, 
+      created_at: normalizedCreatedAt,
+      validation_result: log.validation_result || 'Passed', 
+      sandbox_result: 'Not used'
+    };
+  });
 }
 
 async function persistRunStatus(status) {
@@ -271,9 +289,10 @@ async function recoverDraftQuestion(slot, questionId, mode) {
  * Callers should call getSlotState() before calling generateForSlot() to avoid
  * unnecessary work, but generateForSlot() is safe to call directly for manual triggers.
  */
-async function generateForSlot(slot, adminId = 'usr-system-cron') {
+async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) {
+  const { isManual = false } = options;
   const settings = await getAutomationSettings();
-  const mode = settings.mode;
+  const mode = isManual ? 'manual_trigger' : settings.mode;
 
   let generated = null;
   let failureReason = 'Unknown failure during AI synthesis';
@@ -296,10 +315,10 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
       difficulty: 'medium', 
       instructions: 'Create a genuinely original algorithm problem for the practice library.',
       destination: 'question_bank',
-      generation_slot: slot,
+      generation_slot: isManual ? null : slot,
       skipSandbox: false
     });
-
+    
     if (!result || !result.success || !result.data) {
       throw new Error(result?.error || 'LLM Generation Failed.');
     }
@@ -308,6 +327,20 @@ async function generateForSlot(slot, adminId = 'usr-system-cron') {
   } catch (err) {
     failureReason = err.message || failureReason;
     failureCategory = err.code || 'PIPELINE_ERROR';
+
+    // Catch PostgreSQL (23505) and SQLite UNIQUE constraint violations for the scheduled slot race
+    if (!isManual && (failureCategory === '23505' || failureReason.includes('UNIQUE constraint failed') || failureReason.includes('idx_questions_generation_slot'))) {
+      const currentSlotState = await getSlotState(slot);
+      if (currentSlotState.state === 'completed' || currentSlotState.state === 'draft_recoverable') {
+        console.log(`[QB] NOOP slot=${slot} → another process won the race to insert the scheduled question.`);
+        await getRepo().execute(
+          `UPDATE question_bank_automation_logs SET status = 'success_noop', details = 'Slot filled by another concurrent worker' WHERE id = ?`,
+          [claimId]
+        );
+        return { success: true, status: 'SUCCESS_NOOP', message: 'Slot was filled by another process during generation.' };
+      }
+    }
+
     console.error(`[QB] FAILED slot=${slot} failureCategory=${failureCategory}: ${failureReason}`);
   }
 
