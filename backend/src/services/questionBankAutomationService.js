@@ -581,9 +581,7 @@ module.exports = {
 };
 
 
-// Run every 2 hours in IST (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
-// Checks every 30 minutes to see if generation is needed
-const SCHEDULER_CHECK_INTERVAL_MS = 30 * 60 * 1000;
+
 const FAILED_RUN_RETRY_DELAY_MS = 30 * 60 * 1000;
 
 function getRepo() { return getRepository(); }
