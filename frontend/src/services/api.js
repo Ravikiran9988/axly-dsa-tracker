@@ -116,6 +116,7 @@ export const api = {
   async getUsers(params = {}) { const q = new URLSearchParams(); for (const k of ['role', 'search', 'page', 'limit']) { if (params[k]) q.append(k, params[k]); } return request(`/users?${q}`); },
   async getUserById(id) { return request(`/users/${id}`); },
   async updateUserRole(id, role) { return request(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); },
+  async deleteStudent(id) { return request(`/users/${id}`, { method: 'DELETE' }); },
   async getAdminProgressStats() { return request('/progress/stats'); },
   async getAuditLogs(params = {}) { const q = new URLSearchParams(); for (const k of ['action', 'resource_type', 'actor_id', 'from_date', 'to_date', 'page', 'limit']) { if (params[k]) q.append(k, params[k]); } return request(`/admin/audit-logs?${q}`); },
   async analyzeDsaQuestion(data) { return request('/dsa-ai/analyze', { method: 'POST', body: JSON.stringify(data) }); },

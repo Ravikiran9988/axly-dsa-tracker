@@ -15,7 +15,8 @@ import {
   AlertCircle,
   Building,
   Layers,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -28,6 +29,9 @@ export default function AdminUsers({ onOpenAssignModal }) {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentDetails, setStudentDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
   const [page, setPage] = useState(1);
   const limit = 25;
 
@@ -74,6 +78,21 @@ export default function AdminUsers({ onOpenAssignModal }) {
       loadUsers();
     } catch (err) {
       alert(`Failed to update role: ${err.message}`);
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!studentToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteStudent(studentToDelete.id);
+      setStudentToDelete(null);
+      loadUsers();
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to delete student.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -250,6 +269,17 @@ export default function AdminUsers({ onOpenAssignModal }) {
                         </button>
 
                         <button
+                          onClick={() => {
+                            setStudentToDelete(u);
+                            setDeleteError(null);
+                          }}
+                          className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 text-rose-400 transition-colors"
+                          title="Delete Student"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
                           onClick={() => handleToggleRole(u)}
                           className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface2 text-theme-text2 hover:text-theme-text1 transition-colors"
                           title="Toggle role permissions"
@@ -301,6 +331,7 @@ export default function AdminUsers({ onOpenAssignModal }) {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button onClick={() => handleOpenStudentDetails(u)} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-cyan-400 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
                     <button onClick={() => onOpenAssignModal && onOpenAssignModal(u)} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-indigo-400 transition-colors"><Send className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => { setStudentToDelete(u); setDeleteError(null); }} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-rose-400 transition-colors" title="Delete Student"><Trash2 className="w-3.5 h-3.5" /></button>
                     {u.role !== 'admin' && (
                       <button onClick={() => handlePromoteToAdmin(u.id)} className="p-1.5 rounded-lg bg-theme-surface2 hover:bg-theme-surface3 text-rose-400 transition-colors" title="Promote to admin"><Shield className="w-3.5 h-3.5" /></button>
                     )}
@@ -392,6 +423,45 @@ export default function AdminUsers({ onOpenAssignModal }) {
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Assign New Challenge</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/50 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-theme-surface border border-theme-border rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl">
+            <div className="flex items-center gap-3 text-rose-400 border-b border-theme-border pb-4">
+              <AlertCircle className="w-6 h-6" />
+              <h3 className="text-lg font-black text-theme-text1">Delete Student?</h3>
+            </div>
+            <div className="text-sm text-theme-text2">
+              <p>Are you sure you want to permanently delete the student account for <strong>{studentToDelete.name || studentToDelete.email}</strong> and its associated data?</p>
+              <p className="mt-2 text-rose-400 font-semibold text-xs">This action cannot be undone.</p>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-theme-border">
+              <button
+                onClick={() => setStudentToDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl bg-theme-surface2 text-theme-text1 hover:bg-theme-surface3 transition-colors text-sm font-semibold disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteStudent}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-500 transition-colors text-sm font-bold flex items-center justify-center disabled:opacity-50 min-w-[120px]"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Student'}
               </button>
             </div>
           </div>
