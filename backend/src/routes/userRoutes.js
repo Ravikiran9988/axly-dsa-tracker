@@ -6,7 +6,8 @@ const {
   updateMyProfile, 
   getLeaderboard, 
   getUserById, 
-  updateUserRole 
+  updateUserRole,
+  deleteUser
 } = require('../controllers/userController');
 const { authenticate } = require('../middleware/auth');
 const { requireRole } = require('../middleware/rbac');
@@ -22,5 +23,6 @@ router.get('/leaderboard', getLeaderboard);
 router.get('/', requireRole('admin'), listUsers);
 router.get('/:id', requireRole('admin'), getUserById);
 router.patch('/:id/role', requireRole('admin'), updateUserRole);
+router.delete('/:id', requireRole('admin'), deleteUser);
 
 module.exports = router;

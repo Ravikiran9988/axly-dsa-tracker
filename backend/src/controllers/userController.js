@@ -312,6 +312,48 @@ async function getUserStats(req, res, next) {
   }
 }
 
+async function deleteUser(req, res, next) {
+  try {
+    const { id } = req.params;
+    
+    // Verify user exists and check their role
+    const targetUser = await repo.one('SELECT id, role FROM users WHERE id = ?', [id]);
+    if (!targetUser) {
+      throw new AppError('User not found', 404, 'NOT_FOUND');
+    }
+
+    if (req.user.id === targetUser.id) {
+      throw new AppError('You cannot delete yourself', 403, 'FORBIDDEN');
+    }
+
+    if (targetUser.role === 'admin') {
+      throw new AppError('Cannot delete an admin account through this endpoint', 403, 'FORBIDDEN');
+    }
+
+    await repo.transaction(async (tx) => {
+      // In SQLite/Postgres, this naturally throws if restricted foreign keys block deletion.
+      // E.g., if targetUser somehow had submission_score_audit or assignments.assigned_by.
+      await tx.execute('DELETE FROM users WHERE id = ?', [id]);
+    });
+
+    if (auditService && typeof auditService.logAction === 'function') {
+      await auditService.logAction({
+        actorId: req.user.id,
+        action: 'USER_DELETION',
+        resourceType: 'user',
+        resourceId: targetUser.id,
+        metadata: { deleted_user_id: targetUser.id }
+      }).catch(err => {
+        console.error('[Audit] Failed to log user deletion:', err.message);
+      });
+    }
+
+    res.status(200).json({ success: true, message: 'User deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listUsers,
   getMyProfile,
@@ -319,5 +361,6 @@ module.exports = {
   getLeaderboard,
   getUserById,
   updateUserRole,
-  getUserStats
+  getUserStats,
+  deleteUser
 };
