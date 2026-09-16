@@ -5,8 +5,30 @@ const { executeCode } = require('./executionService');
  * Backward compatibility adapter for aiSharedGenerationService.
  * All generation and validation logic is centralized in aiQuestionGenerationPipeline.js.
  */
+function normalizeEstimatedTime(value, fallback = 30) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+  const text = String(value).trim().toLowerCase();
+  const match = text.match(/\d+(?:\.\d+)?/);
+  if (!match) return fallback;
+  const minutes = Number(match[0]);
+  return Number.isFinite(minutes) && minutes >= 0 ? Math.round(minutes) : fallback;
+}
+
+function normalizeGeneratedQuestion(result) {
+  if (!result || !result.data || typeof result.data !== 'object') return result;
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      estimated_time: normalizeEstimatedTime(result.data.estimated_time)
+    }
+  };
+}
+
 async function generateUniqueProblem(options = {}) {
-  return pipeline.generateCanonicalQuestion(options);
+  const result = await pipeline.generateCanonicalQuestion(options);
+  return normalizeGeneratedQuestion(result);
 }
 
 function validateDailyChallenge(data) {
