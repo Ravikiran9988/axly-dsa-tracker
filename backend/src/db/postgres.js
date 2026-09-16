@@ -45,7 +45,11 @@ function createPostgresPool() {
 }
 
 const pool = createPostgresPool();
-
+if (pool) {
+  pool.on('error', (err) => {
+    console.error('Unexpected error on idle client in PostgreSQL pool', err);
+  });
+}
 async function checkPostgresHealth() {
   const activePool = pool || createPostgresPool();
   if (!activePool) return { configured: false, healthy: false, reason: 'DATABASE_URL is not configured' };
