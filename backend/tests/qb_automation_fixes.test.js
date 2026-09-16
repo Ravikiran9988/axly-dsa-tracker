@@ -5,6 +5,11 @@ const { getRepository } = require('../src/db/repositoryFactory');
 const questionBankAutomationService = require('../src/services/questionBankAutomationService');
 const jwt = require('jsonwebtoken');
 
+jest.mock('../src/services/aiSharedGenerationService', () => ({
+  generateUniqueProblem: jest.fn()
+}));
+const { generateUniqueProblem } = require('../src/services/aiSharedGenerationService');
+
 const testToken = jwt.sign({ id: 'usr-admin-1', role: 'admin' }, process.env.JWT_SECRET);
 
 describe('Question Bank Automation Fixes', () => {
@@ -58,6 +63,12 @@ describe('Question Bank Automation Fixes', () => {
       VALUES ('q-test-qb-occupy', 'Occupied Slot', 'test-url-1', 'published', 'medium', 1, ?)
     `, [currentSlot]);
 
+    // Mock generation for the manual trigger to avoid actual LLM calls
+    generateUniqueProblem.mockResolvedValueOnce({ 
+      success: true, 
+      data: { id: 'q-manual', title: 'Manual', difficulty: 'medium', status: 'draft', url: 'manual-url' } 
+    });
+
     // Now trigger manual generation
     const res = await request(app)
       .post('/api/v1/ai-questions/question-bank/manual')
@@ -76,6 +87,9 @@ describe('Question Bank Automation Fixes', () => {
     // unique constraint error and return SUCCESS_NOOP without failing.
     
     const raceSlot = '2026-09-16-14';
+    
+    // Mock the generation process to throw a unique constraint error (as if it generated successfully but failed to insert)
+    generateUniqueProblem.mockRejectedValueOnce(new Error('UNIQUE constraint failed: idx_questions_generation_slot'));
     
     // Occupy the slot (simulate process A already finished)
     await repo.execute(`
