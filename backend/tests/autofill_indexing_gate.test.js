@@ -36,31 +36,40 @@ jest.mock('../src/services/embeddingService', () => {
   };
 });
 
-jest.mock('../src/db/repositoryFactory', () => ({
-  getRepository: () => ({
-    one: async (sql, params) => {
-      try { return mockTestDb.prepare(sql).get(...(params || [])); }
-      catch { return null; }
-    },
-    many: async (sql, params) => {
-      try { return mockTestDb.prepare(sql).all(...(params || [])); }
-      catch { return []; }
-    },
-    execute: async (sql, params) => {
-      const result = mockTestDb.prepare(sql).run(...(params || []));
-      return { rowCount: result.changes };
-    },
-    transaction: async (cb) => {
-      const tx = {
-        execute: async (sql, params) => {
-          const result = mockTestDb.prepare(sql).run(...(params || []));
-          return { rowCount: result.changes };
-        }
-      };
-      return cb(tx);
-    }
-  })
-}));
+jest.mock('../src/db/repositoryFactory', () => {
+  const mapParams = (params) => (params || []).map(p => {
+    if (typeof p === 'boolean') return p ? 1 : 0;
+    if (Array.isArray(p)) return JSON.stringify(p);
+    if (p !== null && typeof p === 'object' && !(p instanceof Date)) return JSON.stringify(p);
+    return p;
+  });
+
+  return {
+    getRepository: () => ({
+      one: async (sql, params) => {
+        try { return mockTestDb.prepare(sql).get(...mapParams(params)); }
+        catch { return null; }
+      },
+      many: async (sql, params) => {
+        try { return mockTestDb.prepare(sql).all(...mapParams(params)); }
+        catch { return []; }
+      },
+      execute: async (sql, params) => {
+        const result = mockTestDb.prepare(sql).run(...mapParams(params));
+        return { rowCount: result.changes };
+      },
+      transaction: async (cb) => {
+        const tx = {
+          execute: async (sql, params) => {
+            const result = mockTestDb.prepare(sql).run(...mapParams(params));
+            return { rowCount: result.changes };
+          }
+        };
+        return cb(tx);
+      }
+    })
+  };
+});
 
 const path = require('path');
 const Database = require('better-sqlite3');

@@ -377,7 +377,7 @@ async function createDailyChallenge(data, admin_id) {
         input_format, output_format, example_input, example_output, examples,
         hints, tags, solution_approach, editorial, complexity, starter_code,
         reference_solution, supported_languages, is_practice, created_by, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       question_id, title.trim(), finalSlug, `internal://${finalSlug}`, difficulty.toLowerCase(), finalTopicId, finalPatternId,
       Number(estimated_time) || 30, Number(points) || 100, description.trim(), problem_statement || null, constraints || null,
@@ -385,7 +385,7 @@ async function createDailyChallenge(data, admin_id) {
       normalizeJsonArray(hints, '[]'), normalizeJsonArray(tags, '[]'), solution_approach || editorial || null,
       editorial || solution_approach || null, complexity || null, typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null),
       typeof reference_solution === 'object' ? JSON.stringify(reference_solution) : (reference_solution || null),
-      normalizeJsonArray(supported_languages, '["javascript", "python"]'), admin_id || null, targetStatus
+      normalizeJsonArray(supported_languages, '["javascript", "python"]'), false, admin_id || null, targetStatus
     ]);
 
     // 2. Insert into test_cases

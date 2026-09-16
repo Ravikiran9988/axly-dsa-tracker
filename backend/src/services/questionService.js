@@ -308,7 +308,7 @@ async function createQuestion(input) {
       editorial || null,
       solution_approach || null,
       complexity || null,
-      is_practice === false || is_practice === 0 ? 0 : 1,
+      is_practice === false || is_practice === 0 ? false : true,
       generation_slot || null,
       created_via || 'manual'
     ]);
