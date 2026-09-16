@@ -40,7 +40,6 @@ async function startServer() {
   }
 
   // Initialize Background Schedulers (timers only — no immediate generation)
-  let startupError = null;
   try {
     const { startAutomationScheduler, runQcStartupCheck } = require('./services/dailyChallengeAutomationService');
     const { startQuestionBankScheduler, runQbStartupCheck } = require('./services/questionBankAutomationService');
