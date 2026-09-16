@@ -130,8 +130,8 @@ async function createNotification({ userId, title, message, category = 'system',
 
   await repo.execute(`
     INSERT INTO notifications (id, user_id, title, message, category, type, link, is_read, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
-  `, [id, userId, title, message, cat, type, link, nowIso]);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [id, userId, title, message, cat, type, link, false, nowIso]);
 
   return {
     id,
@@ -157,8 +157,8 @@ async function broadcastNotification({ title, message, category = 'system', type
     const id = uuidv4();
     await repo.execute(`
       INSERT INTO notifications (id, user_id, title, message, category, type, link, is_read, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
-    `, [id, u.id, title, message, cat, type, link, nowIso]);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [id, u.id, title, message, cat, type, link, false, nowIso]);
     created.push(id);
   }
   return created;
