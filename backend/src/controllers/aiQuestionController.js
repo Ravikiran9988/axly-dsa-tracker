@@ -60,27 +60,10 @@ async function generateQuestionBankManual(req, res, next) {
     const slot = getCurrentIstSlot();
     const adminId = req.user?.id || 'usr-admin-manual';
 
-    // Inspect slot state before dispatching — avoid unnecessary LLM calls
-    const slotState = await getSlotState(slot);
-    if (slotState.state === 'completed') {
-      return res.status(200).json({
-        success: true,
-        status: 'SUCCESS_NOOP',
-        message: `Slot ${slot} already has a completed question. No generation needed.`
-      });
-    }
-    if (slotState.state === 'in_progress') {
-      return res.status(202).json({
-        success: true,
-        status: 'already_running',
-        message: `Generation for slot ${slot} is already in progress.`
-      });
-    }
-    
     // Execute generation in background to prevent Heroku 30s H12 router timeout
     setImmediate(async () => {
       try {
-        const result = await generateForSlot(slot, adminId);
+        const result = await generateForSlot(slot, adminId, { isManual: true });
         if (result && result.status) {
           await persistRunStatus(result.status);
         }

@@ -710,7 +710,7 @@ export default function AdminQuestions({ onSelectProblem, onOpenCreateModal }) {
                       </p>
                     </div>
                     <div className="text-xs text-theme-text3 font-mono shrink-0 bg-theme-surface2 px-3 py-1.5 rounded-lg border border-theme-border">
-                      {new Date(log.created_at.includes('Z') ? log.created_at : log.created_at.replace(' ', 'T') + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}
+                      {log.created_at ? new Date(log.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) : '—'}
                     </div>
                   </div>
                 ))

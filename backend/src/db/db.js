@@ -356,7 +356,7 @@ function initSchema() {
       attempt_count INTEGER NOT NULL DEFAULT 1,
       validation_result TEXT,
       sandbox_result TEXT,
-      status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'skipped', 'success_noop')),
+      status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'skipped', 'success_noop', 'in_progress')),
       failure_category TEXT,
       question_id TEXT REFERENCES questions(id) ON DELETE SET NULL,
       details TEXT,
