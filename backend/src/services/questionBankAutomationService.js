@@ -5,13 +5,16 @@ const { generateUniqueProblem } = require('./aiSharedGenerationService');
 const { createQuestion, updateQuestionStatus } = require('./questionService');
 const noveltyService = require('./questionNoveltyService');
 
-// QB generates once per 2-hour IST slot: 00,02,04,06,08,10,12,14,16,18,20,22
-// SCHEDULER_CHECK_INTERVAL_MS is a CHECK interval — NOT a generation interval.
-// The LLM is only called when the slot has no valid question AND no active claim.
-const SCHEDULER_CHECK_INTERVAL_MS = 30 * 60 * 1000;
+// QB daily cycle starts at 12:30 AM IST and runs every 2 hours:
+// 00:30, 02:30, 04:30, 06:30, 08:30, 10:30,
+// 12:30, 14:30, 16:30, 18:30, 20:30, 22:30 (12 slots/day).
+// The scheduler is anchored to these boundaries; it does NOT depend on
+// when the Node process/dyno happened to start.
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const QB_INTERVAL_MS = 2 * 60 * 60 * 1000;
+const SCHEDULER_RETRY_INTERVAL_MS = 30 * 60 * 1000;
 
 // A QB in-progress claim is considered stale after 10 minutes.
-// LLM + validation + sandbox + indexing completes well within this window.
 const QB_STALE_CLAIM_THRESHOLD_MS = 10 * 60 * 1000;
 
 function getRepo() { return getRepository(); }
@@ -41,11 +44,11 @@ async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
   const nextMode = mode && ['ai_assist', 'auto_fill'].includes(mode) ? mode : current.mode;
   const nextEnabled = is_enabled !== undefined ? (toBooleanFlag(is_enabled) ? 1 : 0) : (current.is_enabled ? 1 : 0);
   const nextRetryLimit = Number(retry_limit) > 0 ? Number(retry_limit) : current.retry_limit;
-  
+
   await getRepo().execute(
-    `INSERT INTO question_bank_automation_settings (id, mode, is_enabled, retry_limit, updated_at) 
+    `INSERT INTO question_bank_automation_settings (id, mode, is_enabled, retry_limit, updated_at)
      VALUES ('global-settings', ?, ?, ?, CURRENT_TIMESTAMP)
-     ON CONFLICT(id) DO UPDATE SET mode = excluded.mode, is_enabled = excluded.is_enabled, retry_limit = excluded.retry_limit, updated_at = CURRENT_TIMESTAMP`, 
+     ON CONFLICT(id) DO UPDATE SET mode = excluded.mode, is_enabled = excluded.is_enabled, retry_limit = excluded.retry_limit, updated_at = CURRENT_TIMESTAMP`,
     [nextMode, nextEnabled, nextRetryLimit]
   );
   return getAutomationSettings();
@@ -54,28 +57,26 @@ async function updateAutomationSettings({ mode, is_enabled, retry_limit }) {
 async function getAutomationLogs(limit = 20) {
   const l = Math.max(1, Math.min(100, Number(limit) || 20));
   const logs = await getRepo().many(
-    `SELECT al.*, q.title AS challenge_title, q.difficulty AS challenge_difficulty 
-     FROM question_bank_automation_logs al 
-     LEFT JOIN questions q ON al.question_id = q.id 
-     ORDER BY al.created_at DESC LIMIT ?`, 
+    `SELECT al.*, q.title AS challenge_title, q.difficulty AS challenge_difficulty
+     FROM question_bank_automation_logs al
+     LEFT JOIN questions q ON al.question_id = q.id
+     ORDER BY al.created_at DESC LIMIT ?`,
     [l]
   );
   return logs.map(log => {
     let normalizedCreatedAt = log.created_at;
     if (normalizedCreatedAt) {
-      // In SQLite, datetime('now') returns 'YYYY-MM-DD HH:MM:SS' (UTC), without the 'Z'.
-      // In PostgreSQL, it may return a Date object or string.
       if (normalizedCreatedAt instanceof Date) {
         normalizedCreatedAt = normalizedCreatedAt.toISOString();
       } else if (typeof normalizedCreatedAt === 'string') {
         normalizedCreatedAt = new Date(normalizedCreatedAt.includes('Z') || normalizedCreatedAt.includes('+') ? normalizedCreatedAt : normalizedCreatedAt.replace(' ', 'T') + 'Z').toISOString();
       }
     }
-    
+
     return {
-      ...log, 
+      ...log,
       created_at: normalizedCreatedAt,
-      validation_result: log.validation_result || 'Passed', 
+      validation_result: log.validation_result || 'Passed',
       sandbox_result: 'Not used'
     };
   });
@@ -83,51 +84,85 @@ async function getAutomationLogs(limit = 20) {
 
 async function persistRunStatus(status) {
   await getRepo().execute(
-    `UPDATE question_bank_automation_settings 
-     SET last_run_at = ?, last_run_status = ?, updated_at = CURRENT_TIMESTAMP 
-     WHERE id = 'global-settings'`, 
+    `UPDATE question_bank_automation_settings
+     SET last_run_at = ?, last_run_status = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = 'global-settings'`,
     [new Date().toISOString(), status]
   );
 }
 
 /**
- * Returns the current 2-hour IST slot in the format YYYY-MM-DD-HH
- * For example: "2026-09-13-14"
- * Hours are floored to the nearest even number (0,2,4,...,22).
+ * Converts the current instant into the QB slot that is currently active.
+ *
+ * The QB day is intentionally anchored at 00:30 IST, not 00:00 IST.
+ * Therefore:
+ *   00:30-02:29 -> YYYY-MM-DD-00
+ *   02:30-04:29 -> YYYY-MM-DD-02
+ *   ...
+ *   22:30-00:29 -> YYYY-MM-DD-22 (the 00:00-00:29 part belongs to the previous IST date)
+ *
+ * Slot IDs remain YYYY-MM-DD-HH for DB compatibility.
  */
-function getCurrentIstSlot() {
-  const now = new Date();
-  const istOffsetMs = 5.5 * 60 * 60 * 1000;
-  const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const istDate = new Date(utcMs + istOffsetMs);
-  
-  const yyyy = istDate.getFullYear();
-  const mm = String(istDate.getMonth() + 1).padStart(2, '0');
-  const dd = String(istDate.getDate()).padStart(2, '0');
-  const rawHour = istDate.getHours();
-  const evenHour = rawHour - (rawHour % 2);
-  const hh = String(evenHour).padStart(2, '0');
-  
-  return `${yyyy}-${mm}-${dd}-${hh}`;
+function getCurrentIstSlot(now = new Date()) {
+  const istDate = new Date(now.getTime() + IST_OFFSET_MS);
+  let year = istDate.getUTCFullYear();
+  let month = istDate.getUTCMonth();
+  let day = istDate.getUTCDate();
+  const hour = istDate.getUTCHours();
+  const minute = istDate.getUTCMinutes();
+
+  const minutesSinceMidnight = hour * 60 + minute;
+  const slotIndex = Math.floor((minutesSinceMidnight - 30) / 120);
+
+  if (slotIndex < 0) {
+    // 00:00-00:29 belongs to the previous day's 22:30 slot.
+    const previousDay = new Date(Date.UTC(year, month, day) - 24 * 60 * 60 * 1000);
+    year = previousDay.getUTCFullYear();
+    month = previousDay.getUTCMonth();
+    day = previousDay.getUTCDate();
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}-22`;
+  }
+
+  const slotHour = slotIndex * 2;
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}-${String(slotHour).padStart(2, '0')}`;
 }
 
 /**
- * Inspects the authoritative DB state for a given slot.
+ * Returns the delay until the NEXT exact QB boundary in milliseconds.
+ * Boundaries are always 00:30 + N*2 hours IST.
  *
- * Returns one of:
- *   { state: 'completed', questionId, questionStatus }
- *     → A publishable question exists. NOOP.
- *   { state: 'draft_recoverable', questionId, questionStatus }
- *     → A draft exists (indexing may have failed). Attempt re-indexing.
- *   { state: 'in_progress', claimId, claimedAt }
- *     → An active generation claim exists. NOOP.
- *   { state: 'stale_in_progress', claimId, claimedAt, ageMs }
- *     → Claim exists but older than QB_STALE_CLAIM_THRESHOLD_MS. Can be recovered.
- *   { state: 'none' }
- *     → No question and no active claim. Safe to claim and generate.
+ * This is deliberately calculated from the current instant rather than using
+ * a fixed setInterval so deployments/restarts cannot shift the generation time.
  */
+function getDelayToNextQbBoundary(now = new Date()) {
+  const istDate = new Date(now.getTime() + IST_OFFSET_MS);
+  const year = istDate.getUTCFullYear();
+  const month = istDate.getUTCMonth();
+  const day = istDate.getUTCDate();
+  const currentMinutes = istDate.getUTCHours() * 60 + istDate.getUTCMinutes();
+  const currentSeconds = istDate.getUTCSeconds() * 1000 + istDate.getUTCMilliseconds();
+
+  // 00:30 is minute 30, then every 120 minutes.
+  let nextBoundaryMinutes;
+  if (currentMinutes < 30) {
+    nextBoundaryMinutes = 30;
+  } else {
+    const elapsedFromFirstBoundary = currentMinutes - 30;
+    const nextIndex = Math.floor(elapsedFromFirstBoundary / 120) + 1;
+    nextBoundaryMinutes = 30 + nextIndex * 120;
+  }
+
+  const dayStartUtc = Date.UTC(year, month, day);
+  const targetUtc = dayStartUtc + nextBoundaryMinutes * 60 * 1000;
+  const currentUtc = now.getTime() + IST_OFFSET_MS;
+  const delay = targetUtc - currentUtc;
+
+  // targetUtc can be on the following day when nextBoundaryMinutes > 1439.
+  // The calculation above naturally handles that because Date.UTC rolls over.
+  return Math.max(0, delay);
+}
+
 async function getSlotState(slot) {
-  // 1. Check for an existing question row for this slot
   const existingQuestion = await getRepo().one(
     `SELECT id, status, embedding_indexed_at FROM questions WHERE generation_slot = ? LIMIT 1`,
     [slot]
@@ -137,14 +172,12 @@ async function getSlotState(slot) {
     if (existingQuestion.status === 'published') {
       return { state: 'completed', questionId: existingQuestion.id, questionStatus: existingQuestion.status };
     }
-    // draft or any other non-published status — may be recoverable
     return { state: 'draft_recoverable', questionId: existingQuestion.id, questionStatus: existingQuestion.status };
   }
 
-  // 2. No question row — check for an active in-progress log claim
   const inProgressLog = await getRepo().one(
-    `SELECT id, created_at FROM question_bank_automation_logs 
-     WHERE target_slot = ? AND status = 'in_progress' 
+    `SELECT id, created_at FROM question_bank_automation_logs
+     WHERE target_slot = ? AND status = 'in_progress'
      ORDER BY created_at DESC LIMIT 1`,
     [slot]
   );
@@ -161,21 +194,11 @@ async function getSlotState(slot) {
   return { state: 'none' };
 }
 
-/**
- * Atomically claims a slot by inserting an in-progress log entry.
- * Returns { claimed: true, claimId } on success.
- * Returns { claimed: false, reason } if the insert fails.
- *
- * This is the cross-dyno duplicate-generation guard:
- * Only the process that successfully inserts this row proceeds to call the LLM.
- * A short race window exists between getSlotState() and claimSlot(), which is
- * why getSlotState() is always called before any generation.
- */
 async function claimSlot(slot, mode) {
   const claimId = `auto-log-${uuidv4().slice(0, 8)}`;
   try {
     await getRepo().execute(
-      `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, details, created_at) 
+      `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, details, created_at)
        VALUES (?, ?, ?, 'in_progress', 'Slot claimed, generation starting.', CURRENT_TIMESTAMP)`,
       [claimId, slot, mode]
     );
@@ -186,14 +209,10 @@ async function claimSlot(slot, mode) {
   }
 }
 
-/**
- * Releases a slot claim by updating the in-progress log entry to 'failed'.
- * Called when generation fails after claiming the slot.
- */
 async function releaseSlotClaim(claimId, failureCategory, failureReason) {
   try {
     await getRepo().execute(
-      `UPDATE question_bank_automation_logs 
+      `UPDATE question_bank_automation_logs
        SET status = 'failed', failure_category = ?, details = ?
        WHERE id = ? AND status = 'in_progress'`,
       [failureCategory, failureReason, claimId]
@@ -203,14 +222,10 @@ async function releaseSlotClaim(claimId, failureCategory, failureReason) {
   }
 }
 
-/**
- * Recovers a stale in-progress log entry by marking it as failed.
- * This unblocks the next scheduler check so it can attempt generation again.
- */
 async function recoverStaleQbSlot(slot) {
   const staleLog = await getRepo().one(
-    `SELECT id, created_at FROM question_bank_automation_logs 
-     WHERE target_slot = ? AND status = 'in_progress' 
+    `SELECT id, created_at FROM question_bank_automation_logs
+     WHERE target_slot = ? AND status = 'in_progress'
      ORDER BY created_at DESC LIMIT 1`,
     [slot]
   );
@@ -224,8 +239,8 @@ async function recoverStaleQbSlot(slot) {
 
   try {
     await getRepo().execute(
-      `UPDATE question_bank_automation_logs 
-       SET status = 'failed', failure_category = 'STALE_CLAIM_RECOVERED', 
+      `UPDATE question_bank_automation_logs
+       SET status = 'failed', failure_category = 'STALE_CLAIM_RECOVERED',
            details = 'Recovered stale in-progress claim after process termination.'
        WHERE id = ? AND status = 'in_progress'`,
       [staleLog.id]
@@ -238,13 +253,9 @@ async function recoverStaleQbSlot(slot) {
   }
 }
 
-/**
- * Attempts to re-index an existing draft question for a slot.
- * Used when a draft exists but indexing previously failed.
- */
 async function recoverDraftQuestion(slot, questionId, mode) {
   console.log(`[QB] RECOVERING slot=${slot} questionId=${questionId} — attempting re-indexing.`);
-  
+
   const draft = await getRepo().one(`SELECT * FROM questions WHERE id = ?`, [questionId]);
   if (!draft) {
     return { success: false, status: 'failed', error: 'Draft question not found during recovery', failure_category: 'RECOVERY_ERROR' };
@@ -281,14 +292,6 @@ async function recoverDraftQuestion(slot, questionId, mode) {
   };
 }
 
-/**
- * Generates a new question for a slot.
- *
- * IMPORTANT: This function claims the slot atomically before calling the LLM.
- * If the claim fails (another process won), it returns SUCCESS_NOOP immediately.
- * Callers should call getSlotState() before calling generateForSlot() to avoid
- * unnecessary work, but generateForSlot() is safe to call directly for manual triggers.
- */
 async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) {
   const { isManual = false } = options;
   const settings = await getAutomationSettings();
@@ -299,7 +302,6 @@ async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) 
   let failureCategory = 'UNKNOWN';
   let claimId = null;
 
-  // Atomically claim the slot before calling the LLM
   const claim = await claimSlot(slot, mode);
   if (!claim.claimed) {
     console.log(`[QB] NOOP slot=${slot} → failed to claim (another process likely won). reason=${claim.reason}`);
@@ -310,15 +312,15 @@ async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) 
 
   try {
     console.log(`[QB] GENERATING slot=${slot}`);
-    const result = await generateUniqueProblem({ 
-      topic: 'Surprise Me', 
-      difficulty: 'medium', 
+    const result = await generateUniqueProblem({
+      topic: 'Surprise Me',
+      difficulty: 'medium',
       instructions: 'Create a genuinely original algorithm problem for the practice library.',
       destination: 'question_bank',
       generation_slot: isManual ? null : slot,
       skipSandbox: false
     });
-    
+
     if (!result || !result.success || !result.data) {
       throw new Error(result?.error || 'LLM Generation Failed.');
     }
@@ -328,7 +330,6 @@ async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) 
     failureReason = err.message || failureReason;
     failureCategory = err.code || 'PIPELINE_ERROR';
 
-    // Catch PostgreSQL (23505) and SQLite UNIQUE constraint violations for the scheduled slot race
     if (!isManual && (failureCategory === '23505' || failureReason.includes('UNIQUE constraint failed') || failureReason.includes('idx_questions_generation_slot'))) {
       const currentSlotState = await getSlotState(slot);
       if (currentSlotState.state === 'completed' || currentSlotState.state === 'draft_recoverable') {
@@ -347,13 +348,13 @@ async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) 
   if (generated) {
     try {
       console.log(`[QB] VALIDATING/PERSISTING slot=${slot}`);
-      const createdDraft = await createQuestion({ 
+      const createdDraft = await createQuestion({
         ...generated,
         status: 'draft',
         is_active: true,
         generation_slot: slot
       }, adminId);
-      
+
       const createdDraftId = createdDraft.id;
 
       console.log(`[QB] INDEXING slot=${slot} questionId=${createdDraftId}`);
@@ -361,18 +362,16 @@ async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) 
       if (!indexResult || !indexResult.success) {
         const indexReason = indexResult?.reason || 'unknown_indexing_failure';
         console.error(`[QB] FAILED slot=${slot} INDEXING failed: ${indexReason}`);
-        // Release the in-progress claim but keep the draft row intact
-        // so the next check can attempt re-indexing via recoverDraftQuestion()
         await releaseSlotClaim(claimId, 'INDEXING_FAILED', `Required embedding/indexing failed: ${indexReason}. Draft ${createdDraftId} preserved for recovery.`);
         await getRepo().execute(
           `INSERT INTO question_bank_automation_logs (id, target_slot, mode, status, question_id, failure_category, details) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [`auto-log-${uuidv4().slice(0, 8)}`, slot, mode, 'failed', createdDraftId, 'INDEXING_FAILED', `Required embedding/indexing failed: ${indexReason}`]
         );
-        return { 
-          success: false, 
-          status: 'failed', 
+        return {
+          success: false,
+          status: 'failed',
           error: `Required embedding/indexing failed: ${indexReason}`,
-          failure_category: 'INDEXING_FAILED' 
+          failure_category: 'INDEXING_FAILED'
         };
       }
 
@@ -380,23 +379,21 @@ async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) 
       if (targetStatus !== 'draft') {
         await updateQuestionStatus(createdDraftId, targetStatus);
       }
-      
-      // Update the in-progress claim to success
+
       await getRepo().execute(
         `UPDATE question_bank_automation_logs SET status = 'success', question_id = ?, details = ? WHERE id = ? AND status = 'in_progress'`,
         [createdDraftId, `AI challenge for slot ${slot} generated, indexed, and set to ${targetStatus}.`, claimId]
       );
 
       console.log(`[QB] ${targetStatus === 'published' ? 'PUBLISHED' : 'DRAFT'} slot=${slot} questionId=${createdDraftId}`);
-      return { 
-        success: true, 
-        status: 'success', 
-        challenge: createdDraft, 
-        message: `AI challenge for slot ${slot} generated, indexed, and set to ${targetStatus}.` 
+      return {
+        success: true,
+        status: 'success',
+        challenge: createdDraft,
+        message: `AI challenge for slot ${slot} generated, indexed, and set to ${targetStatus}.`
       };
     } catch (dbErr) {
       if (dbErr.message && dbErr.message.includes('UNIQUE') && dbErr.message.includes('generation_slot')) {
-        // DB uniqueness constraint is the final safety net — rarely triggered
         await releaseSlotClaim(claimId, 'DUPLICATE_SLOT', `DB uniqueness constraint triggered for slot ${slot}.`);
         return { success: true, status: 'SUCCESS_NOOP', message: `Slot ${slot} already claimed (DB constraint).` };
       }
@@ -407,47 +404,40 @@ async function generateForSlot(slot, adminId = 'usr-system-cron', options = {}) 
         [`auto-log-${uuidv4().slice(0, 8)}`, slot, mode, 'failed', 'DATABASE_ERROR', errMsg]
       );
       console.error(`[QB] FAILED slot=${slot} dbError=${errMsg}`);
-      return { 
-        success: false, 
-        status: 'failed', 
+      return {
+        success: false,
+        status: 'failed',
         error: `Database insert failed: ${errMsg}`,
-        failure_category: 'DATABASE_ERROR' 
+        failure_category: 'DATABASE_ERROR'
       };
     }
   }
 
-  // LLM/pipeline failure — release claim so next check can retry
   await releaseSlotClaim(claimId, failureCategory, failureReason);
   console.error(`[QB] FAILED slot=${slot} failureCategory=${failureCategory}`);
-  return { 
-    success: false, 
-    status: 'failed', 
-    error: failureReason, 
-    failure_category: failureCategory 
+  return {
+    success: false,
+    status: 'failed',
+    error: failureReason,
+    failure_category: failureCategory
   };
 }
 
-// Process-local mutex — prevents concurrent runs within the SAME process.
-// The DB claim (claimSlot) handles cross-dyno concurrency.
 let schedulerRunning = false;
 
-/**
- * State-aware QB scheduler tick. Called by the 30-minute interval.
- * Always inspects DB state first — only calls LLM if truly needed.
- */
 async function runQuestionBankScheduledAutomation() {
   if (schedulerRunning) {
     console.log('[QB] CHECK skipped — local mutex held by concurrent execution.');
     return null;
   }
-  
+
   const settings = await getAutomationSettings();
   if (!settings.is_enabled) {
     return null;
   }
-  
+
   schedulerRunning = true;
-  
+
   try {
     const slot = getCurrentIstSlot();
     console.log(`[QB] CHECK slot=${slot}`);
@@ -467,7 +457,6 @@ async function runQuestionBankScheduledAutomation() {
     if (slotState.state === 'stale_in_progress') {
       console.warn(`[QB] STALE_CLAIM slot=${slot} ageMs=${slotState.ageMs}. Recovering stale claim.`);
       await recoverStaleQbSlot(slot);
-      // After releasing the stale claim, treat as 'none' and fall through to generate
     }
 
     if (slotState.state === 'draft_recoverable') {
@@ -477,7 +466,6 @@ async function runQuestionBankScheduledAutomation() {
       return result;
     }
 
-    // state === 'none' (or stale was just recovered)
     console.log(`[QB] GENERATING slot=${slot} → no question and no active claim.`);
     const result = await generateForSlot(slot);
     await persistRunStatus(result.status);
@@ -491,11 +479,6 @@ async function runQuestionBankScheduledAutomation() {
   }
 }
 
-/**
- * QB startup check — safe to call on every server start.
- * Inspects the current slot state and only generates if truly needed.
- * Must be called AFTER DB health is confirmed.
- */
 async function runQbStartupCheck() {
   console.log('[QB] Startup check beginning...');
   try {
@@ -506,8 +489,7 @@ async function runQbStartupCheck() {
     }
 
     const slot = getCurrentIstSlot();
-    
-    // First, recover any stale in-progress claims from a previously crashed process
+
     const staleResult = await recoverStaleQbSlot(slot);
     if (staleResult.recovered) {
       console.log(`[QB] Startup: recovered stale claim for slot ${slot}.`);
@@ -530,7 +512,6 @@ async function runQbStartupCheck() {
       return;
     }
 
-    // No question, no active claim — generate
     console.log(`[QB] Startup: slot ${slot} needs generation.`);
     const result = await generateForSlot(slot);
     await persistRunStatus(result.status);
@@ -542,32 +523,53 @@ async function runQbStartupCheck() {
 
 let schedulerTimer = null;
 
-function startQuestionBankScheduler() {
-  stopQuestionBankScheduler();
-  console.log('⏰ Question Bank Automation Scheduler starting. Checks every 30 minutes (IST 2-hour slots).');
-  // NOTE: Startup check is triggered separately from server.js after DB health.
-  // Do NOT call runQbStartupCheck() or runQuestionBankScheduledAutomation() here.
-  schedulerTimer = setInterval(async () => {
+function scheduleNextQuestionBankRun() {
+  if (schedulerTimer) {
+    clearTimeout(schedulerTimer);
+    schedulerTimer = null;
+  }
+
+  const delay = getDelayToNextQbBoundary();
+  const delayMinutes = Math.round(delay / 60000);
+  console.log(`[QB] Next scheduled run in ${delayMinutes} minutes (next boundary is 00:30 + N*2h IST).`);
+
+  schedulerTimer = setTimeout(async () => {
+    schedulerTimer = null;
+    let result = null;
     try {
-      const result = await runQuestionBankScheduledAutomation();
+      result = await runQuestionBankScheduledAutomation();
       if (result && result.status && result.status !== 'SUCCESS_NOOP') {
-        console.log(`[QB] Scheduler tick completed with status: ${result.status}.`);
+        console.log(`[QB] Scheduled run completed with status: ${result.status}.`);
       }
     } catch (err) {
-      // Error is logged inside runQuestionBankScheduledAutomation.
-      // The interval continues regardless of the error.
-      console.error('[QB] ❌ Error in scheduler tick (interval survives):', err.message);
+      console.error('[QB] ❌ Error in scheduled run (scheduler will continue):', err.message);
     }
-  }, SCHEDULER_CHECK_INTERVAL_MS);
-  
+
+    // On a failed generation, retry within the same slot every 30 minutes.
+    // On success/NOOP, wait for the next exact 2-hour boundary.
+    if (result && result.status === 'failed') {
+      schedulerTimer = setTimeout(() => scheduleNextQuestionBankRun(), SCHEDULER_RETRY_INTERVAL_MS);
+    } else {
+      scheduleNextQuestionBankRun();
+    }
+  }, delay);
+
   if (typeof schedulerTimer.unref === 'function') {
     schedulerTimer.unref();
   }
 }
 
+function startQuestionBankScheduler() {
+  stopQuestionBankScheduler();
+  console.log('⏰ Question Bank Automation Scheduler starting at 12:30 AM IST, then every 2 hours.');
+  // Startup recovery is intentionally separate and is invoked from server.js.
+  // The timer itself is anchored to the exact 00:30/02:30/... IST boundaries.
+  scheduleNextQuestionBankRun();
+}
+
 function stopQuestionBankScheduler() {
   if (schedulerTimer) {
-    clearInterval(schedulerTimer);
+    clearTimeout(schedulerTimer);
     schedulerTimer = null;
   }
 }
@@ -575,17 +577,17 @@ function stopQuestionBankScheduler() {
 async function getQuestionBankGenerationStatus() {
   const today = getCanonicalIstDate();
   const currentSlot = getCurrentIstSlot();
-  
+
   const rows = await getRepo().many(
-    `SELECT generation_slot, status, created_at FROM questions 
+    `SELECT generation_slot, status, created_at FROM questions
      WHERE generation_slot LIKE ? ORDER BY generation_slot ASC`,
     [`${today}-%`]
   );
-  
+
   const completed = rows.filter(r => r.status === 'published');
   const drafts = rows.filter(r => r.status === 'draft');
   const currentSlotState = await getSlotState(currentSlot);
-  
+
   return {
     today_date: today,
     generated_today: completed.length,
@@ -598,6 +600,7 @@ async function getQuestionBankGenerationStatus() {
 
 module.exports = {
   getCurrentIstSlot,
+  getDelayToNextQbBoundary,
   getSlotState,
   generateForSlot,
   recoverDraftQuestion,
@@ -612,4 +615,3 @@ module.exports = {
   getAutomationLogs,
   persistRunStatus
 };
-
