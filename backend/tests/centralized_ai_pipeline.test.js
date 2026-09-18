@@ -598,7 +598,8 @@ describe('Centralized AI Question Generation Pipeline', () => {
     mockTestDb.prepare('INSERT INTO test_cases (id, question_id, input, expected_output, is_hidden) VALUES (?, ?, ?, ?, ?)').run(`tc-scheduled-${Date.now()}`, existingId, '1', '1', 0);
     mockTestDb.prepare(`INSERT INTO daily_challenge_metadata (question_id, scheduled_date, status, created_via) VALUES (?, ?, 'scheduled', 'manual')`).run(existingId, tomorrowDate);
 
-    // 2. Run admin auto-fill — tomorrow is scheduled, so should generate NEW as DRAFT
+    // 2. Run admin auto-fill — tomorrow is already scheduled, so Auto-Fill
+    // must not create a second draft candidate or call the AI generator.
     const result = await dcAutomationService.runAdminAutoFillNow({
       adminId: 'usr-admin-01',
       difficulty: 'medium',
@@ -606,28 +607,30 @@ describe('Centralized AI Question Generation Pipeline', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.resultType).toBe('GENERATED_AS_DRAFT');
-    expect(result.challenge.id).not.toBe(existingId);
+    expect(result.status).toBe('SUCCESS_NOOP');
+    expect(result.resultType).toBe('ALREADY_SCHEDULED');
+    expect(result.challenge.id).toBe(existingId);
+    expect(result.message).toContain('published tomorrow');
 
-    // 3. Verify AI generator WAS called (new question generated)
-    expect(spyContract).toHaveBeenCalled();
+    // 3. Verify AI generator was NOT called.
+    expect(spyContract).not.toHaveBeenCalled();
 
-    // 4. Verify new question status = draft, scheduled_date = null
-    const meta = mockTestDb.prepare('SELECT status, scheduled_date, created_via FROM daily_challenge_metadata WHERE question_id = ?').get(result.challenge.id);
-    expect(meta.status).toBe('draft');
-    expect(meta.scheduled_date).toBeNull();
-    expect(meta.created_via).toBe('ai_automation');
-
-    // 5. Verify existing scheduled challenge is unchanged
-    const existingMeta = mockTestDb.prepare('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?').get(existingId);
+    // 4. Verify the existing challenge remains scheduled for tomorrow.
+    const existingMeta = mockTestDb.prepare('SELECT status, scheduled_date, created_via FROM daily_challenge_metadata WHERE question_id = ?').get(existingId);
     expect(existingMeta.status).toBe('scheduled');
     expect(existingMeta.scheduled_date).toBe(tomorrowDate);
+
+    // 5. Verify no new AI draft was created.
+    const aiDrafts = mockTestDb.prepare(
+      `SELECT COUNT(*) AS count FROM daily_challenge_metadata WHERE created_via = 'ai_automation' AND status = 'draft'`
+    ).get();
+    expect(aiDrafts.count).toBe(0);
 
     // 6. Verify automation log
     const log = mockTestDb.prepare('SELECT mode, status, details FROM daily_challenge_automation_logs ORDER BY created_at DESC LIMIT 1').get();
     expect(log.mode).toBe('auto_fill');
     expect(log.status).toBe('success');
-    expect(log.details).toContain('already scheduled');
+    expect(log.details).toContain('published tomorrow');
   });
 
   // CASE B: No suitable question → generate new, SCHEDULED, target date = tomorrow
