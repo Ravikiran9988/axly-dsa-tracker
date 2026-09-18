@@ -158,6 +158,27 @@ async function runAdminAutoFillNow(options = {}) {
     // ── STEP 1: Check whether tomorrow already has a scheduled Daily Challenge ─
     const existingScheduled = await findExistingScheduledChallengeForDate(targetDate);
 
+    // Auto-Fill is the automatic publication path: if tomorrow is already
+    // scheduled, do not generate another AI candidate and do not create a draft.
+    // The existing scheduled challenge will be published at 00:30 IST tomorrow.
+    if (existingScheduled && mode === 'auto_fill') {
+      const logId = `auto-log-${uuidv4().slice(0, 8)}`;
+      await getRepo().execute(
+        `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 0, 'Skipped', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`,
+        [logId, targetDate, mode, existingScheduled.id, `Tomorrow's Daily Challenge "${existingScheduled.title}" is already scheduled for ${targetDate}; no draft or duplicate AI candidate was created. It will be published tomorrow at 00:30 IST.`]
+      );
+      await persistRunStatus('success');
+      return {
+        success: true,
+        status: 'SUCCESS_NOOP',
+        target_date: targetDate,
+        attempts: 0,
+        challenge: existingScheduled,
+        resultType: 'ALREADY_SCHEDULED',
+        message: `Tomorrow's Daily Challenge is already scheduled and will be published tomorrow at 00:30 IST.`
+      };
+    }
+
     // ── STEP 2: Generate NEW question via central AI pipeline ──────────────────
     try {
       const generated = await generateUniqueChallenge({
