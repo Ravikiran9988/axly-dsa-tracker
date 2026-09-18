@@ -484,10 +484,11 @@ async function runScheduledPublicationWithRecovery() {
 }
 
 /**
- * 3-hour QC safety/preparation check.
- * Checks whether tomorrow's challenge exists and generates if needed.
- * Safe to run multiple times — DB claim prevents duplicate generation.
- * Respects the same mode/is_enabled settings as the 00:30 scheduler.
+ * 3-hour QC safety check.
+ *
+ * IMPORTANT: This is a READ/HEALTH CHECK only. It must NEVER generate a
+ * Daily Challenge at an arbitrary time. QC generation is anchored exclusively
+ * to the exact 00:30 IST scheduler boundary.
  */
 async function runQcSafetyCheck() {
   const settings = await getAutomationSettings();
@@ -499,7 +500,6 @@ async function runQcSafetyCheck() {
   const tomorrowDate = getNextCanonicalIstDate();
   console.log(`[QC] 3-hour CHECK tomorrow=${tomorrowDate}`);
 
-  // Check if tomorrow already has a valid (non-failed, non-archived) challenge
   const existingTomorrow = await getRepo().one(`
     SELECT q.id, q.title, dcm.status
     FROM daily_challenge_metadata dcm
@@ -512,16 +512,22 @@ async function runQcSafetyCheck() {
     return { success: true, status: 'SUCCESS_NOOP', target_date: tomorrowDate };
   }
 
-  // Nothing usable for tomorrow — trigger the full scheduled automation
-  // which includes the atomic DB claim guard against concurrent execution
-  console.log(`[QC] 3-hour GENERATING tomorrow=${tomorrowDate} — no valid challenge found.`);
-  return runDailyScheduledAutomation();
+  // Do not generate here. A missing challenge is reported as a scheduling
+  // health issue and will be handled by the next exact 00:30 IST run.
+  console.warn(`[QC] 3-hour CHECK ALERT tomorrow=${tomorrowDate} → no challenge exists; generation remains locked to 00:30 IST.`);
+  return {
+    success: false,
+    status: 'SCHEDULED_RUN_REQUIRED',
+    target_date: tomorrowDate,
+    message: 'Tomorrow has no prepared Daily Challenge; generation remains locked to 00:30 IST.'
+  };
 }
 
 /**
- * QC startup check — inspects tomorrow's state on every server start.
- * Safe to call on every restart. DB claim prevents concurrent generation.
- * Must be called AFTER DB health is confirmed.
+ * QC startup check — inspection/recovery only.
+ *
+ * IMPORTANT: Server restarts must NEVER trigger Daily Challenge generation.
+ * Generation is exclusively performed by the exact 00:30 IST scheduler.
  */
 async function runQcStartupCheck() {
   console.log('[QC] Startup check beginning...');
@@ -547,12 +553,9 @@ async function runQcStartupCheck() {
       return;
     }
 
-    // Nothing usable for tomorrow — trigger the full scheduled automation (with DB claim)
-    console.log(`[QC] Startup: tomorrow=${tomorrowDate} needs preparation. Starting generation...`);
-    await runDailyScheduledAutomation();
+    console.warn(`[QC] Startup ALERT: tomorrow=${tomorrowDate} has no prepared challenge. No generation will run until 00:30 IST.`);
   } catch (err) {
     console.error('[QC] Startup check failed:', err.message);
-    try { await persistRunStatus('failed'); } catch (_) {}
   }
 }
 
