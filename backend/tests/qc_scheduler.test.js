@@ -90,11 +90,11 @@ test('17. Startup with tomorrow scheduled → no LLM call', async () => {
   expect(mockGenerateChallengeFn).not.toHaveBeenCalled();
 });
 
-// 18. Startup with tomorrow missing → generation
-test('18. Startup with tomorrow missing → LLM generation occurs', async () => {
+// 18. Startup with tomorrow missing → alert only, no generation
+test('18. Startup with tomorrow missing → no LLM generation', async () => {
   mockRepo = makeRepo({ tomorrowRow: null });
   await runQcStartupCheck();
-  expect(mockGenerateChallengeFn).toHaveBeenCalled();
+  expect(mockGenerateChallengeFn).not.toHaveBeenCalled();
 });
 
 // 19. 3-hour check with tomorrow scheduled → NOOP
@@ -105,11 +105,12 @@ test('19. 3-hour check with tomorrow scheduled → NOOP', async () => {
   expect(result.status).toBe('SUCCESS_NOOP');
 });
 
-// 20. 3-hour check with tomorrow missing → generation
-test('20. 3-hour check with tomorrow missing → generation', async () => {
+// 20. 3-hour check with tomorrow missing → alert only, no generation
+test('20. 3-hour check with tomorrow missing → no LLM generation', async () => {
   mockRepo = makeRepo({ tomorrowRow: null });
   const result = await runQcSafetyCheck();
-  expect(mockGenerateChallengeFn).toHaveBeenCalled();
+  expect(mockGenerateChallengeFn).not.toHaveBeenCalled();
+  expect(result.status).toBe('SCHEDULED_RUN_REQUIRED');
 });
 
 // 21. Concurrent 00:30 + 3-hour check → exactly one LLM call (DB claim)
@@ -279,11 +280,11 @@ test('32. No unhandled Promise rejection on total failure', async () => {
   expect(true).toBe(true);
 });
 
-// 33. Restart after missed 00:30 is recovered via startup check
-test('33. Startup check detects missing tomorrow and generates', async () => {
+// 33. Restart after missed 00:30 does not shift generation to restart time
+test('33. Startup check detects missing tomorrow without generating', async () => {
   mockRepo = makeRepo({ tomorrowRow: null });
   await runQcStartupCheck();
-  expect(mockGenerateChallengeFn).toHaveBeenCalled();
+  expect(mockGenerateChallengeFn).not.toHaveBeenCalled();
 });
 
 // 34. Restart with existing scheduled tomorrow → NOOP
