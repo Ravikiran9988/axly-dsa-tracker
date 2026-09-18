@@ -166,24 +166,32 @@ async function runAdminAutoFillNow(options = {}) {
       });
 
       if (existingScheduled) {
-        // ── CASE 1: Tomorrow already scheduled — generate NEW as DRAFT ────────
-        // The existing scheduled challenge remains completely untouched.
-        const created = await createDailyChallenge({
-          ...generated,
-          status: 'draft',
-          scheduled_date: null,
-          created_via: 'ai_automation'
-        }, adminId);
+        // ── CASE 1: Tomorrow is already scheduled ─────────────────────────────
+        // Auto-Fill must never create a second draft candidate. The scheduled
+        // challenge is the one that will be published at 00:30 IST tomorrow.
+        // This keeps Auto-Fill deterministic: AI generation → scheduled → publish.
+        if (mode === 'auto_fill') {
+          resultChallenge = existingScheduled;
+          resultType = 'ALREADY_SCHEDULED';
+        } else {
+          // AI Assist intentionally allows an additional draft candidate for
+          // admin review because it is not the automatic publication path.
+          const created = await createDailyChallenge({
+            ...generated,
+            status: 'draft',
+            scheduled_date: null,
+            created_via: 'ai_automation'
+          }, adminId);
 
-        // Index embedding (non-blocking for draft, but we still attempt it)
-        const indexResult = await noveltyService.indexAcceptedQuestion(created.id, created);
-        if (!indexResult || !indexResult.success) {
-          const indexReason = indexResult?.reason || 'unknown_indexing_failure';
-          console.warn(`[DailyAutomation] Draft indexing failed (non-fatal for draft): ${indexReason}`);
+          const indexResult = await noveltyService.indexAcceptedQuestion(created.id, created);
+          if (!indexResult || !indexResult.success) {
+            const indexReason = indexResult?.reason || 'unknown_indexing_failure';
+            console.warn(`[DailyAutomation] Draft indexing failed (non-fatal for draft): ${indexReason}`);
+          }
+
+          resultChallenge = created;
+          resultType = 'GENERATED_AS_DRAFT';
         }
-
-        resultChallenge = created;
-        resultType = 'GENERATED_AS_DRAFT';
       } else {
         // ── CASE 2: Tomorrow NOT scheduled — generate NEW, index, then SCHEDULE ─
         // Create as draft first — indexing must succeed before promoting to scheduled
@@ -222,9 +230,12 @@ async function runAdminAutoFillNow(options = {}) {
       finalStatus = 'success';
       let details;
       let message;
-      if (resultType === 'GENERATED_AS_DRAFT') {
+      if (resultType === 'ALREADY_SCHEDULED') {
+        details = `Tomorrow (${targetDate}) is already scheduled with "${resultChallenge.title}". No second Auto-Fill candidate was created; the scheduled challenge will be published tomorrow.`;
+        message = `Tomorrow's Daily Challenge is already scheduled and will be published tomorrow.`;
+      } else if (resultType === 'GENERATED_AS_DRAFT') {
         details = `Tomorrow (${targetDate}) already scheduled. New AI challenge "${resultChallenge.title}" generated and saved as Draft for admin review.`;
-        message = `Tomorrow's challenge is already scheduled. A new Auto-Fill candidate was generated as Draft for review.`;
+        message = `Tomorrow's challenge is already scheduled. A new AI Assist candidate was generated as Draft for review.`;
       } else {
         details = `AI challenge "${resultChallenge.title}" generated, validated, indexed, and scheduled for ${targetDate}.`;
         message = 'Auto-fill generated and scheduled tomorrow\'s Daily Challenge successfully.';
