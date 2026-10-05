@@ -570,8 +570,8 @@ describe('Centralized AI Question Generation Pipeline', () => {
 
   // ── Auto-Fill Lifecycle: Tomorrow Scheduled vs Not Scheduled ──────────────
 
-  // CASE A: Tomorrow already scheduled → generate NEW question → DRAFT
-  test('CASE A: Auto-Fill when tomorrow already scheduled generates NEW question as Draft', async () => {
+  // CASE A: Tomorrow already scheduled → reuse scheduled challenge, no duplicate draft
+  test('CASE A: Auto-Fill when tomorrow already scheduled does not create a duplicate draft', async () => {
     const aiQuestionService = require('../src/services/aiQuestionService');
     const spyContract = jest.spyOn(aiQuestionService, 'generateContract').mockResolvedValue(validContract);
     const spyTests = jest.spyOn(aiQuestionService, 'generateTestCasesForContract').mockResolvedValue(validTestCases);
