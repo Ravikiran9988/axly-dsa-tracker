@@ -179,7 +179,7 @@ describe('Axly DSA Tracker — Acceptance Criteria & API Contract Tests', () => 
       `).run(regularUser.id, questionForSub, adminUser.id);
     });
 
-    test('User can update own submission status to solved', async () => {
+    test('User cannot forge a solved submission through the status endpoint', async () => {
       const res = await request(app)
         .post('/api/v1/submissions/toggle')
         .set('Authorization', `Bearer ${userToken}`)
@@ -188,9 +188,8 @@ describe('Axly DSA Tracker — Acceptance Criteria & API Contract Tests', () => 
           status: 'solved'
         });
 
-      expect(res.statusCode).toBe(200);
-      expect(res.body.data.status).toBe('solved');
-      expect(res.body.data.solved_at).toBeDefined();
+      expect(res.statusCode).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
     });
 
     test('Another user cannot modify this submission by ID (403 Forbidden)', async () => {
@@ -233,9 +232,19 @@ describe('Axly DSA Tracker — Acceptance Criteria & API Contract Tests', () => 
       db.prepare("INSERT INTO assignments (id, user_id, question_id, assigned_by, status) VALUES ('asgn-p1', ?, ?, ?, 'assigned')").run(secondUser.id, progQ1, adminUser.id);
       db.prepare("INSERT INTO assignments (id, user_id, question_id, assigned_by, status) VALUES ('asgn-p2', ?, ?, ?, 'unassigned')").run(secondUser.id, progQ2, adminUser.id);
 
-      // Solve Q1 and Q2
-      await request(app).post('/api/v1/submissions/toggle').set('Authorization', `Bearer ${secondUserToken}`).send({ question_id: progQ1, status: 'solved' });
-      await request(app).post('/api/v1/submissions/toggle').set('Authorization', `Bearer ${secondUserToken}`).send({ question_id: progQ2, status: 'solved' });
+      // Seed verified solved submissions directly; the public status endpoint
+      // intentionally cannot forge a solved state.
+      const now = new Date().toISOString();
+      db.prepare(`
+        INSERT OR REPLACE INTO submissions
+          (id, user_id, question_id, status, attempted_at, started_at, solved_at, created_at, updated_at)
+        VALUES (?, ?, ?, 'solved', ?, ?, ?, ?, ?)
+      `).run('sub-prog-q1', secondUser.id, progQ1, now, now, now, now, now);
+      db.prepare(`
+        INSERT OR REPLACE INTO submissions
+          (id, user_id, question_id, status, attempted_at, started_at, solved_at, created_at, updated_at)
+        VALUES (?, ?, ?, 'solved', ?, ?, ?, ?, ?)
+      `).run('sub-prog-q2', secondUser.id, progQ2, now, now, now, now, now);
     }); 
 
     test('Progress calculation excludes unassigned questions from denominator, while retaining historical solved submission', async () => {
