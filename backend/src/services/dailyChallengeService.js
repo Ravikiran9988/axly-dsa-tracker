@@ -434,6 +434,14 @@ async function createDailyChallenge(data, admin_id) {
 async function updateDailyChallenge(id, data, admin_id) {
   const meta = await getRepo().one('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [id]);
   if (!meta) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+
+  if (data.difficulty !== undefined && !['easy', 'medium', 'hard'].includes(String(data.difficulty).toLowerCase())) {
+    throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
+  }
+  if (data.status !== undefined && !['draft', 'scheduled', 'published'].includes(String(data.status).toLowerCase())) {
+    throw new AppError('Status must be draft, scheduled, or published', 400, 'VALIDATION_ERROR', 'status');
+  }
+
   const currentQuestion = await getRepo().one('SELECT difficulty FROM questions WHERE id = ?', [id]);
   const targetDifficulty = String(data.difficulty || currentQuestion?.difficulty || 'medium').toLowerCase();
   const canonicalPoints = getCanonicalDailyChallengePoints(targetDifficulty);
