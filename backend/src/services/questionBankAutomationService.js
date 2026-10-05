@@ -490,6 +490,9 @@ async function runQbStartupCheck() {
 
     const slot = getCurrentIstSlot();
 
+    // Startup is inspection/recovery only. QB generation is anchored to the
+    // exact 00:30/02:30/... IST boundaries and must not move because a dyno
+    // restarted at an arbitrary time.
     const staleResult = await recoverStaleQbSlot(slot);
     if (staleResult.recovered) {
       console.log(`[QB] Startup: recovered stale claim for slot ${slot}.`);
@@ -506,22 +509,55 @@ async function runQbStartupCheck() {
       return;
     }
     if (slotState.state === 'draft_recoverable') {
-      console.log(`[QB] Startup: recovering draft for slot ${slot}...`);
-      const result = await recoverDraftQuestion(slot, slotState.questionId, settings.mode);
-      await persistRunStatus(result.status);
+      console.log(`[QB] Startup: slot ${slot} has a recoverable draft; no generation will be triggered outside its scheduled boundary.`);
       return;
     }
 
-    console.log(`[QB] Startup: slot ${slot} needs generation.`);
-    const result = await generateForSlot(slot);
-    await persistRunStatus(result.status);
+    console.warn(`[QB] Startup ALERT: slot ${slot} has no generated question. Generation remains locked to the next exact QB boundary.`);
   } catch (err) {
     console.error('[QB] Startup check failed:', err.message);
-    try { await persistRunStatus('failed'); } catch (_) {}
   }
 }
 
 let schedulerTimer = null;
+
+function scheduleQbRetry(slot) {
+  if (schedulerTimer) {
+    clearTimeout(schedulerTimer);
+    schedulerTimer = null;
+  }
+
+  schedulerTimer = setTimeout(async () => {
+    schedulerTimer = null;
+
+    // Retry only while the failed slot is still the active 2-hour slot.
+    // Once the next boundary is reached, the normal boundary scheduler takes over.
+    if (getCurrentIstSlot() !== slot) {
+      scheduleNextQuestionBankRun();
+      return;
+    }
+
+    let result = null;
+    try {
+      result = await runQuestionBankScheduledAutomation();
+      if (result && result.status && result.status !== 'SUCCESS_NOOP') {
+        console.log(`[QB] Retry completed with status: ${result.status}.`);
+      }
+    } catch (err) {
+      console.error('[QB] ❌ Error in QB retry (scheduler will continue):', err.message);
+    }
+
+    if (result && result.status === 'failed') {
+      scheduleQbRetry(slot);
+    } else {
+      scheduleNextQuestionBankRun();
+    }
+  }, SCHEDULER_RETRY_INTERVAL_MS);
+
+  if (typeof schedulerTimer.unref === 'function') {
+    schedulerTimer.unref();
+  }
+}
 
 function scheduleNextQuestionBankRun() {
   if (schedulerTimer) {
@@ -536,6 +572,8 @@ function scheduleNextQuestionBankRun() {
   schedulerTimer = setTimeout(async () => {
     schedulerTimer = null;
     let result = null;
+    const slot = getCurrentIstSlot();
+
     try {
       result = await runQuestionBankScheduledAutomation();
       if (result && result.status && result.status !== 'SUCCESS_NOOP') {
@@ -545,10 +583,10 @@ function scheduleNextQuestionBankRun() {
       console.error('[QB] ❌ Error in scheduled run (scheduler will continue):', err.message);
     }
 
-    // On a failed generation, retry within the same slot every 30 minutes.
-    // On success/NOOP, wait for the next exact 2-hour boundary.
+    // A failed generation can retry every 30 minutes, but only for the same
+    // slot. This prevents retries from crossing into the next 2-hour slot.
     if (result && result.status === 'failed') {
-      schedulerTimer = setTimeout(() => scheduleNextQuestionBankRun(), SCHEDULER_RETRY_INTERVAL_MS);
+      scheduleQbRetry(slot);
     } else {
       scheduleNextQuestionBankRun();
     }
