@@ -1,6 +1,7 @@
 const { getRepository } = require('../db/repositoryFactory');
 const { refreshCompetitiveRanks } = require('./leaderboardService');
-const { getCalendarDate, recordDailyChallengeSolve } = require('./streakService');
+const { recordDailyChallengeSolve, getUserStreaks } = require('./streakService');
+const { getCanonicalIstDate } = require('../utils/dateUtils');
 const { v4: uuidv4 } = require('uuid');
 
 const repo = getRepository();
