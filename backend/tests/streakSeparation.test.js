@@ -98,7 +98,7 @@ describe('Independent Streaks: Individual Activity Streak & Daily Challenge Stre
   });
 
   test('TEST 6: User solves Daily Challenge -> Daily Challenge Streak increases independently', async () => {
-    await awardDailyChallengeSolve(testUser1, 'dc-001');
+    await recordDailyChallengeSolve(testUser1, '2026-08-24');
 
     const streaks = await getUserStreaks(testUser1);
     expect(streaks.dailyChallengeStreak).toBe(1);
