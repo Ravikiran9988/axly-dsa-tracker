@@ -39,7 +39,7 @@ async function startServer() {
     console.error('[DailyAutomation] Startup stale-run recovery failed:', err.message);
   }
 
-  // Initialize Background Schedulers (timers only — no immediate generation)
+  // Initialize Background Schedulers (timers only — generation occurs only on anchored schedules)
   try {
     const { startAutomationScheduler, runQcStartupCheck } = require('./services/dailyChallengeAutomationService');
     const { startQuestionBankScheduler, runQbStartupCheck } = require('./services/questionBankAutomationService');
