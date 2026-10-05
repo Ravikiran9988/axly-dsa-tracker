@@ -93,10 +93,22 @@ async function publishTodaysScheduledChallenge(todayDate) {
  */
 async function findExistingScheduledChallengeForDate(targetDate) {
   return getRepo().one(`
-    SELECT q.id, q.title, dcm.status, dcm.scheduled_date
+    SELECT q.id, q.title, dcm.status, dcm.scheduled_date, dcm.created_via
     FROM daily_challenge_metadata dcm
     JOIN questions q ON q.id = dcm.question_id
-    WHERE dcm.scheduled_date = ? AND dcm.status != 'archived' AND q.is_active = TRUE
+    WHERE dcm.scheduled_date = ? AND dcm.status = 'scheduled' AND q.is_active = TRUE
+    ORDER BY dcm.updated_at DESC LIMIT 1
+  `, [targetDate]);
+}
+
+async function findExistingChallengeForDate(targetDate) {
+  return getRepo().one(`
+    SELECT q.id, q.title, dcm.status, dcm.scheduled_date, dcm.created_via
+    FROM daily_challenge_metadata dcm
+    JOIN questions q ON q.id = dcm.question_id
+    WHERE dcm.scheduled_date = ? AND dcm.status IN ('scheduled', 'draft') AND q.is_active = TRUE
+    ORDER BY CASE WHEN dcm.status = 'scheduled' THEN 0 ELSE 1 END, dcm.updated_at DESC
+    LIMIT 1
   `, [targetDate]);
 }
 
@@ -157,25 +169,65 @@ async function runAdminAutoFillNow(options = {}) {
   try {
     // ── STEP 1: Check whether tomorrow already has a scheduled Daily Challenge ─
     const existingScheduled = await findExistingScheduledChallengeForDate(targetDate);
+    const existingTarget = await findExistingChallengeForDate(targetDate);
 
-    // Auto-Fill is the automatic publication path: if tomorrow is already
-    // scheduled, do not generate another AI candidate and do not create a draft.
-    // The existing scheduled challenge will be published at 00:30 IST tomorrow.
-    if (existingScheduled && mode === 'auto_fill') {
+    // Auto-Fill must end with a scheduled challenge for tomorrow, never a draft.
+    // Reuse an already scheduled challenge. If a draft is already attached to
+    // tomorrow, validate/index it and promote it to scheduled instead of
+    // generating a second question for the same date.
+    if (mode === 'auto_fill' && existingTarget) {
       const logId = `auto-log-${uuidv4().slice(0, 8)}`;
+
+      if (existingTarget.status === 'scheduled') {
+        await getRepo().execute(
+          `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 0, 'Skipped', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`,
+          [logId, targetDate, mode, existingTarget.id, `Tomorrow's Daily Challenge "${existingTarget.title}" is already scheduled for ${targetDate}; no duplicate draft was created. It will be published tomorrow at 00:30 IST.`]
+        );
+        await persistRunStatus('success');
+        return {
+          success: true,
+          status: 'SUCCESS_NOOP',
+          target_date: targetDate,
+          attempts: 0,
+          challenge: existingTarget,
+          resultType: 'ALREADY_SCHEDULED',
+          message: `Tomorrow's Daily Challenge is already scheduled and will be published tomorrow at 00:30 IST.`
+        };
+      }
+
+      console.log(`[DailyAutomation] Auto-Fill found an existing draft for ${targetDate}; indexing and promoting it to scheduled.`);
+      const draftIndex = await noveltyService.indexAcceptedQuestion(existingTarget.id, existingTarget);
+      if (!draftIndex || !draftIndex.success) {
+        const reason = draftIndex?.reason || 'unknown_indexing_failure';
+        await getRepo().execute(
+          `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, failure_category, details, created_at) VALUES (?, ?, ?, 1, 'Failed', 'Not used', 'failed', ?, 'INDEXING_FAILED', ?, CURRENT_TIMESTAMP)`,
+          [logId, targetDate, existingTarget.id, `Existing draft could not be indexed: ${reason}`]
+        );
+        await persistRunStatus('failed');
+        return {
+          success: false,
+          status: 'failed',
+          target_date: targetDate,
+          attempts: 1,
+          error: `Required embedding/indexing failed: ${reason}`,
+          failure_category: 'INDEXING_FAILED'
+        };
+      }
+
+      const scheduled = await updateDailyChallengeStatus(existingTarget.id, 'scheduled', targetDate);
       await getRepo().execute(
-        `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 0, 'Skipped', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`,
-        [logId, targetDate, mode, existingScheduled.id, `Tomorrow's Daily Challenge "${existingScheduled.title}" is already scheduled for ${targetDate}; no draft or duplicate AI candidate was created. It will be published tomorrow at 00:30 IST.`]
+        `INSERT INTO daily_challenge_automation_logs (id, target_date, mode, attempt_count, validation_result, sandbox_result, status, question_id, details, created_at) VALUES (?, ?, ?, 1, 'Passed', 'Not used', 'success', ?, ?, CURRENT_TIMESTAMP)`,
+        [logId, targetDate, mode, existingTarget.id, `Existing draft "${existingTarget.title}" was indexed and promoted to scheduled for ${targetDate}. It will be published tomorrow at 00:30 IST.`]
       );
       await persistRunStatus('success');
       return {
         success: true,
-        status: 'SUCCESS_NOOP',
+        status: 'SUCCESS',
         target_date: targetDate,
-        attempts: 0,
-        challenge: existingScheduled,
-        resultType: 'ALREADY_SCHEDULED',
-        message: `Tomorrow's Daily Challenge is already scheduled and will be published tomorrow at 00:30 IST.`
+        attempts: 1,
+        challenge: scheduled,
+        resultType: 'GENERATED_AND_SCHEDULED',
+        message: `Existing Daily Challenge draft was indexed, scheduled for ${targetDate}, and will be published tomorrow at 00:30 IST.`
       };
     }
 
@@ -332,24 +384,65 @@ async function runDailyScheduledAutomation() {
 
     // ── STEP 2: Prepare tomorrow's challenge ──────────────────────────────────
     console.log(`[QC] CHECK tomorrow=${tomorrowDate}`);
-    const existingTomorrow = await getRepo().one(`
-      SELECT q.id, q.title, dcm.status, dcm.scheduled_date 
-      FROM daily_challenge_metadata dcm
-      JOIN questions q ON q.id = dcm.question_id
-      WHERE dcm.scheduled_date = ? AND dcm.status != 'archived' AND q.is_active = TRUE
-    `, [tomorrowDate]);
+    const existingTomorrow = await findExistingChallengeForDate(tomorrowDate);
 
     if (existingTomorrow) {
-      console.log(`[QC] NOOP tomorrow=${tomorrowDate} → status=${existingTomorrow.status} already exists.`);
+      if (existingTomorrow.status === 'scheduled') {
+        console.log(`[QC] NOOP tomorrow=${tomorrowDate} → scheduled challenge already exists.`);
+        await persistRunStatus('success');
+        return {
+          success: true,
+          status: 'SUCCESS_NOOP',
+          target_date: tomorrowDate,
+          published_today: publishResult.published,
+          published_challenge: publishResult.challenge,
+          challenge: existingTomorrow,
+          message: `Today's challenge handled for ${todayDate}; tomorrow's challenge is already scheduled for ${tomorrowDate}.`
+        };
+      }
+
+      // A draft for tomorrow is acceptable only in AI Assist mode. In
+      // Auto-Fill mode it must be completed into the scheduled lifecycle.
+      if (settings.mode === 'ai_assist') {
+        console.log(`[QC] NOOP tomorrow=${tomorrowDate} → draft exists in AI Assist mode.`);
+        await persistRunStatus('success');
+        return {
+          success: true,
+          status: 'SUCCESS_NOOP',
+          target_date: tomorrowDate,
+          published_today: publishResult.published,
+          published_challenge: publishResult.challenge,
+          challenge: existingTomorrow,
+          message: `Tomorrow's AI Assist draft exists for ${tomorrowDate}; it will not be auto-published.`
+        };
+      }
+
+      console.log(`[QC] Auto-Fill found draft for ${tomorrowDate}; indexing and promoting to scheduled.`);
+      const indexResult = await noveltyService.indexAcceptedQuestion(existingTomorrow.id, existingTomorrow);
+      if (!indexResult || !indexResult.success) {
+        const reason = indexResult?.reason || 'unknown_indexing_failure';
+        await persistRunStatus('failed');
+        return {
+          success: false,
+          status: 'failed',
+          target_date: tomorrowDate,
+          published_today: publishResult.published,
+          published_challenge: publishResult.challenge,
+          error: `Required embedding/indexing failed: ${reason}`,
+          failure_category: 'INDEXING_FAILED'
+        };
+      }
+
+      const promoted = await updateDailyChallengeStatus(existingTomorrow.id, 'scheduled', tomorrowDate);
       await persistRunStatus('success');
       return {
         success: true,
-        status: 'SUCCESS_NOOP',
+        status: 'SUCCESS',
         target_date: tomorrowDate,
         published_today: publishResult.published,
         published_challenge: publishResult.challenge,
-        challenge: existingTomorrow,
-        message: `Today's challenge handled for ${todayDate}; tomorrow's challenge already exists for ${tomorrowDate}.`
+        challenge: promoted,
+        message: `Existing Daily Challenge draft was indexed and scheduled for ${tomorrowDate}; it will be published tomorrow.`
       };
     }
 
@@ -646,6 +739,7 @@ module.exports = {
   updateAutomationSettings,
   getAutomationLogs,
   findExistingScheduledChallengeForDate,
+  findExistingChallengeForDate,
   runAdminAutoFillNow,
   runDailyScheduledAutomation,
   runQcSafetyCheck,
