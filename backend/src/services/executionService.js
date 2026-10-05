@@ -8,12 +8,29 @@ const MAX_OUTPUT_BYTES = 64 * 1024;
 const RUNNER_URL = process.env.CODE_EXECUTION_SERVICE_URL;
 const RUNNER_TOKEN = process.env.CODE_RUNNER_TOKEN;
 
+const SUPPORTED_LANGUAGES = new Set([
+  'javascript', 'js', 'node',
+  'python', 'py', 'python3',
+  'typescript', 'ts',
+  'java',
+  'cpp', 'c++',
+  'c'
+]);
+
 function normalizeOutput(str) {
   if (typeof str !== 'string') return '';
   return str.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 }
 
 async function executeCode({ language, sourceCode, testCases = [], isSubmit = false }) {
+  const normalizedLanguage = String(language || '').trim().toLowerCase();
+  if (!SUPPORTED_LANGUAGES.has(normalizedLanguage)) {
+    const err = new Error('Unsupported programming language');
+    err.statusCode = 400;
+    err.code = 'UNSUPPORTED_LANGUAGE';
+    throw err;
+  }
+
   if (typeof sourceCode !== 'string' || sourceCode.length > 100000) {
     const err = new Error('Source code is missing or exceeds the 100 KB limit');
     err.statusCode = 400;
