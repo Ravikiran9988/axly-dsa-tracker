@@ -112,6 +112,15 @@ test('20. 3-hour check with tomorrow missing → no LLM generation', async () =>
   expect(mockGenerateChallengeFn).not.toHaveBeenCalled();
   expect(result.status).toBe('SCHEDULED_RUN_REQUIRED');
 });
+// 20b. Auto-Fill scheduled run with existing draft → promote, don't leave draft
+test('20b. Auto-Fill promotes an existing tomorrow draft to scheduled', async () => {
+  mockRepo = makeRepo({ tomorrowRow: draftTomorrow() });
+  const result = await runDailyScheduledAutomation();
+  expect(mockGenerateChallengeFn).not.toHaveBeenCalled();
+  expect(result.success).toBe(true);
+  expect(mockUpdateDCStatusFn).toHaveBeenCalledWith('q-draft-dc', 'scheduled', expect.any(String));
+});
+
 
 // 21. Concurrent 00:30 + 3-hour check → exactly one LLM call (DB claim)
 test('21. Concurrent 00:30 and 3-hour check → at most one LLM call (DB claim)', async () => {
