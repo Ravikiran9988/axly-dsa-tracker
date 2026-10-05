@@ -494,7 +494,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       expect(adminRes.challenge.id).toBe(challengeA.id);
       expect(adminRes.challenge.status).toBe('scheduled');
       expect(adminRes.challenge.created_via).toBe('manual');
-      expect(adminRes.challenge.scheduled_date).toBeNull();
+      expect(adminRes.challenge.scheduled_date).toBe(testTomorrow);
 
       // Verify Challenge A remains unchanged
       const freshChallengeA = await getDailyChallengeById(challengeA.id, true);
