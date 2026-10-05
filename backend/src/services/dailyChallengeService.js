@@ -690,6 +690,7 @@ async function getTodayDailyChallenge(user = null, targetDate = null) {
   const isPrivileged = user?.role === 'admin' || user?.role === 'mentor';
   return {
     ...challenge,
+    points: getCanonicalDailyChallengePoints(challenge.difficulty),
     topic_name: challenge.topic_name || challenge.topic_id || 'Other',
     pattern_name: challenge.pattern_name || challenge.pattern_id || null,
     hints: parseHints(challenge.hints),
