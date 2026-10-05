@@ -39,7 +39,9 @@ function validatePasswordStrength(password) {
 }
 
 function generateNumericOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // OTPs are authentication secrets. Use the OS-backed CSPRNG rather than
+  // Math.random(), which is not suitable for security-sensitive tokens.
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 async function formatAuthUser(user) {
