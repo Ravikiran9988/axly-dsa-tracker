@@ -151,10 +151,11 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
     'SELECT id, difficulty, points, title FROM questions WHERE id = ?',
     [challengeId]
   );
-  const isDailyQuestion = Boolean(await repo.one(
-    'SELECT question_id FROM daily_challenge_metadata WHERE question_id = ? AND status IN (?, ?) LIMIT 1',
-    [challengeId, 'published', 'scheduled']
-  ));
+  const dailyMetadata = await repo.one(
+    'SELECT question_id, scheduled_date, status FROM daily_challenge_metadata WHERE question_id = ? LIMIT 1',
+    [challengeId]
+  );
+  const isDailyQuestion = Boolean(dailyMetadata && ['published', 'scheduled'].includes(dailyMetadata.status));
   let pts = challenge ? getDailyChallengePointsForDifficulty(challenge.difficulty) : 100;
 
   const nowIso = new Date().toISOString();
@@ -176,8 +177,10 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
     pointsAwarded = pts;
   }
 
-  // Update Daily Challenge Streak independently
-  const streakResult = await recordDailyChallengeSolve(userId, today);
+  // Only the currently active IST challenge day may advance the challenge streak.
+  const streakResult = streakEligible
+    ? await recordDailyChallengeSolve(userId, dailyMetadata?.scheduled_date || logicalToday)
+    : await getUserStreaks(userId);
 
   // Send notifications for daily solve
   if (pointsAwarded > 0) {
@@ -201,7 +204,7 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
   return {
     pointsAwarded,
     breakdown,
-    streakBonusAwarded: pointsAwarded > 0 ? 20 : 0,
+    streakBonusAwarded: 0,
     dailyChallengeStreak: streakResult.dailyChallengeStreak,
     dailyChallengeBestStreak: streakResult.dailyChallengeBestStreak
   };
