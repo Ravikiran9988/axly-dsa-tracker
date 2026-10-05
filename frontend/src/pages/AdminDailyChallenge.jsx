@@ -24,7 +24,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
     mode: 'ai_assist', is_enabled: true, retry_limit: 3, last_run_at: null, last_run_status: null
   });
   const [automationMeta, setAutomationMeta] = useState({
-    today_utc: new Date().toISOString().slice(0, 10), next_target_date: '', generation_time_utc: '00:00 UTC'
+    today_utc: new Date().toISOString().slice(0, 10), next_target_date: '', generation_time_utc: '12:30 AM IST'
   });
   const [automationLogs, setAutomationLogs] = useState([]);
   const [isRunningAutomation, setIsRunningAutomation] = useState(false);
@@ -278,7 +278,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button id="btn-run-autofill-now" onClick={handleRunAutoFillNow} disabled={isRunningAutomation} className="btn-primary btn-sm inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shrink-0">{isRunningAutomation ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Running Pipeline...</span></> : <><Play className="w-3.5 h-3.5 fill-current" /><span>Run Auto-Fill Now</span></>}</button>
+            <button id="btn-run-autofill-now" onClick={handleRunAutoFillNow} disabled={isRunningAutomation} className="btn-primary btn-sm inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shrink-0">{isRunningAutomation ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Running Pipeline...</span></> : <><Play className="w-3.5 h-3.5 fill-current" /><span>{automationSettings.mode === 'auto_fill' ? 'Run Auto-Fill Now' : 'Generate AI Draft Now'}</span></>}</button>
             <button id="btn-admin-automation-logs" onClick={() => setShowLogsModal(true)} className="btn-secondary btn-sm text-xs text-theme-text2 hover:text-theme-text1 shrink-0">Logs ({automationLogs.length})</button>
           </div>
         </div>
