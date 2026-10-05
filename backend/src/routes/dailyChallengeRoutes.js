@@ -37,7 +37,7 @@ router.patch('/automation/settings', requireRole('admin'), updateAutomationSetti
 router.post('/automation/run-now', requireRole('admin'), runAutomationNow);
 router.get('/automation/logs', requireRole('admin'), getAutomationLogs);
 
-router.get('/', listDailyChallenges);
+router.get('/', requireRole('admin', 'mentor'), listDailyChallenges);
 router.post('/from-practice', requireRole('admin'), createDailyChallengeFromPractice);
 router.post('/generate-ai', requireRole('admin'), generateAiChallenge);
 router.post('/generate-ai/test-cases', requireRole('admin'), generateAiTestCases);
