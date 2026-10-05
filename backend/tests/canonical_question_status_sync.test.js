@@ -47,7 +47,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
     });
   });
 
-  test('1. Creating Daily Challenge draft synchronizes status to draft in both tables', async () => {
+  test('1. Creating Daily Challenge draft stores draft lifecycle status in both tables', async () => {
     const draftChallenge = await createDailyChallenge({
       title: 'Canonical Draft Sync Test Problem',
       slug: 'canonical-draft-sync-test',
@@ -62,7 +62,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
     // Check questions table
     const questionRow = await repo.one('SELECT id, status, is_practice FROM questions WHERE id = ?', [draftChallenge.id]);
     expect(questionRow).toBeDefined();
-    expect(questionRow.status).toBe('published');
+    expect(questionRow.status).toBe('draft');
     expect(questionRow.is_practice).toBe(0);
 
     // Check daily_challenge_metadata table
@@ -72,7 +72,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
     expect(metaRow.scheduled_date).toBeNull();
   });
 
-  test('2. Creating / Scheduling Daily Challenge synchronizes status to scheduled in both tables', async () => {
+  test('2. Creating / Scheduling Daily Challenge stores scheduled lifecycle status in both tables', async () => {
     const challenge = await createDailyChallenge({
       title: 'Canonical Scheduled Sync Test Problem',
       slug: 'canonical-scheduled-sync-test',
@@ -88,7 +88,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
 
     // Check questions table
     const questionRow = await repo.one('SELECT id, status, is_practice FROM questions WHERE id = ?', [challenge.id]);
-    expect(questionRow.status).toBe('published');
+    expect(questionRow.status).toBe('scheduled');
 
     // Check daily_challenge_metadata table
     const metaRow = await repo.one('SELECT question_id, status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [challenge.id]);
