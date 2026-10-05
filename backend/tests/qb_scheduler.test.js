@@ -75,11 +75,11 @@ test('1. Startup with completed slot → no LLM call', async () => {
   expect(mockGenerateFn).not.toHaveBeenCalled();
 });
 
-// 2. Startup with missing slot → generation
-test('2. Startup with missing slot → LLM generation occurs', async () => {
+// 2. Startup with missing slot → inspection only
+test('2. Startup with missing slot → no LLM generation', async () => {
   mockRepo = makeRepo({ questionRow: null, inProgressLog: null });
   await runQbStartupCheck();
-  expect(mockGenerateFn).toHaveBeenCalledTimes(1);
+  expect(mockGenerateFn).not.toHaveBeenCalled();
 });
 
 // 3. 30-min check with completed slot → NOOP
@@ -247,15 +247,12 @@ test('16. Restart with completed slot → no LLM generation (idempotent)', async
   expect(mockGenerateFn).not.toHaveBeenCalled();
 });
 
-// EXTRA: getCurrentIstSlot floor to even hours
-test('getCurrentIstSlot floors to nearest even hour in IST', () => {
-  // IST = UTC + 5:30
-  // Test: UTC 03:30 → IST 09:00 → slot hour = 08
-  const d = new Date('2026-09-16T03:30:00.000Z');
-  jest.useFakeTimers().setSystemTime(d);
-  const slot = getCurrentIstSlot();
-  jest.useRealTimers();
-  expect(slot).toMatch(/^2026-09-16-08$/);
+// EXTRA: getCurrentIstSlot is anchored to 00:30 IST
+test('getCurrentIstSlot respects 00:30 IST anchor', () => {
+  expect(getCurrentIstSlot(new Date('2026-09-16T18:45:00.000Z'))).toBe('2026-09-16-22');
+  expect(getCurrentIstSlot(new Date('2026-09-16T19:00:00.000Z'))).toBe('2026-09-17-00');
+  expect(getCurrentIstSlot(new Date('2026-09-16T20:59:00.000Z'))).toBe('2026-09-17-00');
+  expect(getCurrentIstSlot(new Date('2026-09-16T21:00:00.000Z'))).toBe('2026-09-17-02');
 });
 
 // ============================================================================
