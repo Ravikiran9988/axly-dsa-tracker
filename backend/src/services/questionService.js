@@ -164,6 +164,26 @@ async function listQuestions({ user, difficulty, topic_id, assigned, page = 1, l
   };
 }
 
+function isQuestionAccessibleToUser(question, dailyMetadata, user = null) {
+  if (!question) return false;
+  const privileged = user?.role === 'admin' || user?.role === 'mentor';
+  if (privileged) return true;
+
+  // Daily Challenges are student-visible only while published. Scheduled
+  // future challenges and drafts must never be directly accessible by ID.
+  if (dailyMetadata) {
+    if (dailyMetadata.status === 'published') return true;
+
+    // Expired Daily Challenges become normal practice questions.
+    if (question.is_active && Boolean(question.is_practice) && question.status !== 'draft') return true;
+
+    return false;
+  }
+
+  // Practice questions must be active and non-draft.
+  return Boolean(question.is_active) && Boolean(question.is_practice) && question.status !== 'draft';
+}
+
 async function getQuestionById(id, user = null) {
   let q = await repo.one(
     'SELECT q.*, t.name AS topic_name, p.name AS pattern_name FROM questions q LEFT JOIN topics t ON q.topic_id = t.id LEFT JOIN patterns p ON q.pattern_id = p.id WHERE q.id = ? OR q.slug = ?',
@@ -175,6 +195,9 @@ async function getQuestionById(id, user = null) {
   if (dcm) {
     q = { ...q, ...dcm };
   }
+
+  if (!isQuestionAccessibleToUser(q, dcm, user)) return null;
+
   const isDailyChallenge = Boolean(dcm);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'mentor';
@@ -479,5 +502,6 @@ module.exports = {
   updateQuestionStatus,
   deleteQuestion,
   listTopics,
-  validateQuestionInput
+  validateQuestionInput,
+  isQuestionAccessibleToUser
 };
