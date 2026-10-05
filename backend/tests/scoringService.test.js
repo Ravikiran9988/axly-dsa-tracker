@@ -105,8 +105,9 @@ describe('Axly DSA Tracker Scoring Model Tests', () => {
     expect(res.pointsAwarded).toBe(0);
     expect(res.breakdown.daily_challenge_points).toBe(100);
     expect(res.breakdown.leaderboard_score).toBe(100);
-    expect(res.breakdown.streak_bonus).toBe(20);
-    expect(res.breakdown.total_score).toBe(120);
+    expect(res.breakdown.streak_bonus).toBe(30);
+    expect(res.breakdown.total_score).toBe(130);
+    expect(res.streakBonusAwarded).toBe(0);
   });
 
   test('7. Leaderboard Ranking: Strictly based on Daily Challenge points (User2 outranks User1 regardless of practice points)', async () => {
