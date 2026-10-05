@@ -4,6 +4,7 @@ const authUserRepository = require('../db/authUserRepository');
 const { getDatabaseDriver } = require('../db/repository');
 const PostgresRepository = require('../db/postgresRepository');
 const { AppError } = require('./errorHandler');
+const auditService = require('../services/auditService');
 
 function getSqliteRepository() {
   const SqliteRepository = require('../db/sqliteRepository');
@@ -56,14 +57,38 @@ async function authenticate(req, res, next) {
       const effectiveEmail = normalizedEmail || `${effectiveId}@axly.local`;
       user = await authUserRepository.provisionUser({ id: effectiveId, name: effectiveName, email: effectiveEmail });
       if (user.role !== effectiveRole) {
+        const previousRole = user.role;
         const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : getSqliteRepository();
         await repo.execute('UPDATE users SET role = ? WHERE id = ?', [effectiveRole, effectiveId]);
         user = await authUserRepository.findUserById(effectiveId);
+        if (effectiveRole === 'admin') {
+          await auditService.logAction({
+            actorId: null,
+            actorEmail: normalizedEmail,
+            action: 'admin_auto_promotion',
+            resourceType: 'user',
+            resourceId: effectiveId,
+            beforeData: { role: previousRole },
+            afterData: { role: effectiveRole },
+            metadata: { reason: 'ADMIN_EMAIL_MATCH' }
+          });
+        }
       }
     } else if (isAdminEmail && user.role !== 'admin') {
+      const previousRole = user.role;
       const repo = getDatabaseDriver() === 'postgres' ? new PostgresRepository() : getSqliteRepository();
       await repo.execute('UPDATE users SET role = ? WHERE id = ?', ['admin', user.id]);
       user = { ...user, role: 'admin' };
+      await auditService.logAction({
+        actorId: null,
+        actorEmail: normalizedEmail,
+        action: 'admin_auto_promotion',
+        resourceType: 'user',
+        resourceId: user.id,
+        beforeData: { role: previousRole },
+        afterData: { role: 'admin' },
+        metadata: { reason: 'ADMIN_EMAIL_MATCH' }
+      });
     }
     if (!user) return next(new AppError('User profile provisioning failed', 401, 'UNAUTHORIZED'));
     req.user = user; next();
