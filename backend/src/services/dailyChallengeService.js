@@ -52,6 +52,13 @@ function generateSlug(title) {
     .replace(/^-|-$/g, '') || `dc-${Date.now()}`;
 }
 
+function getCanonicalDailyChallengePoints(difficulty) {
+  const d = String(difficulty || '').toLowerCase();
+  if (d === 'hard') return 150;
+  if (d === 'medium') return 100;
+  return 50;
+}
+
 function getTodayDateString() {
   return getCanonicalUtcDate();
 }
@@ -313,6 +320,7 @@ async function createDailyChallenge(data, admin_id) {
   if (difficulty && !validDifficulties.includes(String(difficulty).toLowerCase())) {
     throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
   }
+  const canonicalPoints = getCanonicalDailyChallengePoints(difficulty);
 
   let finalTopicId = topic_id || null;
   if (finalTopicId) {
@@ -386,7 +394,7 @@ async function createDailyChallenge(data, admin_id) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       question_id, title.trim(), finalSlug, `internal://${finalSlug}`, difficulty.toLowerCase(), finalTopicId, finalPatternId,
-      Number(estimated_time) || 30, Number(points) || 100, description.trim(), problem_statement || null, constraints || null,
+      Number(estimated_time) || 30, canonicalPoints, description.trim(), problem_statement || null, constraints || null,
       input_format || null, output_format || null, String(example_input || ''), String(example_output || ''), normalizeJsonArray(examples, '[]'),
       normalizeJsonArray(hints, '[]'), normalizeJsonArray(tags, '[]'), solution_approach || editorial || null,
       editorial || solution_approach || null, complexity || null, typeof starter_code === 'object' ? JSON.stringify(starter_code) : (starter_code || null),
@@ -426,6 +434,9 @@ async function createDailyChallenge(data, admin_id) {
 async function updateDailyChallenge(id, data, admin_id) {
   const meta = await getRepo().one('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [id]);
   if (!meta) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+  const currentQuestion = await getRepo().one('SELECT difficulty FROM questions WHERE id = ?', [id]);
+  const targetDifficulty = String(data.difficulty || currentQuestion?.difficulty || 'medium').toLowerCase();
+  const canonicalPoints = getCanonicalDailyChallengePoints(targetDifficulty);
 
   // Design invariant: questions.status is NEVER set to 'archived'.
   // Archive is a daily_challenge_metadata lifecycle state, not a question status.
@@ -455,11 +466,15 @@ async function updateDailyChallenge(id, data, admin_id) {
       'solution_approach', 'editorial', 'complexity', 'starter_code', 'reference_solution'
     ];
     for (const key of qAllowed) {
+      if (key === 'points') continue;
       if (data[key] !== undefined) {
         qFields.push(`${key} = ?`);
         qValues.push(typeof data[key] === 'object' && data[key] !== null ? JSON.stringify(data[key]) : data[key]);
       }
     }
+    // Daily Challenge points are derived from difficulty and cannot be overridden.
+    qFields.push('points = ?');
+    qValues.push(canonicalPoints);
     if (data.examples !== undefined) { qFields.push('examples = ?'); qValues.push(normalizeJsonArray(data.examples, '[]')); }
     if (data.hints !== undefined) { qFields.push('hints = ?'); qValues.push(normalizeJsonArray(data.hints, '[]')); }
     if (data.tags !== undefined) { qFields.push('tags = ?'); qValues.push(normalizeJsonArray(data.tags, '[]')); }
