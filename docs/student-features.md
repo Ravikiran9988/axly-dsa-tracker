@@ -110,9 +110,10 @@ Student features are accessible after login via `/student/*` routes. The student
 | Hard | 150 | 200 |
 
 ### Streak
-- +10 points per consecutive day
-- Max +50 bonus
-- Resets if day missed
+- +10 points per consecutive Daily Challenge solve day
+- Max +50 Daily Challenge streak bonus
+- The streak resets after a missed Daily Challenge day
+- Late solves may earn the challenge's base points but do not advance the active Daily Challenge streak
 
 ---
 
@@ -153,9 +154,9 @@ Student features are accessible after login via `/student/*` routes. The student
 ## Leaderboard (`/student/leaderboard`)
 
 ### Scores
-- **DC Score:** `daily_challenge_points` + `daily_challenge_streak_bonus`
-- **Practice Score:** `points` (unchanged)
-- **Combined:** `leaderboard_score = DC Score + Practice Score`
+- **Leaderboard Score:** `daily_challenge_points` only.
+- **Practice Points:** Personal progression only; never affect competitive rank.
+- **Streak Bonus:** Personal total-score reward, +10 per consecutive Daily Challenge solve day, capped at +50; it does not increase leaderboard score.
 
 ### Ranking
 - Materialized in `users.rank` column
