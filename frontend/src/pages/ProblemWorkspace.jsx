@@ -211,7 +211,7 @@ export default function ProblemWorkspace({ questionId, onBack, onStatusUpdated }
     setIsSubmittingGithub(true);
     setGithubSuccessMessage(null);
     try {
-      await api.submitChallenge({ question_id: questionId, submission_type: 'github', github_url: githubUrl.trim() });
+      await api.submitViaGithub({ question_id: questionId, github_url: githubUrl.trim() });
       setGithubSuccessMessage('GitHub submission received! Queued for mentor review.');
       if (onStatusUpdated) onStatusUpdated();
     } catch (err) {
