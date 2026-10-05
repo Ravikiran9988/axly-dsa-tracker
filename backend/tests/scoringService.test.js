@@ -88,15 +88,16 @@ describe('Axly DSA Tracker Scoring Model Tests', () => {
     expect(res.breakdown.leaderboard_score).toBe(0);
   });
 
-  test('5. Student logs in and solves Medium Daily Challenge -> +100 Daily Challenge, +100 Leaderboard, +20 Activity Streak Bonus', async () => {
+  test('5. Student logs in and solves Medium Daily Challenge -> +100 Daily Challenge, +100 Leaderboard, +20 Activity +10 DC Streak Bonus', async () => {
     const { recordDailyLogin } = require('../src/services/streakService');
     await recordDailyLogin(user2);
     const res = await awardDailyChallengeSolve(user2, 'dc-med-1');
     expect(res.pointsAwarded).toBe(100);
     expect(res.breakdown.daily_challenge_points).toBe(100);
     expect(res.breakdown.leaderboard_score).toBe(100);
-    expect(res.breakdown.streak_bonus).toBe(20);
-    expect(res.breakdown.total_score).toBe(120);
+    expect(res.breakdown.streak_bonus).toBe(30);
+    expect(res.breakdown.total_score).toBe(130);
+    expect(res.streakBonusAwarded).toBe(10);
   });
 
   test('6. Idempotency: Solving the same Daily Challenge again yields +0 points', async () => {
