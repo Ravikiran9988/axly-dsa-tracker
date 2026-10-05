@@ -186,12 +186,12 @@ async function runAdminAutoFillNow(options = {}) {
         await persistRunStatus('success');
         return {
           success: true,
-          status: 'SUCCESS_NOOP',
+          status: 'success',
           target_date: targetDate,
           attempts: 0,
           challenge: existingTarget,
           resultType: 'ALREADY_SCHEDULED',
-          message: `Tomorrow's Daily Challenge is already scheduled and will be published tomorrow at 00:30 IST.`
+          message: `Tomorrow's Daily Challenge already exists and is already scheduled; it will be published tomorrow at 00:30 IST.`
         };
       }
 
@@ -397,7 +397,7 @@ async function runDailyScheduledAutomation() {
           published_today: publishResult.published,
           published_challenge: publishResult.challenge,
           challenge: existingTomorrow,
-          message: `Today's challenge handled for ${todayDate}; tomorrow's challenge is already scheduled for ${tomorrowDate}.`
+          message: `Today's challenge handled for ${todayDate}; tomorrow's challenge already exists and is already scheduled for ${tomorrowDate}.`
         };
       }
 
