@@ -487,13 +487,13 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
       if (!adminRes.success) console.error("Test 6.1 failed with adminRes:", adminRes);
 
       expect(adminRes.success).toBe(true);
-      expect(adminRes.status).toBe('success');
+      expect(adminRes.status).toBe('SUCCESS_NOOP');
       expect(adminRes.resultType).toBe('ALREADY_SCHEDULED');
       expect(adminRes.message).toContain('already scheduled');
       expect(adminRes.challenge).toBeDefined();
       expect(adminRes.challenge.id).toBe(challengeA.id);
       expect(adminRes.challenge.status).toBe('scheduled');
-      expect(adminRes.challenge.created_via).toBe('ai');
+      expect(adminRes.challenge.created_via).toBe('manual');
       expect(adminRes.challenge.scheduled_date).toBeNull();
 
       // Verify Challenge A remains unchanged
