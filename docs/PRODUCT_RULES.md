@@ -6,9 +6,9 @@ These are the canonical product and scoring rules. All implementation decisions 
 
 ## 1. Daily Challenge [IMPLEMENTED]
 
-- One global Daily Challenge is selected per UTC calendar day.
+- One global Daily Challenge is selected per IST logical calendar day (00:30 IST → 00:29 IST next day).
 - The challenge is identical for all students — there is no per-cohort or per-user variant.
-- A student who starts a challenge before midnight UTC may continue and submit after midnight. The submission remains tied to the challenge they started.
+- A student who starts a challenge before the 00:30 IST boundary may continue and submit after 00:30. The submission remains tied to the challenge they started.
 - Correct Daily Challenge completion awards competitive points **once per challenge** per user. Resubmissions after the first accepted solution do not increase points.
 - The active Daily Challenge is always fetched from `GET /api/v1/daily-challenges/today`. No component may derive or cache the daily challenge independently.
 - **Streak rule**: The Daily Challenge streak increments **only** after a successful/correct submission. Opening a challenge, practicing, or using the AI Coach does not maintain or increment the Daily Challenge streak.
