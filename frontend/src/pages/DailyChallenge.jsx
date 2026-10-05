@@ -89,6 +89,7 @@ export default function DailyChallenge({ onSelectProblem }) {
   const totalScore = userProfile?.stats?.total_score || userProfile?.points || 0;
   const lbScore = userProfile?.stats?.leaderboard_score || 0;
   const challengeStreak = daily?.dailyChallengeStreak ?? userProfile?.dailyChallengeStreak ?? userProfile?.stats?.dailyChallengeStreak ?? 0;
+  const dailyStreakBonus = Math.min(Math.max(Number(challengeStreak || 0), 0), 5) * 10;
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 animate-fade-in">
@@ -148,7 +149,7 @@ export default function DailyChallenge({ onSelectProblem }) {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-theme-text2">
                 <div>+ {displayPoints} Daily Challenge Points</div>
-                <div>+ 20 Streak Bonus</div>
+                <div>+ {dailyStreakBonus} Streak Bonus</div>
                 <div className="text-cyan-400 font-bold">Total Score: {totalScore} pts</div>
                 <div className="text-amber-400 font-bold">Leaderboard: {lbScore} pts</div>
               </div>
@@ -188,7 +189,7 @@ export default function DailyChallenge({ onSelectProblem }) {
           </li>
           <li className="flex items-start gap-2">
             <span className="text-amber-400 shrink-0">✦</span>
-            <strong>Streak Bonus:</strong> +20 streak points awarded per daily solve, contributing to your personal Total Score.
+            <strong>Streak Bonus:</strong> +10 points per consecutive Daily Challenge solve day, capped at +50, contributing to your personal Total Score.
           </li>
           <li className="flex items-start gap-2">
             <span className="text-amber-400 shrink-0">✦</span>
