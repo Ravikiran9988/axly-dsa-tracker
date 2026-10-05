@@ -9,6 +9,7 @@ const {
   getUserScoreBreakdown
 } = require('../src/services/gamificationService');
 const { getCompetitiveLeaders } = require('../src/services/leaderboardService');
+const { getCanonicalIstDate } = require('../src/utils/dateUtils');
 
 const repo = getRepository();
 
