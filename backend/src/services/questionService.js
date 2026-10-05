@@ -180,8 +180,9 @@ function isQuestionAccessibleToUser(question, dailyMetadata, user = null) {
     return false;
   }
 
-  // Practice questions must be active and non-draft.
-  return Boolean(question.is_active) && Boolean(question.is_practice) && question.status !== 'draft';
+  // Normal published questions (including non-practice curated questions) are
+  // student-visible. Draft/inactive questions remain protected.
+  return Boolean(question.is_active) && question.status !== 'draft';
 }
 
 async function getQuestionById(id, user = null) {
