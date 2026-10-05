@@ -35,7 +35,7 @@ When a student submits a solution to the active Daily Challenge, the code execut
 - **Attempt Efficiency (max 20 pts):** Awarded for solving the challenge in fewer attempts. Maximum points for 1 attempt, decaying with subsequent attempts.
 
 **Late Submissions:** 
-Submitting a Daily Challenge after its active UTC day has passed will award completion points to the user's total, but will *not* increment their active daily streak.
+Submitting a Daily Challenge after its active IST logical day has passed will award completion points to the user's total, but will *not* increment their active daily streak.
 
 ### 3. Practice Scoring
 
