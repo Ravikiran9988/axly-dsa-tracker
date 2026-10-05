@@ -213,7 +213,8 @@ describe('Phase 4: Comprehensive PostgreSQL/Runtime Parity & Production Verifica
       const updated = await submissionService.updateSubmission({
         user_id: studentUser.id,
         question_id: dailyQId,
-        status: 'solved'
+        status: 'solved',
+        allowSolved: true
       });
 
       expect(updated.status).toBe('solved');
