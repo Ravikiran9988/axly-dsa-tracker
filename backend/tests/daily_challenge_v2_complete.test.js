@@ -187,7 +187,7 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
 
       expect(res.status).toBe(200);
       expect(res.body.data.title).toBe(updatedTitle);
-      expect(res.body.data.points).toBe(120);
+      expect(res.body.data.points).toBe(150);
       expect(res.body.data.difficulty).toBe('hard');
     });
   });
