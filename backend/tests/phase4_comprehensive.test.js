@@ -157,10 +157,27 @@ describe('Phase 4: Comprehensive PostgreSQL/Runtime Parity & Production Verifica
     beforeAll(async () => {
       await repo.execute('DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?', [testDate]);
 
-      const q = await repo.one('SELECT id FROM questions WHERE (is_active = 1 OR is_active = TRUE) LIMIT 1');
+      // Use a deterministic medium-difficulty practice source so canonical DC
+      // scoring is stable at 100 points regardless of seed ordering.
+      const sourceId = 'phase4-medium-dc-source';
+      await repo.execute(`
+        INSERT INTO questions (
+          id, title, slug, difficulty, url, description, status,
+          is_active, is_practice, points
+        ) VALUES (?, ?, ?, 'medium', ?, ?, 'published', 1, 1, 20)
+        ON CONFLICT(id) DO UPDATE SET difficulty = 'medium', status = 'published',
+          is_active = 1, is_practice = 1, points = 20
+      `, [
+        sourceId,
+        'Phase 4 Medium Daily Challenge Source',
+        'phase4-medium-dc-source',
+        'internal://phase4-medium-dc-source',
+        'Dedicated medium practice source for deterministic scoring tests.'
+      ]);
+
+      const q = { id: sourceId };
       // Clean up existing challenges for today to avoid conflict with seed data (e.g. dc-002)
       await repo.execute("DELETE FROM daily_challenge_metadata WHERE question_id = 'dc-002' OR scheduled_date = ?", [testDate]);
-      await repo.execute("DELETE FROM questions WHERE id = 'dc-002' OR title = 'Test DC'");
       await repo.execute("UPDATE daily_challenge_metadata SET scheduled_date = NULL WHERE scheduled_date = ?", [testDate]);
 
       const res = await request(app)
