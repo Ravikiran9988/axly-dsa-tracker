@@ -51,9 +51,9 @@ describe('Axly DSA Tracker Scoring Model Tests', () => {
       INSERT OR REPLACE INTO daily_challenge_metadata (question_id, scheduled_date, status)
       VALUES 
         ('dc-easy-1', NULL, 'published'),
-        ('dc-med-1', getCanonicalIstDate(), 'published'),
+        ('dc-med-1', ?, 'published'),
         ('dc-hard-1', NULL, 'published')
-    `);
+    `, [getCanonicalIstDate()]);
   });
 
   test('1. Student solves Easy practice problem -> +10 Practice Points, +10 Total Score, 0 Leaderboard Score', async () => {
