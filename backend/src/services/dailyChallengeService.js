@@ -178,6 +178,7 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
 
   const formattedRows = rows.map(r => ({
     ...r,
+    points: getCanonicalDailyChallengePoints(r.difficulty),
     topic_name: r.custom_topic ? r.custom_topic : (r.topic_name || r.topic_id || 'Other'),
     pattern_name: r.pattern_name || r.pattern_id || null,
     hints: parseHints(r.hints),
@@ -192,8 +193,8 @@ async function listDailyChallenges({ status, difficulty, topic_id, search, date,
   return {
     data: formattedRows,
     total, page: p, limit: l, stats,
-    today_challenge: todayRow ? { ...todayRow, hints: parseHints(todayRow.hints), examples: safeParseJson(todayRow.examples, []), tags: safeParseJson(todayRow.tags, []) } : null,
-    next_scheduled_challenge: nextScheduledRow ? { ...nextScheduledRow, hints: parseHints(nextScheduledRow.hints), examples: safeParseJson(nextScheduledRow.examples, []), tags: safeParseJson(nextScheduledRow.tags, []) } : null
+    today_challenge: todayRow ? { ...todayRow, points: getCanonicalDailyChallengePoints(todayRow.difficulty), hints: parseHints(todayRow.hints), examples: safeParseJson(todayRow.examples, []), tags: safeParseJson(todayRow.tags, []) } : null,
+    next_scheduled_challenge: nextScheduledRow ? { ...nextScheduledRow, points: getCanonicalDailyChallengePoints(nextScheduledRow.difficulty), hints: parseHints(nextScheduledRow.hints), examples: safeParseJson(nextScheduledRow.examples, []), tags: safeParseJson(nextScheduledRow.tags, []) } : null
   };
 }
 
@@ -231,6 +232,7 @@ async function getDailyChallengeById(question_id, isPrivileged = false) {
   return {
     ...challenge,
     id: challenge.id,
+    points: getCanonicalDailyChallengePoints(challenge.difficulty),
     topic_name: challenge.custom_topic ? challenge.custom_topic : (challenge.topic_name || challenge.topic_id || 'Other'),
     pattern_name: challenge.pattern_name || challenge.pattern_id || null,
     topic: challenge.custom_topic ? challenge.custom_topic : (challenge.topic_name || challenge.topic_id || 'Other'),
