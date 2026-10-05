@@ -186,7 +186,7 @@ async function runAdminAutoFillNow(options = {}) {
         await persistRunStatus('success');
         return {
           success: true,
-          status: 'success',
+          status: 'SUCCESS_NOOP',
           target_date: targetDate,
           attempts: 0,
           challenge: existingTarget,
