@@ -155,9 +155,6 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
     [challengeId, 'published', 'scheduled']
   ));
   let pts = challenge ? getDailyChallengePointsForDifficulty(challenge.difficulty) : 100;
-  if (isDailyQuestion) {
-    pts = Math.max(pts, 100);
-  }
 
   const nowIso = new Date().toISOString();
   const today = getCalendarDate();
