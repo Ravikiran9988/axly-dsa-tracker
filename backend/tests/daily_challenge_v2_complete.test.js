@@ -733,7 +733,9 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
         });
 
         if (res.success && res.challenge) {
-          // Every iteration generates a NEW question (never reuses existing QB questions)
+          // Every iteration must validate a NEW generated challenge. Clear the
+          // target-date metadata after each successful iteration so the next
+          // manual run is allowed to generate another candidate.
           expect(res.challenge.title).not.toMatch(/variant\s*\d+/i);
           expect(generatedTitles.has(res.challenge.title)).toBe(false);
           generatedTitles.add(res.challenge.title);
@@ -741,6 +743,8 @@ describe('Daily Challenge V2 Comprehensive Lifecycle & Automation Test Suite', (
           const sig = res.challenge.problem_signature || generateProblemSignature(res.challenge);
           expect(generatedSignatures.has(sig)).toBe(false);
           generatedSignatures.add(sig);
+
+          await db.prepare('DELETE FROM daily_challenge_metadata WHERE scheduled_date = ?').run(tomorrowUtc);
         }
       }
     }, 45000);
