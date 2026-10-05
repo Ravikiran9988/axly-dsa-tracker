@@ -206,6 +206,12 @@ async function getDailyChallengeById(question_id, isPrivileged = false) {
 
   if (!challenge) throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
 
+  // Students may only fetch the currently published Daily Challenge by ID.
+  // Admins/mentors may inspect scheduled, draft, and archived records.
+  if (!isPrivileged && challenge.status !== 'published') {
+    throw new AppError('Daily Challenge problem not found', 404, 'NOT_FOUND');
+  }
+
   const testCases = await getRepo().many(`
     SELECT id, input, expected_output, is_hidden
     FROM test_cases
