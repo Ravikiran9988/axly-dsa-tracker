@@ -159,7 +159,7 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
 
   const nowIso = new Date().toISOString();
   const logicalToday = getCanonicalIstDate();
-  const streakEligible = !dailyMetadata?.scheduled_date || dailyMetadata.scheduled_date === logicalToday;
+  const streakEligible = dailyMetadata?.status === 'published' && dailyMetadata.scheduled_date === logicalToday;
   const ledgerId = `pl-dc-${userId}-${challengeId}`;
 
   const existingDc = await repo.one(
