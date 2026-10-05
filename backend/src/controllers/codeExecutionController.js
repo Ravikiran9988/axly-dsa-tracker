@@ -282,7 +282,7 @@ async function submitSolution(req, res, next) {
       solved: isAllPassed
     });
 
-    await updateSubmission({ question_id, user_id: userId, status: finalStatus });
+    await updateSubmission({ question_id, user_id: userId, status: finalStatus, allowSolved: true });
 
     let dcAwardResult = null;
     if (isAllPassed) {
