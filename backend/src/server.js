@@ -47,7 +47,7 @@ async function startServer() {
     startQuestionBankScheduler();
 
     // Startup state checks — DB-driven, safe on every restart.
-    // Only generates if the slot/date has no valid question and no active claim.
+    // Inspection/recovery only; generation remains locked to the exact scheduler boundaries.
     // Runs in background so the web process binds to PORT immediately.
     setImmediate(async () => {
       try { await runQbStartupCheck(); } catch (err) { console.error('[QB] Startup check error:', err.message); }
