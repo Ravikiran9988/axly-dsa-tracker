@@ -82,10 +82,10 @@ None of the 21 findings are confirmed bugs that break functionality or cause dat
 
 ### DOCUMENTATION ISSUE (1)
 
-#### #19 — PRODUCT_RULES.md UTC Reference
-- **File:** `docs/PRODUCT_RULES.md:9`
-- **Issue:** Says "UTC calendar day" — should say "IST calendar day"
-- **Impact:** Confuses developers about timezone behavior
+#### #19 — PRODUCT_RULES.md timezone reference
+- **File:** `docs/PRODUCT_RULES.md`
+- **Issue:** Previously documented UTC while implementation uses IST
+- **Resolution:** Documentation now defines the 00:30 IST logical day boundary
 
 ---
 
