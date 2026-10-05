@@ -122,14 +122,15 @@ Admin features provide complete control over questions, Daily Challenges, users,
 | Setting | Description |
 |---------|-------------|
 | Enabled | Toggle automation on/off |
-| Mode | ai_assist / ai_generate / manual |
-| Target Hour UTC | When to generate (default: 19:00 = 00:30 IST) |
+| Mode | `ai_assist` / `auto_fill` / `manual` |
+| Schedule | Daily Challenge Auto-Fill runs at **12:30 AM IST** (19:00 UTC previous day) |
 | Retry Limit | Max retries on failure |
 
 ### "Run Auto-Fill Now"
 - Manual trigger for DC generation
-- Checks tomorrow's scheduled status
-- Generates and indexes new DC
+- Checks tomorrow's scheduled/draft state
+- Ensures the Auto-Fill path ends in `scheduled`, never an automatically generated `draft`
+- Publishes that scheduled challenge at 12:30 AM IST
 - Logs result
 
 ### Automation Logs
