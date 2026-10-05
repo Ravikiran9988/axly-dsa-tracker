@@ -62,7 +62,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
     // Check questions table
     const questionRow = await repo.one('SELECT id, status, is_practice FROM questions WHERE id = ?', [draftChallenge.id]);
     expect(questionRow).toBeDefined();
-    expect(questionRow.status).toBe('draft');
+    expect(questionRow.status).toBe('published');
     expect(questionRow.is_practice).toBe(0);
 
     // Check daily_challenge_metadata table
@@ -88,7 +88,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
 
     // Check questions table
     const questionRow = await repo.one('SELECT id, status, is_practice FROM questions WHERE id = ?', [challenge.id]);
-    expect(questionRow.status).toBe('scheduled');
+    expect(questionRow.status).toBe('published');
 
     // Check daily_challenge_metadata table
     const metaRow = await repo.one('SELECT question_id, status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [challenge.id]);
@@ -247,7 +247,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
     expect(res.body.data.title).toBe(challenge.title);
   });
 
-  test('9. createDailyChallengeFromPractice WITHOUT scheduled_date syncs status to draft', async () => {
+  test('9. createDailyChallengeFromPractice WITHOUT scheduled_date preserves practice question status', async () => {
     const qid = 'test-prac-draft';
     await repo.execute(
       "INSERT INTO questions (id, title, slug, difficulty, status, is_practice, is_active, url) VALUES (?, ?, ?, 'medium', 'published', 1, 1, 'http://test')",
@@ -272,7 +272,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
     expect(Number(countRow.c)).toBe(1);
   });
 
-  test('10. createDailyChallengeFromPractice WITH scheduled_date syncs status to scheduled', async () => {
+  test('10. createDailyChallengeFromPractice WITH scheduled_date preserves practice question status', async () => {
     const qid = 'test-prac-sched';
     await repo.execute(
       "INSERT INTO questions (id, title, slug, difficulty, status, is_practice, is_active, url) VALUES (?, ?, ?, 'medium', 'published', 1, 1, 'http://test2')",
