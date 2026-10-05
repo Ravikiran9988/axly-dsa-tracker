@@ -6,6 +6,7 @@ const { recordAttempt } = require('../services/scoringService');
 const progressService = require('../services/progressService');
 const practiceService = require('../services/practiceService');
 const gamificationService = require('../services/gamificationService');
+const questionService = require('../services/questionService');
 const { AppError } = require('../middleware/errorHandler');
 
 function getRepo() { return getRepository(); }
@@ -20,6 +21,14 @@ async function runCode(req, res, next) {
       [question_id]
     );
     if (!question) {
+      throw new AppError('Question not found', 404, 'NOT_FOUND');
+    }
+
+    const dailyMetadata = await repo.one(
+      'SELECT scheduled_date, status FROM daily_challenge_metadata WHERE question_id = ?',
+      [question_id]
+    );
+    if (!questionService.isQuestionAccessibleToUser(question, dailyMetadata, req.user)) {
       throw new AppError('Question not found', 404, 'NOT_FOUND');
     }
 
@@ -70,6 +79,14 @@ async function submitSolution(req, res, next) {
       [question_id]
     );
     if (!question) {
+      throw new AppError('Question not found', 404, 'NOT_FOUND');
+    }
+
+    const dailyMetadata = await repo.one(
+      'SELECT scheduled_date, status FROM daily_challenge_metadata WHERE question_id = ?',
+      [question_id]
+    );
+    if (!questionService.isQuestionAccessibleToUser(question, dailyMetadata, req.user)) {
       throw new AppError('Question not found', 404, 'NOT_FOUND');
     }
 
