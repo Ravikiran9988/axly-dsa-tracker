@@ -2,6 +2,7 @@ const { getRepository } = require('../db/repositoryFactory');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('../middleware/errorHandler');
 const githubSubmissionService = require('./githubSubmissionService');
+const questionService = require('./questionService');
 const { awardSolve, awardDailyChallengeSolve, awardPracticeSolve } = require('./gamificationService');
 
 const repo = getRepository();
@@ -63,6 +64,14 @@ async function submitViaGithub({ user_id, question_id, github_url, assignment_id
     [question_id]
   );
   if (!question) throw new AppError('Question not found', 404, 'NOT_FOUND');
+
+  const dailyMetadata = await repo.one(
+    'SELECT scheduled_date, status FROM daily_challenge_metadata WHERE question_id = ?',
+    [question_id]
+  );
+  if (!questionService.isQuestionAccessibleToUser(question, dailyMetadata, { role: 'user', id: user_id })) {
+    throw new AppError('Question not found', 404, 'NOT_FOUND');
+  }
 
   const now = new Date().toISOString();
   let submission = await repo.one(
@@ -206,7 +215,11 @@ async function reviewSubmission({ submission_id, reviewer_id, review_status, fee
   return repo.one('SELECT * FROM submissions WHERE id = ?', [submission_id]);
 }
 
-async function updateSubmission({ submission_id, question_id, user_id, status }) {
+async function updateSubmission({ submission_id, question_id, user_id, status, allowSolved = false }) {
+  const userManagedStatuses = new Set(['not_started', 'attempted', 'skipped']);
+  if (!allowSolved && !userManagedStatuses.has(status)) {
+    throw new AppError('Submission completion status can only be set by the verified code execution or review workflow.', 403, 'FORBIDDEN');
+  }
   let submission = submission_id
     ? await repo.one('SELECT * FROM submissions WHERE id = ?', [submission_id])
     : (question_id ? await repo.one('SELECT * FROM submissions WHERE user_id = ? AND question_id = ?', [user_id, question_id]) : null);
