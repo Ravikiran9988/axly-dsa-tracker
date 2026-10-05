@@ -83,7 +83,7 @@ export default function DailyChallenge({ onSelectProblem }) {
 
   const diffStr = String(daily.difficulty || '').toLowerCase();
   const calculatedPoints = diffStr === 'hard' ? 150 : diffStr === 'medium' ? 100 : 50;
-  const displayPoints = daily?.points ?? calculatedPoints;
+  const displayPoints = calculatedPoints;
   const diffCls = { easy: 'badge-easy', medium: 'badge-medium', hard: 'badge-hard' }[diffStr] || 'badge-neutral';
 
   const totalScore = userProfile?.stats?.total_score || userProfile?.points || 0;
