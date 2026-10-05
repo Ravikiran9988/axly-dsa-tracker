@@ -48,11 +48,11 @@ describe('Axly DSA Tracker Scoring Model Tests', () => {
     `);
     
     await repo.execute(`
-      INSERT OR REPLACE INTO daily_challenge_metadata (question_id, status)
+      INSERT OR REPLACE INTO daily_challenge_metadata (question_id, scheduled_date, status)
       VALUES 
-        ('dc-easy-1', 'published'),
-        ('dc-med-1', 'published'),
-        ('dc-hard-1', 'published')
+        ('dc-easy-1', NULL, 'published'),
+        ('dc-med-1', getCanonicalIstDate(), 'published'),
+        ('dc-hard-1', NULL, 'published')
     `);
   });
 
