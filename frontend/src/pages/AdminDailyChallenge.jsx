@@ -182,7 +182,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
             const latestLog = (statusRes.recent_logs || [])[0];
             const details = latestLog?.details || '';
             if (details.includes('already scheduled')) {
-              setActionSuccess("Tomorrow's challenge is already scheduled. A new Auto-Fill candidate was generated as Draft for review.");
+              setActionSuccess("Tomorrow's challenge is already scheduled and will be published tomorrow.");
             } else {
               setActionSuccess("Auto-fill generated and scheduled tomorrow's Daily Challenge successfully.");
             }
@@ -246,7 +246,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
           </div>
           <h1 className="text-2xl font-black text-theme-text1 tracking-tight">Daily Challenge Portal</h1>
           <p className="text-xs text-theme-text2 max-w-xl">
-            Automated AI generation, uniqueness validation, scheduling & competitive publication. Strictly one challenge per UTC calendar date.
+            Automated AI generation, uniqueness validation, scheduling & competitive publication. Strictly one challenge per IST calendar date.
           </p>
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
@@ -274,7 +274,7 @@ export default function AdminDailyChallenge({ onSelectProblem }) {
                   {automationSettings.is_enabled ? 'Enabled' : 'Disabled'}
                 </button>
               </div>
-              <p className="text-[11px] text-theme-text2 truncate">Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare tomorrow's challenge ({automationMeta.next_target_date || 'Next UTC Day'})</p>
+              <p className="text-[11px] text-theme-text2 truncate">Runs daily at <strong>{automationMeta.generation_time_utc}</strong> to prepare tomorrow's challenge ({automationMeta.next_target_date || 'Next IST Day'})</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
