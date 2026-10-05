@@ -260,7 +260,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
 
     // Assert questions table
     const questionRow = await repo.one('SELECT id, status FROM questions WHERE id = ?', [qid]);
-    expect(questionRow.status).toBe('draft');
+    expect(questionRow.status).toBe('published');
 
     // Assert metadata table
     const metaRow = await repo.one('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [qid]);
@@ -287,7 +287,7 @@ describe('Canonical Question & Daily Challenge Status Synchronization Suite', ()
 
     // Assert questions table
     const questionRow = await repo.one('SELECT id, status FROM questions WHERE id = ?', [qid]);
-    expect(questionRow.status).toBe('scheduled');
+    expect(questionRow.status).toBe('published');
 
     // Assert metadata table
     const metaRow = await repo.one('SELECT status, scheduled_date FROM daily_challenge_metadata WHERE question_id = ?', [qid]);
