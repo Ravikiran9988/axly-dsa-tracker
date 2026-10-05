@@ -155,7 +155,6 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
     'SELECT question_id, scheduled_date, status FROM daily_challenge_metadata WHERE question_id = ? LIMIT 1',
     [challengeId]
   );
-  const isDailyQuestion = Boolean(dailyMetadata && ['published', 'scheduled'].includes(dailyMetadata.status));
   let pts = challenge ? getDailyChallengePointsForDifficulty(challenge.difficulty) : 100;
 
   const nowIso = new Date().toISOString();
@@ -182,6 +181,25 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
     ? await recordDailyChallengeSolve(userId, dailyMetadata?.scheduled_date || logicalToday)
     : await getUserStreaks(userId);
 
+  // Canonical Daily Challenge streak reward: +10 per consecutive solve day,
+  // capped at +50. It is personal-score only and is idempotent per challenge.
+  let streakBonusAwarded = 0;
+  if (pointsAwarded > 0 && streakEligible) {
+    streakBonusAwarded = Math.min(Number(streakResult.dailyChallengeStreak || 1), 5) * 10;
+    const bonusSourceId = `daily-challenge:${challengeId}`;
+    const existingBonus = await repo.one(
+      "SELECT id FROM points_ledger WHERE user_id = ? AND source_type = 'STREAK_REWARD' AND source_id = ?",
+      [userId, bonusSourceId]
+    );
+    if (!existingBonus) {
+      await repo.execute(
+        `INSERT INTO points_ledger (id, user_id, source_type, source_id, points, category, reason, created_at)
+         VALUES (?, ?, 'STREAK_REWARD', ?, ?, 'streak', 'Daily Challenge Streak Bonus', ?)`,
+        [`pl-dc-streak-${userId}-${challengeId}`, userId, bonusSourceId, streakBonusAwarded, nowIso]
+      );
+    }
+  }
+
   // Send notifications for daily solve
   if (pointsAwarded > 0) {
     try {
@@ -204,7 +222,7 @@ async function awardDailyChallengeSolve(userId, challengeId, startedAt = null) {
   return {
     pointsAwarded,
     breakdown,
-    streakBonusAwarded: 0,
+    streakBonusAwarded,
     dailyChallengeStreak: streakResult.dailyChallengeStreak,
     dailyChallengeBestStreak: streakResult.dailyChallengeBestStreak
   };
