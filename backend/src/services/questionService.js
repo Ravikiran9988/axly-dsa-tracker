@@ -174,6 +174,18 @@ function isQuestionAccessibleToUser(question, dailyMetadata, user = null) {
   if (dailyMetadata) {
     if (dailyMetadata.status === 'published') return true;
 
+    // A practice question that is linked to a draft/scheduled Daily Challenge
+    // remains accessible as practice content. Linking it must not hide or mutate
+    // the original practice problem.
+    if (
+      question.is_active &&
+      Boolean(question.is_practice) &&
+      question.status !== 'draft' &&
+      (dailyMetadata.status === 'draft' || dailyMetadata.status === 'scheduled')
+    ) {
+      return true;
+    }
+
     // Expired Daily Challenges become normal practice questions.
     if (question.is_active && Boolean(question.is_practice) && question.status !== 'draft') return true;
 
