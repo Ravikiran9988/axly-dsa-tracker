@@ -115,7 +115,8 @@ describe('Daily Challenge Architecture & Practice Separation Tests', () => {
     expect(fromPracticeRes.body.data.id).toBe(practiceId);
     expect(fromPracticeRes.body.data.test_cases.length).toBeGreaterThanOrEqual(1);
 
-    // Verify original practice problem is unchanged
+    // Verify original practice problem remains directly accessible as a practice problem
+    // even though it is linked to Daily Challenge metadata in draft state.
     const practiceResAfter = await request(app)
       .get(`/api/v1/questions/${practiceId}`)
       .set('Authorization', `Bearer ${studentToken}`);
