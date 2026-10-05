@@ -44,10 +44,12 @@ Draft → Scheduled → Published → Archived
 
 ### 12:30 AM IST Scheduler (`runDailyScheduledAutomation`)
 1. **Publish Today:** Find challenge scheduled for today → publish
-2. **Check Tomorrow:** If tomorrow already scheduled → stop (NOOP)
+2. **Check Tomorrow:** If tomorrow is already scheduled → stop (NOOP)
 3. **Generate Tomorrow:** Create new challenge via AI pipeline
 4. **Index:** Run embedding/novelty indexing
 5. **Schedule:** Promote to `scheduled` status for tomorrow
+
+In **Auto-Fill** mode, an existing draft for tomorrow is indexed/recovered and promoted to `scheduled`; it is never left as the automatically generated final state.
 
 ### Admin "Run Auto-Fill Now" (`runAdminAutoFillNow`)
 1. **Calculate Tomorrow:** `getNextCanonicalIstDate()`
@@ -56,8 +58,9 @@ Draft → Scheduled → Published → Archived
 
 | Tomorrow Scheduled | Result |
 |-------------------|--------|
-| YES | Generate NEW → DRAFT (existing untouched) |
-| NO | Generate NEW → Index → SCHEDULED |
+| YES | Reuse existing scheduled challenge → publish tomorrow |
+| Existing Draft | Index/recover → SCHEDULED → publish tomorrow |
+| NO | Generate NEW → Index → SCHEDULED → publish tomorrow |
 
 4. **Indexing Gate:** Challenge cannot become `scheduled` until indexing succeeds
 5. **Logging:** Writes to `daily_challenge_automation_logs`
@@ -136,8 +139,11 @@ Draft → Scheduled → Published → Archived
 - Prevents double-scheduling
 
 ### Auto-Fill
-- Checks tomorrow's scheduled status before generating
-- Prevents duplicate challenges for same date
+- Runs on the exact 12:30 AM IST schedule (or manual admin trigger)
+- Checks tomorrow's scheduled/draft state before generating
+- Generates or recovers a challenge into `scheduled` state for tomorrow
+- Prevents duplicate challenges for the same date
+- Scheduled challenges are published at the next 12:30 AM IST boundary
 
 ---
 
