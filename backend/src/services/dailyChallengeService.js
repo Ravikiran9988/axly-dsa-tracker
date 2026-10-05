@@ -254,7 +254,7 @@ async function createDailyChallengeFromPractice(data, admin_id) {
   const { question_id, scheduled_date, title, points, difficulty } = data;
   
   // 1. Verify source exists in questions
-  const question = await getRepo().one('SELECT id FROM questions WHERE id = ?', [question_id]);
+  const question = await getRepo().one('SELECT id, title, difficulty, points, is_practice, status FROM questions WHERE id = ?', [question_id]);
   if (!question) throw new AppError('Source practice question not found', 404, 'NOT_FOUND');
 
   // 2. Validate scheduling if provided
@@ -271,27 +271,15 @@ async function createDailyChallengeFromPractice(data, admin_id) {
     throw new AppError('This question is already configured as a Daily Challenge.', 409, 'DUPLICATE_CHALLENGE');
   }
 
-  // 4. Update the questions table if title/points/difficulty are modified for the challenge
-  const updates = [];
-  const params = [];
-  if (title && title !== question.title) { updates.push('title = ?'); params.push(title); }
-  if (difficulty && difficulty !== question.difficulty) { updates.push('difficulty = ?'); params.push(difficulty); }
-  if (points && points !== question.points) { updates.push('points = ?'); params.push(points); }
-
+  // 4. Link the existing practice question through Daily Challenge metadata only.
+  // The source practice question must remain unchanged. Challenge-specific lifecycle
+  // state belongs to daily_challenge_metadata, not questions.
   const newStatus = scheduled_date ? 'scheduled' : 'draft';
-  updates.push('status = ?');
-  params.push(newStatus);
 
-  await getRepo().transaction(async tx => {
-    params.push(question_id);
-    await tx.execute(`UPDATE questions SET ${updates.join(', ')} WHERE id = ?`, params);
-    
-    // We insert into metadata, NOT questions! That's the power of canonical mapping!
-    await tx.execute(`
-      INSERT INTO daily_challenge_metadata (question_id, scheduled_date, status, created_via)
-      VALUES (?, ?, ?, 'manual')
-    `, [question_id, scheduled_date || null, newStatus]);
-  });
+  await getRepo().execute(`
+    INSERT INTO daily_challenge_metadata (question_id, scheduled_date, status, created_via)
+    VALUES (?, ?, ?, 'manual')
+  `, [question_id, scheduled_date || null, newStatus]);
 
   return getDailyChallengeById(question_id, true);
 }
