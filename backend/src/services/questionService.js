@@ -205,11 +205,16 @@ async function getQuestionById(id, user = null) {
   if (!q) return null;
 
   const dcm = await repo.one('SELECT scheduled_date, status, custom_topic, created_via FROM daily_challenge_metadata WHERE question_id = ?', [q.id]);
+
+  // Authorization must inspect the canonical questions row before overlaying
+  // Daily Challenge lifecycle metadata. Otherwise a draft/scheduled DCM status
+  // would overwrite a published practice question status and incorrectly make
+  // an otherwise accessible practice problem return 404.
+  if (!isQuestionAccessibleToUser(q, dcm, user)) return null;
+
   if (dcm) {
     q = { ...q, ...dcm };
   }
-
-  if (!isQuestionAccessibleToUser(q, dcm, user)) return null;
 
   const isDailyChallenge = Boolean(dcm);
 
