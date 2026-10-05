@@ -193,8 +193,16 @@ describe('Axly DSA Tracker — Acceptance Criteria & API Contract Tests', () => 
     });
 
     test('Another user cannot modify this submission by ID (403 Forbidden)', async () => {
-      const sub = db.prepare('SELECT id FROM submissions WHERE user_id = ? AND question_id = ?')
-        .get(regularUser.id, questionForSub);
+      // Seed a legitimate submission directly. The public status endpoint intentionally
+      // rejects forged status changes, so this test must not depend on that endpoint.
+      const submissionId = `sub-cross-user-${Date.now()}`;
+      db.prepare(`
+        INSERT INTO submissions (id, user_id, question_id, assignment_id, status, submission_type)
+        VALUES (?, ?, ?, 'asgn-sub-test', 'attempted', 'code')
+      `).run(submissionId, regularUser.id, questionForSub);
+
+      const sub = db.prepare('SELECT id FROM submissions WHERE id = ?')
+        .get(submissionId);
 
       const res = await request(app)
         .patch(`/api/v1/submissions/${sub.id}`)
