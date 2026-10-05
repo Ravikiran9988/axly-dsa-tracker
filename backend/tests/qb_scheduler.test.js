@@ -322,11 +322,11 @@ test('F. Timezone calculation correctly maps IST: 10:00 -> 10, 11:00 -> 10, 12:0
   jest.useRealTimers();
 });
 
-// G. Startup recovery generates a missing current slot.
-test('G. Startup recovery generates a missing current slot', async () => {
+// G. Startup recovery inspects a missing current slot without generating early.
+test('G. Startup recovery does not generate before the exact boundary', async () => {
   mockRepo = makeRepo({ questionRow: null, inProgressLog: null });
   await runQbStartupCheck();
-  expect(mockGenerateFn).toHaveBeenCalledTimes(1);
+  expect(mockGenerateFn).not.toHaveBeenCalled();
 });
 
 // H. 30-minute checker generates a missing slot.
