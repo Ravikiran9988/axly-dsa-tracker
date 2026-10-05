@@ -438,6 +438,9 @@ async function updateDailyChallenge(id, data, admin_id) {
   if (data.difficulty !== undefined && !['easy', 'medium', 'hard'].includes(String(data.difficulty).toLowerCase())) {
     throw new AppError('Difficulty must be easy, medium, or hard', 400, 'VALIDATION_ERROR', 'difficulty');
   }
+  if (data.status !== undefined && String(data.status).toLowerCase() === 'archived') {
+    throw new AppError('Cannot set question status to archived. Archive is a daily_challenge_metadata lifecycle state.', 400, 'VALIDATION_ERROR', 'status');
+  }
   if (data.status !== undefined && !['draft', 'scheduled', 'published'].includes(String(data.status).toLowerCase())) {
     throw new AppError('Status must be draft, scheduled, or published', 400, 'VALIDATION_ERROR', 'status');
   }
